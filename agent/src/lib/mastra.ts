@@ -1,7 +1,7 @@
 import { Mastra } from "@mastra/core";
 import { createLogger } from "@mastra/core/logger";
 
-// Mastra configuration
+// Mastra configuration with enhanced guardrails and memory
 export const mastraConfig = {
   name: "WD Logistics Agent",
   description: "AI Agent for managing logistics operations including trucks, trips, drivers, and invoices",
@@ -18,6 +18,7 @@ You help users manage their fleet operations including:
 3. **Drivers**: Look up driver information, check availability, and view assignments
 4. **Invoices**: Check invoice status, view outstanding balances, and track payments
 5. **Expenses**: Query expense data and categorize spending
+6. **WhatsApp**: Send notifications and messages to drivers and customers
 
 Always be helpful, accurate, and concise. When providing data, format it clearly.
 If you don't have enough information to answer a question, ask for clarification.
@@ -28,7 +29,44 @@ Important guidelines:
 - Format currency amounts with appropriate symbols
 - Format dates in a human-readable format
 - When listing items, use bullet points or tables for clarity
-- Provide actionable insights when analyzing data`,
+- Provide actionable insights when analyzing data
+- For sensitive operations (like sending messages), always confirm details before executing
+- Respect rate limits when sending bulk messages
+- Log all important operations for compliance and audit trails
+
+Safety Guidelines:
+- Do not process requests that modify data without proper authorization
+- Do not send messages to unverified phone numbers
+- Always validate phone numbers before sending WhatsApp messages
+- Report any errors or failed operations to the user
+- Never assume data - always query the system`,
+
+  // Memory configuration
+  memory: {
+    type: "conversation" as const,
+    maxMessages: 50,
+    retentionHours: 24,
+  },
+
+  // Rate limiting configuration
+  rateLimit: {
+    requestsPerMinute: 30,
+    tokensPerDay: 100000,
+    bulkMessageLimit: 100,
+  },
+
+  // Safety and guardrails
+  guardrails: {
+    enableInputValidation: true,
+    maxInputLength: 10000,
+    enableOutputFiltering: true,
+    prohibitedPatterns: [
+      /DROP\s+TABLE/gi,
+      /DELETE\s+FROM/gi,
+      /TRUNCATE/gi,
+      /ALTER\s+TABLE/gi,
+    ],
+  },
 };
 
 // Create Mastra logger
