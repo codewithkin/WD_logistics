@@ -33,17 +33,10 @@ export default async function InventoryItemDetailPage({
         include: {
             allocations: {
                 include: {
-                    trip: {
-                        select: {
-                            id: true,
-                            origin: true,
-                            destination: true,
-                        },
-                    },
                     truck: {
                         select: {
                             id: true,
-                            plateNumber: true,
+                            registrationNo: true,
                         },
                     },
                 },
@@ -59,10 +52,9 @@ export default async function InventoryItemDetailPage({
 
     const canEdit = role === "admin" || role === "supervisor";
     const isLowStock = item.quantity <= item.minQuantity;
-    const totalValue = item.quantity * item.costPerUnit;
+    const totalValue = item.quantity * (item.unitCost ?? 0);
 
-    const activeAllocations = item.allocations.filter((a) => !a.returnedAt);
-    const allocatedQuantity = activeAllocations.reduce((sum, a) => sum + a.quantity, 0);
+    const allocatedQuantity = item.allocations.reduce((sum: number, a) => sum + a.quantity, 0);
 
     return (
         <div>
@@ -91,7 +83,6 @@ export default async function InventoryItemDetailPage({
                             <span className={`text-2xl font-bold ${isLowStock ? "text-amber-600" : ""}`}>
                                 {item.quantity}
                             </span>
-                            <span className="text-muted-foreground">{item.unit}</span>
                             {isLowStock && (
                                 <Badge variant="outline" className="text-amber-600 ml-2">
                                     <AlertTriangle className="mr-1 h-3 w-3" />
@@ -100,7 +91,7 @@ export default async function InventoryItemDetailPage({
                             )}
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">
-                            Minimum: {item.minQuantity} {item.unit}
+                            Minimum: {item.minQuantity}
                         </p>
                     </CardContent>
                 </Card>
@@ -113,7 +104,7 @@ export default async function InventoryItemDetailPage({
                     <CardContent>
                         <div className="text-2xl font-bold">{allocatedQuantity}</div>
                         <p className="text-xs text-muted-foreground">
-                            {activeAllocations.length} active allocation(s)
+                            {item.allocations.length} allocation(s)
                         </p>
                     </CardContent>
                 </Card>
@@ -123,8 +114,8 @@ export default async function InventoryItemDetailPage({
                         <CardTitle className="text-sm font-medium">Cost Per Unit</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">${item.costPerUnit.toFixed(2)}</div>
-                        <p className="text-xs text-muted-foreground">per {item.unit}</p>
+                        <div className="text-2xl font-bold">${(item.unitCost ?? 0).toFixed(2)}</div>
+                        <p className="text-xs text-muted-foreground">per unit</p>
                     </CardContent>
                 </Card>
 
@@ -145,10 +136,10 @@ export default async function InventoryItemDetailPage({
                         <CardTitle>Item Details</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                        {item.description && (
+                        {item.notes && (
                             <div>
-                                <p className="text-sm text-muted-foreground">Description</p>
-                                <p className="font-medium">{item.description}</p>
+                                <p className="text-sm text-muted-foreground">Notes</p>
+                                <p className="font-medium">{item.notes}</p>
                             </div>
                         )}
                         <div className="grid grid-cols-2 gap-4">
@@ -157,8 +148,8 @@ export default async function InventoryItemDetailPage({
                                 <p className="font-medium">{item.sku || "—"}</p>
                             </div>
                             <div>
-                                <p className="text-sm text-muted-foreground">Unit</p>
-                                <p className="font-medium">{item.unit}</p>
+                                <p className="text-sm text-muted-foreground">Category</p>
+                                <p className="font-medium">{item.category || "—"}</p>
                             </div>
                         </div>
                     </CardContent>
@@ -196,19 +187,12 @@ export default async function InventoryItemDetailPage({
                                                     {format(allocation.allocatedAt, "MMM d, yyyy")}
                                                 </TableCell>
                                                 <TableCell>
-                                                    {allocation.trip ? (
-                                                        <Link
-                                                            href={`/operations/trips/${allocation.trip.id}`}
-                                                            className="text-primary hover:underline"
-                                                        >
-                                                            {allocation.trip.origin} → {allocation.trip.destination}
-                                                        </Link>
-                                                    ) : allocation.truck ? (
+                                                    {allocation.truck ? (
                                                         <Link
                                                             href={`/fleet/trucks/${allocation.truck.id}`}
                                                             className="text-primary hover:underline"
                                                         >
-                                                            {allocation.truck.plateNumber}
+                                                            {allocation.truck.registrationNo}
                                                         </Link>
                                                     ) : (
                                                         "General"
@@ -218,11 +202,7 @@ export default async function InventoryItemDetailPage({
                                                     {allocation.quantity}
                                                 </TableCell>
                                                 <TableCell>
-                                                    {allocation.returnedAt ? (
-                                                        <Badge variant="secondary">Returned</Badge>
-                                                    ) : (
-                                                        <Badge>Active</Badge>
-                                                    )}
+                                                    <Badge>Allocated</Badge>
                                                 </TableCell>
                                             </TableRow>
                                         ))}

@@ -55,11 +55,13 @@ interface InventoryItem {
     id: string;
     name: string;
     sku: string | null;
-    description: string | null;
+    category: string | null;
     quantity: number;
-    unit: string;
     minQuantity: number;
-    costPerUnit: number;
+    unitCost: number | null;
+    location: string | null;
+    supplier: string | null;
+    notes: string | null;
     _count: {
         allocations: number;
     };
@@ -94,7 +96,7 @@ export function InventoryTable({ items, role }: InventoryTableProps) {
     });
 
     const lowStockCount = items.filter((i) => i.quantity <= i.minQuantity).length;
-    const totalValue = items.reduce((sum, i) => sum + i.quantity * i.costPerUnit, 0);
+    const totalValue = items.reduce((sum, i) => sum + i.quantity * (i.unitCost ?? 0), 0);
 
     const handleDelete = async () => {
         if (!deleteId) return;
@@ -163,7 +165,7 @@ export function InventoryTable({ items, role }: InventoryTableProps) {
                                 <TableHead>Item</TableHead>
                                 <TableHead>SKU</TableHead>
                                 <TableHead className="text-right">Quantity</TableHead>
-                                <TableHead>Unit</TableHead>
+                                <TableHead>Category</TableHead>
                                 <TableHead className="text-right">Cost/Unit</TableHead>
                                 <TableHead className="text-right">Value</TableHead>
                                 <TableHead className="text-right">Allocations</TableHead>
@@ -183,7 +185,7 @@ export function InventoryTable({ items, role }: InventoryTableProps) {
                             ) : (
                                 filteredItems.map((item) => {
                                     const isLowStock = item.quantity <= item.minQuantity;
-                                    const value = item.quantity * item.costPerUnit;
+                                    const value = item.quantity * (item.unitCost ?? 0);
 
                                     return (
                                         <TableRow key={item.id}>
@@ -201,9 +203,11 @@ export function InventoryTable({ items, role }: InventoryTableProps) {
                                                     </Badge>
                                                 )}
                                             </TableCell>
-                                            <TableCell>{item.unit}</TableCell>
+                                            <TableCell>
+                                                {item.category || <span className="text-muted-foreground">—</span>}
+                                            </TableCell>
                                             <TableCell className="text-right">
-                                                ${item.costPerUnit.toFixed(2)}
+                                                ${(item.unitCost ?? 0).toFixed(2)}
                                             </TableCell>
                                             <TableCell className="text-right font-medium">
                                                 ${value.toLocaleString()}
