@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import chat from "./routes/chat";
+import workflows from "./routes/workflows";
 
 const app = new Hono();
 
@@ -27,12 +28,15 @@ app.get("/", (c) => {
       chat: "/chat",
       chatStream: "/chat/stream",
       chatHealth: "/chat/health",
+      workflows: "/workflows",
+      workflowsHealth: "/workflows/health",
     },
   });
 });
 
-// Mount chat routes
+// Mount routes
 app.route("/chat", chat);
+app.route("/workflows", workflows);
 
 // Start server
 const port = Number(process.env.PORT) || 3001;
