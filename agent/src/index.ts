@@ -4,6 +4,8 @@ import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import chat from "./routes/chat";
 import workflows from "./routes/workflows";
+import whatsapp from "./routes/whatsapp";
+import { getAgentWhatsAppClient } from "./lib/whatsapp";
 
 const app = new Hono();
 
@@ -30,6 +32,8 @@ app.get("/", (c) => {
       chatHealth: "/chat/health",
       workflows: "/workflows",
       workflowsHealth: "/workflows/health",
+      whatsapp: "/whatsapp",
+      whatsappHealth: "/whatsapp/health",
     },
   });
 });
@@ -37,11 +41,30 @@ app.get("/", (c) => {
 // Mount routes
 app.route("/chat", chat);
 app.route("/workflows", workflows);
+app.route("/whatsapp", whatsapp);
 
 // Start server
 const port = Number(process.env.PORT) || 3001;
 
 console.log(`🤖 WD Logistics AI Agent running on http://localhost:${port}`);
+
+// Initialize WhatsApp client (optional - can be done on-demand)
+const initWhatsApp = async () => {
+  try {
+    const client = getAgentWhatsAppClient();
+    const initialized = await client.initialize();
+    if (initialized) {
+      console.log("✅ WhatsApp client initialized on startup");
+    }
+  } catch (error) {
+    console.warn("⚠️  WhatsApp client initialization deferred (will initialize on first use):", error);
+  }
+};
+
+// Try to initialize WhatsApp if configured
+if (process.env.INITIALIZE_WHATSAPP === "true") {
+  initWhatsApp();
+}
 
 serve({
   fetch: app.fetch,
