@@ -9,11 +9,11 @@ export async function createEmployee(data: {
   firstName: string;
   lastName: string;
   email?: string;
-  phone?: string;
+  phone: string;
   position: string;
   department?: string;
   status: EmployeeStatus;
-  hireDate: Date;
+  startDate: Date;
   salary?: number;
   notes?: string;
 }) {
@@ -54,8 +54,8 @@ export async function updateEmployee(
     position?: string;
     department?: string;
     status?: EmployeeStatus;
-    hireDate?: Date;
-    terminationDate?: Date | null;
+    startDate?: Date;
+    endDate?: Date | null;
     salary?: number;
     notes?: string;
   }
@@ -80,9 +80,9 @@ export async function updateEmployee(
       }
     }
 
-    // Auto-set termination date when status is terminated
-    if (data.status === "terminated" && !data.terminationDate) {
-      data.terminationDate = new Date();
+    // Auto-set end date when status is terminated
+    if (data.status === "terminated" && !data.endDate) {
+      data.endDate = new Date();
     }
 
     const updatedEmployee = await prisma.employee.update({
@@ -105,18 +105,10 @@ export async function deleteEmployee(id: string) {
   try {
     const employee = await prisma.employee.findFirst({
       where: { id, organizationId: session.organizationId },
-      include: { driver: true },
     });
 
     if (!employee) {
       return { success: false, error: "Employee not found" };
-    }
-
-    if (employee.driver) {
-      return {
-        success: false,
-        error: "Cannot delete employee with driver profile. Delete driver first.",
-      };
     }
 
     await prisma.employee.delete({ where: { id } });
