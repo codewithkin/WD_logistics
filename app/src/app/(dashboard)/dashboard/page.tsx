@@ -14,6 +14,8 @@ import { TripStatusChart } from "@/components/dashboard/trip-status-chart";
 import { getTripStatusDistributionData } from "@/lib/dashboard/trip-status";
 import { PerformanceTrendChart } from "@/components/dashboard/performance-trend-chart";
 import { getPerformanceTrendData } from "@/lib/dashboard/performance-trend";
+import { DriverPerformanceTable } from "@/components/dashboard/driver-performance-table";
+import { getDriverPerformanceData } from "@/lib/dashboard/driver-performance";
 
 export default async function DashboardPage() {
     const session = await requireAuth();
@@ -31,6 +33,7 @@ export default async function DashboardPage() {
         fleetUtilizationData,
         tripStatusData,
         performanceTrendData,
+        driverPerformanceData,
     ] = await Promise.all([
         // Truck stats
         prisma.truck.groupBy({
@@ -92,6 +95,8 @@ export default async function DashboardPage() {
         getTripStatusDistributionData(),
         // Performance trend data
         getPerformanceTrendData(),
+        // Driver performance data
+        getDriverPerformanceData(),
     ]);
 
     // Calculate fleet status
@@ -141,6 +146,11 @@ export default async function DashboardPage() {
             {/* Performance Trend Chart - Full Width */}
             <div className="mt-6">
                 <PerformanceTrendChart data={performanceTrendData} />
+            </div>
+
+            {/* Driver Performance Table - Full Width */}
+            <div className="mt-6">
+                <DriverPerformanceTable data={driverPerformanceData} />
             </div>
 
             {/* Main Content Grid */}
