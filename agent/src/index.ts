@@ -2,6 +2,7 @@ import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
+import chat from "./routes/chat";
 
 const app = new Hono();
 
@@ -22,8 +23,16 @@ app.get("/", (c) => {
     name: "WD Logistics AI Agent",
     version: "1.0.0",
     status: "healthy",
+    endpoints: {
+      chat: "/chat",
+      chatStream: "/chat/stream",
+      chatHealth: "/chat/health",
+    },
   });
 });
+
+// Mount chat routes
+app.route("/chat", chat);
 
 // Start server
 const port = Number(process.env.PORT) || 3001;
