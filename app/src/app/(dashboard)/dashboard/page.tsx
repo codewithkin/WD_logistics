@@ -6,6 +6,8 @@ import { RecentTrips } from "./_components/recent-trips";
 import { PendingEditRequests } from "./_components/pending-edit-requests";
 import { FleetStatus } from "./_components/fleet-status";
 import { OverdueInvoices } from "./_components/overdue-invoices";
+import { RevenueExpensesChart } from "@/components/dashboard/revenue-expenses-chart";
+import { getRevenueExpensesData } from "@/lib/dashboard/revenue-expenses";
 
 export default async function DashboardPage() {
     const session = await requireAuth();
@@ -19,6 +21,7 @@ export default async function DashboardPage() {
         pendingRequests,
         recentTrips,
         overdueInvoices,
+        revenueExpensesData,
     ] = await Promise.all([
         // Truck stats
         prisma.truck.groupBy({
@@ -72,6 +75,8 @@ export default async function DashboardPage() {
             },
             take: 5,
         }),
+        // Revenue vs Expenses data
+        getRevenueExpensesData(),
     ]);
 
     // Calculate fleet status
@@ -102,6 +107,11 @@ export default async function DashboardPage() {
 
             {/* Stats Cards */}
             <DashboardStats stats={stats} role={role} />
+
+            {/* Revenue vs Expenses Chart - Full Width */}
+            <div className="mt-6">
+                <RevenueExpensesChart data={revenueExpensesData} />
+            </div>
 
             {/* Main Content Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
