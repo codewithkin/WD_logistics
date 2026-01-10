@@ -126,11 +126,10 @@ export function DriverPerformanceTable({ data }: DriverPerformanceTableProps) {
                                                 {Array.from({ length: 5 }).map((_, i) => (
                                                     <Star
                                                         key={i}
-                                                        className={`w-4 h-4 ${
-                                                            i < Math.floor(driver.rating)
+                                                        className={`w-4 h-4 ${i < Math.floor(driver.rating)
                                                                 ? "fill-yellow-400 text-yellow-400"
                                                                 : "text-gray-300 dark:text-gray-600"
-                                                        }`}
+                                                            }`}
                                                     />
                                                 ))}
                                             </div>
