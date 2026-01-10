@@ -12,6 +12,7 @@ import {
   UserCog,
   ClipboardEdit,
   DollarSign,
+  Bot,
   LucideIcon,
 } from "lucide-react";
 import { Role } from "@/lib/types";
@@ -116,6 +117,12 @@ export const navigationConfig: NavItem[] = [
     icon: ClipboardEdit,
     roles: ["admin", "supervisor", "staff"],
     badge: "pending",
+  },
+  {
+    title: "AI Assistant",
+    href: "/ai",
+    icon: Bot,
+    roles: ["admin", "supervisor", "staff"],
   },
   {
     title: "Reports",
