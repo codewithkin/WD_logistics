@@ -33,11 +33,13 @@ import { createExpense, updateExpense } from "../actions";
 import { toast } from "sonner";
 
 const expenseSchema = z.object({
-    description: z.string().min(1, "Description is required"),
+    description: z.string().optional(),
     amount: z.coerce.number().min(0.01, "Amount must be greater than 0"),
-    date: z.date({ required_error: "Date is required" }),
-    tripId: z.string().min(1, "Trip is required"),
-    categoryId: z.string().optional().nullable(),
+    date: z.date({ message: "Date is required" }),
+    categoryId: z.string().min(1, "Category is required"),
+    tripId: z.string().optional(),
+    vendor: z.string().optional(),
+    reference: z.string().optional(),
     receiptUrl: z.string().optional(),
     notes: z.string().optional(),
 });
@@ -47,15 +49,17 @@ type ExpenseFormData = z.infer<typeof expenseSchema>;
 interface ExpenseFormProps {
     expense?: {
         id: string;
-        description: string;
+        description: string | null;
         amount: number;
         date: Date;
-        tripId: string;
-        categoryId: string | null;
+        categoryId: string;
+        vendor: string | null;
+        reference: string | null;
         receiptUrl: string | null;
         notes: string | null;
+        tripExpenses?: Array<{ tripId: string }>;
     };
-    trips: Array<{ id: string; origin: string; destination: string }>;
+    trips: Array<{ id: string; originCity: string; destinationCity: string }>;
     categories: Array<{ id: string; name: string }>;
     defaultTripId?: string;
 }
@@ -66,13 +70,16 @@ export function ExpenseForm({ expense, trips, categories, defaultTripId }: Expen
     const isEditing = !!expense;
 
     const form = useForm<ExpenseFormData>({
-        resolver: zodResolver(expenseSchema),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        resolver: zodResolver(expenseSchema) as any,
         defaultValues: {
             description: expense?.description ?? "",
             amount: expense?.amount ?? 0,
             date: expense?.date ?? new Date(),
-            tripId: expense?.tripId ?? defaultTripId ?? "",
-            categoryId: expense?.categoryId ?? null,
+            categoryId: expense?.categoryId ?? "",
+            tripId: expense?.tripExpenses?.[0]?.tripId ?? defaultTripId ?? "",
+            vendor: expense?.vendor ?? "",
+            reference: expense?.reference ?? "",
             receiptUrl: expense?.receiptUrl ?? "",
             notes: expense?.notes ?? "",
         },
@@ -82,14 +89,8 @@ export function ExpenseForm({ expense, trips, categories, defaultTripId }: Expen
         setIsLoading(true);
         try {
             const result = isEditing
-                ? await updateExpense(expense.id, {
-                    ...data,
-                    categoryId: data.categoryId || null,
-                })
-                : await createExpense({
-                    ...data,
-                    categoryId: data.categoryId || null,
-                });
+                ? await updateExpense(expense.id, data)
+                : await createExpense(data);
 
             if (result.success) {
                 toast.success(isEditing ? "Expense updated successfully" : "Expense created successfully");
@@ -177,20 +178,20 @@ export function ExpenseForm({ expense, trips, categories, defaultTripId }: Expen
                         <div className="grid gap-4 md:grid-cols-2">
                             <FormField
                                 control={form.control}
-                                name="tripId"
+                                name="categoryId"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Trip</FormLabel>
+                                        <FormLabel>Category</FormLabel>
                                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                                             <FormControl>
                                                 <SelectTrigger>
-                                                    <SelectValue placeholder="Select a trip" />
+                                                    <SelectValue placeholder="Select a category" />
                                                 </SelectTrigger>
                                             </FormControl>
                                             <SelectContent>
-                                                {trips.map((trip) => (
-                                                    <SelectItem key={trip.id} value={trip.id}>
-                                                        {trip.origin} → {trip.destination}
+                                                {categories.map((category) => (
+                                                    <SelectItem key={category.id} value={category.id}>
+                                                        {category.name}
                                                     </SelectItem>
                                                 ))}
                                             </SelectContent>
@@ -201,28 +202,57 @@ export function ExpenseForm({ expense, trips, categories, defaultTripId }: Expen
                             />
                             <FormField
                                 control={form.control}
-                                name="categoryId"
+                                name="tripId"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Category (Optional)</FormLabel>
+                                        <FormLabel>Link to Trip (Optional)</FormLabel>
                                         <Select
-                                            onValueChange={(value) => field.onChange(value === "none" ? null : value)}
-                                            defaultValue={field.value ?? "none"}
+                                            onValueChange={(value) => field.onChange(value === "none" ? "" : value)}
+                                            defaultValue={field.value || "none"}
                                         >
                                             <FormControl>
                                                 <SelectTrigger>
-                                                    <SelectValue placeholder="Select a category" />
+                                                    <SelectValue placeholder="Select a trip" />
                                                 </SelectTrigger>
                                             </FormControl>
                                             <SelectContent>
-                                                <SelectItem value="none">No Category</SelectItem>
-                                                {categories.map((category) => (
-                                                    <SelectItem key={category.id} value={category.id}>
-                                                        {category.name}
+                                                <SelectItem value="none">No Trip</SelectItem>
+                                                {trips.map((trip) => (
+                                                    <SelectItem key={trip.id} value={trip.id}>
+                                                        {trip.originCity} → {trip.destinationCity}
                                                     </SelectItem>
                                                 ))}
                                             </SelectContent>
                                         </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        </div>
+
+                        <div className="grid gap-4 md:grid-cols-2">
+                            <FormField
+                                control={form.control}
+                                name="vendor"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Vendor (Optional)</FormLabel>
+                                        <FormControl>
+                                            <Input placeholder="e.g., Shell, AutoZone..." {...field} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
+                                name="reference"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Reference # (Optional)</FormLabel>
+                                        <FormControl>
+                                            <Input placeholder="e.g., Invoice number, receipt #..." {...field} />
+                                        </FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}

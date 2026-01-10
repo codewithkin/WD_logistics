@@ -37,12 +37,12 @@ const employeeSchema = z.object({
     firstName: z.string().min(1, "First name is required"),
     lastName: z.string().min(1, "Last name is required"),
     email: z.string().email("Invalid email").optional().or(z.literal("")),
-    phone: z.string().optional(),
+    phone: z.string().min(1, "Phone is required"),
     position: z.string().min(1, "Position is required"),
     department: z.string().optional(),
     status: z.enum(["active", "on_leave", "suspended", "terminated"]),
-    hireDate: z.date({ required_error: "Hire date is required" }),
-    terminationDate: z.date().optional().nullable(),
+    startDate: z.date({ message: "Start date is required" }),
+    endDate: z.date().optional().nullable(),
     salary: z.coerce.number().min(0).optional(),
     notes: z.string().optional(),
 });
@@ -58,9 +58,9 @@ interface EmployeeFormProps {
         phone: string | null;
         position: string;
         department: string | null;
-        status: EmployeeStatus;
-        hireDate: Date;
-        terminationDate: Date | null;
+        status: string;
+        startDate: Date;
+        endDate: Date | null;
         salary: number | null;
         notes: string | null;
     };
@@ -72,7 +72,8 @@ export function EmployeeForm({ employee }: EmployeeFormProps) {
     const isEditing = !!employee;
 
     const form = useForm<EmployeeFormData>({
-        resolver: zodResolver(employeeSchema),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        resolver: zodResolver(employeeSchema) as any,
         defaultValues: {
             firstName: employee?.firstName ?? "",
             lastName: employee?.lastName ?? "",
@@ -80,9 +81,9 @@ export function EmployeeForm({ employee }: EmployeeFormProps) {
             phone: employee?.phone ?? "",
             position: employee?.position ?? "",
             department: employee?.department ?? "",
-            status: employee?.status ?? "active",
-            hireDate: employee?.hireDate ?? new Date(),
-            terminationDate: employee?.terminationDate ?? null,
+            status: (employee?.status as EmployeeFormData["status"]) ?? "active",
+            startDate: employee?.startDate ?? new Date(),
+            endDate: employee?.endDate ?? null,
             salary: employee?.salary ?? undefined,
             notes: employee?.notes ?? "",
         },
@@ -234,10 +235,10 @@ export function EmployeeForm({ employee }: EmployeeFormProps) {
                             />
                             <FormField
                                 control={form.control}
-                                name="hireDate"
+                                name="startDate"
                                 render={({ field }) => (
                                     <FormItem className="flex flex-col">
-                                        <FormLabel>Hire Date</FormLabel>
+                                        <FormLabel>Start Date</FormLabel>
                                         <Popover>
                                             <PopoverTrigger asChild>
                                                 <FormControl>
@@ -291,10 +292,10 @@ export function EmployeeForm({ employee }: EmployeeFormProps) {
                         {isEditing && form.watch("status") === "terminated" && (
                             <FormField
                                 control={form.control}
-                                name="terminationDate"
+                                name="endDate"
                                 render={({ field }) => (
                                     <FormItem className="flex flex-col max-w-[300px]">
-                                        <FormLabel>Termination Date</FormLabel>
+                                        <FormLabel>End Date</FormLabel>
                                         <Popover>
                                             <PopoverTrigger asChild>
                                                 <FormControl>

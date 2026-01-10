@@ -57,7 +57,8 @@ export function InventoryItemForm({ item }: InventoryItemFormProps) {
     const isEditing = !!item;
 
     const form = useForm<InventoryFormData>({
-        resolver: zodResolver(inventorySchema),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        resolver: zodResolver(inventorySchema) as any,
         defaultValues: {
             name: item?.name ?? "",
             sku: item?.sku ?? "",

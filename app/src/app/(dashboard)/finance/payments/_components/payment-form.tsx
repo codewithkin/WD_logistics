@@ -35,9 +35,10 @@ import { toast } from "sonner";
 
 const paymentSchema = z.object({
     invoiceId: z.string().min(1, "Invoice is required"),
+    customerId: z.string().min(1, "Customer is required"),
     amount: z.coerce.number().min(0.01, "Amount must be greater than 0"),
-    paymentDate: z.date({ required_error: "Payment date is required" }),
-    method: z.enum(["cash", "check", "bank_transfer", "credit_card", "other"]),
+    paymentDate: z.date({ message: "Payment date is required" }),
+    method: z.enum(["cash", "check", "bank_transfer", "mobile_money", "other"]),
     reference: z.string().optional(),
     notes: z.string().optional(),
 });
@@ -48,17 +49,19 @@ interface PaymentFormProps {
     payment?: {
         id: string;
         invoiceId: string;
+        customerId: string;
         amount: number;
         paymentDate: Date;
-        method: PaymentMethod;
+        method: string;
         reference: string | null;
         notes: string | null;
     };
     invoices: Array<{
         id: string;
         invoiceNumber: string;
-        totalAmount: number;
+        total: number;
         balance: number;
+        customerId: string;
         customer: { name: string };
     }>;
     defaultInvoiceId?: string;
@@ -69,13 +72,21 @@ export function PaymentForm({ payment, invoices, defaultInvoiceId }: PaymentForm
     const [isLoading, setIsLoading] = useState(false);
     const isEditing = !!payment;
 
+    // Get customerId from selected invoice
+    const getCustomerIdFromInvoice = (invoiceId: string) => {
+        const invoice = invoices.find((i) => i.id === invoiceId);
+        return invoice?.customerId ?? "";
+    };
+
     const form = useForm<PaymentFormData>({
-        resolver: zodResolver(paymentSchema),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        resolver: zodResolver(paymentSchema) as any,
         defaultValues: {
             invoiceId: payment?.invoiceId ?? defaultInvoiceId ?? "",
+            customerId: payment?.customerId ?? getCustomerIdFromInvoice(defaultInvoiceId ?? ""),
             amount: payment?.amount ?? 0,
             paymentDate: payment?.paymentDate ?? new Date(),
-            method: payment?.method ?? "bank_transfer",
+            method: (payment?.method as PaymentFormData["method"]) ?? "bank_transfer",
             reference: payment?.reference ?? "",
             notes: payment?.notes ?? "",
         },
@@ -83,6 +94,14 @@ export function PaymentForm({ payment, invoices, defaultInvoiceId }: PaymentForm
 
     const selectedInvoiceId = form.watch("invoiceId");
     const selectedInvoice = invoices.find((i) => i.id === selectedInvoiceId);
+
+    // Update customerId when invoice changes
+    const handleInvoiceChange = (invoiceId: string) => {
+        const invoice = invoices.find((i) => i.id === invoiceId);
+        if (invoice) {
+            form.setValue("customerId", invoice.customerId);
+        }
+    };
 
     const onSubmit = async (data: PaymentFormData) => {
         setIsLoading(true);
@@ -116,7 +135,10 @@ export function PaymentForm({ payment, invoices, defaultInvoiceId }: PaymentForm
                                 <FormItem>
                                     <FormLabel>Invoice</FormLabel>
                                     <Select
-                                        onValueChange={field.onChange}
+                                        onValueChange={(value) => {
+                                            field.onChange(value);
+                                            handleInvoiceChange(value);
+                                        }}
                                         defaultValue={field.value}
                                         disabled={isEditing}
                                     >
@@ -144,7 +166,7 @@ export function PaymentForm({ payment, invoices, defaultInvoiceId }: PaymentForm
                                 <div className="grid gap-2 md:grid-cols-3">
                                     <div>
                                         <p className="text-sm text-muted-foreground">Invoice Total</p>
-                                        <p className="font-medium">${selectedInvoice.totalAmount.toLocaleString()}</p>
+                                        <p className="font-medium">${selectedInvoice.total.toLocaleString()}</p>
                                     </div>
                                     <div>
                                         <p className="text-sm text-muted-foreground">Outstanding Balance</p>

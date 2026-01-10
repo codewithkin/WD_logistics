@@ -25,7 +25,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
-import { allocateInventory } from "../../actions";
+import { allocateInventory } from "../../../actions";
 import { toast } from "sonner";
 
 const allocationSchema = z.object({
@@ -45,13 +45,13 @@ interface AllocationFormProps {
     };
     trucks: Array<{
         id: string;
-        plateNumber: string;
+        registrationNo: string;
     }>;
     employees: Array<{
         id: string;
         firstName: string;
         lastName: string;
-        role: string;
+        position: string;
     }>;
 }
 
@@ -65,7 +65,8 @@ export function AllocationForm({
     const [isLoading, setIsLoading] = useState(false);
 
     const form = useForm<AllocationFormData>({
-        resolver: zodResolver(allocationSchema),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        resolver: zodResolver(allocationSchema) as any,
         defaultValues: {
             quantity: 1,
             truckId: "",
@@ -144,7 +145,7 @@ export function AllocationForm({
                                         <SelectContent>
                                             {trucks.map((truck) => (
                                                 <SelectItem key={truck.id} value={truck.id}>
-                                                    {truck.plateNumber}
+                                                    {truck.registrationNo}
                                                 </SelectItem>
                                             ))}
                                         </SelectContent>
@@ -169,7 +170,7 @@ export function AllocationForm({
                                         <SelectContent>
                                             {employees.map((emp) => (
                                                 <SelectItem key={emp.id} value={emp.id}>
-                                                    {emp.firstName} {emp.lastName} ({emp.role})
+                                                    {emp.firstName} {emp.lastName} ({emp.position})
                                                 </SelectItem>
                                             ))}
                                         </SelectContent>

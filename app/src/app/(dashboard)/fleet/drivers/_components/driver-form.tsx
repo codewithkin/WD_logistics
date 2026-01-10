@@ -68,7 +68,7 @@ interface DriverFormProps {
         licenseExpiry: Date | null;
         passportNumber: string | null;
         dateOfBirth: Date | null;
-        status: DriverStatus;
+        status: string;
         address: string | null;
         notes: string | null;
         assignedTruckId: string | null;
@@ -82,7 +82,8 @@ export function DriverForm({ driver, availableTrucks }: DriverFormProps) {
     const isEditing = !!driver;
 
     const form = useForm<DriverFormData>({
-        resolver: zodResolver(driverSchema),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        resolver: zodResolver(driverSchema) as any,
         defaultValues: {
             firstName: driver?.firstName ?? "",
             lastName: driver?.lastName ?? "",
@@ -93,7 +94,7 @@ export function DriverForm({ driver, availableTrucks }: DriverFormProps) {
             licenseExpiry: driver?.licenseExpiry ?? null,
             passportNumber: driver?.passportNumber ?? "",
             dateOfBirth: driver?.dateOfBirth ?? null,
-            status: driver?.status ?? "active",
+            status: (driver?.status as DriverFormData["status"]) ?? "active",
             address: driver?.address ?? "",
             notes: driver?.notes ?? "",
             assignedTruckId: driver?.assignedTruckId ?? null,
@@ -277,7 +278,7 @@ export function DriverForm({ driver, availableTrucks }: DriverFormProps) {
                                             <PopoverContent className="w-auto p-0" align="start">
                                                 <Calendar
                                                     mode="single"
-                                                    selected={field.value}
+                                                    selected={field.value ?? undefined}
                                                     onSelect={field.onChange}
                                                     initialFocus
                                                 />
@@ -327,7 +328,7 @@ export function DriverForm({ driver, availableTrucks }: DriverFormProps) {
                                             <PopoverContent className="w-auto p-0" align="start">
                                                 <Calendar
                                                     mode="single"
-                                                    selected={field.value}
+                                                    selected={field.value ?? undefined}
                                                     onSelect={field.onChange}
                                                     initialFocus
                                                 />

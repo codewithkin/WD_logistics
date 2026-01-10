@@ -36,12 +36,11 @@ import { toast } from "sonner";
 const invoiceSchema = z.object({
     invoiceNumber: z.string().min(1, "Invoice number is required"),
     customerId: z.string().min(1, "Customer is required"),
-    tripId: z.string().optional().nullable(),
-    issueDate: z.date({ required_error: "Issue date is required" }),
-    dueDate: z.date({ required_error: "Due date is required" }),
+    issueDate: z.date({ message: "Issue date is required" }),
+    dueDate: z.date({ message: "Due date is required" }),
     subtotal: z.coerce.number().min(0),
     tax: z.coerce.number().min(0),
-    status: z.enum(["draft", "sent", "paid", "overdue", "cancelled"]),
+    status: z.enum(["draft", "sent", "paid", "partial", "overdue", "cancelled"]),
     notes: z.string().optional(),
 });
 
@@ -52,55 +51,49 @@ interface InvoiceFormProps {
         id: string;
         invoiceNumber: string;
         customerId: string;
-        tripId: string | null;
         issueDate: Date;
         dueDate: Date;
         subtotal: number;
         tax: number;
-        totalAmount: number;
-        status: InvoiceStatus;
+        total: number;
+        amountPaid: number;
+        balance: number;
+        status: string;
         notes: string | null;
     };
     customers: Array<{ id: string; name: string }>;
-    trips: Array<{ id: string; origin: string; destination: string; customerId: string | null }>;
     defaultInvoiceNumber: string;
-    defaultTripId?: string;
 }
 
 export function InvoiceForm({
     invoice,
     customers,
-    trips,
     defaultInvoiceNumber,
-    defaultTripId,
 }: InvoiceFormProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
     const isEditing = !!invoice;
 
     const form = useForm<InvoiceFormData>({
-        resolver: zodResolver(invoiceSchema),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        resolver: zodResolver(invoiceSchema) as any,
         defaultValues: {
             invoiceNumber: invoice?.invoiceNumber ?? defaultInvoiceNumber,
             customerId: invoice?.customerId ?? "",
-            tripId: invoice?.tripId ?? defaultTripId ?? null,
             issueDate: invoice?.issueDate ?? new Date(),
             dueDate: invoice?.dueDate ?? addDays(new Date(), 30),
             subtotal: invoice?.subtotal ?? 0,
             tax: invoice?.tax ?? 0,
-            status: invoice?.status ?? "draft",
+            status: (invoice?.status as InvoiceFormData["status"]) ?? "draft",
             notes: invoice?.notes ?? "",
         },
     });
 
     const subtotal = form.watch("subtotal");
     const tax = form.watch("tax");
-    const totalAmount = subtotal + tax;
-
-    const selectedCustomerId = form.watch("customerId");
-    const filteredTrips = trips.filter(
-        (trip) => !trip.customerId || trip.customerId === selectedCustomerId
-    );
+    const total = subtotal + tax;
+    const amountPaid = invoice?.amountPaid ?? 0;
+    const balance = total - amountPaid;
 
     const onSubmit = async (data: InvoiceFormData) => {
         setIsLoading(true);
@@ -108,13 +101,14 @@ export function InvoiceForm({
             const result = isEditing
                 ? await updateInvoice(invoice.id, {
                     ...data,
-                    tripId: data.tripId || null,
-                    totalAmount,
+                    total,
+                    balance,
                 })
                 : await createInvoice({
                     ...data,
-                    tripId: data.tripId || null,
-                    totalAmount,
+                    total,
+                    balance: total,
+                    amountPaid: 0,
                 });
 
             if (result.success) {
@@ -192,34 +186,6 @@ export function InvoiceForm({
                                                 {customers.map((customer) => (
                                                     <SelectItem key={customer.id} value={customer.id}>
                                                         {customer.name}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                            <FormField
-                                control={form.control}
-                                name="tripId"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Related Trip (Optional)</FormLabel>
-                                        <Select
-                                            onValueChange={(value) => field.onChange(value === "none" ? null : value)}
-                                            defaultValue={field.value ?? "none"}
-                                        >
-                                            <FormControl>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Select a trip" />
-                                                </SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                <SelectItem value="none">No Trip</SelectItem>
-                                                {filteredTrips.map((trip) => (
-                                                    <SelectItem key={trip.id} value={trip.id}>
-                                                        {trip.origin} → {trip.destination}
                                                     </SelectItem>
                                                 ))}
                                             </SelectContent>
@@ -330,8 +296,14 @@ export function InvoiceForm({
                             />
                             <div className="flex flex-col justify-end">
                                 <div className="rounded-md border p-3">
-                                    <p className="text-sm text-muted-foreground">Total Amount</p>
-                                    <p className="text-2xl font-bold">${totalAmount.toLocaleString()}</p>
+                                    <p className="text-sm text-muted-foreground">Total</p>
+                                    <p className="text-2xl font-bold">${total.toLocaleString()}</p>
+                                    {isEditing && amountPaid > 0 && (
+                                        <div className="mt-2 text-sm">
+                                            <p className="text-muted-foreground">Paid: ${amountPaid.toLocaleString()}</p>
+                                            <p className="text-muted-foreground">Balance: ${balance.toLocaleString()}</p>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
