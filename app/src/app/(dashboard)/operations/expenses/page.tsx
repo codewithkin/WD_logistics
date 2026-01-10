@@ -15,20 +15,27 @@ export default async function ExpensesPage({ searchParams }: ExpensesPageProps) 
 
     const whereClause: Record<string, unknown> = { organizationId };
 
+    // Filter by trip if specified
     if (params.tripId) {
-        whereClause.tripId = params.tripId;
+        whereClause.tripExpenses = {
+            some: { tripId: params.tripId }
+        };
     }
 
-    const expenses = await prisma.tripExpense.findMany({
+    const expenses = await prisma.expense.findMany({
         where: whereClause,
         include: {
-            trip: {
+            category: true,
+            tripExpenses: {
                 include: {
-                    truck: true,
-                    driver: true,
+                    trip: {
+                        include: {
+                            truck: true,
+                            driver: true,
+                        },
+                    },
                 },
             },
-            category: true,
         },
         orderBy: { date: "desc" },
     });
@@ -39,7 +46,7 @@ export default async function ExpensesPage({ searchParams }: ExpensesPageProps) 
         <div>
             <PageHeader
                 title="Expenses"
-                description="Track and manage trip expenses"
+                description="Track and manage expenses"
                 action={
                     canCreate
                         ? {

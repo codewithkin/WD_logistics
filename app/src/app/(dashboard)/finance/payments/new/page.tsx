@@ -11,7 +11,7 @@ export default async function NewPaymentPage({ searchParams }: NewPaymentPagePro
     const params = await searchParams;
     const session = await requireRole(["admin", "supervisor"]);
 
-    const invoicesWithPayments = await prisma.invoice.findMany({
+    const invoices = await prisma.invoice.findMany({
         where: {
             organizationId: session.organizationId,
             status: { notIn: ["paid", "cancelled"] },
@@ -20,23 +20,18 @@ export default async function NewPaymentPage({ searchParams }: NewPaymentPagePro
             customer: {
                 select: { name: true },
             },
-            payments: {
-                select: { amount: true },
-            },
         },
         orderBy: { issueDate: "desc" },
     });
 
-    const invoices = invoicesWithPayments.map((invoice) => {
-        const totalPaid = invoice.payments.reduce((sum, p) => sum + p.amount, 0);
-        return {
-            id: invoice.id,
-            invoiceNumber: invoice.invoiceNumber,
-            totalAmount: invoice.totalAmount,
-            balance: invoice.totalAmount - totalPaid,
-            customer: invoice.customer,
-        };
-    });
+    const formattedInvoices = invoices.map((invoice) => ({
+        id: invoice.id,
+        invoiceNumber: invoice.invoiceNumber,
+        total: invoice.total,
+        balance: invoice.balance,
+        customerId: invoice.customerId,
+        customer: invoice.customer,
+    }));
 
     return (
         <div>
@@ -45,7 +40,7 @@ export default async function NewPaymentPage({ searchParams }: NewPaymentPagePro
                 description="Record a new payment"
                 backHref="/finance/payments"
             />
-            <PaymentForm invoices={invoices} defaultInvoiceId={params.invoiceId} />
+            <PaymentForm invoices={formattedInvoices} defaultInvoiceId={params.invoiceId} />
         </div>
     );
 }

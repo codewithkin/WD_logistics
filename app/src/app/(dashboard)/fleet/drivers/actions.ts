@@ -175,7 +175,7 @@ export async function deleteDriver(id: string) {
     if (driver.assignedTruckId) {
       await prisma.truck.update({
         where: { id: driver.assignedTruckId },
-        data: { assignedDriverId: null },
+        data: { assignedDriver: { disconnect: true } },
       });
     }
 
@@ -207,7 +207,6 @@ export async function requestEditDriver(driverId: string) {
         entityType: "driver",
         entityId: driverId,
         status: "pending",
-        organizationId: session.organizationId,
       },
     });
 
@@ -219,10 +218,11 @@ export async function requestEditDriver(driverId: string) {
       data: {
         entityType: "driver",
         entityId: driverId,
-        description: `Request to edit driver: ${driver.name}`,
+        reason: `Request to edit driver: ${driver.firstName} ${driver.lastName}`,
+        originalData: {},
+        proposedData: {},
         status: "pending",
         requestedById: session.user.id,
-        organizationId: session.organizationId,
       },
     });
 

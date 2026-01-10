@@ -8,12 +8,13 @@ import { InvoiceStatus } from "@/lib/types";
 export async function createInvoice(data: {
   invoiceNumber: string;
   customerId: string;
-  tripId?: string | null;
   issueDate: Date;
   dueDate: Date;
   subtotal: number;
   tax: number;
-  totalAmount: number;
+  total: number;
+  amountPaid: number;
+  balance: number;
   status: InvoiceStatus;
   notes?: string;
 }) {
@@ -33,8 +34,18 @@ export async function createInvoice(data: {
 
     const invoice = await prisma.invoice.create({
       data: {
-        ...data,
         organizationId: session.organizationId,
+        invoiceNumber: data.invoiceNumber,
+        customerId: data.customerId,
+        issueDate: data.issueDate,
+        dueDate: data.dueDate,
+        subtotal: data.subtotal,
+        tax: data.tax,
+        total: data.total,
+        amountPaid: data.amountPaid,
+        balance: data.balance,
+        status: data.status,
+        notes: data.notes,
       },
     });
 
@@ -51,12 +62,12 @@ export async function updateInvoice(
   data: {
     invoiceNumber?: string;
     customerId?: string;
-    tripId?: string | null;
     issueDate?: Date;
     dueDate?: Date;
     subtotal?: number;
     tax?: number;
-    totalAmount?: number;
+    total?: number;
+    balance?: number;
     status?: InvoiceStatus;
     notes?: string;
   }

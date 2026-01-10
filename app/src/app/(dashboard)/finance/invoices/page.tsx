@@ -23,7 +23,6 @@ export default async function InvoicesPage({ searchParams }: InvoicesPageProps) 
         where: whereClause,
         include: {
             customer: true,
-            trip: true,
             payments: true,
         },
         orderBy: { issueDate: "desc" },

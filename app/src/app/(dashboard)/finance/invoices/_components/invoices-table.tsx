@@ -50,17 +50,14 @@ interface Invoice {
     invoiceNumber: string;
     issueDate: Date;
     dueDate: Date;
-    totalAmount: number;
-    status: InvoiceStatus;
+    total: number;
+    amountPaid: number;
+    balance: number;
+    status: string;
     customer: {
         id: string;
         name: string;
     };
-    trip: {
-        id: string;
-        origin: string;
-        destination: string;
-    } | null;
     payments: Array<{ amount: number }>;
 }
 
@@ -181,24 +178,24 @@ export function InvoicesTable({ invoices, role }: InvoicesTableProps) {
                                                 </span>
                                             </TableCell>
                                             <TableCell>
-                                                <Badge className={INVOICE_STATUS_COLORS[invoice.status]}>
-                                                    {INVOICE_STATUS_LABELS[invoice.status]}
+                                                <Badge className={INVOICE_STATUS_COLORS[invoice.status as InvoiceStatus]}>
+                                                    {INVOICE_STATUS_LABELS[invoice.status as InvoiceStatus]}
                                                 </Badge>
                                             </TableCell>
                                             <TableCell className="text-right font-medium">
-                                                ${invoice.totalAmount.toLocaleString()}
+                                                ${invoice.total.toLocaleString()}
                                             </TableCell>
                                             <TableCell className="text-right">
                                                 <span
                                                     className={
-                                                        totalPaid >= invoice.totalAmount
+                                                        invoice.balance <= 0
                                                             ? "text-green-600"
-                                                            : totalPaid > 0
+                                                            : invoice.amountPaid > 0
                                                                 ? "text-amber-600"
                                                                 : "text-muted-foreground"
                                                     }
                                                 >
-                                                    ${totalPaid.toLocaleString()}
+                                                    ${invoice.amountPaid.toLocaleString()}
                                                 </span>
                                             </TableCell>
                                             <TableCell>

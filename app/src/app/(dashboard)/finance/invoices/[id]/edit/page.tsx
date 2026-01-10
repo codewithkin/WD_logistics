@@ -20,18 +20,11 @@ export default async function EditInvoicePage({ params }: EditInvoicePageProps) 
         notFound();
     }
 
-    const [customers, trips] = await Promise.all([
-        prisma.customer.findMany({
-            where: { organizationId: session.organizationId },
-            select: { id: true, name: true },
-            orderBy: { name: "asc" },
-        }),
-        prisma.trip.findMany({
-            where: { organizationId: session.organizationId },
-            select: { id: true, origin: true, destination: true, customerId: true },
-            orderBy: { startDate: "desc" },
-        }),
-    ]);
+    const customers = await prisma.customer.findMany({
+        where: { organizationId: session.organizationId },
+        select: { id: true, name: true },
+        orderBy: { name: "asc" },
+    });
 
     return (
         <div>
@@ -43,7 +36,6 @@ export default async function EditInvoicePage({ params }: EditInvoicePageProps) 
             <InvoiceForm
                 invoice={invoice}
                 customers={customers}
-                trips={trips}
                 defaultInvoiceNumber={invoice.invoiceNumber}
             />
         </div>

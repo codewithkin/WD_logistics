@@ -50,12 +50,13 @@ interface Truck {
     make: string;
     model: string;
     year: number;
-    status: TruckStatus;
-    mileage: number;
-    lastServiceDate: Date | null;
+    status: string;
+    currentMileage: number;
+    fuelType: string | null;
     assignedDriver: {
         id: string;
-        name: string;
+        firstName: string;
+        lastName: string;
     } | null;
     _count: {
         trips: number;
@@ -177,18 +178,18 @@ export function TrucksTable({ trucks, role }: TrucksTableProps) {
                                         </TableCell>
                                         <TableCell>{truck.year}</TableCell>
                                         <TableCell>
-                                            <Badge className={TRUCK_STATUS_COLORS[truck.status]}>
-                                                {TRUCK_STATUS_LABELS[truck.status]}
+                                            <Badge className={TRUCK_STATUS_COLORS[truck.status as TruckStatus]}>
+                                                {TRUCK_STATUS_LABELS[truck.status as TruckStatus]}
                                             </Badge>
                                         </TableCell>
-                                        <TableCell>{truck.mileage.toLocaleString()} km</TableCell>
+                                        <TableCell>{truck.currentMileage.toLocaleString()} km</TableCell>
                                         <TableCell>
                                             {truck.assignedDriver ? (
                                                 <Link
                                                     href={`/fleet/drivers/${truck.assignedDriver.id}`}
                                                     className="text-primary hover:underline"
                                                 >
-                                                    {truck.assignedDriver.name}
+                                                    {truck.assignedDriver.firstName} {truck.assignedDriver.lastName}
                                                 </Link>
                                             ) : (
                                                 <span className="text-muted-foreground">Unassigned</span>

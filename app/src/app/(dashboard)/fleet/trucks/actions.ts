@@ -10,11 +10,13 @@ export async function createTruck(data: {
   make: string;
   model: string;
   year: number;
+  chassisNumber?: string;
+  engineNumber?: string;
   status: TruckStatus;
-  mileage: number;
-  lastServiceDate?: Date | null;
-  nextServiceDate?: Date | null;
-  insuranceExpiry?: Date | null;
+  currentMileage: number;
+  fuelType?: string;
+  tankCapacity?: number;
+  image?: string;
   notes?: string;
 }) {
   const session = await requireRole(["admin", "supervisor"]);
@@ -33,8 +35,19 @@ export async function createTruck(data: {
 
     const truck = await prisma.truck.create({
       data: {
-        ...data,
         organizationId: session.organizationId,
+        registrationNo: data.registrationNo,
+        make: data.make,
+        model: data.model,
+        year: data.year,
+        chassisNumber: data.chassisNumber,
+        engineNumber: data.engineNumber,
+        status: data.status,
+        currentMileage: data.currentMileage,
+        fuelType: data.fuelType,
+        tankCapacity: data.tankCapacity,
+        image: data.image,
+        notes: data.notes,
       },
     });
 
@@ -53,13 +66,14 @@ export async function updateTruck(
     make?: string;
     model?: string;
     year?: number;
+    chassisNumber?: string;
+    engineNumber?: string;
     status?: TruckStatus;
-    mileage?: number;
-    lastServiceDate?: Date | null;
-    nextServiceDate?: Date | null;
-    insuranceExpiry?: Date | null;
+    currentMileage?: number;
+    fuelType?: string;
+    tankCapacity?: number;
+    image?: string;
     notes?: string;
-    assignedDriverId?: string | null;
   }
 ) {
   const session = await requireRole(["admin", "supervisor"]);
@@ -149,7 +163,6 @@ export async function requestEditTruck(truckId: string) {
         entityType: "truck",
         entityId: truckId,
         status: "pending",
-        organizationId: session.organizationId,
       },
     });
 
@@ -161,10 +174,11 @@ export async function requestEditTruck(truckId: string) {
       data: {
         entityType: "truck",
         entityId: truckId,
-        description: `Request to edit truck: ${truck.registrationNo}`,
+        reason: `Request to edit truck: ${truck.registrationNo}`,
+        originalData: {},
+        proposedData: {},
         status: "pending",
         requestedById: session.user.id,
-        organizationId: session.organizationId,
       },
     });
 

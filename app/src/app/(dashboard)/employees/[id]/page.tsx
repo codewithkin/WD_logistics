@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Mail, Phone, Building2, Calendar, Truck, DollarSign } from "lucide-react";
+import { Mail, Phone, Building2, Calendar, DollarSign } from "lucide-react";
 import { format, differenceInYears, differenceInMonths } from "date-fns";
 import { EMPLOYEE_STATUS_LABELS } from "@/lib/types";
 
@@ -28,18 +28,6 @@ export default async function EmployeeDetailPage({ params }: EmployeeDetailPageP
 
     const employee = await prisma.employee.findFirst({
         where: { id, organizationId },
-        include: {
-            driver: {
-                include: {
-                    truck: {
-                        select: { id: true, plateNumber: true },
-                    },
-                    _count: {
-                        select: { trips: true },
-                    },
-                },
-            },
-        },
     });
 
     if (!employee) {
@@ -49,8 +37,8 @@ export default async function EmployeeDetailPage({ params }: EmployeeDetailPageP
     const canEdit = role === "admin" || role === "supervisor";
 
     // Calculate tenure
-    const years = differenceInYears(new Date(), employee.hireDate);
-    const months = differenceInMonths(new Date(), employee.hireDate) % 12;
+    const years = differenceInYears(new Date(), employee.startDate);
+    const months = differenceInMonths(new Date(), employee.startDate) % 12;
     const tenure =
         years > 0
             ? `${years} year${years > 1 ? "s" : ""}${months > 0 ? `, ${months} month${months > 1 ? "s" : ""}` : ""}`
@@ -135,20 +123,20 @@ export default async function EmployeeDetailPage({ params }: EmployeeDetailPageP
                         <div className="flex items-center gap-3">
                             <Calendar className="h-4 w-4 text-muted-foreground" />
                             <div>
-                                <p className="text-sm text-muted-foreground">Hire Date</p>
+                                <p className="text-sm text-muted-foreground">Start Date</p>
                                 <p className="font-medium">
-                                    {format(employee.hireDate, "MMMM d, yyyy")}
+                                    {format(employee.startDate, "MMMM d, yyyy")}
                                 </p>
                                 <p className="text-sm text-muted-foreground">Tenure: {tenure}</p>
                             </div>
                         </div>
-                        {employee.terminationDate && (
+                        {employee.endDate && (
                             <div className="flex items-center gap-3">
                                 <Calendar className="h-4 w-4 text-muted-foreground" />
                                 <div>
-                                    <p className="text-sm text-muted-foreground">Termination Date</p>
+                                    <p className="text-sm text-muted-foreground">End Date</p>
                                     <p className="font-medium">
-                                        {format(employee.terminationDate, "MMMM d, yyyy")}
+                                        {format(employee.endDate, "MMMM d, yyyy")}
                                     </p>
                                 </div>
                             </div>
@@ -174,50 +162,6 @@ export default async function EmployeeDetailPage({ params }: EmployeeDetailPageP
                     </CardContent>
                 </Card>
 
-                {employee.driver && (
-                    <Card className="md:col-span-2">
-                        <CardHeader className="flex flex-row items-center justify-between">
-                            <CardTitle className="flex items-center gap-2">
-                                <Truck className="h-5 w-5" />
-                                Driver Profile
-                            </CardTitle>
-                            <Button variant="outline" size="sm" asChild>
-                                <Link href={`/fleet/drivers/${employee.driver.id}`}>View Driver</Link>
-                            </Button>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="grid gap-4 md:grid-cols-4">
-                                <div>
-                                    <p className="text-sm text-muted-foreground">License Number</p>
-                                    <p className="font-medium">{employee.driver.licenseNumber}</p>
-                                </div>
-                                <div>
-                                    <p className="text-sm text-muted-foreground">License Expiry</p>
-                                    <p className="font-medium">
-                                        {format(employee.driver.licenseExpiry, "MMM d, yyyy")}
-                                    </p>
-                                </div>
-                                <div>
-                                    <p className="text-sm text-muted-foreground">Assigned Truck</p>
-                                    {employee.driver.truck ? (
-                                        <Link
-                                            href={`/fleet/trucks/${employee.driver.truck.id}`}
-                                            className="font-medium text-primary hover:underline"
-                                        >
-                                            {employee.driver.truck.plateNumber}
-                                        </Link>
-                                    ) : (
-                                        <p className="text-muted-foreground">Not assigned</p>
-                                    )}
-                                </div>
-                                <div>
-                                    <p className="text-sm text-muted-foreground">Total Trips</p>
-                                    <p className="font-medium">{employee.driver._count.trips}</p>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-                )}
             </div>
         </div>
     );

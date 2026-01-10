@@ -52,7 +52,7 @@ interface Driver {
     email: string | null;
     licenseNumber: string;
     licenseExpiry: Date | null;
-    status: DriverStatus;
+    status: string;
     assignedTruck: {
         id: string;
         registrationNo: string;
@@ -175,8 +175,8 @@ export function DriversTable({ drivers, role }: DriversTableProps) {
                                         <TableCell>{driver.phone}</TableCell>
                                         <TableCell>{driver.licenseNumber}</TableCell>
                                         <TableCell>
-                                            <Badge className={DRIVER_STATUS_COLORS[driver.status]}>
-                                                {DRIVER_STATUS_LABELS[driver.status]}
+                                            <Badge className={DRIVER_STATUS_COLORS[driver.status as DriverStatus]}>
+                                                {DRIVER_STATUS_LABELS[driver.status as DriverStatus]}
                                             </Badge>
                                         </TableCell>
                                         <TableCell>

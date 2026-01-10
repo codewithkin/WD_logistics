@@ -32,7 +32,7 @@ export default async function TripsPage({ searchParams }: TripsPageProps) {
             driver: true,
             customer: true,
         },
-        orderBy: { startDate: "desc" },
+        orderBy: { scheduledDate: "desc" },
     });
 
     const canCreate = role === "admin" || role === "supervisor";

@@ -16,7 +16,7 @@ import {
     DollarSign,
 } from "lucide-react";
 import { format } from "date-fns";
-import { INVOICE_STATUS_LABELS, INVOICE_STATUS_COLORS, PAYMENT_METHOD_LABELS } from "@/lib/types";
+import { INVOICE_STATUS_LABELS, INVOICE_STATUS_COLORS, PAYMENT_METHOD_LABELS, InvoiceStatus, PaymentMethod } from "@/lib/types";
 
 interface InvoiceDetailPageProps {
     params: Promise<{ id: string }>;
@@ -31,12 +31,6 @@ export default async function InvoiceDetailPage({ params }: InvoiceDetailPagePro
         where: { id, organizationId },
         include: {
             customer: true,
-            trip: {
-                include: {
-                    truck: true,
-                    driver: true,
-                },
-            },
             payments: {
                 orderBy: { paymentDate: "desc" },
             },
@@ -49,7 +43,7 @@ export default async function InvoiceDetailPage({ params }: InvoiceDetailPagePro
 
     const canEdit = role === "admin" || role === "supervisor";
     const totalPaid = invoice.payments.reduce((sum, p) => sum + p.amount, 0);
-    const balance = invoice.totalAmount - totalPaid;
+    const balance = invoice.total - totalPaid;
     const isOverdue =
         invoice.status !== "paid" &&
         invoice.status !== "cancelled" &&
@@ -80,8 +74,8 @@ export default async function InvoiceDetailPage({ params }: InvoiceDetailPagePro
                     <CardContent className="space-y-4">
                         <div className="flex items-center justify-between">
                             <span className="text-muted-foreground">Status</span>
-                            <Badge className={INVOICE_STATUS_COLORS[invoice.status]}>
-                                {INVOICE_STATUS_LABELS[invoice.status]}
+                            <Badge className={INVOICE_STATUS_COLORS[invoice.status as InvoiceStatus]}>
+                                {INVOICE_STATUS_LABELS[invoice.status as InvoiceStatus]}
                             </Badge>
                         </div>
                         <Separator />
@@ -151,7 +145,7 @@ export default async function InvoiceDetailPage({ params }: InvoiceDetailPagePro
                         <Separator />
                         <div className="flex items-center justify-between">
                             <span className="text-muted-foreground">Total</span>
-                            <span className="font-bold text-lg">${invoice.totalAmount.toLocaleString()}</span>
+                            <span className="font-bold text-lg">${invoice.total.toLocaleString()}</span>
                         </div>
                         <Separator />
                         <div className="flex items-center justify-between">
@@ -170,36 +164,8 @@ export default async function InvoiceDetailPage({ params }: InvoiceDetailPagePro
                     </CardContent>
                 </Card>
 
-                {invoice.trip && (
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="text-lg">Related Trip</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div>
-                                <Link
-                                    href={`/operations/trips/${invoice.trip.id}`}
-                                    className="font-medium text-primary hover:underline"
-                                >
-                                    {invoice.trip.origin} → {invoice.trip.destination}
-                                </Link>
-                            </div>
-                            <Separator />
-                            <div className="flex items-center justify-between">
-                                <span className="text-muted-foreground">Truck</span>
-                                <span className="font-medium">{invoice.trip.truck.registrationNo}</span>
-                            </div>
-                            <Separator />
-                            <div className="flex items-center justify-between">
-                                <span className="text-muted-foreground">Driver</span>
-                                <span className="font-medium">{invoice.trip.driver.name}</span>
-                            </div>
-                        </CardContent>
-                    </Card>
-                )}
-
                 {invoice.notes && (
-                    <Card className={invoice.trip ? "" : "md:col-span-2"}>
+                    <Card className="md:col-span-2">
                         <CardHeader>
                             <CardTitle className="text-lg flex items-center gap-2">
                                 <FileText className="h-5 w-5" /> Notes
@@ -237,7 +203,7 @@ export default async function InvoiceDetailPage({ params }: InvoiceDetailPagePro
                                         <p className="font-medium">${payment.amount.toLocaleString()}</p>
                                         <p className="text-sm text-muted-foreground">
                                             {format(payment.paymentDate, "PPP")} •{" "}
-                                            {PAYMENT_METHOD_LABELS[payment.method]}
+                                            {PAYMENT_METHOD_LABELS[payment.method as PaymentMethod]}
                                         </p>
                                     </div>
                                     {payment.reference && (

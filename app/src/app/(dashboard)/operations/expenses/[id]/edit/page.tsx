@@ -12,8 +12,11 @@ export default async function EditExpensePage({ params }: EditExpensePageProps) 
     const { id } = await params;
     const session = await requireRole(["admin", "supervisor"]);
 
-    const expense = await prisma.tripExpense.findFirst({
+    const expense = await prisma.expense.findFirst({
         where: { id, organizationId: session.organizationId },
+        include: {
+            tripExpenses: true,
+        },
     });
 
     if (!expense) {
@@ -23,8 +26,8 @@ export default async function EditExpensePage({ params }: EditExpensePageProps) 
     const [trips, categories] = await Promise.all([
         prisma.trip.findMany({
             where: { organizationId: session.organizationId },
-            select: { id: true, origin: true, destination: true },
-            orderBy: { startDate: "desc" },
+            select: { id: true, originCity: true, destinationCity: true },
+            orderBy: { scheduledDate: "desc" },
         }),
         prisma.expenseCategory.findMany({
             where: { organizationId: session.organizationId },

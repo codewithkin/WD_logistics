@@ -40,25 +40,30 @@ import { toast } from "sonner";
 
 interface Expense {
     id: string;
-    description: string;
+    description: string | null;
     amount: number;
     date: Date;
     receiptUrl: string | null;
-    trip: {
-        id: string;
-        origin: string;
-        destination: string;
-        truck: {
-            registrationNo: string;
-        };
-        driver: {
-            name: string;
-        };
-    };
+    vendor: string | null;
+    reference: string | null;
     category: {
         id: string;
         name: string;
-    } | null;
+    };
+    tripExpenses: Array<{
+        trip: {
+            id: string;
+            originCity: string;
+            destinationCity: string;
+            truck: {
+                registrationNo: string;
+            };
+            driver: {
+                firstName: string;
+                lastName: string;
+            };
+        };
+    }>;
 }
 
 interface ExpensesTableProps {
@@ -76,12 +81,15 @@ export function ExpensesTable({ expenses, role }: ExpensesTableProps) {
     const canDelete = role === "admin";
 
     const filteredExpenses = expenses.filter((expense) => {
-        return (
-            expense.description.toLowerCase().includes(search.toLowerCase()) ||
-            expense.trip.origin.toLowerCase().includes(search.toLowerCase()) ||
-            expense.trip.destination.toLowerCase().includes(search.toLowerCase()) ||
-            expense.category?.name.toLowerCase().includes(search.toLowerCase())
+        const searchLower = search.toLowerCase();
+        const descriptionMatch = expense.description?.toLowerCase().includes(searchLower);
+        const categoryMatch = expense.category.name.toLowerCase().includes(searchLower);
+        const vendorMatch = expense.vendor?.toLowerCase().includes(searchLower);
+        const tripMatch = expense.tripExpenses.some(te =>
+            te.trip.originCity.toLowerCase().includes(searchLower) ||
+            te.trip.destinationCity.toLowerCase().includes(searchLower)
         );
+        return descriptionMatch || categoryMatch || vendorMatch || tripMatch;
     });
 
     const totalExpenses = filteredExpenses.reduce((sum, exp) => sum + exp.amount, 0);
@@ -145,21 +153,23 @@ export function ExpensesTable({ expenses, role }: ExpensesTableProps) {
                             ) : (
                                 filteredExpenses.map((expense) => (
                                     <TableRow key={expense.id}>
-                                        <TableCell className="font-medium">{expense.description}</TableCell>
+                                        <TableCell className="font-medium">
+                                            {expense.description || expense.category.name}
+                                        </TableCell>
                                         <TableCell>
-                                            {expense.category ? (
-                                                <Badge variant="outline">{expense.category.name}</Badge>
+                                            <Badge variant="outline">{expense.category.name}</Badge>
+                                        </TableCell>
+                                        <TableCell>
+                                            {expense.tripExpenses.length > 0 ? (
+                                                <Link
+                                                    href={`/operations/trips/${expense.tripExpenses[0].trip.id}`}
+                                                    className="text-primary hover:underline"
+                                                >
+                                                    {expense.tripExpenses[0].trip.originCity} → {expense.tripExpenses[0].trip.destinationCity}
+                                                </Link>
                                             ) : (
                                                 <span className="text-muted-foreground">—</span>
                                             )}
-                                        </TableCell>
-                                        <TableCell>
-                                            <Link
-                                                href={`/operations/trips/${expense.trip.id}`}
-                                                className="text-primary hover:underline"
-                                            >
-                                                {expense.trip.origin} → {expense.trip.destination}
-                                            </Link>
                                         </TableCell>
                                         <TableCell>{format(expense.date, "MMM d, yyyy")}</TableCell>
                                         <TableCell className="text-right font-medium">

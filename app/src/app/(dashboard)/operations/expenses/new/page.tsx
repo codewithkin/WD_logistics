@@ -14,8 +14,8 @@ export default async function NewExpensePage({ searchParams }: NewExpensePagePro
     const [trips, categories] = await Promise.all([
         prisma.trip.findMany({
             where: { organizationId: session.organizationId },
-            select: { id: true, origin: true, destination: true },
-            orderBy: { startDate: "desc" },
+            select: { id: true, originCity: true, destinationCity: true },
+            orderBy: { scheduledDate: "desc" },
         }),
         prisma.expenseCategory.findMany({
             where: { organizationId: session.organizationId },
@@ -28,7 +28,7 @@ export default async function NewExpensePage({ searchParams }: NewExpensePagePro
         <div>
             <PageHeader
                 title="Add Expense"
-                description="Record a new trip expense"
+                description="Record a new expense"
                 backHref="/operations/expenses"
             />
             <ExpenseForm trips={trips} categories={categories} defaultTripId={params.tripId} />

@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Pencil, Truck, Calendar, Phone, Mail, MapPin, AlertTriangle, FileText } from "lucide-react";
 import { format } from "date-fns";
-import { DRIVER_STATUS_LABELS, DRIVER_STATUS_COLORS } from "@/lib/types";
+import { DRIVER_STATUS_LABELS, DRIVER_STATUS_COLORS, DriverStatus } from "@/lib/types";
 
 interface DriverDetailPageProps {
     params: Promise<{ id: string }>;
@@ -25,7 +25,7 @@ export default async function DriverDetailPage({ params }: DriverDetailPageProps
         include: {
             assignedTruck: true,
             trips: {
-                orderBy: { startDate: "desc" },
+                orderBy: { scheduledDate: "desc" },
                 take: 5,
                 include: {
                     truck: true,
@@ -68,8 +68,8 @@ export default async function DriverDetailPage({ params }: DriverDetailPageProps
                     <CardContent className="space-y-4">
                         <div className="flex items-center justify-between">
                             <span className="text-muted-foreground">Status</span>
-                            <Badge className={DRIVER_STATUS_COLORS[driver.status]}>
-                                {DRIVER_STATUS_LABELS[driver.status]}
+                            <Badge className={DRIVER_STATUS_COLORS[driver.status as DriverStatus]}>
+                                {DRIVER_STATUS_LABELS[driver.status as DriverStatus]}
                             </Badge>
                         </div>
                         <Separator />
@@ -149,7 +149,9 @@ export default async function DriverDetailPage({ params }: DriverDetailPageProps
                         <div className="flex items-center justify-between">
                             <span className="text-muted-foreground">Expiry Date</span>
                             <div className="flex items-center gap-2">
-                                <span className="font-medium">{format(driver.licenseExpiry, "PPP")}</span>
+                                <span className="font-medium">
+                                    {driver.licenseExpiry ? format(driver.licenseExpiry, "PPP") : "Not set"}
+                                </span>
                                 {isLicenseExpiringSoon && (
                                     <Badge variant="destructive" className="gap-1">
                                         <AlertTriangle className="h-3 w-3" />
@@ -164,30 +166,19 @@ export default async function DriverDetailPage({ params }: DriverDetailPageProps
                 <Card>
                     <CardHeader>
                         <CardTitle className="text-lg flex items-center gap-2">
-                            <AlertTriangle className="h-5 w-5" /> Emergency Contact
+                            <Phone className="h-5 w-5" /> Additional Information
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                        {driver.emergencyContact || driver.emergencyPhone ? (
-                            <>
-                                {driver.emergencyContact && (
-                                    <>
-                                        <div className="flex items-center justify-between">
-                                            <span className="text-muted-foreground">Name</span>
-                                            <span className="font-medium">{driver.emergencyContact}</span>
-                                        </div>
-                                        <Separator />
-                                    </>
-                                )}
-                                {driver.emergencyPhone && (
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-muted-foreground">Phone</span>
-                                        <span className="font-medium">{driver.emergencyPhone}</span>
-                                    </div>
-                                )}
-                            </>
+                        {driver.address ? (
+                            <div className="flex items-center justify-between">
+                                <span className="text-muted-foreground flex items-center gap-2">
+                                    <MapPin className="h-4 w-4" /> Address
+                                </span>
+                                <span className="font-medium">{driver.address}</span>
+                            </div>
                         ) : (
-                            <p className="text-muted-foreground">No emergency contact set</p>
+                            <p className="text-muted-foreground">No additional information available</p>
                         )}
                     </CardContent>
                 </Card>
@@ -228,10 +219,10 @@ export default async function DriverDetailPage({ params }: DriverDetailPageProps
                                             href={`/operations/trips/${trip.id}`}
                                             className="font-medium text-primary hover:underline"
                                         >
-                                            {trip.origin} → {trip.destination}
+                                            {trip.originCity} → {trip.destinationCity}
                                         </Link>
                                         <p className="text-sm text-muted-foreground">
-                                            {format(trip.startDate, "PPP")} • Truck: {trip.truck.registrationNo}
+                                            {format(trip.scheduledDate, "PPP")} • Truck: {trip.truck.registrationNo}
                                         </p>
                                     </div>
                                     <Badge variant="outline">{trip.status}</Badge>

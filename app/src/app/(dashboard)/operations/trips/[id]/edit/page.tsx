@@ -24,7 +24,7 @@ export default async function EditTripPage({ params }: EditTripPageProps) {
         prisma.truck.findMany({
             where: {
                 organizationId: session.organizationId,
-                OR: [{ status: "available" }, { id: trip.truckId }],
+                OR: [{ status: "active" }, { id: trip.truckId }],
             },
             select: { id: true, registrationNo: true },
             orderBy: { registrationNo: "asc" },
@@ -32,10 +32,10 @@ export default async function EditTripPage({ params }: EditTripPageProps) {
         prisma.driver.findMany({
             where: {
                 organizationId: session.organizationId,
-                OR: [{ status: "available" }, { id: trip.driverId }],
+                OR: [{ status: "active" }, { id: trip.driverId }],
             },
-            select: { id: true, name: true },
-            orderBy: { name: "asc" },
+            select: { id: true, firstName: true, lastName: true },
+            orderBy: { firstName: "asc" },
         }),
         prisma.customer.findMany({
             where: { organizationId: session.organizationId },
@@ -48,7 +48,7 @@ export default async function EditTripPage({ params }: EditTripPageProps) {
         <div>
             <PageHeader
                 title="Edit Trip"
-                description={`Update trip: ${trip.origin} → ${trip.destination}`}
+                description={`Update trip: ${trip.originCity} → ${trip.destinationCity}`}
                 backHref={`/operations/trips/${trip.id}`}
             />
             <TripForm trip={trip} trucks={trucks} drivers={drivers} customers={customers} />

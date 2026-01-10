@@ -5,34 +5,61 @@ import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 
 export async function createExpense(data: {
-  description: string;
+  description?: string;
   amount: number;
   date: Date;
-  tripId: string;
-  categoryId?: string | null;
+  categoryId: string;
+  tripId?: string;
+  vendor?: string;
+  reference?: string;
   receiptUrl?: string;
   notes?: string;
 }) {
   const session = await requireRole(["admin", "supervisor"]);
 
   try {
-    const trip = await prisma.trip.findFirst({
-      where: { id: data.tripId, organizationId: session.organizationId },
+    // Validate category exists
+    const category = await prisma.expenseCategory.findFirst({
+      where: { id: data.categoryId, organizationId: session.organizationId },
     });
 
-    if (!trip) {
-      return { success: false, error: "Trip not found" };
+    if (!category) {
+      return { success: false, error: "Category not found" };
     }
 
-    const expense = await prisma.tripExpense.create({
+    // If linking to a trip, validate it exists
+    if (data.tripId) {
+      const trip = await prisma.trip.findFirst({
+        where: { id: data.tripId, organizationId: session.organizationId },
+      });
+
+      if (!trip) {
+        return { success: false, error: "Trip not found" };
+      }
+    }
+
+    // Create expense with optional trip link
+    const expense = await prisma.expense.create({
       data: {
-        ...data,
         organizationId: session.organizationId,
+        categoryId: data.categoryId,
+        amount: data.amount,
+        description: data.description,
+        date: data.date,
+        vendor: data.vendor,
+        reference: data.reference,
+        receiptUrl: data.receiptUrl,
+        notes: data.notes,
+        tripExpenses: data.tripId ? {
+          create: { tripId: data.tripId }
+        } : undefined,
       },
     });
 
     revalidatePath("/operations/expenses");
-    revalidatePath(`/operations/trips/${data.tripId}`);
+    if (data.tripId) {
+      revalidatePath(`/operations/trips/${data.tripId}`);
+    }
     return { success: true, expense };
   } catch (error) {
     console.error("Failed to create expense:", error);
@@ -46,8 +73,10 @@ export async function updateExpense(
     description?: string;
     amount?: number;
     date?: Date;
+    categoryId?: string;
     tripId?: string;
-    categoryId?: string | null;
+    vendor?: string;
+    reference?: string;
     receiptUrl?: string;
     notes?: string;
   }
@@ -55,24 +84,50 @@ export async function updateExpense(
   const session = await requireRole(["admin", "supervisor"]);
 
   try {
-    const expense = await prisma.tripExpense.findFirst({
+    const expense = await prisma.expense.findFirst({
       where: { id, organizationId: session.organizationId },
+      include: { tripExpenses: true },
     });
 
     if (!expense) {
       return { success: false, error: "Expense not found" };
     }
 
-    const updatedExpense = await prisma.tripExpense.update({
+    // Update the expense
+    const updatedExpense = await prisma.expense.update({
       where: { id },
-      data,
+      data: {
+        categoryId: data.categoryId,
+        amount: data.amount,
+        description: data.description,
+        date: data.date,
+        vendor: data.vendor,
+        reference: data.reference,
+        receiptUrl: data.receiptUrl,
+        notes: data.notes,
+      },
     });
 
-    revalidatePath("/operations/expenses");
-    revalidatePath(`/operations/trips/${expense.tripId}`);
-    if (data.tripId && data.tripId !== expense.tripId) {
-      revalidatePath(`/operations/trips/${data.tripId}`);
+    // Handle trip link changes
+    const currentTripId = expense.tripExpenses[0]?.tripId;
+    if (data.tripId !== undefined && data.tripId !== currentTripId) {
+      // Remove existing trip link
+      if (currentTripId) {
+        await prisma.tripExpense.deleteMany({
+          where: { expenseId: id },
+        });
+        revalidatePath(`/operations/trips/${currentTripId}`);
+      }
+      // Add new trip link
+      if (data.tripId) {
+        await prisma.tripExpense.create({
+          data: { tripId: data.tripId, expenseId: id },
+        });
+        revalidatePath(`/operations/trips/${data.tripId}`);
+      }
     }
+
+    revalidatePath("/operations/expenses");
     return { success: true, expense: updatedExpense };
   } catch (error) {
     console.error("Failed to update expense:", error);
@@ -84,18 +139,22 @@ export async function deleteExpense(id: string) {
   const session = await requireRole(["admin"]);
 
   try {
-    const expense = await prisma.tripExpense.findFirst({
+    const expense = await prisma.expense.findFirst({
       where: { id, organizationId: session.organizationId },
+      include: { tripExpenses: true },
     });
 
     if (!expense) {
       return { success: false, error: "Expense not found" };
     }
 
-    await prisma.tripExpense.delete({ where: { id } });
+    // Cascade delete will handle tripExpenses
+    await prisma.expense.delete({ where: { id } });
 
     revalidatePath("/operations/expenses");
-    revalidatePath(`/operations/trips/${expense.tripId}`);
+    for (const te of expense.tripExpenses) {
+      revalidatePath(`/operations/trips/${te.tripId}`);
+    }
     return { success: true };
   } catch (error) {
     console.error("Failed to delete expense:", error);

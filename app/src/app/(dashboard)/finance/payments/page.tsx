@@ -9,7 +9,9 @@ export default async function PaymentsPage() {
     const { role, organizationId } = session;
 
     const payments = await prisma.payment.findMany({
-        where: { organizationId },
+        where: {
+            invoice: { organizationId }
+        },
         include: {
             invoice: {
                 include: {

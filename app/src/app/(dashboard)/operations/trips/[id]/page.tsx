@@ -19,7 +19,7 @@ import {
     Receipt,
 } from "lucide-react";
 import { format } from "date-fns";
-import { TRIP_STATUS_LABELS, TRIP_STATUS_COLORS } from "@/lib/types";
+import { TRIP_STATUS_LABELS, TRIP_STATUS_COLORS, TripStatus } from "@/lib/types";
 
 interface TripDetailPageProps {
     params: Promise<{ id: string }>;
@@ -36,12 +36,15 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
             truck: true,
             driver: true,
             customer: true,
-            expenses: {
+            tripExpenses: {
                 include: {
-                    category: true,
+                    expense: {
+                        include: {
+                            category: true,
+                        },
+                    },
                 },
             },
-            invoices: true,
         },
     });
 
@@ -50,14 +53,14 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
     }
 
     const canEdit = role === "admin" || role === "supervisor";
-    const totalExpenses = trip.expenses.reduce((sum, exp) => sum + exp.amount, 0);
+    const totalExpenses = trip.tripExpenses.reduce((sum, te) => sum + te.expense.amount, 0);
     const profit = trip.revenue - totalExpenses;
 
     return (
         <div>
             <PageHeader
-                title={`${trip.origin} → ${trip.destination}`}
-                description={`Trip on ${format(trip.startDate, "PPP")}`}
+                title={`${trip.originCity} → ${trip.destinationCity}`}
+                description={`Trip scheduled for ${format(trip.scheduledDate, "PPP")}`}
                 backHref="/operations/trips"
                 action={
                     canEdit
@@ -80,26 +83,35 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
                     <CardContent className="space-y-4">
                         <div className="flex items-center justify-between">
                             <span className="text-muted-foreground">Status</span>
-                            <Badge className={TRIP_STATUS_COLORS[trip.status]}>
-                                {TRIP_STATUS_LABELS[trip.status]}
+                            <Badge className={TRIP_STATUS_COLORS[trip.status as TripStatus]}>
+                                {TRIP_STATUS_LABELS[trip.status as TripStatus]}
                             </Badge>
                         </div>
                         <Separator />
                         <div className="flex items-center justify-between">
                             <span className="text-muted-foreground">Origin</span>
-                            <span className="font-medium">{trip.origin}</span>
+                            <span className="font-medium">{trip.originCity}</span>
                         </div>
                         <Separator />
                         <div className="flex items-center justify-between">
                             <span className="text-muted-foreground">Destination</span>
-                            <span className="font-medium">{trip.destination}</span>
+                            <span className="font-medium">{trip.destinationCity}</span>
                         </div>
-                        {trip.distance && (
+                        {trip.estimatedMileage && (
                             <>
                                 <Separator />
                                 <div className="flex items-center justify-between">
-                                    <span className="text-muted-foreground">Distance</span>
-                                    <span className="font-medium">{trip.distance.toLocaleString()} km</span>
+                                    <span className="text-muted-foreground">Estimated Mileage</span>
+                                    <span className="font-medium">{trip.estimatedMileage.toLocaleString()} km</span>
+                                </div>
+                            </>
+                        )}
+                        {trip.actualMileage && (
+                            <>
+                                <Separator />
+                                <div className="flex items-center justify-between">
+                                    <span className="text-muted-foreground">Actual Mileage</span>
+                                    <span className="font-medium">{trip.actualMileage.toLocaleString()} km</span>
                                 </div>
                             </>
                         )}
@@ -114,14 +126,23 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <div className="flex items-center justify-between">
-                            <span className="text-muted-foreground">Start Date</span>
-                            <span className="font-medium">{format(trip.startDate, "PPP")}</span>
+                            <span className="text-muted-foreground">Scheduled Date</span>
+                            <span className="font-medium">{format(trip.scheduledDate, "PPP")}</span>
                         </div>
+                        {trip.startDate && (
+                            <>
+                                <Separator />
+                                <div className="flex items-center justify-between">
+                                    <span className="text-muted-foreground">Start Date</span>
+                                    <span className="font-medium">{format(trip.startDate, "PPP")}</span>
+                                </div>
+                            </>
+                        )}
                         <Separator />
                         <div className="flex items-center justify-between">
                             <span className="text-muted-foreground">End Date</span>
                             <span className="font-medium">
-                                {trip.endDate ? format(trip.endDate, "PPP") : "In Progress"}
+                                {trip.endDate ? format(trip.endDate, "PPP") : "Not Completed"}
                             </span>
                         </div>
                     </CardContent>
@@ -152,7 +173,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
                                 href={`/fleet/drivers/${trip.driver.id}`}
                                 className="font-medium text-primary hover:underline"
                             >
-                                {trip.driver.name}
+                                {trip.driver.firstName} {trip.driver.lastName}
                             </Link>
                         </div>
                         {trip.customer && (
@@ -204,15 +225,15 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
                     </CardContent>
                 </Card>
 
-                {trip.cargoDescription && (
+                {trip.loadDescription && (
                     <Card>
                         <CardHeader>
                             <CardTitle className="text-lg flex items-center gap-2">
-                                <Package className="h-5 w-5" /> Cargo
+                                <Package className="h-5 w-5" /> Load Information
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <p className="text-muted-foreground">{trip.cargoDescription}</p>
+                            <p className="text-muted-foreground">{trip.loadDescription}</p>
                         </CardContent>
                     </Card>
                 )}
@@ -244,23 +265,23 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
                         )}
                     </CardHeader>
                     <CardContent>
-                        {trip.expenses.length === 0 ? (
+                        {trip.tripExpenses.length === 0 ? (
                             <p className="text-center text-muted-foreground py-4">No expenses recorded</p>
                         ) : (
                             <div className="space-y-3">
-                                {trip.expenses.map((expense) => (
+                                {trip.tripExpenses.map((te) => (
                                     <div
-                                        key={expense.id}
+                                        key={te.id}
                                         className="flex items-center justify-between border-b pb-3 last:border-0 last:pb-0"
                                     >
                                         <div>
-                                            <p className="font-medium">{expense.description}</p>
+                                            <p className="font-medium">{te.expense.description}</p>
                                             <p className="text-sm text-muted-foreground">
-                                                {expense.category?.name || "Uncategorized"} •{" "}
-                                                {format(expense.date, "MMM d, yyyy")}
+                                                {te.expense.category?.name || "Uncategorized"} •{" "}
+                                                {format(te.expense.date, "MMM d, yyyy")}
                                             </p>
                                         </div>
-                                        <span className="font-medium">${expense.amount.toLocaleString()}</span>
+                                        <span className="font-medium">${te.expense.amount.toLocaleString()}</span>
                                     </div>
                                 ))}
                             </div>
@@ -268,50 +289,28 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
                     </CardContent>
                 </Card>
 
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between">
-                        <CardTitle className="text-lg">Related Invoices</CardTitle>
-                        {canEdit && trip.customer && (
-                            <Button variant="outline" size="sm" asChild>
-                                <Link href={`/finance/invoices/new?tripId=${trip.id}`}>Create Invoice</Link>
-                            </Button>
-                        )}
-                    </CardHeader>
-                    <CardContent>
-                        {trip.invoices.length === 0 ? (
-                            <p className="text-center text-muted-foreground py-4">No invoices created</p>
-                        ) : (
-                            <div className="space-y-3">
-                                {trip.invoices.map((invoice) => (
-                                    <div
-                                        key={invoice.id}
-                                        className="flex items-center justify-between border-b pb-3 last:border-0 last:pb-0"
-                                    >
-                                        <div>
-                                            <Link
-                                                href={`/finance/invoices/${invoice.id}`}
-                                                className="font-medium text-primary hover:underline"
-                                            >
-                                                {invoice.invoiceNumber}
-                                            </Link>
-                                            <p className="text-sm text-muted-foreground">
-                                                {format(invoice.issueDate, "MMM d, yyyy")}
-                                            </p>
-                                        </div>
-                                        <div className="text-right">
-                                            <span className="font-medium">
-                                                ${invoice.totalAmount.toLocaleString()}
-                                            </span>
-                                            <Badge variant="outline" className="ml-2">
-                                                {invoice.status}
-                                            </Badge>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
+                {trip.customer && (
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between">
+                            <CardTitle className="text-lg">Customer Invoices</CardTitle>
+                            {canEdit && (
+                                <Button variant="outline" size="sm" asChild>
+                                    <Link href={`/finance/invoices/new?customerId=${trip.customerId}`}>Create Invoice</Link>
+                                </Button>
+                            )}
+                        </CardHeader>
+                        <CardContent>
+                            <p className="text-center text-muted-foreground py-4">
+                                <Link
+                                    href={`/customers/${trip.customer.id}`}
+                                    className="text-primary hover:underline"
+                                >
+                                    View customer invoices
+                                </Link>
+                            </p>
+                        </CardContent>
+                    </Card>
+                )}
             </div>
         </div>
     );

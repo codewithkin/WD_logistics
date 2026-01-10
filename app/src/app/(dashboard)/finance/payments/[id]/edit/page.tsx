@@ -13,11 +13,14 @@ export default async function EditPaymentPage({ params }: EditPaymentPageProps) 
     const session = await requireRole(["admin", "supervisor"]);
 
     const payment = await prisma.payment.findFirst({
-        where: { id, organizationId: session.organizationId },
+        where: {
+            id,
+            invoice: { organizationId: session.organizationId }
+        },
         include: {
             invoice: {
                 include: {
-                    customer: { select: { name: true } },
+                    customer: { select: { id: true, name: true } },
                     payments: { select: { amount: true } },
                 },
             },
@@ -28,14 +31,15 @@ export default async function EditPaymentPage({ params }: EditPaymentPageProps) 
         notFound();
     }
 
-    const totalPaid = payment.invoice.payments.reduce((sum, p) => sum + p.amount, 0);
+    const totalPaid = payment.invoice.payments.reduce((sum: number, p: { amount: number }) => sum + p.amount, 0);
 
     const invoices = [
         {
             id: payment.invoice.id,
             invoiceNumber: payment.invoice.invoiceNumber,
-            totalAmount: payment.invoice.totalAmount,
-            balance: payment.invoice.totalAmount - totalPaid + payment.amount, // Add back current payment
+            total: payment.invoice.total,
+            balance: payment.invoice.total - totalPaid + payment.amount, // Add back current payment
+            customerId: payment.invoice.customerId,
             customer: payment.invoice.customer,
         },
     ];

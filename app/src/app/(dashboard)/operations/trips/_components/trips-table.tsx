@@ -47,12 +47,14 @@ import { toast } from "sonner";
 
 interface Trip {
     id: string;
-    origin: string;
-    destination: string;
-    startDate: Date;
+    originCity: string;
+    destinationCity: string;
+    scheduledDate: Date;
+    startDate: Date | null;
     endDate: Date | null;
-    status: TripStatus;
-    distance: number | null;
+    status: string;
+    estimatedMileage: number;
+    actualMileage: number | null;
     revenue: number;
     truck: {
         id: string;
@@ -60,7 +62,8 @@ interface Trip {
     };
     driver: {
         id: string;
-        name: string;
+        firstName: string;
+        lastName: string;
     };
     customer: {
         id: string;
@@ -86,10 +89,10 @@ export function TripsTable({ trips, role }: TripsTableProps) {
 
     const filteredTrips = trips.filter((trip) => {
         const matchesSearch =
-            trip.origin.toLowerCase().includes(search.toLowerCase()) ||
-            trip.destination.toLowerCase().includes(search.toLowerCase()) ||
+            trip.originCity.toLowerCase().includes(search.toLowerCase()) ||
+            trip.destinationCity.toLowerCase().includes(search.toLowerCase()) ||
             trip.truck.registrationNo.toLowerCase().includes(search.toLowerCase()) ||
-            trip.driver.name.toLowerCase().includes(search.toLowerCase());
+            `${trip.driver.firstName} ${trip.driver.lastName}`.toLowerCase().includes(search.toLowerCase());
         const matchesStatus = statusFilter === "all" || trip.status === statusFilter;
         return matchesSearch && matchesStatus;
     });
@@ -182,13 +185,13 @@ export function TripsTable({ trips, role }: TripsTableProps) {
                                             <div className="flex items-center gap-2">
                                                 <MapPin className="h-4 w-4 text-muted-foreground shrink-0" />
                                                 <div>
-                                                    <p className="font-medium">{trip.origin}</p>
-                                                    <p className="text-sm text-muted-foreground">→ {trip.destination}</p>
+                                                    <p className="font-medium">{trip.originCity}</p>
+                                                    <p className="text-sm text-muted-foreground">→ {trip.destinationCity}</p>
                                                 </div>
                                             </div>
                                         </TableCell>
                                         <TableCell>
-                                            <p>{format(trip.startDate, "MMM d, yyyy")}</p>
+                                            <p>{format(trip.scheduledDate, "MMM d, yyyy")}</p>
                                             {trip.endDate && (
                                                 <p className="text-sm text-muted-foreground">
                                                     to {format(trip.endDate, "MMM d, yyyy")}
@@ -196,8 +199,8 @@ export function TripsTable({ trips, role }: TripsTableProps) {
                                             )}
                                         </TableCell>
                                         <TableCell>
-                                            <Badge className={TRIP_STATUS_COLORS[trip.status]}>
-                                                {TRIP_STATUS_LABELS[trip.status]}
+                                            <Badge className={TRIP_STATUS_COLORS[trip.status as TripStatus]}>
+                                                {TRIP_STATUS_LABELS[trip.status as TripStatus]}
                                             </Badge>
                                         </TableCell>
                                         <TableCell>
@@ -213,7 +216,7 @@ export function TripsTable({ trips, role }: TripsTableProps) {
                                                 href={`/fleet/drivers/${trip.driver.id}`}
                                                 className="text-primary hover:underline"
                                             >
-                                                {trip.driver.name}
+                                                {trip.driver.firstName} {trip.driver.lastName}
                                             </Link>
                                         </TableCell>
                                         <TableCell>

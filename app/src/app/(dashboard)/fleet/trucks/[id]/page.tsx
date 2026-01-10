@@ -7,9 +7,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Pencil, User, Calendar, Gauge, Shield, FileText } from "lucide-react";
+import { Pencil, User, Gauge, FileText } from "lucide-react";
 import { format } from "date-fns";
-import { TRUCK_STATUS_LABELS, TRUCK_STATUS_COLORS } from "@/lib/types";
+import { TRUCK_STATUS_LABELS, TRUCK_STATUS_COLORS, TruckStatus } from "@/lib/types";
 
 interface TruckDetailPageProps {
     params: Promise<{ id: string }>;
@@ -25,7 +25,7 @@ export default async function TruckDetailPage({ params }: TruckDetailPageProps) 
         include: {
             assignedDriver: true,
             trips: {
-                orderBy: { startDate: "desc" },
+                orderBy: { scheduledDate: "desc" },
                 take: 5,
                 include: {
                     driver: true,
@@ -65,8 +65,8 @@ export default async function TruckDetailPage({ params }: TruckDetailPageProps) 
                     <CardContent className="space-y-4">
                         <div className="flex items-center justify-between">
                             <span className="text-muted-foreground">Status</span>
-                            <Badge className={TRUCK_STATUS_COLORS[truck.status]}>
-                                {TRUCK_STATUS_LABELS[truck.status]}
+                            <Badge className={TRUCK_STATUS_COLORS[truck.status as TruckStatus]}>
+                                {TRUCK_STATUS_LABELS[truck.status as TruckStatus]}
                             </Badge>
                         </div>
                         <Separator />
@@ -89,10 +89,28 @@ export default async function TruckDetailPage({ params }: TruckDetailPageProps) 
                         <Separator />
                         <div className="flex items-center justify-between">
                             <span className="text-muted-foreground flex items-center gap-2">
-                                <Gauge className="h-4 w-4" /> Mileage
+                                <Gauge className="h-4 w-4" /> Current Mileage
                             </span>
-                            <span className="font-medium">{truck.mileage.toLocaleString()} km</span>
+                            <span className="font-medium">{truck.currentMileage.toLocaleString()} km</span>
                         </div>
+                        {truck.fuelType && (
+                            <>
+                                <Separator />
+                                <div className="flex items-center justify-between">
+                                    <span className="text-muted-foreground">Fuel Type</span>
+                                    <span className="font-medium">{truck.fuelType}</span>
+                                </div>
+                            </>
+                        )}
+                        {truck.tankCapacity && (
+                            <>
+                                <Separator />
+                                <div className="flex items-center justify-between">
+                                    <span className="text-muted-foreground">Tank Capacity</span>
+                                    <span className="font-medium">{truck.tankCapacity} L</span>
+                                </div>
+                            </>
+                        )}
                     </CardContent>
                 </Card>
 
@@ -111,7 +129,7 @@ export default async function TruckDetailPage({ params }: TruckDetailPageProps) 
                                         href={`/fleet/drivers/${truck.assignedDriver.id}`}
                                         className="font-medium text-primary hover:underline"
                                     >
-                                        {truck.assignedDriver.name}
+                                        {truck.assignedDriver.firstName} {truck.assignedDriver.lastName}
                                     </Link>
                                     <p className="text-sm text-muted-foreground">
                                         {truck.assignedDriver.phone}
@@ -127,38 +145,28 @@ export default async function TruckDetailPage({ params }: TruckDetailPageProps) 
                 <Card>
                     <CardHeader>
                         <CardTitle className="text-lg flex items-center gap-2">
-                            <Calendar className="h-5 w-5" /> Service & Insurance
+                            <FileText className="h-5 w-5" /> Vehicle Details
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                        <div className="flex items-center justify-between">
-                            <span className="text-muted-foreground">Last Service</span>
-                            <span className="font-medium">
-                                {truck.lastServiceDate
-                                    ? format(truck.lastServiceDate, "PPP")
-                                    : "Not recorded"}
-                            </span>
-                        </div>
-                        <Separator />
-                        <div className="flex items-center justify-between">
-                            <span className="text-muted-foreground">Next Service</span>
-                            <span className="font-medium">
-                                {truck.nextServiceDate
-                                    ? format(truck.nextServiceDate, "PPP")
-                                    : "Not scheduled"}
-                            </span>
-                        </div>
-                        <Separator />
-                        <div className="flex items-center justify-between">
-                            <span className="text-muted-foreground flex items-center gap-2">
-                                <Shield className="h-4 w-4" /> Insurance Expiry
-                            </span>
-                            <span className="font-medium">
-                                {truck.insuranceExpiry
-                                    ? format(truck.insuranceExpiry, "PPP")
-                                    : "Not recorded"}
-                            </span>
-                        </div>
+                        {truck.chassisNumber && (
+                            <>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-muted-foreground">Chassis Number</span>
+                                    <span className="font-medium">{truck.chassisNumber}</span>
+                                </div>
+                                <Separator />
+                            </>
+                        )}
+                        {truck.engineNumber && (
+                            <div className="flex items-center justify-between">
+                                <span className="text-muted-foreground">Engine Number</span>
+                                <span className="font-medium">{truck.engineNumber}</span>
+                            </div>
+                        )}
+                        {!truck.chassisNumber && !truck.engineNumber && (
+                            <p className="text-muted-foreground">No additional vehicle details recorded</p>
+                        )}
                     </CardContent>
                 </Card>
 
@@ -198,10 +206,10 @@ export default async function TruckDetailPage({ params }: TruckDetailPageProps) 
                                             href={`/operations/trips/${trip.id}`}
                                             className="font-medium text-primary hover:underline"
                                         >
-                                            {trip.origin} → {trip.destination}
+                                            {trip.originCity} → {trip.destinationCity}
                                         </Link>
                                         <p className="text-sm text-muted-foreground">
-                                            {format(trip.startDate, "PPP")} • Driver: {trip.driver.name}
+                                            {format(trip.scheduledDate, "PPP")} • Driver: {trip.driver.firstName} {trip.driver.lastName}
                                         </p>
                                     </div>
                                     <Badge variant="outline">{trip.status}</Badge>

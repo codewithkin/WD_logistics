@@ -10,11 +10,6 @@ export default async function EmployeesPage() {
 
     const employees = await prisma.employee.findMany({
         where: { organizationId },
-        include: {
-            driver: {
-                select: { id: true, name: true },
-            },
-        },
         orderBy: { firstName: "asc" },
     });
 
