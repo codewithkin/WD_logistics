@@ -35,7 +35,7 @@ export default async function UsersPage() {
                     icon: Plus,
                 }}
             />
-            <UsersTable members={members} currentUserId={session.userId} />
+            <UsersTable members={members} currentUserId={session.user.id} />
         </div>
     );
 }

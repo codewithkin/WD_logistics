@@ -18,7 +18,7 @@ export async function updateMemberRole(memberId: string, role: Role) {
     }
 
     // Prevent changing own role
-    if (member.userId === session.userId) {
+    if (member.userId === session.user.id) {
       return { success: false, error: "Cannot change your own role" };
     }
 
@@ -48,7 +48,7 @@ export async function removeMember(memberId: string) {
     }
 
     // Prevent removing self
-    if (member.userId === session.userId) {
+    if (member.userId === session.user.id) {
       return { success: false, error: "Cannot remove yourself" };
     }
 
