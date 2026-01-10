@@ -33,16 +33,25 @@ import { TruckStatus, TRUCK_STATUS_LABELS } from "@/lib/types";
 import { createTruck, updateTruck } from "../actions";
 import { toast } from "sonner";
 
+// Helper for Zod 4 compatibility with react-hook-form
+const numericString = (schema: z.ZodNumber) =>
+    z.union([z.string(), z.number()]).pipe(z.coerce.number()).pipe(schema);
+
+const optionalNumericString = (schema: z.ZodNumber) =>
+    z.union([z.string(), z.number(), z.undefined()]).pipe(z.coerce.number()).pipe(schema).optional();
+
 const truckSchema = z.object({
     registrationNo: z.string().min(1, "Registration number is required"),
     make: z.string().min(1, "Make is required"),
     model: z.string().min(1, "Model is required"),
-    year: z.coerce.number().min(1990).max(new Date().getFullYear() + 1),
-    status: z.enum(["available", "in_transit", "maintenance", "out_of_service"]),
-    mileage: z.coerce.number().min(0),
-    lastServiceDate: z.date().optional().nullable(),
-    nextServiceDate: z.date().optional().nullable(),
-    insuranceExpiry: z.date().optional().nullable(),
+    year: numericString(z.number().min(1990).max(new Date().getFullYear() + 1)),
+    chassisNumber: z.string().optional(),
+    engineNumber: z.string().optional(),
+    status: z.enum(["active", "in_service", "in_repair", "inactive", "decommissioned"]),
+    currentMileage: numericString(z.number().min(0)),
+    fuelType: z.string().optional(),
+    tankCapacity: optionalNumericString(z.number().min(0)),
+    image: z.string().optional(),
     notes: z.string().optional(),
 });
 
@@ -55,11 +64,13 @@ interface TruckFormProps {
         make: string;
         model: string;
         year: number;
-        status: TruckStatus;
-        mileage: number;
-        lastServiceDate: Date | null;
-        nextServiceDate: Date | null;
-        insuranceExpiry: Date | null;
+        chassisNumber: string | null;
+        engineNumber: string | null;
+        status: string;
+        currentMileage: number;
+        fuelType: string | null;
+        tankCapacity: number | null;
+        image: string | null;
         notes: string | null;
     };
 }
@@ -70,17 +81,20 @@ export function TruckForm({ truck }: TruckFormProps) {
     const isEditing = !!truck;
 
     const form = useForm<TruckFormData>({
-        resolver: zodResolver(truckSchema),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        resolver: zodResolver(truckSchema) as any,
         defaultValues: {
             registrationNo: truck?.registrationNo ?? "",
             make: truck?.make ?? "",
             model: truck?.model ?? "",
             year: truck?.year ?? new Date().getFullYear(),
-            status: truck?.status ?? "available",
-            mileage: truck?.mileage ?? 0,
-            lastServiceDate: truck?.lastServiceDate ?? null,
-            nextServiceDate: truck?.nextServiceDate ?? null,
-            insuranceExpiry: truck?.insuranceExpiry ?? null,
+            chassisNumber: truck?.chassisNumber ?? "",
+            engineNumber: truck?.engineNumber ?? "",
+            status: (truck?.status as TruckFormData["status"]) ?? "active",
+            currentMileage: truck?.currentMileage ?? 0,
+            fuelType: truck?.fuelType ?? "",
+            tankCapacity: truck?.tankCapacity ?? undefined,
+            image: truck?.image ?? "",
             notes: truck?.notes ?? "",
         },
     });
@@ -192,125 +206,101 @@ export function TruckForm({ truck }: TruckFormProps) {
                             />
                         </div>
 
-                        <FormField
-                            control={form.control}
-                            name="mileage"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Mileage (km)</FormLabel>
-                                    <FormControl>
-                                        <Input type="number" {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-
-                        <div className="grid gap-4 md:grid-cols-3">
+                        <div className="grid gap-4 md:grid-cols-2">
                             <FormField
                                 control={form.control}
-                                name="lastServiceDate"
+                                name="chassisNumber"
                                 render={({ field }) => (
-                                    <FormItem className="flex flex-col">
-                                        <FormLabel>Last Service Date</FormLabel>
-                                        <Popover>
-                                            <PopoverTrigger asChild>
-                                                <FormControl>
-                                                    <Button
-                                                        variant="outline"
-                                                        className={cn(
-                                                            "w-full pl-3 text-left font-normal",
-                                                            !field.value && "text-muted-foreground"
-                                                        )}
-                                                    >
-                                                        {field.value ? format(field.value, "PPP") : "Pick a date"}
-                                                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                                    </Button>
-                                                </FormControl>
-                                            </PopoverTrigger>
-                                            <PopoverContent className="w-auto p-0" align="start">
-                                                <Calendar
-                                                    mode="single"
-                                                    selected={field.value ?? undefined}
-                                                    onSelect={field.onChange}
-                                                    disabled={(date) => date > new Date()}
-                                                    initialFocus
-                                                />
-                                            </PopoverContent>
-                                        </Popover>
+                                    <FormItem>
+                                        <FormLabel>Chassis Number</FormLabel>
+                                        <FormControl>
+                                            <Input placeholder="Chassis/VIN number" {...field} />
+                                        </FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}
                             />
                             <FormField
                                 control={form.control}
-                                name="nextServiceDate"
+                                name="engineNumber"
                                 render={({ field }) => (
-                                    <FormItem className="flex flex-col">
-                                        <FormLabel>Next Service Date</FormLabel>
-                                        <Popover>
-                                            <PopoverTrigger asChild>
-                                                <FormControl>
-                                                    <Button
-                                                        variant="outline"
-                                                        className={cn(
-                                                            "w-full pl-3 text-left font-normal",
-                                                            !field.value && "text-muted-foreground"
-                                                        )}
-                                                    >
-                                                        {field.value ? format(field.value, "PPP") : "Pick a date"}
-                                                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                                    </Button>
-                                                </FormControl>
-                                            </PopoverTrigger>
-                                            <PopoverContent className="w-auto p-0" align="start">
-                                                <Calendar
-                                                    mode="single"
-                                                    selected={field.value ?? undefined}
-                                                    onSelect={field.onChange}
-                                                    initialFocus
-                                                />
-                                            </PopoverContent>
-                                        </Popover>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                            <FormField
-                                control={form.control}
-                                name="insuranceExpiry"
-                                render={({ field }) => (
-                                    <FormItem className="flex flex-col">
-                                        <FormLabel>Insurance Expiry</FormLabel>
-                                        <Popover>
-                                            <PopoverTrigger asChild>
-                                                <FormControl>
-                                                    <Button
-                                                        variant="outline"
-                                                        className={cn(
-                                                            "w-full pl-3 text-left font-normal",
-                                                            !field.value && "text-muted-foreground"
-                                                        )}
-                                                    >
-                                                        {field.value ? format(field.value, "PPP") : "Pick a date"}
-                                                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                                    </Button>
-                                                </FormControl>
-                                            </PopoverTrigger>
-                                            <PopoverContent className="w-auto p-0" align="start">
-                                                <Calendar
-                                                    mode="single"
-                                                    selected={field.value ?? undefined}
-                                                    onSelect={field.onChange}
-                                                    initialFocus
-                                                />
-                                            </PopoverContent>
-                                        </Popover>
+                                    <FormItem>
+                                        <FormLabel>Engine Number</FormLabel>
+                                        <FormControl>
+                                            <Input placeholder="Engine number" {...field} />
+                                        </FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}
                             />
                         </div>
+
+                        <div className="grid gap-4 md:grid-cols-3">
+                            <FormField
+                                control={form.control}
+                                name="currentMileage"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Current Mileage (km)</FormLabel>
+                                        <FormControl>
+                                            <Input type="number" {...field} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
+                                name="fuelType"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Fuel Type</FormLabel>
+                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                            <FormControl>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select fuel type" />
+                                                </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                <SelectItem value="diesel">Diesel</SelectItem>
+                                                <SelectItem value="petrol">Petrol</SelectItem>
+                                                <SelectItem value="electric">Electric</SelectItem>
+                                                <SelectItem value="hybrid">Hybrid</SelectItem>
+                                                <SelectItem value="cng">CNG</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
+                                name="tankCapacity"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Tank Capacity (L)</FormLabel>
+                                        <FormControl>
+                                            <Input type="number" step="0.1" {...field} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        </div>
+
+                        <FormField
+                            control={form.control}
+                            name="image"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Image URL</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="https://..." {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
 
                         <FormField
                             control={form.control}

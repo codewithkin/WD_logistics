@@ -54,11 +54,7 @@ interface Employee {
     position: string;
     department: string | null;
     status: string;
-    hireDate: Date;
-    driver: {
-        id: string;
-        name: string;
-    } | null;
+    startDate: Date;
 }
 
 interface EmployeesTableProps {
@@ -174,15 +170,6 @@ export function EmployeesTable({ employees, role }: EmployeesTableProps) {
                                                     <p className="font-medium">
                                                         {employee.firstName} {employee.lastName}
                                                     </p>
-                                                    {employee.driver && (
-                                                        <Link
-                                                            href={`/fleet/drivers/${employee.driver.id}`}
-                                                            className="text-xs text-primary hover:underline flex items-center gap-1"
-                                                        >
-                                                            <Truck className="h-3 w-3" />
-                                                            Driver Profile
-                                                        </Link>
-                                                    )}
                                                 </div>
                                             </div>
                                         </TableCell>
@@ -200,7 +187,7 @@ export function EmployeesTable({ employees, role }: EmployeesTableProps) {
                                                 )}
                                             </div>
                                         </TableCell>
-                                        <TableCell>{format(employee.hireDate, "MMM d, yyyy")}</TableCell>
+                                        <TableCell>{format(employee.startDate, "MMM d, yyyy")}</TableCell>
                                         <TableCell>
                                             <Badge variant={statusVariants[employee.status] || "secondary"}>
                                                 {EMPLOYEE_STATUS_LABELS[
