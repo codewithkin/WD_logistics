@@ -1,5 +1,5 @@
 import { PrismaClient } from "../src/generated/prisma/client";
-import { hash } from "better-auth/crypto";
+import { hashPassword } from "better-auth/crypto";
 
 const prisma = new PrismaClient({
   accelerateUrl: process.env.DATABASE_URL!,
@@ -40,7 +40,7 @@ async function main() {
   console.log("✅ Organization created:", organization.name);
 
   // Hash the password
-  const hashedPassword = await hash("Admin@123");
+  const hashedPassword = await hashPassword("Admin@123");
 
   // Create admin user
   const adminUser = await prisma.user.create({
