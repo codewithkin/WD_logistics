@@ -3,6 +3,7 @@ import { requireAuth } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/layout/page-header";
 import { SettingsForm } from "./_components/settings-form";
+import { WhatsAppStatus } from "@/components/settings/whatsapp-status";
 
 export default async function SettingsPage() {
     const session = await requireAuth();
@@ -36,19 +37,22 @@ export default async function SettingsPage() {
                 title="Settings"
                 description="Manage organization settings and preferences"
             />
-            <SettingsForm
-                organization={{
-                    id: organization.id,
-                    name: organization.name,
-                    slug: organization.slug,
-                    logo: organization.logo,
-                    address: metadata.address || "",
-                    phone: metadata.phone || "",
-                    email: metadata.email || "",
-                    currency: metadata.currency || "USD",
-                    timezone: metadata.timezone || "UTC",
-                }}
-            />
+            <div className="space-y-6">
+                <SettingsForm
+                    organization={{
+                        id: organization.id,
+                        name: organization.name,
+                        slug: organization.slug,
+                        logo: organization.logo,
+                        address: metadata.address || "",
+                        phone: metadata.phone || "",
+                        email: metadata.email || "",
+                        currency: metadata.currency || "USD",
+                        timezone: metadata.timezone || "UTC",
+                    }}
+                />
+                <WhatsAppStatus />
+            </div>
         </div>
     );
 }
