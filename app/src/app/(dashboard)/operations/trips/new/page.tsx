@@ -8,17 +8,17 @@ export default async function NewTripPage() {
 
     const [trucks, drivers, customers] = await Promise.all([
         prisma.truck.findMany({
-            where: { organizationId: session.organizationId, status: "available" },
+            where: { organizationId: session.organizationId, status: "active" },
             select: { id: true, registrationNo: true },
             orderBy: { registrationNo: "asc" },
         }),
         prisma.driver.findMany({
-            where: { organizationId: session.organizationId, status: "available" },
-            select: { id: true, name: true },
-            orderBy: { name: "asc" },
+            where: { organizationId: session.organizationId, status: "active" },
+            select: { id: true, firstName: true, lastName: true },
+            orderBy: { firstName: "asc" },
         }),
         prisma.customer.findMany({
-            where: { organizationId: session.organizationId, isActive: true },
+            where: { organizationId: session.organizationId, status: "active" },
             select: { id: true, name: true },
             orderBy: { name: "asc" },
         }),

@@ -33,9 +33,9 @@ export default async function ReportsPage() {
         activeDrivers,
     ] = await Promise.all([
         prisma.truck.count({ where: { organizationId } }),
-        prisma.truck.count({ where: { organizationId, status: "available" } }),
+        prisma.truck.count({ where: { organizationId, status: "active" } }),
         prisma.driver.count({ where: { organizationId } }),
-        prisma.driver.count({ where: { organizationId, status: "available" } }),
+        prisma.driver.count({ where: { organizationId, status: "active" } }),
     ]);
 
     // Trip Statistics
@@ -48,13 +48,13 @@ export default async function ReportsPage() {
         prisma.trip.count({
             where: {
                 organizationId,
-                startDate: { gte: thisMonthStart, lte: thisMonthEnd },
+                scheduledDate: { gte: thisMonthStart, lte: thisMonthEnd },
             },
         }),
         prisma.trip.count({
             where: {
                 organizationId,
-                startDate: { gte: lastMonthStart, lte: lastMonthEnd },
+                scheduledDate: { gte: lastMonthStart, lte: lastMonthEnd },
             },
         }),
         prisma.trip.count({
@@ -79,25 +79,25 @@ export default async function ReportsPage() {
                 organizationId,
                 issueDate: { gte: thisMonthStart, lte: thisMonthEnd },
             },
-            _sum: { totalAmount: true },
+            _sum: { total: true },
         }),
         prisma.invoice.aggregate({
             where: {
                 organizationId,
                 issueDate: { gte: lastMonthStart, lte: lastMonthEnd },
             },
-            _sum: { totalAmount: true },
+            _sum: { total: true },
         }),
         prisma.payment.aggregate({
             where: {
-                organizationId,
+                invoice: { organizationId },
                 paymentDate: { gte: thisMonthStart, lte: thisMonthEnd },
             },
             _sum: { amount: true },
         }),
         prisma.payment.aggregate({
             where: {
-                organizationId,
+                invoice: { organizationId },
                 paymentDate: { gte: lastMonthStart, lte: lastMonthEnd },
             },
             _sum: { amount: true },
@@ -140,7 +140,7 @@ export default async function ReportsPage() {
                 where: {
                     issueDate: { gte: thisMonthStart, lte: thisMonthEnd },
                 },
-                select: { totalAmount: true },
+                select: { total: true },
             },
         },
         take: 10,
@@ -149,7 +149,7 @@ export default async function ReportsPage() {
     const topCustomersByRevenue = topCustomers
         .map((customer) => ({
             ...customer,
-            revenue: customer.invoices.reduce((sum, inv) => sum + inv.totalAmount, 0),
+            revenue: customer.invoices.reduce((sum, inv) => sum + inv.total, 0),
         }))
         .filter((c) => c.revenue > 0)
         .sort((a, b) => b.revenue - a.revenue)
@@ -184,16 +184,16 @@ export default async function ReportsPage() {
         return Math.round(((current - previous) / previous) * 100);
     };
 
-    const thisMonthInvoiceTotal = thisMonthInvoices._sum.totalAmount || 0;
-    const lastMonthInvoiceTotal = lastMonthInvoices._sum.totalAmount || 0;
+    const thisMonthInvoiceTotal = thisMonthInvoices._sum?.total || 0;
+    const lastMonthInvoiceTotal = lastMonthInvoices._sum?.total || 0;
     const invoiceChange = calcChange(thisMonthInvoiceTotal, lastMonthInvoiceTotal);
 
-    const thisMonthPaymentTotal = thisMonthPayments._sum.amount || 0;
-    const lastMonthPaymentTotal = lastMonthPayments._sum.amount || 0;
+    const thisMonthPaymentTotal = thisMonthPayments._sum?.amount || 0;
+    const lastMonthPaymentTotal = lastMonthPayments._sum?.amount || 0;
     const paymentChange = calcChange(thisMonthPaymentTotal, lastMonthPaymentTotal);
 
-    const thisMonthExpenseTotal = thisMonthExpenses._sum.amount || 0;
-    const lastMonthExpenseTotal = lastMonthExpenses._sum.amount || 0;
+    const thisMonthExpenseTotal = thisMonthExpenses._sum?.amount || 0;
+    const lastMonthExpenseTotal = lastMonthExpenses._sum?.amount || 0;
     const expenseChange = calcChange(thisMonthExpenseTotal, lastMonthExpenseTotal);
 
     const tripChange = calcChange(thisMonthTrips, lastMonthTrips);
@@ -373,8 +373,8 @@ export default async function ReportsPage() {
                             <CardContent>
                                 <div
                                     className={`text-3xl font-bold ${thisMonthPaymentTotal - thisMonthExpenseTotal >= 0
-                                            ? "text-green-600"
-                                            : "text-red-600"
+                                        ? "text-green-600"
+                                        : "text-red-600"
                                         }`}
                                 >
                                     ${(thisMonthPaymentTotal - thisMonthExpenseTotal).toLocaleString()}
@@ -397,7 +397,7 @@ export default async function ReportsPage() {
                                     {outstandingInvoices
                                         .reduce((sum, inv) => {
                                             const paid = inv.payments.reduce((p, pay) => p + pay.amount, 0);
-                                            return sum + (inv.totalAmount - paid);
+                                            return sum + (inv.total - paid);
                                         }, 0)
                                         .toLocaleString()}
                                 </div>
@@ -438,7 +438,7 @@ export default async function ReportsPage() {
                                 <div className="space-y-3">
                                     {outstandingInvoices.map((invoice) => {
                                         const paid = invoice.payments.reduce((p, pay) => p + pay.amount, 0);
-                                        const balance = invoice.totalAmount - paid;
+                                        const balance = invoice.total - paid;
                                         const isOverdue = invoice.dueDate < now;
 
                                         return (

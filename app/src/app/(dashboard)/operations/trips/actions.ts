@@ -6,17 +6,29 @@ import { requireAuth, requireRole } from "@/lib/session";
 import { TripStatus } from "@/lib/types";
 
 export async function createTrip(data: {
-  origin: string;
-  destination: string;
-  startDate: Date;
-  endDate?: Date | null;
+  originCity: string;
+  originAddress?: string;
+  originLat?: number | null;
+  originLng?: number | null;
+  destinationCity: string;
+  destinationAddress?: string;
+  destinationLat?: number | null;
+  destinationLng?: number | null;
+  loadDescription?: string;
+  loadWeight?: number | null;
+  loadUnits?: number | null;
+  estimatedMileage: number;
+  actualMileage?: number | null;
+  startOdometer?: number | null;
+  endOdometer?: number | null;
+  revenue: number;
   status: TripStatus;
+  scheduledDate: Date;
+  startDate?: Date | null;
+  endDate?: Date | null;
   truckId: string;
   driverId: string;
   customerId?: string | null;
-  distance?: number | null;
-  revenue: number;
-  cargoDescription?: string;
   notes?: string;
 }) {
   const session = await requireRole(["admin", "supervisor"]);
@@ -24,7 +36,30 @@ export async function createTrip(data: {
   try {
     const trip = await prisma.trip.create({
       data: {
-        ...data,
+        originCity: data.originCity,
+        originAddress: data.originAddress,
+        originLat: data.originLat,
+        originLng: data.originLng,
+        destinationCity: data.destinationCity,
+        destinationAddress: data.destinationAddress,
+        destinationLat: data.destinationLat,
+        destinationLng: data.destinationLng,
+        loadDescription: data.loadDescription,
+        loadWeight: data.loadWeight,
+        loadUnits: data.loadUnits,
+        estimatedMileage: data.estimatedMileage,
+        actualMileage: data.actualMileage,
+        startOdometer: data.startOdometer,
+        endOdometer: data.endOdometer,
+        revenue: data.revenue,
+        status: data.status,
+        scheduledDate: data.scheduledDate,
+        startDate: data.startDate,
+        endDate: data.endDate,
+        truckId: data.truckId,
+        driverId: data.driverId,
+        customerId: data.customerId,
+        notes: data.notes,
         organizationId: session.organizationId,
       },
     });
@@ -33,11 +68,11 @@ export async function createTrip(data: {
     if (data.status === "in_progress") {
       await prisma.driver.update({
         where: { id: data.driverId },
-        data: { status: "on_trip" },
+        data: { status: "active" },
       });
       await prisma.truck.update({
         where: { id: data.truckId },
-        data: { status: "in_transit" },
+        data: { status: "in_service" },
       });
     }
 
@@ -54,17 +89,29 @@ export async function createTrip(data: {
 export async function updateTrip(
   id: string,
   data: {
-    origin?: string;
-    destination?: string;
-    startDate?: Date;
-    endDate?: Date | null;
+    originCity?: string;
+    originAddress?: string;
+    originLat?: number | null;
+    originLng?: number | null;
+    destinationCity?: string;
+    destinationAddress?: string;
+    destinationLat?: number | null;
+    destinationLng?: number | null;
+    loadDescription?: string;
+    loadWeight?: number | null;
+    loadUnits?: number | null;
+    estimatedMileage?: number;
+    actualMileage?: number | null;
+    startOdometer?: number | null;
+    endOdometer?: number | null;
+    revenue?: number;
     status?: TripStatus;
+    scheduledDate?: Date;
+    startDate?: Date | null;
+    endDate?: Date | null;
     truckId?: string;
     driverId?: string;
     customerId?: string | null;
-    distance?: number | null;
-    revenue?: number;
-    cargoDescription?: string;
     notes?: string;
   }
 ) {
@@ -89,20 +136,20 @@ export async function updateTrip(
       if (data.status === "in_progress") {
         await prisma.driver.update({
           where: { id: data.driverId || trip.driverId },
-          data: { status: "on_trip" },
+          data: { status: "active" },
         });
         await prisma.truck.update({
           where: { id: data.truckId || trip.truckId },
-          data: { status: "in_transit" },
+          data: { status: "in_service" },
         });
       } else if (data.status === "completed" || data.status === "cancelled") {
         await prisma.driver.update({
           where: { id: data.driverId || trip.driverId },
-          data: { status: "available" },
+          data: { status: "active" },
         });
         await prisma.truck.update({
           where: { id: data.truckId || trip.truckId },
-          data: { status: "available" },
+          data: { status: "active" },
         });
       }
     }
@@ -126,7 +173,7 @@ export async function deleteTrip(id: string) {
       where: { id, organizationId: session.organizationId },
       include: {
         _count: {
-          select: { expenses: true, invoices: true },
+          select: { tripExpenses: true },
         },
       },
     });
@@ -135,10 +182,10 @@ export async function deleteTrip(id: string) {
       return { success: false, error: "Trip not found" };
     }
 
-    if (trip._count.expenses > 0 || trip._count.invoices > 0) {
+    if (trip._count.tripExpenses > 0) {
       return {
         success: false,
-        error: "Cannot delete trip with associated expenses or invoices",
+        error: "Cannot delete trip with associated expenses",
       };
     }
 
@@ -169,7 +216,6 @@ export async function requestEditTrip(tripId: string) {
         entityType: "trip",
         entityId: tripId,
         status: "pending",
-        organizationId: session.organizationId,
       },
     });
 
@@ -181,10 +227,11 @@ export async function requestEditTrip(tripId: string) {
       data: {
         entityType: "trip",
         entityId: tripId,
-        description: `Request to edit trip: ${trip.origin} → ${trip.destination}`,
+        reason: `Request to edit trip: ${trip.originCity} → ${trip.destinationCity}`,
+        originalData: trip,
+        proposedData: {},
         status: "pending",
         requestedById: session.user.id,
-        organizationId: session.organizationId,
       },
     });
 

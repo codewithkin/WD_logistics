@@ -25,12 +25,12 @@ export default async function AllocateInventoryPage({
     const [trucks, employees] = await Promise.all([
         prisma.truck.findMany({
             where: { organizationId: session.organizationId },
-            select: { id: true, plateNumber: true },
-            orderBy: { plateNumber: "asc" },
+            select: { id: true, registrationNo: true },
+            orderBy: { registrationNo: "asc" },
         }),
         prisma.employee.findMany({
             where: { organizationId: session.organizationId },
-            select: { id: true, firstName: true, lastName: true, role: true },
+            select: { id: true, firstName: true, lastName: true, position: true },
             orderBy: { firstName: "asc" },
         }),
     ]);
