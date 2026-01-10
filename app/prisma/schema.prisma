@@ -318,8 +318,12 @@ model Trip {
   // Route Information
   originCity         String
   originAddress      String?
+  originLat          Float?
+  originLng          Float?
   destinationCity    String
   destinationAddress String?
+  destinationLat     Float?
+  destinationLng     Float?
 
   // Load Information
   loadDescription    String?
