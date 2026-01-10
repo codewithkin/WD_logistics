@@ -7,8 +7,13 @@ const globalForPrisma = globalThis as unknown as {
 export const prisma =
   globalForPrisma.prisma ??
   new PrismaClient({
-    accelerateUrl: process.env.DATABASE_URL!,
+    // For Prisma 7.x - use accelerateUrl if available, otherwise use adapter
+    ...(process.env.ACCELERATE_URL
+      ? { accelerateUrl: process.env.ACCELERATE_URL }
+      : {}),
     log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"],
   });
 
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+
+export default prisma;

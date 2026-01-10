@@ -1,8 +1,13 @@
-import { PrismaClient } from "../src/generated/prisma/client";
+import "dotenv/config";
+import { PrismaClient } from "@/generated/prisma/client";
 import { hashPassword } from "better-auth/crypto";
 
 const prisma = new PrismaClient({
-  accelerateUrl: process.env.DATABASE_URL!,
+  // For Prisma 7.x - use adapter for local, accelerateUrl for cloud
+  ...(process.env.ACCELERATE_URL
+    ? { accelerateUrl: process.env.ACCELERATE_URL }
+    : {}),
+  log: ["query", "error", "warn"],
 });
 
 async function main() {
@@ -18,70 +23,102 @@ async function main() {
     },
   });
 
-  if (existingAdmin) {
+  if (existingAdmin && existingAdmin.members.length > 0) {
     console.log("✅ Admin user already exists:", existingAdmin.email);
+    console.log("✅ Admin is already a member of an organization");
     return;
   }
 
-  // Create organization first
-  const organization = await prisma.organization.create({
-    data: {
-      name: "WD Logistics",
+  // Check if organization exists
+  let organization = await prisma.organization.findFirst({
+    where: {
       slug: "wd-logistics",
-      logo: null,
-      metadata: JSON.stringify({
-        address: "123 Logistics Ave",
-        phone: "+1234567890",
-        currency: "USD",
-      }),
     },
   });
 
-  console.log("✅ Organization created:", organization.name);
+  // Create organization if it doesn't exist
+  if (!organization) {
+    organization = await prisma.organization.create({
+      data: {
+        name: "WD Logistics",
+        slug: "wd-logistics",
+        logo: null,
+        metadata: JSON.stringify({
+          address: "123 Logistics Ave",
+          phone: "+1234567890",
+          currency: "USD",
+        }),
+      },
+    });
+    console.log("✅ Organization created:", organization.name);
+  } else {
+    console.log("✅ Organization already exists:", organization.name);
+  }
 
-  // Hash the password
-  const hashedPassword = await hashPassword("Admin@123");
+  // If admin user exists but is not a member, add them
+  if (existingAdmin && existingAdmin.members.length === 0) {
+    await prisma.member.create({
+      data: {
+        organizationId: organization.id,
+        userId: existingAdmin.id,
+        role: "admin",
+      },
+    });
+    console.log("✅ Added existing admin user to organization");
+  } else if (!existingAdmin) {
+    // Create admin user
+    const hashedPassword = await hashPassword("Admin@123");
 
-  // Create admin user
-  const adminUser = await prisma.user.create({
-    data: {
-      name: "System Admin",
-      email: "admin@wdlogistics.com",
-      emailVerified: true,
-      accounts: {
-        create: {
-          accountId: "admin@wdlogistics.com",
-          providerId: "credential",
-          password: hashedPassword,
+    const adminUser = await prisma.user.create({
+      data: {
+        name: "System Admin",
+        email: "admin@wdlogistics.com",
+        emailVerified: true,
+        accounts: {
+          create: {
+            accountId: "admin@wdlogistics.com",
+            providerId: "credential",
+            password: hashedPassword,
+          },
+        },
+        members: {
+          create: {
+            organizationId: organization.id,
+            role: "admin",
+          },
         },
       },
-      members: {
-        create: {
-          organizationId: organization.id,
-          role: "admin",
-        },
-      },
+    });
+
+    console.log("✅ Admin user created:", adminUser.email);
+  }
+
+  // Create default expense categories if they don't exist
+  const existingCategories = await prisma.expenseCategory.count({
+    where: {
+      organizationId: organization.id,
     },
   });
 
-  console.log("✅ Admin user created:", adminUser.email);
+  if (existingCategories === 0) {
+    const expenseCategories = await prisma.expenseCategory.createMany({
+      data: [
+        { organizationId: organization.id, name: "Fuel", isTrip: true, isTruck: true, color: "#ef4444" },
+        { organizationId: organization.id, name: "Maintenance", isTruck: true, color: "#f97316" },
+        { organizationId: organization.id, name: "Tires", isTruck: true, color: "#84cc16" },
+        { organizationId: organization.id, name: "Tolls", isTrip: true, color: "#06b6d4" },
+        { organizationId: organization.id, name: "Parking", isTrip: true, color: "#8b5cf6" },
+        { organizationId: organization.id, name: "Driver Allowance", isTrip: true, color: "#ec4899" },
+        { organizationId: organization.id, name: "Insurance", isTruck: true, color: "#6366f1" },
+        { organizationId: organization.id, name: "Registration", isTruck: true, color: "#14b8a6" },
+        { organizationId: organization.id, name: "Other", isTrip: true, isTruck: true, color: "#71717a" },
+      ],
+    });
 
-  // Create default expense categories
-  const expenseCategories = await prisma.expenseCategory.createMany({
-    data: [
-      { organizationId: organization.id, name: "Fuel", isTrip: true, isTruck: true, color: "#ef4444" },
-      { organizationId: organization.id, name: "Maintenance", isTruck: true, color: "#f97316" },
-      { organizationId: organization.id, name: "Tires", isTruck: true, color: "#84cc16" },
-      { organizationId: organization.id, name: "Tolls", isTrip: true, color: "#06b6d4" },
-      { organizationId: organization.id, name: "Parking", isTrip: true, color: "#8b5cf6" },
-      { organizationId: organization.id, name: "Driver Allowance", isTrip: true, color: "#ec4899" },
-      { organizationId: organization.id, name: "Insurance", isTruck: true, color: "#6366f1" },
-      { organizationId: organization.id, name: "Registration", isTruck: true, color: "#14b8a6" },
-      { organizationId: organization.id, name: "Other", isTrip: true, isTruck: true, color: "#71717a" },
-    ],
-  });
-
-  console.log(`✅ Created ${expenseCategories.count} expense categories`);
+    console.log(`✅ Created ${expenseCategories.count} expense categories`);
+  } else {
+    console.log(`✅ Expense categories already exist (${existingCategories})`);
+  }
 
   console.log("\n🎉 Seed completed successfully!");
   console.log("\n📝 Admin credentials:");
