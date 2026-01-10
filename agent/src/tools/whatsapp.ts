@@ -1,0 +1,217 @@
+/**
+ * WhatsApp Tool for AI Agent
+ * 
+ * This tool allows the AI agent to send WhatsApp messages to drivers,
+ * customers, and other contacts as part of automated workflows.
+ */
+
+import { z } from "zod";
+import { getAgentWhatsAppClient } from "../lib/whatsapp";
+import { db } from "../lib/prisma";
+
+/**
+ * Send WhatsApp message tool
+ * Used by the agent to send messages to drivers, customers, etc.
+ */
+export const sendWhatsAppMessage = {
+  definition: {
+    name: "send_whatsapp_message",
+    description:
+      "Send a WhatsApp message to a driver, customer, or contact. Use this to notify drivers of trips, remind customers of payments, or send operational updates.",
+    inputSchema: z.object({
+      phoneNumber: z.string().describe("The phone number to send the message to (e.g., +1234567890)"),
+      message: z
+        .string()
+        .min(1)
+        .max(5000)
+        .describe("The message to send (WhatsApp has a limit per message)"),
+      recipientType: z
+        .enum(["driver", "customer", "employee", "other"])
+        .describe("Type of recipient for logging and context"),
+      recipientId: z.string().optional().describe("ID of the recipient (driverId, customerId, etc)"),
+    }),
+  },
+  execute: async (params: {
+    phoneNumber: string;
+    message: string;
+    recipientType: "driver" | "customer" | "employee" | "other";
+    recipientId?: string;
+  }) => {
+    try {
+      const client = getAgentWhatsAppClient();
+
+      // Check if client is ready
+      if (!client.isConnected()) {
+        return {
+          success: false,
+          error: "WhatsApp client is not connected. Please initialize WhatsApp in settings.",
+        };
+      }
+
+      // Send the message
+      const result = await client.sendMessage(params.phoneNumber, params.message);
+
+      // Log the message in database if recipientId provided
+      if (params.recipientId) {
+        try {
+          await db.notification.create({
+            data: {
+              type: "whatsapp",
+              channel: "whatsapp",
+              recipientId: params.recipientId,
+              recipientType: params.recipientType,
+              title: "WhatsApp Message Sent",
+              message: params.message,
+              status: "sent",
+              sentAt: new Date(),
+            },
+          });
+        } catch (error) {
+          console.warn("Failed to log notification to database:", error);
+          // Continue - logging failure shouldn't block the operation
+        }
+      }
+
+      return {
+        success: true,
+        messageId: result.id,
+        to: params.phoneNumber,
+        sentAt: result.timestamp,
+        message: `Message sent successfully to ${params.phoneNumber}`,
+      };
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : "Unknown error";
+      console.error("WhatsApp send error:", error);
+
+      return {
+        success: false,
+        error: `Failed to send message: ${errorMsg}`,
+      };
+    }
+  },
+};
+
+/**
+ * Send bulk WhatsApp messages to multiple recipients
+ */
+export const sendBulkWhatsAppMessages = {
+  definition: {
+    name: "send_bulk_whatsapp_messages",
+    description:
+      "Send WhatsApp messages to multiple recipients (drivers, customers, etc). Useful for broadcasts and bulk notifications.",
+    inputSchema: z.object({
+      recipients: z
+        .array(
+          z.object({
+            phoneNumber: z.string(),
+            recipientType: z.enum(["driver", "customer", "employee", "other"]),
+            recipientId: z.string().optional(),
+          })
+        )
+        .min(1)
+        .max(100)
+        .describe("List of recipients"),
+      message: z.string().min(1).max(5000).describe("The message to send to all recipients"),
+      delayMs: z.number().optional().default(1000).describe("Delay between messages in milliseconds"),
+    }),
+  },
+  execute: async (params: {
+    recipients: Array<{
+      phoneNumber: string;
+      recipientType: "driver" | "customer" | "employee" | "other";
+      recipientId?: string;
+    }>;
+    message: string;
+    delayMs?: number;
+  }) => {
+    try {
+      const client = getAgentWhatsAppClient();
+
+      if (!client.isConnected()) {
+        return {
+          success: false,
+          error: "WhatsApp client is not connected. Please initialize WhatsApp in settings.",
+        };
+      }
+
+      // Send messages with rate limiting
+      const results = await client.sendBulkMessages(
+        params.recipients.map((r) => ({
+          to: r.phoneNumber,
+          body: params.message,
+        })),
+        params.delayMs
+      );
+
+      // Count successes and failures
+      let successCount = 0;
+      let failureCount = 0;
+      const failures: Array<{ to: string; error: string }> = [];
+
+      for (const result of results) {
+        if ("error" in result) {
+          failureCount++;
+          failures.push(result);
+        } else {
+          successCount++;
+        }
+      }
+
+      return {
+        success: failureCount === 0,
+        successCount,
+        failureCount,
+        total: results.length,
+        failures: failures.length > 0 ? failures : undefined,
+        message: `Sent to ${successCount}/${results.length} recipients`,
+      };
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : "Unknown error";
+      return {
+        success: false,
+        error: `Failed to send bulk messages: ${errorMsg}`,
+      };
+    }
+  },
+};
+
+/**
+ * Check WhatsApp connection status
+ */
+export const checkWhatsAppStatus = {
+  definition: {
+    name: "check_whatsapp_status",
+    description: "Check if the WhatsApp integration is connected and ready for sending messages.",
+    inputSchema: z.object({}),
+  },
+  execute: async () => {
+    try {
+      const client = getAgentWhatsAppClient();
+      const state = client.getState();
+
+      return {
+        success: true,
+        connected: state.status === "ready",
+        status: state.status,
+        phoneNumber: state.phoneNumber,
+        messagesSent: state.messagesSent,
+        queuedMessages: client.getQueueLength(),
+        ready: `WhatsApp is ${state.status === "ready" ? "ready" : "not ready"}`,
+      };
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : "Unknown error";
+      return {
+        success: false,
+        error: `Failed to check status: ${errorMsg}`,
+      };
+    }
+  },
+};
+
+export const whatsappTools = {
+  send_whatsapp_message: sendWhatsAppMessage,
+  send_bulk_whatsapp_messages: sendBulkWhatsAppMessages,
+  check_whatsapp_status: checkWhatsAppStatus,
+};
+
+export default whatsappTools;
