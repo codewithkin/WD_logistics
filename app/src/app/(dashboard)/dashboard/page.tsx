@@ -8,6 +8,8 @@ import { FleetStatus } from "./_components/fleet-status";
 import { OverdueInvoices } from "./_components/overdue-invoices";
 import { RevenueExpensesChart } from "@/components/dashboard/revenue-expenses-chart";
 import { getRevenueExpensesData } from "@/lib/dashboard/revenue-expenses";
+import { FleetUtilizationChart } from "@/components/dashboard/fleet-utilization-chart";
+import { getFleetUtilizationData } from "@/lib/dashboard/fleet-utilization";
 
 export default async function DashboardPage() {
     const session = await requireAuth();
@@ -22,6 +24,7 @@ export default async function DashboardPage() {
         recentTrips,
         overdueInvoices,
         revenueExpensesData,
+        fleetUtilizationData,
     ] = await Promise.all([
         // Truck stats
         prisma.truck.groupBy({
@@ -77,6 +80,8 @@ export default async function DashboardPage() {
         }),
         // Revenue vs Expenses data
         getRevenueExpensesData(),
+        // Fleet utilization data
+        getFleetUtilizationData(),
     ]);
 
     // Calculate fleet status
@@ -111,6 +116,11 @@ export default async function DashboardPage() {
             {/* Revenue vs Expenses Chart - Full Width */}
             <div className="mt-6">
                 <RevenueExpensesChart data={revenueExpensesData} />
+            </div>
+
+            {/* Fleet Utilization Chart - Full Width */}
+            <div className="mt-6">
+                <FleetUtilizationChart data={fleetUtilizationData} />
             </div>
 
             {/* Main Content Grid */}
