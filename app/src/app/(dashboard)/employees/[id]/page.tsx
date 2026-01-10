@@ -1,0 +1,224 @@
+import { notFound } from "next/navigation";
+import Link from "next/link";
+import { requireAuth } from "@/lib/session";
+import { prisma } from "@/lib/prisma";
+import { PageHeader } from "@/components/layout/page-header";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import { Mail, Phone, Building2, Calendar, Truck, DollarSign } from "lucide-react";
+import { format, differenceInYears, differenceInMonths } from "date-fns";
+import { EMPLOYEE_STATUS_LABELS } from "@/lib/types";
+
+interface EmployeeDetailPageProps {
+    params: Promise<{ id: string }>;
+}
+
+const statusVariants: Record<string, "default" | "secondary" | "destructive"> = {
+    active: "default",
+    on_leave: "secondary",
+    terminated: "destructive",
+};
+
+export default async function EmployeeDetailPage({ params }: EmployeeDetailPageProps) {
+    const { id } = await params;
+    const session = await requireAuth();
+    const { role, organizationId } = session;
+
+    const employee = await prisma.employee.findFirst({
+        where: { id, organizationId },
+        include: {
+            driver: {
+                include: {
+                    truck: {
+                        select: { id: true, plateNumber: true },
+                    },
+                    _count: {
+                        select: { trips: true },
+                    },
+                },
+            },
+        },
+    });
+
+    if (!employee) {
+        notFound();
+    }
+
+    const canEdit = role === "admin" || role === "supervisor";
+
+    // Calculate tenure
+    const years = differenceInYears(new Date(), employee.hireDate);
+    const months = differenceInMonths(new Date(), employee.hireDate) % 12;
+    const tenure =
+        years > 0
+            ? `${years} year${years > 1 ? "s" : ""}${months > 0 ? `, ${months} month${months > 1 ? "s" : ""}` : ""}`
+            : `${months} month${months > 1 ? "s" : ""}`;
+
+    return (
+        <div>
+            <PageHeader
+                title={`${employee.firstName} ${employee.lastName}`}
+                description={employee.position}
+                backHref="/employees"
+                action={
+                    canEdit
+                        ? {
+                            label: "Edit Employee",
+                            href: `/employees/${employee.id}/edit`,
+                        }
+                        : undefined
+                }
+            />
+
+            <div className="grid gap-6 md:grid-cols-2">
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Employee Information</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Status</span>
+                            <Badge variant={statusVariants[employee.status] || "secondary"}>
+                                {EMPLOYEE_STATUS_LABELS[
+                                    employee.status as keyof typeof EMPLOYEE_STATUS_LABELS
+                                ] || employee.status}
+                            </Badge>
+                        </div>
+                        <Separator />
+                        <div className="space-y-3">
+                            <div className="flex items-center gap-3">
+                                <Building2 className="h-4 w-4 text-muted-foreground" />
+                                <div>
+                                    <p className="text-sm text-muted-foreground">Department</p>
+                                    <p className="font-medium">{employee.department || "—"}</p>
+                                </div>
+                            </div>
+                            {employee.email && (
+                                <div className="flex items-center gap-3">
+                                    <Mail className="h-4 w-4 text-muted-foreground" />
+                                    <div>
+                                        <p className="text-sm text-muted-foreground">Email</p>
+                                        <a
+                                            href={`mailto:${employee.email}`}
+                                            className="font-medium text-primary hover:underline"
+                                        >
+                                            {employee.email}
+                                        </a>
+                                    </div>
+                                </div>
+                            )}
+                            {employee.phone && (
+                                <div className="flex items-center gap-3">
+                                    <Phone className="h-4 w-4 text-muted-foreground" />
+                                    <div>
+                                        <p className="text-sm text-muted-foreground">Phone</p>
+                                        <a
+                                            href={`tel:${employee.phone}`}
+                                            className="font-medium text-primary hover:underline"
+                                        >
+                                            {employee.phone}
+                                        </a>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Employment Details</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="flex items-center gap-3">
+                            <Calendar className="h-4 w-4 text-muted-foreground" />
+                            <div>
+                                <p className="text-sm text-muted-foreground">Hire Date</p>
+                                <p className="font-medium">
+                                    {format(employee.hireDate, "MMMM d, yyyy")}
+                                </p>
+                                <p className="text-sm text-muted-foreground">Tenure: {tenure}</p>
+                            </div>
+                        </div>
+                        {employee.terminationDate && (
+                            <div className="flex items-center gap-3">
+                                <Calendar className="h-4 w-4 text-muted-foreground" />
+                                <div>
+                                    <p className="text-sm text-muted-foreground">Termination Date</p>
+                                    <p className="font-medium">
+                                        {format(employee.terminationDate, "MMMM d, yyyy")}
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+                        {employee.salary && (
+                            <div className="flex items-center gap-3">
+                                <DollarSign className="h-4 w-4 text-muted-foreground" />
+                                <div>
+                                    <p className="text-sm text-muted-foreground">Salary</p>
+                                    <p className="font-medium">${employee.salary.toLocaleString()}</p>
+                                </div>
+                            </div>
+                        )}
+                        {employee.notes && (
+                            <>
+                                <Separator />
+                                <div>
+                                    <p className="text-sm text-muted-foreground mb-1">Notes</p>
+                                    <p className="text-sm">{employee.notes}</p>
+                                </div>
+                            </>
+                        )}
+                    </CardContent>
+                </Card>
+
+                {employee.driver && (
+                    <Card className="md:col-span-2">
+                        <CardHeader className="flex flex-row items-center justify-between">
+                            <CardTitle className="flex items-center gap-2">
+                                <Truck className="h-5 w-5" />
+                                Driver Profile
+                            </CardTitle>
+                            <Button variant="outline" size="sm" asChild>
+                                <Link href={`/fleet/drivers/${employee.driver.id}`}>View Driver</Link>
+                            </Button>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="grid gap-4 md:grid-cols-4">
+                                <div>
+                                    <p className="text-sm text-muted-foreground">License Number</p>
+                                    <p className="font-medium">{employee.driver.licenseNumber}</p>
+                                </div>
+                                <div>
+                                    <p className="text-sm text-muted-foreground">License Expiry</p>
+                                    <p className="font-medium">
+                                        {format(employee.driver.licenseExpiry, "MMM d, yyyy")}
+                                    </p>
+                                </div>
+                                <div>
+                                    <p className="text-sm text-muted-foreground">Assigned Truck</p>
+                                    {employee.driver.truck ? (
+                                        <Link
+                                            href={`/fleet/trucks/${employee.driver.truck.id}`}
+                                            className="font-medium text-primary hover:underline"
+                                        >
+                                            {employee.driver.truck.plateNumber}
+                                        </Link>
+                                    ) : (
+                                        <p className="text-muted-foreground">Not assigned</p>
+                                    )}
+                                </div>
+                                <div>
+                                    <p className="text-sm text-muted-foreground">Total Trips</p>
+                                    <p className="font-medium">{employee.driver._count.trips}</p>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
+            </div>
+        </div>
+    );
+}
