@@ -7,7 +7,7 @@
 
 import { z } from "zod";
 import { getAgentWhatsAppClient } from "../lib/whatsapp";
-import { db } from "../lib/prisma";
+import prisma from "../lib/prisma";
 
 /**
  * Send WhatsApp message tool
@@ -54,7 +54,7 @@ export const sendWhatsAppMessage = {
       // Log the message in database if recipientId provided
       if (params.recipientId) {
         try {
-          await db.notification.create({
+          await prisma.notification.create({
             data: {
               type: "whatsapp",
               channel: "whatsapp",

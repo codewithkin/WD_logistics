@@ -8,7 +8,7 @@
  * - Rate limiting and usage tracking
  */
 
-import { db } from "./prisma";
+import prisma from "./prisma";
 
 export interface ConversationMessage {
   id: string;
@@ -316,7 +316,7 @@ export class InputGuard {
     organizationId: string
   ): Promise<boolean> {
     try {
-      const member = await db.member.findFirst({
+      const member = await prisma.member.findFirst({
         where: {
           userId,
           organizationId,

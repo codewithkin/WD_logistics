@@ -1,38 +1,24 @@
-import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
 import prisma from "../lib/prisma";
 
 /**
  * Tool to list drivers with optional filtering
  */
-export const listDrivers = createTool({
-  id: "list-drivers",
-  description: "List all drivers with optional status filter. Use this to get an overview of available drivers.",
-  inputSchema: z.object({
-    organizationId: z.string().describe("The organization ID"),
-    status: z
-      .enum(["active", "on_leave", "suspended", "terminated"])
-      .optional()
-      .describe("Filter by driver status"),
-    limit: z.number().optional().default(20).describe("Maximum number of drivers to return"),
-  }),
-  outputSchema: z.object({
-    drivers: z.array(
-      z.object({
-        id: z.string(),
-        name: z.string(),
-        phone: z.string(),
-        email: z.string().nullable(),
-        status: z.string(),
-        licenseNumber: z.string(),
-        licenseExpiry: z.string().nullable(),
-        assignedTruck: z.string().nullable(),
-      })
-    ),
-    total: z.number(),
-  }),
-  execute: async ({ context }) => {
-    const { organizationId, status, limit } = context;
+export const listDrivers = {
+  definition: {
+    name: "list_drivers",
+    description: "List all drivers with optional status filter. Use this to get an overview of available drivers.",
+    inputSchema: z.object({
+      organizationId: z.string().describe("The organization ID"),
+      status: z
+        .enum(["active", "on_leave", "suspended", "terminated"])
+        .optional()
+        .describe("Filter by driver status"),
+      limit: z.number().optional().default(20).describe("Maximum number of drivers to return"),
+    }),
+  },
+  execute: async (params: { organizationId: string; status?: string; limit?: number }) => {
+    const { organizationId, status, limit = 20 } = params;
 
     const where = {
       organizationId,
@@ -54,7 +40,7 @@ export const listDrivers = createTool({
     ]);
 
     return {
-      drivers: drivers.map((driver) => ({
+      drivers: drivers.map((driver: any) => ({
         id: driver.id,
         name: `${driver.firstName} ${driver.lastName}`,
         phone: driver.phone,
@@ -67,63 +53,23 @@ export const listDrivers = createTool({
       total,
     };
   },
-});
+};
 
 /**
  * Tool to get detailed driver information
  */
-export const getDriverDetails = createTool({
-  id: "get-driver-details",
-  description: "Get detailed information about a specific driver including their assigned truck and recent trips.",
-  inputSchema: z.object({
-    driverId: z.string().optional().describe("The driver ID"),
-    phone: z.string().optional().describe("The driver's phone number"),
-    organizationId: z.string().describe("The organization ID"),
-  }),
-  outputSchema: z.object({
-    driver: z
-      .object({
-        id: z.string(),
-        firstName: z.string(),
-        lastName: z.string(),
-        email: z.string().nullable(),
-        phone: z.string(),
-        whatsappNumber: z.string().nullable(),
-        licenseNumber: z.string(),
-        licenseExpiry: z.string().nullable(),
-        dateOfBirth: z.string().nullable(),
-        address: z.string().nullable(),
-        status: z.string(),
-        startDate: z.string(),
-        assignedTruck: z
-          .object({
-            id: z.string(),
-            registrationNo: z.string(),
-            make: z.string(),
-            model: z.string(),
-          })
-          .nullable(),
-        recentTrips: z.array(
-          z.object({
-            id: z.string(),
-            origin: z.string(),
-            destination: z.string(),
-            status: z.string(),
-            scheduledDate: z.string(),
-          })
-        ),
-        tripStats: z.object({
-          totalTrips: z.number(),
-          completedTrips: z.number(),
-          totalMileage: z.number(),
-          totalRevenue: z.number(),
-        }),
-        notes: z.string().nullable(),
-      })
-      .nullable(),
-  }),
-  execute: async ({ context }) => {
-    const { driverId, phone, organizationId } = context;
+export const getDriverDetails = {
+  definition: {
+    name: "get_driver_details",
+    description: "Get detailed information about a specific driver including their assigned truck and recent trips.",
+    inputSchema: z.object({
+      driverId: z.string().optional().describe("The driver ID"),
+      phone: z.string().optional().describe("The driver's phone number"),
+      organizationId: z.string().describe("The organization ID"),
+    }),
+  },
+  execute: async (params: { driverId?: string; phone?: string; organizationId: string }) => {
+    const { driverId, phone, organizationId } = params;
 
     if (!driverId && !phone) {
       return { driver: null };
@@ -148,12 +94,12 @@ export const getDriverDetails = createTool({
 
     const tripStats = {
       totalTrips: driver.trips.length,
-      completedTrips: driver.trips.filter((t) => t.status === "completed").length,
+      completedTrips: driver.trips.filter((t: any) => t.status === "completed").length,
       totalMileage: driver.trips.reduce(
-        (sum, t) => sum + (t.actualMileage || t.estimatedMileage),
+        (sum: number, t: any) => sum + (t.actualMileage || t.estimatedMileage),
         0
       ),
-      totalRevenue: driver.trips.reduce((sum, t) => sum + t.revenue, 0),
+      totalRevenue: driver.trips.reduce((sum: number, t: any) => sum + t.revenue, 0),
     };
 
     return {
@@ -178,7 +124,7 @@ export const getDriverDetails = createTool({
               model: driver.assignedTruck.model,
             }
           : null,
-        recentTrips: driver.trips.slice(0, 5).map((trip) => ({
+        recentTrips: driver.trips.slice(0, 5).map((trip: any) => ({
           id: trip.id,
           origin: trip.originCity,
           destination: trip.destinationCity,
@@ -190,45 +136,23 @@ export const getDriverDetails = createTool({
       },
     };
   },
-});
+};
 
 /**
  * Tool to check driver availability
  */
-export const checkDriverAvailability = createTool({
-  id: "check-driver-availability",
-  description: "Check which drivers are available for trips on a specific date or date range.",
-  inputSchema: z.object({
-    organizationId: z.string().describe("The organization ID"),
-    date: z.string().describe("The date to check availability (ISO format)"),
-    endDate: z.string().optional().describe("Optional end date for range check"),
-  }),
-  outputSchema: z.object({
-    availableDrivers: z.array(
-      z.object({
-        id: z.string(),
-        name: z.string(),
-        phone: z.string(),
-        assignedTruck: z.string().nullable(),
-      })
-    ),
-    busyDrivers: z.array(
-      z.object({
-        id: z.string(),
-        name: z.string(),
-        tripDestination: z.string(),
-        tripStatus: z.string(),
-      })
-    ),
-    onLeaveDrivers: z.array(
-      z.object({
-        id: z.string(),
-        name: z.string(),
-      })
-    ),
-  }),
-  execute: async ({ context }) => {
-    const { organizationId, date, endDate } = context;
+export const checkDriverAvailability = {
+  definition: {
+    name: "check_driver_availability",
+    description: "Check which drivers are available for trips on a specific date or date range.",
+    inputSchema: z.object({
+      organizationId: z.string().describe("The organization ID"),
+      date: z.string().describe("The date to check availability (ISO format)"),
+      endDate: z.string().optional().describe("Optional end date for range check"),
+    }),
+  },
+  execute: async (params: { organizationId: string; date: string; endDate?: string }) => {
+    const { organizationId, date, endDate } = params;
 
     const checkDate = new Date(date);
     const checkEndDate = endDate ? new Date(endDate) : checkDate;
@@ -254,8 +178,8 @@ export const checkDriverAvailability = createTool({
     });
 
     const availableDrivers = drivers
-      .filter((driver) => driver.status === "active" && driver.trips.length === 0)
-      .map((driver) => ({
+      .filter((driver: any) => driver.status === "active" && driver.trips.length === 0)
+      .map((driver: any) => ({
         id: driver.id,
         name: `${driver.firstName} ${driver.lastName}`,
         phone: driver.phone,
@@ -263,8 +187,8 @@ export const checkDriverAvailability = createTool({
       }));
 
     const busyDrivers = drivers
-      .filter((driver) => driver.status === "active" && driver.trips.length > 0)
-      .map((driver) => ({
+      .filter((driver: any) => driver.status === "active" && driver.trips.length > 0)
+      .map((driver: any) => ({
         id: driver.id,
         name: `${driver.firstName} ${driver.lastName}`,
         tripDestination: driver.trips[0]?.destinationCity || "Unknown",
@@ -272,53 +196,34 @@ export const checkDriverAvailability = createTool({
       }));
 
     const onLeaveDrivers = drivers
-      .filter((driver) => driver.status === "on_leave")
-      .map((driver) => ({
+      .filter((driver: any) => driver.status === "on_leave")
+      .map((driver: any) => ({
         id: driver.id,
         name: `${driver.firstName} ${driver.lastName}`,
       }));
 
     return { availableDrivers, busyDrivers, onLeaveDrivers };
   },
-});
+};
 
 /**
  * Tool to get driver performance metrics
  */
-export const getDriverPerformance = createTool({
-  id: "get-driver-performance",
-  description: "Get performance metrics for drivers including trip counts, revenue, and mileage.",
-  inputSchema: z.object({
-    organizationId: z.string().describe("The organization ID"),
-    driverId: z.string().optional().describe("Optional: specific driver ID to analyze"),
-    startDate: z.string().optional().describe("Start date for analysis (ISO format)"),
-    endDate: z.string().optional().describe("End date for analysis (ISO format)"),
-  }),
-  outputSchema: z.object({
-    performance: z.array(
-      z.object({
-        driverId: z.string(),
-        driverName: z.string(),
-        tripCount: z.number(),
-        completedTrips: z.number(),
-        cancelledTrips: z.number(),
-        totalMileage: z.number(),
-        totalRevenue: z.number(),
-        averageRevenuePerTrip: z.number(),
-        completionRate: z.number(),
-      })
-    ),
-    summary: z.object({
-      totalDrivers: z.number(),
-      totalTrips: z.number(),
-      totalRevenue: z.number(),
-      averageTripsPerDriver: z.number(),
+export const getDriverPerformance = {
+  definition: {
+    name: "get_driver_performance",
+    description: "Get performance metrics for drivers including trip counts, revenue, and mileage.",
+    inputSchema: z.object({
+      organizationId: z.string().describe("The organization ID"),
+      driverId: z.string().optional().describe("Optional: specific driver ID to analyze"),
+      startDate: z.string().optional().describe("Start date for analysis (ISO format)"),
+      endDate: z.string().optional().describe("End date for analysis (ISO format)"),
     }),
-  }),
-  execute: async ({ context }) => {
-    const { organizationId, driverId, startDate, endDate } = context;
+  },
+  execute: async (params: { organizationId: string; driverId?: string; startDate?: string; endDate?: string }) => {
+    const { organizationId, driverId, startDate, endDate } = params;
 
-    const dateFilter = {
+    const dateFilter: Record<string, unknown> = {
       ...(startDate && { gte: new Date(startDate) }),
       ...(endDate && { lte: new Date(endDate) }),
     };
@@ -336,14 +241,14 @@ export const getDriverPerformance = createTool({
       },
     });
 
-    const performance = drivers.map((driver) => {
-      const completedTrips = driver.trips.filter((t) => t.status === "completed").length;
-      const cancelledTrips = driver.trips.filter((t) => t.status === "cancelled").length;
+    const performance = drivers.map((driver: any) => {
+      const completedTrips = driver.trips.filter((t: any) => t.status === "completed").length;
+      const cancelledTrips = driver.trips.filter((t: any) => t.status === "cancelled").length;
       const totalMileage = driver.trips.reduce(
-        (sum, t) => sum + (t.actualMileage || t.estimatedMileage),
+        (sum: number, t: any) => sum + (t.actualMileage || t.estimatedMileage),
         0
       );
-      const totalRevenue = driver.trips.reduce((sum, t) => sum + t.revenue, 0);
+      const totalRevenue = driver.trips.reduce((sum: number, t: any) => sum + t.revenue, 0);
 
       return {
         driverId: driver.id,
@@ -364,43 +269,32 @@ export const getDriverPerformance = createTool({
 
     const summary = {
       totalDrivers: performance.length,
-      totalTrips: performance.reduce((sum, p) => sum + p.tripCount, 0),
-      totalRevenue: performance.reduce((sum, p) => sum + p.totalRevenue, 0),
+      totalTrips: performance.reduce((sum: number, p: any) => sum + p.tripCount, 0),
+      totalRevenue: performance.reduce((sum: number, p: any) => sum + p.totalRevenue, 0),
       averageTripsPerDriver:
         performance.length > 0
-          ? performance.reduce((sum, p) => sum + p.tripCount, 0) / performance.length
+          ? performance.reduce((sum: number, p: any) => sum + p.tripCount, 0) / performance.length
           : 0,
     };
 
     return { performance, summary };
   },
-});
+};
 
 /**
  * Tool to check for expiring driver licenses
  */
-export const getExpiringLicenses = createTool({
-  id: "get-expiring-licenses",
-  description: "Get drivers whose licenses are expiring soon.",
-  inputSchema: z.object({
-    organizationId: z.string().describe("The organization ID"),
-    days: z.number().optional().default(30).describe("Number of days to look ahead"),
-  }),
-  outputSchema: z.object({
-    expiringLicenses: z.array(
-      z.object({
-        driverId: z.string(),
-        driverName: z.string(),
-        phone: z.string(),
-        licenseNumber: z.string(),
-        expiryDate: z.string(),
-        daysUntilExpiry: z.number(),
-        isExpired: z.boolean(),
-      })
-    ),
-  }),
-  execute: async ({ context }) => {
-    const { organizationId, days } = context;
+export const getExpiringLicenses = {
+  definition: {
+    name: "get_expiring_licenses",
+    description: "Get drivers whose licenses are expiring soon.",
+    inputSchema: z.object({
+      organizationId: z.string().describe("The organization ID"),
+      days: z.number().optional().default(30).describe("Number of days to look ahead"),
+    }),
+  },
+  execute: async (params: { organizationId: string; days?: number }) => {
+    const { organizationId, days = 30 } = params;
 
     const now = new Date();
     const futureDate = new Date();
@@ -418,7 +312,7 @@ export const getExpiringLicenses = createTool({
     });
 
     return {
-      expiringLicenses: drivers.map((driver) => {
+      expiringLicenses: drivers.map((driver: any) => {
         const expiryDate = driver.licenseExpiry!;
         const daysUntilExpiry = Math.ceil(
           (expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
@@ -435,13 +329,13 @@ export const getExpiringLicenses = createTool({
       }),
     };
   },
-});
+};
 
 // Export all driver tools
 export const driverTools = {
-  listDrivers,
-  getDriverDetails,
-  checkDriverAvailability,
-  getDriverPerformance,
-  getExpiringLicenses,
+  list_drivers: listDrivers,
+  get_driver_details: getDriverDetails,
+  check_driver_availability: checkDriverAvailability,
+  get_driver_performance: getDriverPerformance,
+  get_expiring_licenses: getExpiringLicenses,
 };

@@ -1,44 +1,28 @@
-import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
 import prisma from "../lib/prisma";
 
 /**
  * Tool to list trips with filtering options
  */
-export const listTrips = createTool({
-  id: "list-trips",
-  description: "List trips with optional filtering by status, date range, truck, or driver.",
-  inputSchema: z.object({
-    organizationId: z.string().describe("The organization ID"),
-    status: z
-      .enum(["scheduled", "in_progress", "completed", "cancelled"])
-      .optional()
-      .describe("Filter by trip status"),
-    truckId: z.string().optional().describe("Filter by specific truck"),
-    driverId: z.string().optional().describe("Filter by specific driver"),
-    startDate: z.string().optional().describe("Filter trips from this date"),
-    endDate: z.string().optional().describe("Filter trips until this date"),
-    limit: z.number().optional().default(20).describe("Maximum number of trips to return"),
-  }),
-  outputSchema: z.object({
-    trips: z.array(
-      z.object({
-        id: z.string(),
-        origin: z.string(),
-        destination: z.string(),
-        truckRegistration: z.string(),
-        driverName: z.string(),
-        customerName: z.string().nullable(),
-        status: z.string(),
-        scheduledDate: z.string(),
-        revenue: z.number(),
-        estimatedMileage: z.number(),
-      })
-    ),
-    total: z.number(),
-  }),
-  execute: async ({ context }) => {
-    const { organizationId, status, truckId, driverId, startDate, endDate, limit } = context;
+export const listTrips = {
+  definition: {
+    name: "list_trips",
+    description: "List trips with optional filtering by status, date range, truck, or driver.",
+    inputSchema: z.object({
+      organizationId: z.string().describe("The organization ID"),
+      status: z
+        .enum(["scheduled", "in_progress", "completed", "cancelled"])
+        .optional()
+        .describe("Filter by trip status"),
+      truckId: z.string().optional().describe("Filter by specific truck"),
+      driverId: z.string().optional().describe("Filter by specific driver"),
+      startDate: z.string().optional().describe("Filter trips from this date"),
+      endDate: z.string().optional().describe("Filter trips until this date"),
+      limit: z.number().optional().default(20).describe("Maximum number of trips to return"),
+    }),
+  },
+  execute: async (params: { organizationId: string; status?: string; truckId?: string; driverId?: string; startDate?: string; endDate?: string; limit?: number }) => {
+    const { organizationId, status, truckId, driverId, startDate, endDate, limit = 20 } = params;
 
     const where = {
       organizationId,
@@ -64,7 +48,7 @@ export const listTrips = createTool({
     ]);
 
     return {
-      trips: trips.map((trip) => ({
+      trips: trips.map((trip: any) => ({
         id: trip.id,
         origin: trip.originCity,
         destination: trip.destinationCity,
@@ -79,73 +63,21 @@ export const listTrips = createTool({
       total,
     };
   },
-});
+};
 
 /**
  * Tool to get detailed trip information
  */
-export const getTripDetails = createTool({
-  id: "get-trip-details",
-  description: "Get detailed information about a specific trip including expenses and route details.",
-  inputSchema: z.object({
-    tripId: z.string().describe("The trip ID to get details for"),
-  }),
-  outputSchema: z.object({
-    trip: z
-      .object({
-        id: z.string(),
-        origin: z.object({
-          city: z.string(),
-          address: z.string().nullable(),
-        }),
-        destination: z.object({
-          city: z.string(),
-          address: z.string().nullable(),
-        }),
-        truck: z.object({
-          id: z.string(),
-          registrationNo: z.string(),
-          make: z.string(),
-          model: z.string(),
-        }),
-        driver: z.object({
-          id: z.string(),
-          name: z.string(),
-          phone: z.string(),
-        }),
-        customer: z
-          .object({
-            id: z.string(),
-            name: z.string(),
-          })
-          .nullable(),
-        loadDescription: z.string().nullable(),
-        loadWeight: z.number().nullable(),
-        loadUnits: z.number().nullable(),
-        estimatedMileage: z.number(),
-        actualMileage: z.number().nullable(),
-        revenue: z.number(),
-        status: z.string(),
-        scheduledDate: z.string(),
-        startDate: z.string().nullable(),
-        endDate: z.string().nullable(),
-        driverNotified: z.boolean(),
-        expenses: z.array(
-          z.object({
-            id: z.string(),
-            category: z.string(),
-            amount: z.number(),
-            description: z.string().nullable(),
-          })
-        ),
-        totalExpenses: z.number(),
-        profit: z.number(),
-        notes: z.string().nullable(),
-      })
-      .nullable(),
-  }),
-  execute: async ({ context }) => {
-    const { tripId } = context;
+export const getTripDetails = {
+  definition: {
+    name: "get_trip_details",
+    description: "Get detailed information about a specific trip including expenses and route details.",
+    inputSchema: z.object({
+      tripId: z.string().describe("The trip ID to get details for"),
+    }),
+  },
+  execute: async (params: { tripId: string }) => {
+    const { tripId } = params;
 
     const trip = await prisma.trip.findUnique({
       where: { id: tripId },
@@ -168,7 +100,7 @@ export const getTripDetails = createTool({
     }
 
     const totalExpenses = trip.tripExpenses.reduce(
-      (sum, te) => sum + te.expense.amount,
+      (sum: number, te: any) => sum + te.expense.amount,
       0
     );
 
@@ -211,7 +143,7 @@ export const getTripDetails = createTool({
         startDate: trip.startDate?.toISOString() || null,
         endDate: trip.endDate?.toISOString() || null,
         driverNotified: trip.driverNotified,
-        expenses: trip.tripExpenses.map((te) => ({
+        expenses: trip.tripExpenses.map((te: any) => ({
           id: te.expense.id,
           category: te.expense.category.name,
           amount: te.expense.amount,
@@ -223,44 +155,25 @@ export const getTripDetails = createTool({
       },
     };
   },
-});
+};
 
 /**
  * Tool to get trip statistics and summary
  */
-export const getTripStats = createTool({
-  id: "get-trip-stats",
-  description: "Get trip statistics including counts by status, total revenue, and mileage for a time period.",
-  inputSchema: z.object({
-    organizationId: z.string().describe("The organization ID"),
-    startDate: z.string().optional().describe("Start date for analysis"),
-    endDate: z.string().optional().describe("End date for analysis"),
-  }),
-  outputSchema: z.object({
-    stats: z.object({
-      totalTrips: z.number(),
-      scheduled: z.number(),
-      inProgress: z.number(),
-      completed: z.number(),
-      cancelled: z.number(),
-      totalRevenue: z.number(),
-      totalMileage: z.number(),
-      averageRevenuePerTrip: z.number(),
-      averageMileagePerTrip: z.number(),
+export const getTripStats = {
+  definition: {
+    name: "get_trip_stats",
+    description: "Get trip statistics including counts by status, total revenue, and mileage for a time period.",
+    inputSchema: z.object({
+      organizationId: z.string().describe("The organization ID"),
+      startDate: z.string().optional().describe("Start date for analysis"),
+      endDate: z.string().optional().describe("End date for analysis"),
     }),
-    topRoutes: z.array(
-      z.object({
-        origin: z.string(),
-        destination: z.string(),
-        count: z.number(),
-        totalRevenue: z.number(),
-      })
-    ),
-  }),
-  execute: async ({ context }) => {
-    const { organizationId, startDate, endDate } = context;
+  },
+  execute: async (params: { organizationId: string; startDate?: string; endDate?: string }) => {
+    const { organizationId, startDate, endDate } = params;
 
-    const dateFilter = {
+    const dateFilter: Record<string, unknown> = {
       ...(startDate && { gte: new Date(startDate) }),
       ...(endDate && { lte: new Date(endDate) }),
     };
@@ -274,29 +187,29 @@ export const getTripStats = createTool({
 
     const stats = {
       totalTrips: trips.length,
-      scheduled: trips.filter((t) => t.status === "scheduled").length,
-      inProgress: trips.filter((t) => t.status === "in_progress").length,
-      completed: trips.filter((t) => t.status === "completed").length,
-      cancelled: trips.filter((t) => t.status === "cancelled").length,
-      totalRevenue: trips.reduce((sum, t) => sum + t.revenue, 0),
+      scheduled: trips.filter((t: any) => t.status === "scheduled").length,
+      inProgress: trips.filter((t: any) => t.status === "in_progress").length,
+      completed: trips.filter((t: any) => t.status === "completed").length,
+      cancelled: trips.filter((t: any) => t.status === "cancelled").length,
+      totalRevenue: trips.reduce((sum: number, t: any) => sum + t.revenue, 0),
       totalMileage: trips.reduce(
-        (sum, t) => sum + (t.actualMileage || t.estimatedMileage),
+        (sum: number, t: any) => sum + (t.actualMileage || t.estimatedMileage),
         0
       ),
       averageRevenuePerTrip:
         trips.length > 0
-          ? trips.reduce((sum, t) => sum + t.revenue, 0) / trips.length
+          ? trips.reduce((sum: number, t: any) => sum + t.revenue, 0) / trips.length
           : 0,
       averageMileagePerTrip:
         trips.length > 0
-          ? trips.reduce((sum, t) => sum + (t.actualMileage || t.estimatedMileage), 0) /
+          ? trips.reduce((sum: number, t: any) => sum + (t.actualMileage || t.estimatedMileage), 0) /
             trips.length
           : 0,
     };
 
     // Calculate top routes
     const routeMap = new Map<string, { count: number; revenue: number }>();
-    trips.forEach((trip) => {
+    trips.forEach((trip: any) => {
       const key = `${trip.originCity}-${trip.destinationCity}`;
       const existing = routeMap.get(key) || { count: 0, revenue: 0 };
       routeMap.set(key, {
@@ -320,35 +233,22 @@ export const getTripStats = createTool({
 
     return { stats, topRoutes };
   },
-});
+};
 
 /**
  * Tool to get upcoming trips
  */
-export const getUpcomingTrips = createTool({
-  id: "get-upcoming-trips",
-  description: "Get trips scheduled for the next few days.",
-  inputSchema: z.object({
-    organizationId: z.string().describe("The organization ID"),
-    days: z.number().optional().default(7).describe("Number of days to look ahead"),
-  }),
-  outputSchema: z.object({
-    trips: z.array(
-      z.object({
-        id: z.string(),
-        origin: z.string(),
-        destination: z.string(),
-        truckRegistration: z.string(),
-        driverName: z.string(),
-        customerName: z.string().nullable(),
-        scheduledDate: z.string(),
-        daysUntil: z.number(),
-        driverNotified: z.boolean(),
-      })
-    ),
-  }),
-  execute: async ({ context }) => {
-    const { organizationId, days } = context;
+export const getUpcomingTrips = {
+  definition: {
+    name: "get_upcoming_trips",
+    description: "Get trips scheduled for the next few days.",
+    inputSchema: z.object({
+      organizationId: z.string().describe("The organization ID"),
+      days: z.number().optional().default(7).describe("Number of days to look ahead"),
+    }),
+  },
+  execute: async (params: { organizationId: string; days?: number }) => {
+    const { organizationId, days = 7 } = params;
 
     const now = new Date();
     const futureDate = new Date();
@@ -372,7 +272,7 @@ export const getUpcomingTrips = createTool({
     });
 
     return {
-      trips: trips.map((trip) => {
+      trips: trips.map((trip: any) => {
         const daysUntil = Math.ceil(
           (trip.scheduledDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
         );
@@ -390,12 +290,12 @@ export const getUpcomingTrips = createTool({
       }),
     };
   },
-});
+};
 
 // Export all trip tools
 export const tripTools = {
-  listTrips,
-  getTripDetails,
-  getTripStats,
-  getUpcomingTrips,
+  list_trips: listTrips,
+  get_trip_details: getTripDetails,
+  get_trip_stats: getTripStats,
+  get_upcoming_trips: getUpcomingTrips,
 };
