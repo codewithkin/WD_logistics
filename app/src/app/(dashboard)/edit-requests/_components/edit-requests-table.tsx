@@ -47,17 +47,19 @@ interface EditRequest {
     id: string;
     entityType: string;
     entityId: string;
-    description: string;
+    reason: string;
+    originalData: unknown;
+    proposedData: unknown;
     status: string;
     createdAt: Date;
-    reviewedAt: Date | null;
-    reviewNotes: string | null;
+    approvedAt: Date | null;
+    rejectionReason: string | null;
     requestedBy: {
         id: string;
         name: string;
         email: string;
     };
-    reviewedBy: {
+    approvedBy: {
         id: string;
         name: string;
     } | null;
@@ -109,7 +111,7 @@ export function EditRequestsTable({ editRequests, role }: EditRequestsTableProps
 
     const filteredRequests = editRequests.filter((request) => {
         const matchesSearch =
-            request.description.toLowerCase().includes(search.toLowerCase()) ||
+            request.reason.toLowerCase().includes(search.toLowerCase()) ||
             request.requestedBy.name.toLowerCase().includes(search.toLowerCase()) ||
             entityLabels[request.entityType]?.toLowerCase().includes(search.toLowerCase());
 
@@ -210,10 +212,10 @@ export function EditRequestsTable({ editRequests, role }: EditRequestsTableProps
                                 <TableRow>
                                     <TableHead>Date</TableHead>
                                     <TableHead>Entity</TableHead>
-                                    <TableHead>Description</TableHead>
+                                    <TableHead>Reason</TableHead>
                                     <TableHead>Requested By</TableHead>
                                     <TableHead>Status</TableHead>
-                                    {canReview && <TableHead>Reviewed By</TableHead>}
+                                    {canReview && <TableHead>Approved By</TableHead>}
                                     <TableHead className="w-[70px]"></TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -252,7 +254,7 @@ export function EditRequestsTable({ editRequests, role }: EditRequestsTableProps
                                                     </div>
                                                 </TableCell>
                                                 <TableCell className="max-w-[300px]">
-                                                    <p className="truncate">{request.description}</p>
+                                                    <p className="truncate">{request.reason}</p>
                                                 </TableCell>
                                                 <TableCell>{request.requestedBy.name}</TableCell>
                                                 <TableCell>
@@ -264,7 +266,7 @@ export function EditRequestsTable({ editRequests, role }: EditRequestsTableProps
                                                 </TableCell>
                                                 {canReview && (
                                                     <TableCell>
-                                                        {request.reviewedBy?.name || (
+                                                        {request.approvedBy?.name || (
                                                             <span className="text-muted-foreground">—</span>
                                                         )}
                                                     </TableCell>
@@ -364,29 +366,29 @@ export function EditRequestsTable({ editRequests, role }: EditRequestsTableProps
                                 </div>
                             </div>
                             <div>
-                                <p className="text-sm text-muted-foreground mb-1">Description</p>
-                                <p className="text-sm">{selectedRequest.description}</p>
+                                <p className="text-sm text-muted-foreground mb-1">Reason</p>
+                                <p className="text-sm">{selectedRequest.reason}</p>
                             </div>
-                            {selectedRequest.reviewedAt && (
+                            {selectedRequest.approvedAt && (
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <p className="text-sm text-muted-foreground">Reviewed By</p>
+                                        <p className="text-sm text-muted-foreground">Approved By</p>
                                         <p className="font-medium">
-                                            {selectedRequest.reviewedBy?.name || "—"}
+                                            {selectedRequest.approvedBy?.name || "—"}
                                         </p>
                                     </div>
                                     <div>
-                                        <p className="text-sm text-muted-foreground">Reviewed On</p>
+                                        <p className="text-sm text-muted-foreground">Approved On</p>
                                         <p className="font-medium">
-                                            {format(selectedRequest.reviewedAt, "MMM d, yyyy h:mm a")}
+                                            {format(selectedRequest.approvedAt, "MMM d, yyyy h:mm a")}
                                         </p>
                                     </div>
                                 </div>
                             )}
-                            {selectedRequest.reviewNotes && (
+                            {selectedRequest.rejectionReason && (
                                 <div>
-                                    <p className="text-sm text-muted-foreground mb-1">Review Notes</p>
-                                    <p className="text-sm">{selectedRequest.reviewNotes}</p>
+                                    <p className="text-sm text-muted-foreground mb-1">Rejection Reason</p>
+                                    <p className="text-sm">{selectedRequest.rejectionReason}</p>
                                 </div>
                             )}
                         </div>
@@ -424,7 +426,7 @@ export function EditRequestsTable({ editRequests, role }: EditRequestsTableProps
                     <div className="space-y-4">
                         <div>
                             <p className="text-sm text-muted-foreground mb-2">Request:</p>
-                            <p className="text-sm">{selectedRequest?.description}</p>
+                            <p className="text-sm">{selectedRequest?.reason}</p>
                         </div>
                         <div>
                             <p className="text-sm text-muted-foreground mb-2">
@@ -475,7 +477,7 @@ export function EditRequestsTable({ editRequests, role }: EditRequestsTableProps
                     <div className="space-y-4">
                         <div>
                             <p className="text-sm text-muted-foreground mb-2">Request:</p>
-                            <p className="text-sm">{selectedRequest?.description}</p>
+                            <p className="text-sm">{selectedRequest?.reason}</p>
                         </div>
                         <div>
                             <p className="text-sm text-muted-foreground mb-2">

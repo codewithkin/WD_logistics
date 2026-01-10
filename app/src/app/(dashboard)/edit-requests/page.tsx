@@ -5,14 +5,13 @@ import { EditRequestsTable } from "./_components/edit-requests-table";
 
 export default async function EditRequestsPage() {
     const session = await requireAuth();
-    const { role, organizationId, userId } = session;
+    const { role, user } = session;
 
     const isStaff = role === "staff";
 
     const editRequests = await prisma.editRequest.findMany({
         where: {
-            organizationId,
-            ...(isStaff ? { requestedById: userId } : {}),
+            ...(isStaff ? { requestedById: user.id } : {}),
         },
         include: {
             requestedBy: {
@@ -22,7 +21,7 @@ export default async function EditRequestsPage() {
                     email: true,
                 },
             },
-            reviewedBy: {
+            approvedBy: {
                 select: {
                     id: true,
                     name: true,

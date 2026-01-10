@@ -7,16 +7,21 @@ import { requireRole, requireAuth } from "@/lib/session";
 export async function createEditRequest(data: {
   entityType: string;
   entityId: string;
-  description: string;
+  reason: string;
+  originalData: object;
+  proposedData: object;
 }) {
   const session = await requireAuth();
 
   try {
     const editRequest = await prisma.editRequest.create({
       data: {
-        ...data,
-        requestedById: session.userId,
-        organizationId: session.organizationId,
+        entityType: data.entityType,
+        entityId: data.entityId,
+        reason: data.reason,
+        originalData: data.originalData,
+        proposedData: data.proposedData,
+        requestedById: session.user.id,
         status: "pending",
       },
     });
@@ -29,12 +34,12 @@ export async function createEditRequest(data: {
   }
 }
 
-export async function approveEditRequest(id: string, reviewNotes?: string) {
-  const session = await requireRole(["admin", "supervisor"]);
+export async function approveEditRequest(id: string, rejectionReason?: string) {
+  await requireRole(["admin", "supervisor"]);
 
   try {
     const editRequest = await prisma.editRequest.findFirst({
-      where: { id, organizationId: session.organizationId },
+      where: { id },
     });
 
     if (!editRequest) {
@@ -45,13 +50,13 @@ export async function approveEditRequest(id: string, reviewNotes?: string) {
       return { success: false, error: "Edit request has already been reviewed" };
     }
 
+    const session = await requireAuth();
     const updatedRequest = await prisma.editRequest.update({
       where: { id },
       data: {
         status: "approved",
-        reviewedById: session.userId,
-        reviewedAt: new Date(),
-        reviewNotes,
+        approvedById: session.user.id,
+        approvedAt: new Date(),
       },
     });
 
@@ -63,12 +68,12 @@ export async function approveEditRequest(id: string, reviewNotes?: string) {
   }
 }
 
-export async function rejectEditRequest(id: string, reviewNotes?: string) {
-  const session = await requireRole(["admin", "supervisor"]);
+export async function rejectEditRequest(id: string, rejectionReason?: string) {
+  await requireRole(["admin", "supervisor"]);
 
   try {
     const editRequest = await prisma.editRequest.findFirst({
-      where: { id, organizationId: session.organizationId },
+      where: { id },
     });
 
     if (!editRequest) {
@@ -79,13 +84,14 @@ export async function rejectEditRequest(id: string, reviewNotes?: string) {
       return { success: false, error: "Edit request has already been reviewed" };
     }
 
+    const session = await requireAuth();
     const updatedRequest = await prisma.editRequest.update({
       where: { id },
       data: {
         status: "rejected",
-        reviewedById: session.userId,
-        reviewedAt: new Date(),
-        reviewNotes,
+        approvedById: session.user.id,
+        approvedAt: new Date(),
+        rejectionReason,
       },
     });
 
