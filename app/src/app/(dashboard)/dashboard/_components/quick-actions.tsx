@@ -7,8 +7,9 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Plus, Truck, UserPlus, Users, ChevronDown } from "lucide-react";
+import { Truck, UserPlus, Users, ChevronDown } from "lucide-react";
 import Link from "next/link";
+import { CreateSupervisorDialog } from "../../users/_components/create-supervisor-dialog";
 
 interface QuickActionsProps {
     role: string;
@@ -53,14 +54,7 @@ export function QuickActions({ role }: QuickActionsProps) {
             </DropdownMenu>
 
             {/* Admin Only: Add Supervisor */}
-            {isAdmin && (
-                <Button variant="secondary" asChild>
-                    <Link href="/users/new-supervisor">
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Supervisor
-                    </Link>
-                </Button>
-            )}
+            {isAdmin && <CreateSupervisorDialog />}
         </div>
     );
 }
