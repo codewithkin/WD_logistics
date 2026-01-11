@@ -8,10 +8,9 @@ import { redirect } from "next/navigation";
 export interface ExpenseFormData {
   categoryId: string;
   amount: number;
-  date: Date;
   description?: string;
-  vendor?: string;
-  receiptUrl?: string;
+  date: Date;
+  notes?: string;
   truckIds?: string[];
   tripIds?: string[];
 }
@@ -24,10 +23,9 @@ export async function createExpense(data: ExpenseFormData) {
       organizationId: user.organizationId,
       categoryId: data.categoryId,
       amount: data.amount,
+      description: data.description,
       date: data.date,
-      description: data.description || null,
-      vendor: data.vendor || null,
-      receiptUrl: data.receiptUrl || null,
+      notes: data.notes,
       truckExpenses: data.truckIds?.length
         ? {
             create: data.truckIds.map((truckId) => ({ truckId })),
@@ -65,10 +63,9 @@ export async function updateExpense(id: string, data: ExpenseFormData) {
       data: {
         categoryId: data.categoryId,
         amount: data.amount,
+        description: data.description,
         date: data.date,
-        description: data.description || null,
-        vendor: data.vendor || null,
-        receiptUrl: data.receiptUrl || null,
+        notes: data.notes,
       },
     });
 
