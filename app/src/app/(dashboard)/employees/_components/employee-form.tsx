@@ -118,7 +118,7 @@ export function EmployeeForm({ employee }: EmployeeFormProps) {
     return (
         <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-4 sm:grid-cols-2">
                     <FormField
                         control={form.control}
                         name="firstName"
@@ -147,7 +147,7 @@ export function EmployeeForm({ employee }: EmployeeFormProps) {
                     />
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-4 sm:grid-cols-2">
                     <FormField
                         control={form.control}
                         name="email"
@@ -176,7 +176,7 @@ export function EmployeeForm({ employee }: EmployeeFormProps) {
                     />
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-4 sm:grid-cols-2">
                     <FormField
                         control={form.control}
                         name="position"
@@ -205,7 +205,7 @@ export function EmployeeForm({ employee }: EmployeeFormProps) {
                     />
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-3">
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     <FormField
                         control={form.control}
                         name="status"

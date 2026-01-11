@@ -102,7 +102,7 @@ export function CustomerForm({ customer }: CustomerFormProps) {
     return (
         <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-4 sm:grid-cols-2">
                     <FormField
                         control={form.control}
                         name="name"
@@ -131,7 +131,7 @@ export function CustomerForm({ customer }: CustomerFormProps) {
                     />
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-4 sm:grid-cols-2">
                     <FormField
                         control={form.control}
                         name="email"

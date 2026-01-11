@@ -155,7 +155,7 @@ export function TripForm({ trip, trucks, drivers, customers }: TripFormProps) {
         <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                 {/* Route Information */}
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-4 sm:grid-cols-2">
                     <FormField
                         control={form.control}
                         name="originCity"
@@ -184,7 +184,7 @@ export function TripForm({ trip, trucks, drivers, customers }: TripFormProps) {
                     />
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-4 sm:grid-cols-2">
                     <FormField
                         control={form.control}
                         name="originAddress"
@@ -214,7 +214,7 @@ export function TripForm({ trip, trucks, drivers, customers }: TripFormProps) {
                 </div>
 
                 {/* Assignment */}
-                <div className="grid gap-4 md:grid-cols-3">
+                <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
                     <FormField
                         control={form.control}
                         name="truckId"
@@ -294,7 +294,7 @@ export function TripForm({ trip, trucks, drivers, customers }: TripFormProps) {
                 </div>
 
                 {/* Dates */}
-                <div className="grid gap-4 md:grid-cols-4">
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     <FormField
                         control={form.control}
                         name="scheduledDate"
@@ -438,7 +438,7 @@ export function TripForm({ trip, trucks, drivers, customers }: TripFormProps) {
                     )}
                 />
 
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-4 sm:grid-cols-2">
                     <FormField
                         control={form.control}
                         name="loadWeight"
@@ -485,7 +485,7 @@ export function TripForm({ trip, trucks, drivers, customers }: TripFormProps) {
                 </div>
 
                 {/* Mileage & Financial */}
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-4 sm:grid-cols-2">
                     <FormField
                         control={form.control}
                         name="estimatedMileage"
@@ -515,7 +515,7 @@ export function TripForm({ trip, trucks, drivers, customers }: TripFormProps) {
                 </div>
 
                 {isEditing && (
-                    <div className="grid gap-4 md:grid-cols-3">
+                    <div className="grid gap-4 sm:grid-cols-3">
                         <FormField
                             control={form.control}
                             name="actualMileage"

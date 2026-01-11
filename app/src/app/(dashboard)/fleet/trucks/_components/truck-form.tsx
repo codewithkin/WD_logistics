@@ -121,7 +121,7 @@ export function TruckForm({ truck }: TruckFormProps) {
     return (
         <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-4 sm:grid-cols-2">
                     <FormField
                         control={form.control}
                         name="registrationNo"
@@ -161,7 +161,7 @@ export function TruckForm({ truck }: TruckFormProps) {
                     />
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-3">
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     <FormField
                         control={form.control}
                         name="make"
@@ -203,7 +203,7 @@ export function TruckForm({ truck }: TruckFormProps) {
                     />
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-4 sm:grid-cols-2">
                     <FormField
                         control={form.control}
                         name="chassisNumber"
@@ -232,7 +232,7 @@ export function TruckForm({ truck }: TruckFormProps) {
                     />
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-3">
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     <FormField
                         control={form.control}
                         name="currentMileage"

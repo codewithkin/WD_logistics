@@ -126,7 +126,7 @@ export function InvoiceForm({
     return (
         <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     <FormField
                         control={form.control}
                         name="invoiceNumber"
@@ -136,6 +136,30 @@ export function InvoiceForm({
                                 <FormControl>
                                     <Input {...field} />
                                 </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    <FormField
+                        control={form.control}
+                        name="customerId"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Customer</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <FormControl>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select a customer" />
+                                        </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                        {customers.map((customer) => (
+                                            <SelectItem key={customer.id} value={customer.id}>
+                                                {customer.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                                 <FormMessage />
                             </FormItem>
                         )}
@@ -166,34 +190,7 @@ export function InvoiceForm({
                     />
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-2">
-                    <FormField
-                        control={form.control}
-                        name="customerId"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Customer</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                    <FormControl>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select a customer" />
-                                        </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        {customers.map((customer) => (
-                                            <SelectItem key={customer.id} value={customer.id}>
-                                                {customer.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                </div>
-
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-4 sm:grid-cols-2">
                     <FormField
                         control={form.control}
                         name="issueDate"
@@ -264,7 +261,7 @@ export function InvoiceForm({
                     />
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-3">
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     <FormField
                         control={form.control}
                         name="subtotal"
