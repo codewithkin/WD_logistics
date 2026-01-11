@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { INVOICE_STATUS_LABELS, INVOICE_STATUS_COLORS, PAYMENT_METHOD_LABELS, InvoiceStatus, PaymentMethod } from "@/lib/types";
+import { SendReminderButton } from "./_components/send-reminder-button";
 
 interface InvoiceDetailPageProps {
     params: Promise<{ id: string }>;
@@ -97,10 +98,19 @@ export default async function InvoiceDetailPage({ params }: InvoiceDetailPagePro
                 </Card>
 
                 <Card>
-                    <CardHeader>
+                    <CardHeader className="flex flex-row items-center justify-between">
                         <CardTitle className="text-lg flex items-center gap-2">
                             <Building2 className="h-5 w-5" /> Customer
                         </CardTitle>
+                        {canEdit && (
+                            <SendReminderButton
+                                invoiceId={invoice.id}
+                                customerName={invoice.customer.name}
+                                customerPhone={invoice.customer.phone}
+                                alreadySent={invoice.reminderSent}
+                                balance={balance}
+                            />
+                        )}
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <div>

@@ -413,10 +413,273 @@ export async function checkLicenseExpiries(
   }
 }
 
+/**
+ * Immediate Trip Assignment Notification
+ * Sends notification to a driver when they are assigned to a specific trip
+ */
+export async function notifyTripAssignment(
+  tripId: string,
+  organizationId: string
+): Promise<WorkflowResult> {
+  try {
+    const trip = await prisma.trip.findUnique({
+      where: { id: tripId },
+      include: {
+        driver: true,
+        truck: true,
+        customer: true,
+      },
+    });
+
+    if (!trip) {
+      return {
+        success: false,
+        message: "Trip not found",
+      };
+    }
+
+    if (trip.organizationId !== organizationId) {
+      return {
+        success: false,
+        message: "Trip does not belong to this organization",
+      };
+    }
+
+    const driverPhone = trip.driver.whatsappNumber || trip.driver.phone;
+    if (!driverPhone) {
+      return {
+        success: false,
+        message: "Driver has no phone number configured",
+      };
+    }
+
+    const scheduledDateStr = trip.scheduledDate.toLocaleDateString("en-US", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+
+    const message = `🚚 *New Trip Assignment*
+
+Hi ${trip.driver.firstName}!
+
+You have been assigned a new trip:
+
+📅 *Date:* ${scheduledDateStr}
+🛣️ *Route:* ${trip.originCity} → ${trip.destinationCity}
+🚛 *Truck:* ${trip.truck.registrationNo}
+${trip.customer ? `👤 *Customer:* ${trip.customer.name}` : ""}
+${trip.loadDescription ? `📦 *Load:* ${trip.loadDescription}` : ""}
+${trip.loadWeight ? `⚖️ *Weight:* ${trip.loadWeight} kg` : ""}
+${trip.estimatedMileage ? `📏 *Est. Distance:* ${trip.estimatedMileage} km` : ""}
+
+Please confirm your availability by replying to this message.
+
+_WD Logistics_`;
+
+    // Create notification record
+    await prisma.notification.create({
+      data: {
+        type: "trip_assignment",
+        recipientPhone: driverPhone,
+        message,
+        status: "pending",
+        metadata: {
+          tripId: trip.id,
+          driverId: trip.driver.id,
+          organizationId,
+        },
+      },
+    });
+
+    // Mark trip as notified
+    await prisma.trip.update({
+      where: { id: trip.id },
+      data: {
+        driverNotified: true,
+        notifiedAt: new Date(),
+      },
+    });
+
+    return {
+      success: true,
+      message: `Trip assignment notification created for ${trip.driver.firstName} ${trip.driver.lastName}`,
+      data: {
+        tripId: trip.id,
+        driverId: trip.driver.id,
+        driverName: `${trip.driver.firstName} ${trip.driver.lastName}`,
+        phone: driverPhone,
+        notificationMessage: message,
+      },
+    };
+  } catch (error) {
+    console.error("Trip assignment notification error:", error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : "Failed to send trip assignment notification",
+    };
+  }
+}
+
+/**
+ * Send Invoice Reminder by Invoice ID
+ * Sends a payment reminder for a specific invoice
+ */
+export async function sendInvoiceReminderById(
+  invoiceId: string,
+  organizationId: string
+): Promise<WorkflowResult> {
+  try {
+    const invoice = await prisma.invoice.findUnique({
+      where: { id: invoiceId },
+      include: {
+        customer: true,
+      },
+    });
+
+    if (!invoice) {
+      return {
+        success: false,
+        message: "Invoice not found",
+      };
+    }
+
+    if (invoice.organizationId !== organizationId) {
+      return {
+        success: false,
+        message: "Invoice does not belong to this organization",
+      };
+    }
+
+    if (invoice.status === "paid" || invoice.status === "cancelled") {
+      return {
+        success: false,
+        message: `Cannot send reminder for ${invoice.status} invoice`,
+      };
+    }
+
+    if (invoice.balance <= 0) {
+      return {
+        success: false,
+        message: "Invoice has no outstanding balance",
+      };
+    }
+
+    const customerPhone = invoice.customer.phone;
+    if (!customerPhone) {
+      return {
+        success: false,
+        message: "Customer has no phone number configured",
+      };
+    }
+
+    const now = new Date();
+    const isOverdue = invoice.dueDate < now;
+    const daysOverdue = isOverdue
+      ? Math.ceil((now.getTime() - invoice.dueDate.getTime()) / (1000 * 60 * 60 * 24))
+      : 0;
+    const daysDue = !isOverdue
+      ? Math.ceil((invoice.dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+      : 0;
+
+    const dueDateStr = invoice.dueDate.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+
+    const message = isOverdue
+      ? `📋 *Payment Reminder*
+
+Dear ${invoice.customer.name},
+
+This is a reminder that Invoice *#${invoice.invoiceNumber}* is *${daysOverdue} days overdue*.
+
+💰 *Amount Due:* $${invoice.balance.toFixed(2)}
+📅 *Original Due Date:* ${dueDateStr}
+
+Please arrange payment at your earliest convenience to avoid any service interruptions.
+
+If you have already made payment, please disregard this message or reply with your payment confirmation.
+
+Thank you for your business.
+
+_WD Logistics_`
+      : `📋 *Payment Reminder*
+
+Dear ${invoice.customer.name},
+
+This is a friendly reminder that Invoice *#${invoice.invoiceNumber}* is due in *${daysDue} days*.
+
+💰 *Amount Due:* $${invoice.balance.toFixed(2)}
+📅 *Due Date:* ${dueDateStr}
+
+Please arrange payment before the due date.
+
+If you have already made payment, please disregard this message.
+
+Thank you for your business.
+
+_WD Logistics_`;
+
+    // Create notification record
+    await prisma.notification.create({
+      data: {
+        type: "invoice_reminder",
+        recipientPhone: customerPhone,
+        message,
+        status: "pending",
+        metadata: {
+          invoiceId: invoice.id,
+          customerId: invoice.customer.id,
+          balance: invoice.balance,
+          daysOverdue: isOverdue ? daysOverdue : 0,
+          organizationId,
+        },
+      },
+    });
+
+    // Update invoice reminder status
+    await prisma.invoice.update({
+      where: { id: invoice.id },
+      data: {
+        reminderSent: true,
+        reminderSentAt: now,
+        status: isOverdue && invoice.status === "sent" ? "overdue" : invoice.status,
+      },
+    });
+
+    return {
+      success: true,
+      message: `Invoice reminder sent to ${invoice.customer.name}`,
+      data: {
+        invoiceId: invoice.id,
+        invoiceNumber: invoice.invoiceNumber,
+        customerId: invoice.customer.id,
+        customerName: invoice.customer.name,
+        phone: customerPhone,
+        balance: invoice.balance,
+        isOverdue,
+        daysOverdue,
+        notificationMessage: message,
+      },
+    };
+  } catch (error) {
+    console.error("Invoice reminder error:", error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : "Failed to send invoice reminder",
+    };
+  }
+}
+
 // Export all workflows
 export const workflows = {
   notifyDriversAboutUpcomingTrips,
   sendInvoiceReminders,
   generateDailySummary,
   checkLicenseExpiries,
+  notifyTripAssignment,
+  sendInvoiceReminderById,
 };

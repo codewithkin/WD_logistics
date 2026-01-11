@@ -5,6 +5,7 @@ import { logger } from "hono/logger";
 import chat from "./routes/chat";
 import workflows from "./routes/workflows";
 import whatsapp from "./routes/whatsapp";
+import webhooks from "./routes/webhooks";
 import { getAgentWhatsAppClient } from "./lib/whatsapp";
 
 const app = new Hono();
@@ -34,6 +35,8 @@ app.get("/", (c) => {
       workflowsHealth: "/workflows/health",
       whatsapp: "/whatsapp",
       whatsappHealth: "/whatsapp/health",
+      webhooks: "/webhooks",
+      webhooksHealth: "/webhooks/health",
     },
   });
 });
@@ -42,6 +45,7 @@ app.get("/", (c) => {
 app.route("/chat", chat);
 app.route("/workflows", workflows);
 app.route("/whatsapp", whatsapp);
+app.route("/webhooks", webhooks);
 
 // Start server
 const port = Number(process.env.PORT) || 3001;

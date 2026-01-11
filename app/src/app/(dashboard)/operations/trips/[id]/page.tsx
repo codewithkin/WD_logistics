@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { TRIP_STATUS_LABELS, TRIP_STATUS_COLORS, TripStatus } from "@/lib/types";
+import { NotifyDriverButton } from "./_components/notify-driver-button";
 
 interface TripDetailPageProps {
     params: Promise<{ id: string }>;
@@ -169,12 +170,20 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
                             <span className="text-muted-foreground flex items-center gap-2">
                                 <User className="h-4 w-4" /> Driver
                             </span>
-                            <Link
-                                href={`/fleet/drivers/${trip.driver.id}`}
-                                className="font-medium text-primary hover:underline"
-                            >
-                                {trip.driver.firstName} {trip.driver.lastName}
-                            </Link>
+                            <div className="flex items-center gap-2">
+                                <Link
+                                    href={`/fleet/drivers/${trip.driver.id}`}
+                                    className="font-medium text-primary hover:underline"
+                                >
+                                    {trip.driver.firstName} {trip.driver.lastName}
+                                </Link>
+                                <NotifyDriverButton
+                                    tripId={trip.id}
+                                    driverName={`${trip.driver.firstName} ${trip.driver.lastName}`}
+                                    driverPhone={trip.driver.whatsappNumber || trip.driver.phone}
+                                    alreadyNotified={trip.driverNotified}
+                                />
+                            </div>
                         </div>
                         {trip.customer && (
                             <>
