@@ -34,7 +34,8 @@ export async function getDriverPerformanceData(): Promise<DriverPerformanceMetri
     where: { organizationId: organization },
     select: {
       id: true,
-      name: true,
+      firstName: true,
+      lastName: true,
       trips: true,
     },
   });
@@ -77,7 +78,7 @@ export async function getDriverPerformanceData(): Promise<DriverPerformanceMetri
 
     metrics.push({
       driverId: driver.id,
-      driverName: driver.name,
+      driverName: `${driver.firstName} ${driver.lastName}`,
       totalTrips,
       revenue: Math.round(revenue * 100) / 100,
       completedTrips,
