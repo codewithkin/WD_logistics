@@ -7,6 +7,8 @@ import workflows from "./routes/workflows";
 import whatsapp from "./routes/whatsapp";
 import webhooks from "./routes/webhooks";
 import { getAgentWhatsAppClient } from "./lib/whatsapp";
+import { isAdminPhoneNumber } from "./lib/constants";
+import { logisticsAgent } from "./agents/logistics-agent";
 
 const app = new Hono();
 
@@ -77,6 +79,43 @@ const initWhatsApp = async () => {
     const initialized = await client.initialize();
     if (initialized) {
       console.log("✅ WhatsApp client initialized on startup");
+      
+      // Setup incoming message handler with admin phone filter
+      client.on("message", async (msg: { from: string; body: string; reply: (text: string) => Promise<void> }) => {
+        try {
+          // Extract phone number from WhatsApp ID (format: 263789859332@c.us)
+          const phoneNumber = msg.from.replace("@c.us", "");
+          const formattedNumber = `+${phoneNumber}`;
+          
+          // Check if sender is an admin
+          if (!isAdminPhoneNumber(formattedNumber)) {
+            console.log(`⚠️ Ignoring message from non-admin number: ${formattedNumber}`);
+            await msg.reply("Sorry, you are not authorized to use the AI assistant. Contact your administrator for access.");
+            return;
+          }
+          
+          console.log(`📨 Processing message from admin: ${formattedNumber}`);
+          
+          // Process with AI agent
+          const response = await logisticsAgent.generate([
+            {
+              role: "user",
+              content: msg.body,
+            },
+          ]);
+          
+          // Reply via WhatsApp
+          await msg.reply(response.text);
+          console.log(`✅ Replied to admin: ${formattedNumber}`);
+        } catch (error) {
+          console.error("Error processing incoming message:", error);
+          try {
+            await msg.reply("Sorry, I encountered an error processing your request. Please try again.");
+          } catch {
+            // Ignore reply errors
+          }
+        }
+      });
     }
   } catch (error) {
     console.warn("⚠️  WhatsApp client initialization deferred (will initialize on first use):", error);
