@@ -178,6 +178,78 @@ export async function deleteDriver(id: string) {
   }
 }
 
+export async function assignTruckToDriver(driverId: string, truckId: string | null) {
+  const session = await requireRole(["admin", "supervisor"]);
+
+  try {
+    const driver = await prisma.driver.findFirst({
+      where: { id: driverId, organizationId: session.organizationId },
+    });
+
+    if (!driver) {
+      return { success: false, error: "Driver not found" };
+    }
+
+    if (truckId) {
+      const truck = await prisma.truck.findFirst({
+        where: { id: truckId, organizationId: session.organizationId },
+      });
+
+      if (!truck) {
+        return { success: false, error: "Truck not found" };
+      }
+
+      // Unassign any driver currently assigned to this truck
+      await prisma.driver.updateMany({
+        where: { assignedTruckId: truckId, NOT: { id: driverId } },
+        data: { assignedTruckId: null },
+      });
+    }
+
+    // Update the driver's assigned truck
+    await prisma.driver.update({
+      where: { id: driverId },
+      data: { assignedTruckId: truckId },
+    });
+
+    revalidatePath("/fleet/drivers");
+    revalidatePath(`/fleet/drivers/${driverId}`);
+    revalidatePath("/fleet/trucks");
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to assign truck:", error);
+    return { success: false, error: "Failed to assign truck" };
+  }
+}
+
+export async function getAvailableTrucks() {
+  const session = await requireAuth();
+
+  try {
+    const trucks = await prisma.truck.findMany({
+      where: {
+        organizationId: session.organizationId,
+        status: "active",
+      },
+      select: {
+        id: true,
+        registrationNo: true,
+        make: true,
+        model: true,
+        assignedDriver: {
+          select: { id: true },
+        },
+      },
+      orderBy: { registrationNo: "asc" },
+    });
+
+    return { success: true, trucks };
+  } catch (error) {
+    console.error("Failed to fetch trucks:", error);
+    return { success: false, error: "Failed to fetch trucks", trucks: [] };
+  }
+}
+
 export async function requestEditDriver(driverId: string) {
   const session = await requireAuth();
 

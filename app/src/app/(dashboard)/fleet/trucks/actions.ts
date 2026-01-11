@@ -10,8 +10,6 @@ export async function createTruck(data: {
   make: string;
   model: string;
   year: number;
-  chassisNumber?: string;
-  engineNumber?: string;
   status: TruckStatus;
   currentMileage: number;
   fuelType?: string;
@@ -40,8 +38,6 @@ export async function createTruck(data: {
         make: data.make,
         model: data.model,
         year: data.year,
-        chassisNumber: data.chassisNumber,
-        engineNumber: data.engineNumber,
         status: data.status,
         currentMileage: data.currentMileage,
         fuelType: data.fuelType,
@@ -66,8 +62,6 @@ export async function updateTruck(
     make?: string;
     model?: string;
     year?: number;
-    chassisNumber?: string;
-    engineNumber?: string;
     status?: TruckStatus;
     currentMileage?: number;
     fuelType?: string;
@@ -112,6 +106,82 @@ export async function updateTruck(
   } catch (error) {
     console.error("Failed to update truck:", error);
     return { success: false, error: "Failed to update truck" };
+  }
+}
+
+export async function assignDriverToTruck(truckId: string, driverId: string | null) {
+  const session = await requireRole(["admin", "supervisor"]);
+
+  try {
+    const truck = await prisma.truck.findFirst({
+      where: { id: truckId, organizationId: session.organizationId },
+    });
+
+    if (!truck) {
+      return { success: false, error: "Truck not found" };
+    }
+
+    // If assigning a new driver
+    if (driverId) {
+      const driver = await prisma.driver.findFirst({
+        where: { id: driverId, organizationId: session.organizationId },
+      });
+
+      if (!driver) {
+        return { success: false, error: "Driver not found" };
+      }
+
+      // Unassign any driver currently assigned to this truck
+      await prisma.driver.updateMany({
+        where: { assignedTruckId: truckId },
+        data: { assignedTruckId: null },
+      });
+
+      // Assign the new driver to this truck
+      await prisma.driver.update({
+        where: { id: driverId },
+        data: { assignedTruckId: truckId },
+      });
+    } else {
+      // Unassign any driver from this truck
+      await prisma.driver.updateMany({
+        where: { assignedTruckId: truckId },
+        data: { assignedTruckId: null },
+      });
+    }
+
+    revalidatePath("/fleet/trucks");
+    revalidatePath(`/fleet/trucks/${truckId}`);
+    revalidatePath("/fleet/drivers");
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to assign driver:", error);
+    return { success: false, error: "Failed to assign driver" };
+  }
+}
+
+export async function getAvailableDrivers() {
+  const session = await requireAuth();
+
+  try {
+    const drivers = await prisma.driver.findMany({
+      where: {
+        organizationId: session.organizationId,
+        status: "active",
+      },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        assignedTruckId: true,
+      },
+      orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
+    });
+
+    return { success: true, drivers };
+  } catch (error) {
+    console.error("Failed to fetch drivers:", error);
+    return { success: false, error: "Failed to fetch drivers", drivers: [] };
   }
 }
 

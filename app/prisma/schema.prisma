@@ -174,8 +174,6 @@ model Truck {
   make            String
   model           String
   year            Int
-  chassisNumber   String?
-  engineNumber    String?
   status          String   @default("active") // active, in_service, in_repair, inactive, decommissioned
   currentMileage  Int      @default(0)
   fuelType        String?

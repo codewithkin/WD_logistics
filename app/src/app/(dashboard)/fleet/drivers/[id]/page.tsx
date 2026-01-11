@@ -10,6 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { Pencil, Truck, Calendar, Phone, Mail, FileText } from "lucide-react";
 import { format } from "date-fns";
 import { DRIVER_STATUS_LABELS, DRIVER_STATUS_COLORS, DriverStatus } from "@/lib/types";
+import { AssignTruck } from "./_components/assign-truck";
 
 interface DriverDetailPageProps {
     params: Promise<{ id: string }>;
@@ -97,7 +98,13 @@ export default async function DriverDetailPage({ params }: DriverDetailPageProps
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        {driver.assignedTruck ? (
+                        {canEdit ? (
+                            <AssignTruck
+                                driverId={driver.id}
+                                currentTruckId={driver.assignedTruck?.id ?? null}
+                                currentTruckName={driver.assignedTruck?.registrationNo ?? null}
+                            />
+                        ) : driver.assignedTruck ? (
                             <div className="flex items-center gap-4">
                                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
                                     <Truck className="h-6 w-6 text-primary" />

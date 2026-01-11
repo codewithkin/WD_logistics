@@ -10,6 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { Pencil, User, Gauge, FileText } from "lucide-react";
 import { format } from "date-fns";
 import { TRUCK_STATUS_LABELS, TRUCK_STATUS_COLORS, TruckStatus } from "@/lib/types";
+import { AssignDriver } from "./_components/assign-driver";
 
 interface TruckDetailPageProps {
     params: Promise<{ id: string }>;
@@ -116,10 +117,22 @@ export default async function TruckDetailPage({ params }: TruckDetailPageProps) 
 
                 <Card>
                     <CardHeader>
-                        <CardTitle className="text-lg">Assigned Driver</CardTitle>
+                        <CardTitle className="text-lg flex items-center gap-2">
+                            <User className="h-5 w-5" /> Assigned Driver
+                        </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        {truck.assignedDriver ? (
+                        {canEdit ? (
+                            <AssignDriver
+                                truckId={truck.id}
+                                currentDriverId={truck.assignedDriver?.id ?? null}
+                                currentDriverName={
+                                    truck.assignedDriver
+                                        ? `${truck.assignedDriver.firstName} ${truck.assignedDriver.lastName}`
+                                        : null
+                                }
+                            />
+                        ) : truck.assignedDriver ? (
                             <div className="flex items-center gap-4">
                                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
                                     <User className="h-6 w-6 text-primary" />
@@ -138,34 +151,6 @@ export default async function TruckDetailPage({ params }: TruckDetailPageProps) 
                             </div>
                         ) : (
                             <p className="text-muted-foreground">No driver assigned</p>
-                        )}
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="text-lg flex items-center gap-2">
-                            <FileText className="h-5 w-5" /> Vehicle Details
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        {truck.chassisNumber && (
-                            <>
-                                <div className="flex items-center justify-between">
-                                    <span className="text-muted-foreground">Chassis Number</span>
-                                    <span className="font-medium">{truck.chassisNumber}</span>
-                                </div>
-                                <Separator />
-                            </>
-                        )}
-                        {truck.engineNumber && (
-                            <div className="flex items-center justify-between">
-                                <span className="text-muted-foreground">Engine Number</span>
-                                <span className="font-medium">{truck.engineNumber}</span>
-                            </div>
-                        )}
-                        {!truck.chassisNumber && !truck.engineNumber && (
-                            <p className="text-muted-foreground">No additional vehicle details recorded</p>
                         )}
                     </CardContent>
                 </Card>
