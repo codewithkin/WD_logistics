@@ -1,5 +1,12 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   TrendingUp,
   TrendingDown,
@@ -9,6 +16,11 @@ import {
   Package,
   Route,
   Receipt,
+  Download,
+  FileText,
+  FileSpreadsheet,
+  ChevronDown,
+  Loader2,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -53,9 +65,12 @@ interface ReportsDashboardProps {
     topCustomersByRevenue: CustomerRevenue[];
     expensesWithCategories: ExpenseCategory[];
   };
+  onGeneratePDF?: () => void;
+  onGenerateCSV?: () => void;
+  isGenerating?: boolean;
 }
 
-export function ReportsDashboard({ data }: ReportsDashboardProps) {
+export function ReportsDashboard({ data, onGeneratePDF, onGenerateCSV, isGenerating = false }: ReportsDashboardProps) {
   const {
     totalTrucks,
     activeTrucks,
@@ -91,11 +106,42 @@ export function ReportsDashboard({ data }: ReportsDashboardProps) {
 
   return (
     <Tabs defaultValue="overview" className="space-y-6">
-      <TabsList>
-        <TabsTrigger value="overview">Overview</TabsTrigger>
-        <TabsTrigger value="financial">Financial</TabsTrigger>
-        <TabsTrigger value="fleet">Fleet</TabsTrigger>
-      </TabsList>
+      <div className="flex items-center justify-between">
+        <TabsList>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="financial">Financial</TabsTrigger>
+          <TabsTrigger value="fleet">Fleet</TabsTrigger>
+        </TabsList>
+        {(onGeneratePDF || onGenerateCSV) && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button disabled={isGenerating}>
+                {isGenerating ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="mr-2 h-4 w-4" />
+                )}
+                Generate
+                <ChevronDown className="ml-2 h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {onGeneratePDF && (
+                <DropdownMenuItem onClick={onGeneratePDF}>
+                  <FileText className="mr-2 h-4 w-4" />
+                  Generate PDF Report
+                </DropdownMenuItem>
+              )}
+              {onGenerateCSV && (
+                <DropdownMenuItem onClick={onGenerateCSV}>
+                  <FileSpreadsheet className="mr-2 h-4 w-4" />
+                  Generate CSV Report
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      </div>
 
       <TabsContent value="overview" className="space-y-6">
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

@@ -1,23 +1,16 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { FileText, FileSpreadsheet, Download, Loader2, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { generateReport } from "@/app/(dashboard)/reports/actions";
 import { format, startOfMonth, endOfMonth, subMonths } from "date-fns";
+import { ReportsDashboard } from "./reports-dashboard";
 
 interface ReportsClientProps {
   customers: { id: string; name: string }[];
   trucks: { id: string; registrationNo: string; make: string; model: string }[];
   initialReports: { id: string }[];
-  dashboardContent: React.ReactNode;
+  dashboardContent: any;
 }
 
 export function ReportsClient({
@@ -65,35 +58,20 @@ export function ReportsClient({
     });
   };
 
-  return (
-    <div className="space-y-6">
-      <div className="flex justify-end">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button disabled={isPending}>
-              {isPending ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Download className="mr-2 h-4 w-4" />
-              )}
-              Generate
-              <ChevronDown className="ml-2 h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => handleGenerateReport("pdf")}>
-              <FileText className="mr-2 h-4 w-4" />
-              Generate PDF Report
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleGenerateReport("csv")}>
-              <FileSpreadsheet className="mr-2 h-4 w-4" />
-              Generate CSV Report
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+  // If dashboardContent is a React component (ReportsDashboard), clone it with additional props
+  const EnhancedDashboard = dashboardContent.type === ReportsDashboard 
+    ? () => {
+        const Dashboard = dashboardContent.type as any;
+        return (
+          <Dashboard
+            {...dashboardContent.props}
+            onGeneratePDF={() => handleGenerateReport("pdf")}
+            onGenerateCSV={() => handleGenerateReport("csv")}
+            isGenerating={isPending}
+          />
+        );
+      }
+    : () => dashboardContent;
 
-      {dashboardContent}
-    </div>
-  );
+  return <EnhancedDashboard />;
 }
