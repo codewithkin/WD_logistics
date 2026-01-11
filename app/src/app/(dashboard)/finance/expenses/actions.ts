@@ -10,10 +10,7 @@ export interface ExpenseFormData {
   amount: number;
   description?: string;
   date: Date;
-  vendor?: string;
-  reference?: string;
   notes?: string;
-  receiptUrl?: string;
   truckIds?: string[];
   tripIds?: string[];
 }
@@ -28,10 +25,7 @@ export async function createExpense(data: ExpenseFormData) {
       amount: data.amount,
       description: data.description,
       date: data.date,
-      vendor: data.vendor,
-      reference: data.reference,
       notes: data.notes,
-      receiptUrl: data.receiptUrl,
       truckExpenses: data.truckIds?.length
         ? {
             create: data.truckIds.map((truckId) => ({ truckId })),
@@ -71,10 +65,7 @@ export async function updateExpense(id: string, data: ExpenseFormData) {
         amount: data.amount,
         description: data.description,
         date: data.date,
-        vendor: data.vendor,
-        reference: data.reference,
         notes: data.notes,
-        receiptUrl: data.receiptUrl,
       },
     });
 
