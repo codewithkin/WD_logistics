@@ -8,6 +8,7 @@ import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { ImageUpload } from "@/components/ui/image-upload";
 import {
     Form,
     FormControl,
@@ -39,6 +40,7 @@ const employeeSchema = z.object({
     phone: z.string().min(1, "Phone is required"),
     position: z.string().min(1, "Position is required"),
     department: z.string().optional(),
+    image: z.string().optional(),
     status: z.enum(["active", "on_leave", "suspended", "terminated"]),
     startDate: z.date({ message: "Start date is required" }),
     endDate: z.date().optional().nullable(),
@@ -57,6 +59,7 @@ interface EmployeeFormProps {
         phone: string | null;
         position: string;
         department: string | null;
+        image: string | null;
         status: string;
         startDate: Date;
         endDate: Date | null;
@@ -80,6 +83,7 @@ export function EmployeeForm({ employee }: EmployeeFormProps) {
             phone: employee?.phone ?? "",
             position: employee?.position ?? "",
             department: employee?.department ?? "",
+            image: employee?.image ?? "",
             status: (employee?.status as EmployeeFormData["status"]) ?? "active",
             startDate: employee?.startDate ?? new Date(),
             endDate: employee?.endDate ?? null,
@@ -291,7 +295,7 @@ export function EmployeeForm({ employee }: EmployeeFormProps) {
                         control={form.control}
                         name="endDate"
                         render={({ field }) => (
-                            <FormItem className="flex flex-col max-w-[300px]">
+                            <FormItem className="flex flex-col max-w-75">
                                 <FormLabel>End Date</FormLabel>
                                 <Popover>
                                     <PopoverTrigger asChild>
@@ -326,6 +330,27 @@ export function EmployeeForm({ employee }: EmployeeFormProps) {
 
                 <FormField
                     control={form.control}
+                    name="image"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Employee Photo</FormLabel>
+                            <FormControl>
+                                <ImageUpload
+                                    value={field.value}
+                                    onChange={field.onChange}
+                                    folder="employees"
+                                    placeholder="Upload employee photo"
+                                    aspect="square"
+                                    disabled={isLoading}
+                                />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+
+                <FormField
+                    control={form.control}
                     name="notes"
                     render={({ field }) => (
                         <FormItem>
@@ -333,7 +358,7 @@ export function EmployeeForm({ employee }: EmployeeFormProps) {
                             <FormControl>
                                 <Textarea
                                     placeholder="Additional notes..."
-                                    className="min-h-[80px]"
+                                    className="min-h-20"
                                     {...field}
                                 />
                             </FormControl>

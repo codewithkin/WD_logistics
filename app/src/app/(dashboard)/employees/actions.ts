@@ -12,6 +12,7 @@ export async function createEmployee(data: {
   phone: string;
   position: string;
   department?: string;
+  image?: string;
   status: EmployeeStatus;
   startDate: Date;
   salary?: number;
@@ -53,6 +54,7 @@ export async function updateEmployee(
     phone?: string;
     position?: string;
     department?: string;
+    image?: string;
     status?: EmployeeStatus;
     startDate?: Date;
     endDate?: Date | null;

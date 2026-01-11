@@ -8,6 +8,7 @@ import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { ImageUpload } from "@/components/ui/image-upload";
 import {
     Form,
     FormControl,
@@ -207,9 +208,16 @@ export function TruckForm({ truck }: TruckFormProps) {
                     name="image"
                     render={({ field }) => (
                         <FormItem>
-                            <FormLabel>Image URL</FormLabel>
+                            <FormLabel>Truck Image</FormLabel>
                             <FormControl>
-                                <Input placeholder="https://..." {...field} />
+                                <ImageUpload
+                                    value={field.value}
+                                    onChange={field.onChange}
+                                    folder="trucks"
+                                    placeholder="Upload truck image"
+                                    aspect="video"
+                                    disabled={isLoading}
+                                />
                             </FormControl>
                             <FormMessage />
                         </FormItem>
