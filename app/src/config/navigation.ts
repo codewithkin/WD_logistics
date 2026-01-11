@@ -13,6 +13,7 @@ import {
   DollarSign,
   Bot,
   LucideIcon,
+  Tags,
 } from "lucide-react";
 import { Role } from "@/lib/types";
 
@@ -113,6 +114,18 @@ export const navigationSections: NavSection[] = [
             href: "/finance/payments",
             icon: DollarSign,
             roles: ["admin", "supervisor", "staff"],
+          },
+          {
+            title: "Expenses",
+            href: "/finance/expenses",
+            icon: Receipt,
+            roles: ["admin", "supervisor", "staff"],
+          },
+          {
+            title: "Expense Categories",
+            href: "/finance/expense-categories",
+            icon: Tags,
+            roles: ["admin", "supervisor"],
           },
         ],
       },
