@@ -1,0 +1,85 @@
+import { PageHeader } from "@/components/layout/page-header";
+import { ExpenseForm } from "../_components/expense-form";
+import { requireRole } from "@/lib/session";
+import prisma from "@/lib/prisma";
+
+export default async function NewExpensePage() {
+    const user = await requireRole(["admin", "supervisor", "staff"]);
+
+    const [categories, trucks, trips] = await Promise.all([
+        prisma.expenseCategory.findMany({
+            where: {
+                organizationId: user.organizationId,
+            },
+            select: {
+                id: true,
+                name: true,
+                isTruck: true,
+                isTrip: true,
+            },
+            orderBy: {
+                name: "asc",
+            },
+        }),
+        prisma.truck.findMany({
+            where: {
+                organizationId: user.organizationId,
+                status: { in: ["active", "in_service"] },
+            },
+            select: {
+                id: true,
+                registrationNo: true,
+                make: true,
+                model: true,
+            },
+            orderBy: {
+                registrationNo: "asc",
+            },
+        }),
+        prisma.trip.findMany({
+            where: {
+                organizationId: user.organizationId,
+                status: { in: ["scheduled", "in_progress", "completed"] },
+                scheduledDate: {
+                    gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // Last 30 days
+                },
+            },
+            select: {
+                id: true,
+                originCity: true,
+                destinationCity: true,
+                scheduledDate: true,
+                truck: {
+                    select: {
+                        registrationNo: true,
+                    },
+                },
+                driver: {
+                    select: {
+                        firstName: true,
+                        lastName: true,
+                    },
+                },
+            },
+            orderBy: {
+                scheduledDate: "desc",
+            },
+        }),
+    ]);
+
+    return (
+        <div className="flex flex-col gap-6">
+            <PageHeader
+                title="Add Expense"
+                description="Record a new business expense"
+            />
+            <div className="max-w-2xl">
+                <ExpenseForm 
+                    categories={categories} 
+                    trucks={trucks}
+                    trips={trips}
+                />
+            </div>
+        </div>
+    );
+}
