@@ -37,7 +37,7 @@ export async function getRevenueExpensesData(): Promise<MonthlyRevenueExpense[]>
         invoice: {
           organizationId: organization,
         },
-        paidAt: {
+        paymentDate: {
           gte: monthStart,
           lte: monthEnd,
         },
