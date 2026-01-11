@@ -14,7 +14,6 @@ export async function createDriver(data: {
   licenseNumber: string;
   passportNumber?: string;
   status: DriverStatus;
-  address?: string;
   notes?: string;
   assignedTruckId?: string | null;
 }) {
@@ -42,7 +41,6 @@ export async function createDriver(data: {
         licenseNumber: data.licenseNumber,
         passportNumber: data.passportNumber,
         status: data.status,
-        address: data.address,
         notes: data.notes,
         assignedTruckId: data.assignedTruckId,
         organizationId: session.organizationId,
@@ -68,7 +66,6 @@ export async function updateDriver(
     licenseNumber?: string;
     passportNumber?: string;
     status?: DriverStatus;
-    address?: string;
     notes?: string;
     assignedTruckId?: string | null;
   }
@@ -126,7 +123,6 @@ export async function updateDriver(
         licenseNumber: data.licenseNumber,
         passportNumber: data.passportNumber,
         status: data.status,
-        address: data.address,
         notes: data.notes,
         assignedTruckId: data.assignedTruckId,
       },

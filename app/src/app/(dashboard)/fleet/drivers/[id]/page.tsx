@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Pencil, Truck, Calendar, Phone, Mail, MapPin, FileText } from "lucide-react";
+import { Pencil, Truck, Calendar, Phone, Mail, FileText } from "lucide-react";
 import { format } from "date-fns";
 import { DRIVER_STATUS_LABELS, DRIVER_STATUS_COLORS, DriverStatus } from "@/lib/types";
 
@@ -87,17 +87,6 @@ export default async function DriverDetailPage({ params }: DriverDetailPageProps
                                 </div>
                             </>
                         )}
-                        {driver.address && (
-                            <>
-                                <Separator />
-                                <div className="flex items-center justify-between">
-                                    <span className="text-muted-foreground flex items-center gap-2">
-                                        <MapPin className="h-4 w-4" /> Address
-                                    </span>
-                                    <span className="font-medium text-right">{driver.address}</span>
-                                </div>
-                            </>
-                        )}
                     </CardContent>
                 </Card>
 
@@ -142,26 +131,6 @@ export default async function DriverDetailPage({ params }: DriverDetailPageProps
                             <span className="text-muted-foreground">License Number</span>
                             <span className="font-medium">{driver.licenseNumber}</span>
                         </div>
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="text-lg flex items-center gap-2">
-                            <Phone className="h-5 w-5" /> Additional Information
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        {driver.address ? (
-                            <div className="flex items-center justify-between">
-                                <span className="text-muted-foreground flex items-center gap-2">
-                                    <MapPin className="h-4 w-4" /> Address
-                                </span>
-                                <span className="font-medium">{driver.address}</span>
-                            </div>
-                        ) : (
-                            <p className="text-muted-foreground">No additional information available</p>
-                        )}
                     </CardContent>
                 </Card>
 

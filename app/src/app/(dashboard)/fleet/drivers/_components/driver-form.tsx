@@ -41,7 +41,6 @@ const driverSchema = z.object({
     licenseNumber: z.string().min(1, "License number is required"),
     passportNumber: z.string().optional().or(z.literal("")),
     status: z.enum(["active", "on_leave", "suspended", "terminated"]),
-    address: z.string().optional(),
     notes: z.string().optional(),
     assignedTruckId: z.string().optional().nullable(),
 });
@@ -64,7 +63,6 @@ interface DriverFormProps {
         licenseNumber: string;
         passportNumber: string | null;
         status: string;
-        address: string | null;
         notes: string | null;
         assignedTruckId: string | null;
     };
@@ -88,7 +86,6 @@ export function DriverForm({ driver, availableTrucks }: DriverFormProps) {
             licenseNumber: driver?.licenseNumber ?? "",
             passportNumber: driver?.passportNumber ?? "",
             status: (driver?.status as DriverFormData["status"]) ?? "active",
-            address: driver?.address ?? "",
             notes: driver?.notes ?? "",
             assignedTruckId: driver?.assignedTruckId ?? null,
         },
@@ -106,7 +103,6 @@ export function DriverForm({ driver, availableTrucks }: DriverFormProps) {
                 licenseNumber: data.licenseNumber,
                 passportNumber: data.passportNumber || undefined,
                 status: data.status,
-                address: data.address,
                 notes: data.notes,
                 assignedTruckId: data.assignedTruckId,
             };
@@ -253,20 +249,6 @@ export function DriverForm({ driver, availableTrucks }: DriverFormProps) {
                             <FormLabel>Passport Number (Optional)</FormLabel>
                             <FormControl>
                                 <Input placeholder="Pass123456" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-
-                <FormField
-                    control={form.control}
-                    name="address"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Address (Optional)</FormLabel>
-                            <FormControl>
-                                <Input placeholder="123 Main St, City, State" {...field} />
                             </FormControl>
                             <FormMessage />
                         </FormItem>

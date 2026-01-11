@@ -221,7 +221,6 @@ model Driver {
   whatsappNumber  String?
   passportNumber  String?
   licenseNumber   String
-  address         String?
   image           String?
   startDate       DateTime  @default(now())
   endDate         DateTime?
