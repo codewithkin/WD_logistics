@@ -23,11 +23,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, Loader2 } from "lucide-react";
-import { format } from "date-fns";
-import { cn } from "@/lib/utils";
+import { Loader2 } from "lucide-react";
 import { DriverStatus, DRIVER_STATUS_LABELS } from "@/lib/types";
 import { createDriver, updateDriver } from "../actions";
 import { toast } from "sonner";
@@ -227,33 +223,34 @@ export function DriverForm({ driver, availableTrucks }: DriverFormProps) {
                     )}
                 </div>
 
-                <FormField
-                    control={form.control}
-                    name="licenseNumber"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>License Number</FormLabel>
-                            <FormControl>
-                                <Input placeholder="DL-123456789" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-
-                <FormField
-                    control={form.control}
-                    name="passportNumber"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Passport Number (Optional)</FormLabel>
-                            <FormControl>
-                                <Input placeholder="Pass123456" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
+                <div className="grid gap-4 sm:grid-cols-2">
+                    <FormField
+                        control={form.control}
+                        name="licenseNumber"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>License Number</FormLabel>
+                                <FormControl>
+                                    <Input placeholder="DL-123456789" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    <FormField
+                        control={form.control}
+                        name="passportNumber"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Passport Number (Optional)</FormLabel>
+                                <FormControl>
+                                    <Input placeholder="Pass123456" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                </div>
 
                 {isEditing && (
                     <FormField

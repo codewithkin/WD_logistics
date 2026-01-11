@@ -24,11 +24,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, Loader2 } from "lucide-react";
-import { format } from "date-fns";
-import { cn } from "@/lib/utils";
+import { Loader2 } from "lucide-react";
 import { TruckStatus, TRUCK_STATUS_LABELS } from "@/lib/types";
 import { createTruck, updateTruck } from "../actions";
 import { toast } from "sonner";
@@ -149,7 +145,7 @@ export function TruckForm({ truck }: TruckFormProps) {
                     )}
                 </div>
 
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-4 sm:grid-cols-2">
                     <FormField
                         control={form.control}
                         name="make"
@@ -176,6 +172,9 @@ export function TruckForm({ truck }: TruckFormProps) {
                             </FormItem>
                         )}
                     />
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
                     <FormField
                         control={form.control}
                         name="year"
@@ -189,21 +188,20 @@ export function TruckForm({ truck }: TruckFormProps) {
                             </FormItem>
                         )}
                     />
+                    <FormField
+                        control={form.control}
+                        name="currentMileage"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Current Mileage (km)</FormLabel>
+                                <FormControl>
+                                    <Input type="number" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
                 </div>
-
-                <FormField
-                    control={form.control}
-                    name="currentMileage"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Current Mileage (km)</FormLabel>
-                            <FormControl>
-                                <Input type="number" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
 
                 <FormField
                     control={form.control}
