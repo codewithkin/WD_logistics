@@ -103,15 +103,16 @@ async function main() {
   if (existingCategories === 0) {
     const expenseCategories = await prisma.expenseCategory.createMany({
       data: [
-        { organizationId: organization.id, name: "Fuel", isTrip: true, isTruck: true, color: "#ef4444" },
+        { organizationId: organization.id, name: "Fuel", isTrip: true, isTruck: true, isDriver: true, color: "#ef4444" },
         { organizationId: organization.id, name: "Maintenance", isTruck: true, color: "#f97316" },
         { organizationId: organization.id, name: "Tires", isTruck: true, color: "#84cc16" },
-        { organizationId: organization.id, name: "Tolls", isTrip: true, color: "#06b6d4" },
-        { organizationId: organization.id, name: "Parking", isTrip: true, color: "#8b5cf6" },
-        { organizationId: organization.id, name: "Driver Allowance", isTrip: true, color: "#ec4899" },
+        { organizationId: organization.id, name: "Tolls", isTrip: true, isDriver: true, color: "#06b6d4" },
+        { organizationId: organization.id, name: "Parking", isTrip: true, isDriver: true, color: "#8b5cf6" },
+        { organizationId: organization.id, name: "Driver Allowance", isTrip: true, isDriver: true, color: "#ec4899" },
         { organizationId: organization.id, name: "Insurance", isTruck: true, color: "#6366f1" },
         { organizationId: organization.id, name: "Registration", isTruck: true, color: "#14b8a6" },
-        { organizationId: organization.id, name: "Other", isTrip: true, isTruck: true, color: "#71717a" },
+        { organizationId: organization.id, name: "Repairs", isTruck: true, isDriver: true, color: "#f59e0b" },
+        { organizationId: organization.id, name: "Other", isTrip: true, isTruck: true, isDriver: true, color: "#71717a" },
       ],
     });
 

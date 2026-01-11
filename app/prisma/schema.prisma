@@ -230,6 +230,7 @@ model Driver {
   assignedTruckId String?   @unique
   assignedTruck   Truck?    @relation("AssignedTruck", fields: [assignedTruckId], references: [id])
   trips           Trip[]
+  driverExpenses  DriverExpense[]
 
   @@map("driver")
 }
@@ -367,6 +368,17 @@ model TripExpense {
   @@map("trip_expense")
 }
 
+model DriverExpense {
+  id        String   @id @default(cuid())
+  driverId  String
+  driver    Driver   @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  expenseId String
+  expense   Expense  @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+
+  @@unique([driverId, expenseId])
+  @@map("driver_expense")
+}
+
 // =============================================================================
 // EXPENSE MANAGEMENT
 // =============================================================================
@@ -379,6 +391,7 @@ model ExpenseCategory {
   description    String?
   isTrip         Boolean  @default(false)
   isTruck        Boolean  @default(false)
+  isDriver       Boolean  @default(false)
   color          String?
   icon           String?
   createdAt      DateTime @default(now())
@@ -408,6 +421,7 @@ model Expense {
 
   truckExpenses  TruckExpense[]
   tripExpenses   TripExpense[]
+  driverExpenses DriverExpense[]
 
   @@index([organizationId, date])
   @@index([categoryId])
