@@ -213,7 +213,16 @@ export async function generateFinancialReportProps(
       throw new Error(`Unknown report type: ${reportType}`);
   }
 
-export default FinancialReportTemplate;
+  return {
+    companyName,
+    title,
+    dateRange: {
+      startDate,
+      endDate,
+    },
+    data,
+  };
+}
 
 /**
  * Generate CSV content for financial report
