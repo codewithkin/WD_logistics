@@ -1,17 +1,12 @@
-import { redirect } from "next/navigation";
-import { requireAuth } from "@/lib/session";
+import { requireRole } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/layout/page-header";
 import { SettingsForm } from "./_components/settings-form";
 import { WhatsAppStatus } from "@/components/settings/whatsapp-status";
 
 export default async function SettingsPage() {
-    const session = await requireAuth();
-
-    // Only admin can access settings
-    if (session.role !== "admin") {
-        redirect("/dashboard");
-    }
+    // Guard: Only admins can access settings
+    const session = await requireRole(["admin"]);
 
     const organization = await prisma.organization.findUnique({
         where: { id: session.organizationId },
