@@ -10,7 +10,8 @@ export const metadata = {
 };
 
 export default async function AIPage() {
-    const session = await requireRole(["admin", "supervisor", "staff"]);
+    // Guard: Only admins can access the AI Assistant
+    const session = await requireRole(["admin"]);
 
     return (
         <div className="flex h-[calc(100vh-4rem)] flex-col">

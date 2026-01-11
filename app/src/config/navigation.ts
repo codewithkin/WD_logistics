@@ -150,7 +150,7 @@ export const navigationSections: NavSection[] = [
         title: "AI Assistant",
         href: "/ai",
         icon: Bot,
-        roles: ["admin", "supervisor", "staff"],
+        roles: ["admin"],
       },
       {
         title: "Reports",
