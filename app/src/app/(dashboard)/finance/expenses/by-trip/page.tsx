@@ -103,9 +103,9 @@ export default async function ExpensesByTripPage() {
                                             <div>
                                                 <Badge variant={
                                                     trip.status === "completed" ? "default" :
-                                                    trip.status === "in_progress" ? "secondary" :
-                                                    trip.status === "cancelled" ? "destructive" :
-                                                    "outline"
+                                                        trip.status === "in_progress" ? "secondary" :
+                                                            trip.status === "cancelled" ? "destructive" :
+                                                                "outline"
                                                 }>
                                                     {trip.status}
                                                 </Badge>

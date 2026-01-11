@@ -123,3 +123,104 @@ export async function deleteExpense(id: string) {
 
   revalidatePath("/finance/expenses");
 }
+
+export async function getExpensesForCharts(days: number = 30) {
+  const user = await requireRole(["admin", "supervisor"]);
+
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() - days);
+
+  const expenses = await prisma.expense.findMany({
+    where: {
+      organizationId: user.organizationId,
+      date: {
+        gte: startDate,
+      },
+    },
+    include: {
+      category: {
+        select: {
+          name: true,
+          color: true,
+        },
+      },
+      truckExpenses: {
+        include: {
+          truck: {
+            select: {
+              registrationNo: true,
+            },
+          },
+        },
+      },
+      tripExpenses: {
+        include: {
+          trip: {
+            select: {
+              originCity: true,
+              destinationCity: true,
+            },
+          },
+        },
+      },
+    },
+    orderBy: { date: "desc" },
+  });
+
+  // Aggregate by category
+  const categoryMap = new Map<string, { amount: number; count: number; color: string }>();
+  expenses.forEach((expense) => {
+    const existing = categoryMap.get(expense.category.name) || { amount: 0, count: 0, color: expense.category.color || "#71717a" };
+    categoryMap.set(expense.category.name, {
+      amount: existing.amount + expense.amount,
+      count: existing.count + 1,
+      color: expense.category.color || "#71717a",
+    });
+  });
+
+  // Aggregate by truck
+  const truckMap = new Map<string, number>();
+  expenses.forEach((expense) => {
+    expense.truckExpenses.forEach((te) => {
+      const current = truckMap.get(te.truck.registrationNo) || 0;
+      truckMap.set(te.truck.registrationNo, current + expense.amount);
+    });
+  });
+
+  // Aggregate by trip
+  const tripMap = new Map<string, number>();
+  expenses.forEach((expense) => {
+    expense.tripExpenses.forEach((te) => {
+      const key = `${te.trip.originCity}→${te.trip.destinationCity}`;
+      const current = tripMap.get(key) || 0;
+      tripMap.set(key, current + expense.amount);
+    });
+  });
+
+  // Aggregate by month
+  const monthMap = new Map<string, number>();
+  expenses.forEach((expense) => {
+    const month = new Date(expense.date).toLocaleDateString("en-US", { month: "short", year: "numeric" });
+    const current = monthMap.get(month) || 0;
+    monthMap.set(month, current + expense.amount);
+  });
+
+  const total = expenses.reduce((sum, expense) => sum + expense.amount, 0);
+
+  return {
+    byCategory: Array.from(categoryMap.entries())
+      .map(([category, data]) => ({ category, amount: data.amount, count: data.count, color: data.color }))
+      .sort((a, b) => b.amount - a.amount),
+    byTruck: Array.from(truckMap.entries())
+      .map(([truck, amount]) => ({ truck, amount }))
+      .sort((a, b) => b.amount - a.amount),
+    byTrip: Array.from(tripMap.entries())
+      .map(([trip, amount]) => ({ trip, amount }))
+      .sort((a, b) => b.amount - a.amount),
+    byMonth: Array.from(monthMap.entries())
+      .map(([month, amount]) => ({ month, amount }))
+      .sort((a, b) => new Date(a.month).getTime() - new Date(b.month).getTime()),
+    total,
+  };
+}
+
