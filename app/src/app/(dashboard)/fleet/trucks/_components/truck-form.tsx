@@ -36,9 +36,6 @@ import { toast } from "sonner";
 const numericString = (schema: z.ZodNumber) =>
     z.union([z.string(), z.number()]).pipe(z.coerce.number()).pipe(schema);
 
-const optionalNumericString = (schema: z.ZodNumber) =>
-    z.union([z.string(), z.number(), z.undefined()]).pipe(z.coerce.number()).pipe(schema).optional();
-
 const truckSchema = z.object({
     registrationNo: z.string().min(1, "Registration number is required"),
     make: z.string().min(1, "Make is required"),
@@ -46,7 +43,6 @@ const truckSchema = z.object({
     year: numericString(z.number().min(1990).max(new Date().getFullYear() + 1)),
     status: z.enum(["active", "in_service", "in_repair", "inactive", "decommissioned"]),
     currentMileage: numericString(z.number().min(0)),
-    tankCapacity: optionalNumericString(z.number().min(0)),
     image: z.string().optional(),
     notes: z.string().optional(),
 });
@@ -62,7 +58,6 @@ interface TruckFormProps {
         year: number;
         status: string;
         currentMileage: number;
-        tankCapacity: number | null;
         image: string | null;
         notes: string | null;
     };
@@ -83,7 +78,6 @@ export function TruckForm({ truck }: TruckFormProps) {
             year: truck?.year ?? undefined,
             status: (truck?.status as TruckFormData["status"]) ?? "active",
             currentMileage: truck?.currentMileage ?? 0,
-            tankCapacity: truck?.tankCapacity ?? undefined,
             image: truck?.image ?? "",
             notes: truck?.notes ?? "",
         },
@@ -194,34 +188,19 @@ export function TruckForm({ truck }: TruckFormProps) {
                     />
                 </div>
 
-                <div className="grid gap-4 sm:grid-cols-2">
-                    <FormField
-                        control={form.control}
-                        name="currentMileage"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Current Mileage (km)</FormLabel>
-                                <FormControl>
-                                    <Input type="number" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                    <FormField
-                        control={form.control}
-                        name="tankCapacity"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Tank Capacity (L)</FormLabel>
-                                <FormControl>
-                                    <Input type="number" step="0.1" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                </div>
+                <FormField
+                    control={form.control}
+                    name="currentMileage"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Current Mileage (km)</FormLabel>
+                            <FormControl>
+                                <Input type="number" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
 
                 <FormField
                     control={form.control}
