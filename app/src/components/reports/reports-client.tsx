@@ -59,18 +59,18 @@ export function ReportsClient({
   };
 
   // If dashboardContent is a React component (ReportsDashboard), clone it with additional props
-  const EnhancedDashboard = dashboardContent.type === ReportsDashboard 
+  const EnhancedDashboard = dashboardContent.type === ReportsDashboard
     ? () => {
-        const Dashboard = dashboardContent.type as any;
-        return (
-          <Dashboard
-            {...dashboardContent.props}
-            onGeneratePDF={() => handleGenerateReport("pdf")}
-            onGenerateCSV={() => handleGenerateReport("csv")}
-            isGenerating={isPending}
-          />
-        );
-      }
+      const Dashboard = dashboardContent.type as any;
+      return (
+        <Dashboard
+          {...dashboardContent.props}
+          onGeneratePDF={() => handleGenerateReport("pdf")}
+          onGenerateCSV={() => handleGenerateReport("csv")}
+          isGenerating={isPending}
+        />
+      );
+    }
     : () => dashboardContent;
 
   return <EnhancedDashboard />;
