@@ -4,8 +4,16 @@ import { PageHeader } from "@/components/layout/page-header";
 import { InvoiceForm } from "../_components/invoice-form";
 import { generateInvoiceNumber } from "../actions";
 
-export default async function NewInvoicePage() {
+interface NewInvoicePageProps {
+    searchParams: Promise<{
+        customerId?: string;
+        subtotal?: string;
+    }>;
+}
+
+export default async function NewInvoicePage({ searchParams }: NewInvoicePageProps) {
     const session = await requireRole(["admin", "supervisor"]);
+    const params = await searchParams;
 
     const [customers, defaultInvoiceNumber] = await Promise.all([
         prisma.customer.findMany({
@@ -15,6 +23,10 @@ export default async function NewInvoicePage() {
         }),
         generateInvoiceNumber(session.organizationId),
     ]);
+
+    // Parse prefilled values from search params
+    const prefilledCustomerId = params.customerId || undefined;
+    const prefilledSubtotal = params.subtotal ? parseFloat(params.subtotal) : undefined;
 
     return (
         <div>
@@ -26,6 +38,8 @@ export default async function NewInvoicePage() {
             <InvoiceForm
                 customers={customers}
                 defaultInvoiceNumber={defaultInvoiceNumber}
+                prefilledCustomerId={prefilledCustomerId}
+                prefilledSubtotal={prefilledSubtotal}
             />
         </div>
     );

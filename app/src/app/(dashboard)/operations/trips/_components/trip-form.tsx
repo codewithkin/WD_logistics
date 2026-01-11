@@ -136,12 +136,8 @@ export function TripForm({ trip, trucks, drivers, customers }: TripFormProps) {
                 : await createTrip({
                     originCity: data.originCity,
                     originAddress: data.originAddress,
-                    originLat: data.originLat,
-                    originLng: data.originLng,
                     destinationCity: data.destinationCity,
                     destinationAddress: data.destinationAddress,
-                    destinationLat: data.destinationLat,
-                    destinationLng: data.destinationLng,
                     loadDescription: data.loadDescription,
                     loadWeight: data.loadWeight,
                     loadUnits: data.loadUnits,
@@ -161,7 +157,15 @@ export function TripForm({ trip, trucks, drivers, customers }: TripFormProps) {
 
             if (result.success) {
                 toast.success(isEditing ? "Trip updated successfully" : "Trip created successfully");
-                router.push("/operations/trips");
+                if (isEditing) {
+                    router.push("/operations/trips");
+                } else {
+                    // Redirect to create invoice with prefilled data
+                    const params = new URLSearchParams();
+                    if (data.customerId) params.set("customerId", data.customerId);
+                    params.set("subtotal", data.revenue.toString());
+                    router.push(`/finance/invoices/new?${params.toString()}`);
+                }
             } else {
                 toast.error(result.error || "An error occurred");
             }
@@ -454,7 +458,7 @@ export function TripForm({ trip, trucks, drivers, customers }: TripFormProps) {
                         <FormItem>
                             <FormLabel>Load Description (Optional)</FormLabel>
                             <FormControl>
-                                <Input placeholder="Describe the cargo..." {...field} />
+                                <Textarea placeholder="Describe the cargo..." className="min-h-20" {...field} />
                             </FormControl>
                             <FormMessage />
                         </FormItem>
@@ -614,7 +618,7 @@ export function TripForm({ trip, trucks, drivers, customers }: TripFormProps) {
                             <FormControl>
                                 <Textarea
                                     placeholder="Additional notes about this trip..."
-                                    className="min-h-[100px]"
+                                    className="min-h-25"
                                     {...field}
                                 />
                             </FormControl>

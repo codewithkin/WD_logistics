@@ -391,7 +391,7 @@ export function DriverForm({ driver, availableTrucks }: DriverFormProps) {
                             <FormControl>
                                 <Textarea
                                     placeholder="Additional notes about this driver..."
-                                    className="min-h-[100px]"
+                                    className="min-h-25"
                                     {...field}
                                 />
                             </FormControl>

@@ -187,7 +187,7 @@ export function CustomerForm({ customer }: CustomerFormProps) {
                             <FormControl>
                                 <Textarea
                                     placeholder="Additional notes about this customer..."
-                                    className="min-h-[100px]"
+                                    className="min-h-25"
                                     {...field}
                                 />
                             </FormControl>

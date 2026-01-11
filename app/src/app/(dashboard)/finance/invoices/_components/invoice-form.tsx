@@ -62,12 +62,16 @@ interface InvoiceFormProps {
     };
     customers: Array<{ id: string; name: string }>;
     defaultInvoiceNumber: string;
+    prefilledCustomerId?: string;
+    prefilledSubtotal?: number;
 }
 
 export function InvoiceForm({
     invoice,
     customers,
     defaultInvoiceNumber,
+    prefilledCustomerId,
+    prefilledSubtotal,
 }: InvoiceFormProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
@@ -78,10 +82,10 @@ export function InvoiceForm({
         resolver: zodResolver(invoiceSchema) as any,
         defaultValues: {
             invoiceNumber: invoice?.invoiceNumber ?? defaultInvoiceNumber,
-            customerId: invoice?.customerId ?? "",
+            customerId: invoice?.customerId ?? prefilledCustomerId ?? "",
             issueDate: invoice?.issueDate ?? new Date(),
             dueDate: invoice?.dueDate ?? addDays(new Date(), 30),
-            subtotal: invoice?.subtotal ?? 0,
+            subtotal: invoice?.subtotal ?? prefilledSubtotal ?? 0,
             tax: invoice?.tax ?? 0,
             status: (invoice?.status as InvoiceFormData["status"]) ?? "draft",
             notes: invoice?.notes ?? "",
@@ -311,7 +315,7 @@ export function InvoiceForm({
                             <FormControl>
                                 <Textarea
                                     placeholder="Additional notes for this invoice..."
-                                    className="min-h-[100px]"
+                                    className="min-h-25"
                                     {...field}
                                 />
                             </FormControl>

@@ -308,7 +308,7 @@ export function TruckForm({ truck }: TruckFormProps) {
                             <FormControl>
                                 <Textarea
                                     placeholder="Additional notes about this truck..."
-                                    className="min-h-[100px]"
+                                    className="min-h-25"
                                     {...field}
                                 />
                             </FormControl>

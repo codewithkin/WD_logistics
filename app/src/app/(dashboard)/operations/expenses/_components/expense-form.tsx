@@ -282,7 +282,7 @@ export function ExpenseForm({ expense, trips, categories, defaultTripId }: Expen
                                     <FormControl>
                                         <Textarea
                                             placeholder="Additional notes about this expense..."
-                                            className="min-h-[100px]"
+                                            className="min-h-25"
                                             {...field}
                                         />
                                     </FormControl>
