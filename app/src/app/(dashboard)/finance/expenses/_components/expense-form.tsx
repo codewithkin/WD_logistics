@@ -314,120 +314,120 @@ export function ExpenseForm({ categories, trucks, trips, expense }: ExpenseFormP
                         control={form.control}
                         name="truckIds"
                         render={({ field }) => (
-                                <FormItem className="flex flex-col">
-                                    <FormLabel>Associated Trucks</FormLabel>
-                                    <Popover open={truckSearchOpen} onOpenChange={setTruckSearchOpen}>
-                                        <PopoverTrigger asChild>
-                                            <FormControl>
-                                                <Button
-                                                    variant="outline"
-                                                    role="combobox"
-                                                    aria-expanded={truckSearchOpen}
-                                                    className={cn(
-                                                        "w-full justify-between",
-                                                        !field.value?.length && "text-muted-foreground"
-                                                    )}
-                                                >
-                                                    <span className="flex items-center gap-2">
-                                                        <Truck className="h-4 w-4" />
-                                                        {field.value?.length
-                                                            ? `${field.value.length} truck${field.value.length > 1 ? 's' : ''} selected`
-                                                            : "Select trucks..."}
-                                                    </span>
-                                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                                </Button>
-                                            </FormControl>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-full p-0" align="start">
-                                            <Command shouldFilter={false}>
-                                                <CommandInput
-                                                    placeholder="Search trucks..."
-                                                    value={truckSearch}
-                                                    onValueChange={setTruckSearch}
-                                                />
-                                                <CommandList>
-                                                    <CommandEmpty>No trucks found.</CommandEmpty>
-                                                    <CommandGroup>
-                                                        {filteredTrucks.map((truck) => {
-                                                            const isSelected = field.value?.includes(truck.id);
-                                                            return (
-                                                                <CommandItem
-                                                                    key={truck.id}
-                                                                    value={truck.id}
-                                                                    onSelect={() => {
-                                                                        if (isSelected) {
-                                                                            field.onChange(
-                                                                                field.value?.filter(id => id !== truck.id)
-                                                                            );
-                                                                        } else {
-                                                                            field.onChange([...(field.value || []), truck.id]);
-                                                                        }
-                                                                    }}
-                                                                >
-                                                                    <div className={cn(
-                                                                        "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
-                                                                        isSelected
-                                                                            ? "bg-primary text-primary-foreground"
-                                                                            : "opacity-50 [&_svg]:invisible"
-                                                                    )}>
-                                                                        <svg
-                                                                            className="h-3 w-3"
-                                                                            fill="none"
-                                                                            viewBox="0 0 24 24"
-                                                                            stroke="currentColor"
-                                                                            strokeWidth={3}
-                                                                        >
-                                                                            <path d="M5 13l4 4L19 7" />
-                                                                        </svg>
-                                                                    </div>
-                                                                    <div className="flex flex-col">
-                                                                        <span className="font-medium">{truck.registrationNo}</span>
-                                                                        <span className="text-xs text-muted-foreground">
-                                                                            {truck.make} {truck.model}
-                                                                        </span>
-                                                                    </div>
-                                                                </CommandItem>
-                                                            );
-                                                        })}
-                                                    </CommandGroup>
-                                                </CommandList>
-                                            </Command>
-                                        </PopoverContent>
-                                    </Popover>
+                            <FormItem className="flex flex-col">
+                                <FormLabel>Associated Trucks</FormLabel>
+                                <Popover open={truckSearchOpen} onOpenChange={setTruckSearchOpen}>
+                                    <PopoverTrigger asChild>
+                                        <FormControl>
+                                            <Button
+                                                variant="outline"
+                                                role="combobox"
+                                                aria-expanded={truckSearchOpen}
+                                                className={cn(
+                                                    "w-full justify-between",
+                                                    !field.value?.length && "text-muted-foreground"
+                                                )}
+                                            >
+                                                <span className="flex items-center gap-2">
+                                                    <Truck className="h-4 w-4" />
+                                                    {field.value?.length
+                                                        ? `${field.value.length} truck${field.value.length > 1 ? 's' : ''} selected`
+                                                        : "Select trucks..."}
+                                                </span>
+                                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                            </Button>
+                                        </FormControl>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-full p-0" align="start">
+                                        <Command shouldFilter={false}>
+                                            <CommandInput
+                                                placeholder="Search trucks..."
+                                                value={truckSearch}
+                                                onValueChange={setTruckSearch}
+                                            />
+                                            <CommandList>
+                                                <CommandEmpty>No trucks found.</CommandEmpty>
+                                                <CommandGroup>
+                                                    {filteredTrucks.map((truck) => {
+                                                        const isSelected = field.value?.includes(truck.id);
+                                                        return (
+                                                            <CommandItem
+                                                                key={truck.id}
+                                                                value={truck.id}
+                                                                onSelect={() => {
+                                                                    if (isSelected) {
+                                                                        field.onChange(
+                                                                            field.value?.filter(id => id !== truck.id)
+                                                                        );
+                                                                    } else {
+                                                                        field.onChange([...(field.value || []), truck.id]);
+                                                                    }
+                                                                }}
+                                                            >
+                                                                <div className={cn(
+                                                                    "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
+                                                                    isSelected
+                                                                        ? "bg-primary text-primary-foreground"
+                                                                        : "opacity-50 [&_svg]:invisible"
+                                                                )}>
+                                                                    <svg
+                                                                        className="h-3 w-3"
+                                                                        fill="none"
+                                                                        viewBox="0 0 24 24"
+                                                                        stroke="currentColor"
+                                                                        strokeWidth={3}
+                                                                    >
+                                                                        <path d="M5 13l4 4L19 7" />
+                                                                    </svg>
+                                                                </div>
+                                                                <div className="flex flex-col">
+                                                                    <span className="font-medium">{truck.registrationNo}</span>
+                                                                    <span className="text-xs text-muted-foreground">
+                                                                        {truck.make} {truck.model}
+                                                                    </span>
+                                                                </div>
+                                                            </CommandItem>
+                                                        );
+                                                    })}
+                                                </CommandGroup>
+                                            </CommandList>
+                                        </Command>
+                                    </PopoverContent>
+                                </Popover>
 
-                                    {/* Selected trucks badges */}
-                                    {field.value && field.value.length > 0 && (
-                                        <div className="flex flex-wrap gap-2 mt-2">
-                                            {field.value.map((truckId) => {
-                                                const truck = trucks.find(t => t.id === truckId);
-                                                if (!truck) return null;
-                                                return (
-                                                    <Badge
-                                                        key={truckId}
-                                                        variant="secondary"
-                                                        className="flex items-center gap-1"
+                                {/* Selected trucks badges */}
+                                {field.value && field.value.length > 0 && (
+                                    <div className="flex flex-wrap gap-2 mt-2">
+                                        {field.value.map((truckId) => {
+                                            const truck = trucks.find(t => t.id === truckId);
+                                            if (!truck) return null;
+                                            return (
+                                                <Badge
+                                                    key={truckId}
+                                                    variant="secondary"
+                                                    className="flex items-center gap-1"
+                                                >
+                                                    {truck.registrationNo}
+                                                    <button
+                                                        type="button"
+                                                        className="ml-1 rounded-full outline-none ring-offset-background focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                                                        onClick={() => {
+                                                            field.onChange(
+                                                                field.value?.filter(id => id !== truckId)
+                                                            );
+                                                        }}
                                                     >
-                                                        {truck.registrationNo}
-                                                        <button
-                                                            type="button"
-                                                            className="ml-1 rounded-full outline-none ring-offset-background focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                                                            onClick={() => {
-                                                                field.onChange(
-                                                                    field.value?.filter(id => id !== truckId)
-                                                                );
-                                                            }}
-                                                        >
-                                                            <X className="h-3 w-3" />
-                                                        </button>
-                                                    </Badge>
-                                                );
-                                            })}
-                                        </div>
-                                    )}
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
+                                                        <X className="h-3 w-3" />
+                                                    </button>
+                                                </Badge>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
                 )}
 
                 {/* Trip Association */}
