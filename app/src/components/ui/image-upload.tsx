@@ -11,6 +11,8 @@ export interface ImageUploadProps {
     value?: string;
     /** Callback when image URL changes */
     onChange: (url: string | undefined) => void;
+    /** Callback when upload state changes (true = uploading, false = idle) */
+    onUploadingChange?: (isUploading: boolean) => void;
     /** Folder path in S3 (e.g., "trucks", "employees") */
     folder?: string;
     /** Placeholder text when no image */
@@ -28,6 +30,7 @@ type UploadState = "idle" | "loading" | "uploading" | "success" | "error";
 export function ImageUpload({
     value,
     onChange,
+    onUploadingChange,
     folder = "uploads",
     placeholder = "Upload an image",
     disabled = false,
@@ -66,6 +69,7 @@ export function ImageUpload({
         const localPreview = URL.createObjectURL(file);
         setPreviewUrl(localPreview);
         setState("uploading");
+        onUploadingChange?.(true);
         setError(null);
 
         try {
@@ -86,6 +90,7 @@ export function ImageUpload({
 
             onChange(result.url);
             setState("success");
+            onUploadingChange?.(false);
             setPreviewUrl(null);
 
             // Revoke local preview URL
@@ -93,10 +98,11 @@ export function ImageUpload({
         } catch (err) {
             setError(err instanceof Error ? err.message : "Upload failed");
             setState("error");
+            onUploadingChange?.(false);
             setPreviewUrl(null);
             URL.revokeObjectURL(localPreview);
         }
-    }, [folder, onChange]);
+    }, [folder, onChange, onUploadingChange]);
 
     const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];

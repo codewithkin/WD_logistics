@@ -71,6 +71,7 @@ interface EmployeeFormProps {
 export function EmployeeForm({ employee }: EmployeeFormProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
     const isEditing = !!employee;
 
     const form = useForm<EmployeeFormData>({
@@ -340,6 +341,7 @@ export function EmployeeForm({ employee }: EmployeeFormProps) {
                                 <ImageUpload
                                     value={field.value}
                                     onChange={field.onChange}
+                                    onUploadingChange={setIsUploading}
                                     folder="employees"
                                     placeholder="Upload employee photo"
                                     aspect="square"
@@ -374,11 +376,11 @@ export function EmployeeForm({ employee }: EmployeeFormProps) {
                         type="button"
                         variant="outline"
                         onClick={() => router.back()}
-                        disabled={isLoading}
+                        disabled={isLoading || isUploading}
                     >
                         Cancel
                     </Button>
-                    <Button type="submit" disabled={isLoading}>
+                    <Button type="submit" disabled={isLoading || isUploading}>
                         {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         {isEditing ? "Update Employee" : "Add Employee"}
                     </Button>

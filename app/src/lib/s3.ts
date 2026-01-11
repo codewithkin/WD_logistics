@@ -171,7 +171,7 @@ export async function getPresignedUploadUrl(
 /**
  * Extract S3 key from a full URL
  */
-export function getKeyFromUrl(url: string): string | null {
+export async function getKeyFromUrl(url: string): Promise<string | null> {
     try {
         const urlObj = new URL(url);
         // Remove leading slash

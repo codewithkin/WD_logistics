@@ -63,6 +63,7 @@ interface TruckFormProps {
 export function TruckForm({ truck }: TruckFormProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
     const isEditing = !!truck;
 
     const form = useForm<TruckFormData>({
@@ -213,6 +214,7 @@ export function TruckForm({ truck }: TruckFormProps) {
                                 <ImageUpload
                                     value={field.value}
                                     onChange={field.onChange}
+                                    onUploadingChange={setIsUploading}
                                     folder="trucks"
                                     placeholder="Upload truck image"
                                     aspect="video"
@@ -247,11 +249,11 @@ export function TruckForm({ truck }: TruckFormProps) {
                         type="button"
                         variant="outline"
                         onClick={() => router.back()}
-                        disabled={isLoading}
+                        disabled={isLoading || isUploading}
                     >
                         Cancel
                     </Button>
-                    <Button type="submit" disabled={isLoading}>
+                    <Button type="submit" disabled={isLoading || isUploading}>
                         {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         {isEditing ? "Update Truck" : "Create Truck"}
                     </Button>
