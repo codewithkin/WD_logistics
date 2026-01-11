@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { Role } from "@/lib/types";
+import { generateRandomPassword, sendSupervisorCredentials } from "@/lib/email";
+import { auth } from "@/lib/auth";
 
 export async function updateMemberRole(memberId: string, role: Role) {
   const session = await requireRole(["admin"]);
@@ -108,5 +110,75 @@ export async function inviteUser(data: {
   } catch (error) {
     console.error("Failed to invite user:", error);
     return { success: false, error: "Failed to invite user" };
+  }
+}
+
+export async function createSupervisor(data: { email: string; name: string }) {
+  const session = await requireRole(["admin"]);
+
+  try {
+    // Check if user already exists
+    const existingUser = await prisma.user.findUnique({
+      where: { email: data.email },
+    });
+
+    if (existingUser) {
+      return { success: false, error: "A user with this email already exists" };
+    }
+
+    // Generate a random password
+    const password = generateRandomPassword(12);
+
+    // Create user using better-auth's internal method
+    const ctx = await auth.$context;
+    const hashedPassword = await ctx.password.hash(password);
+
+    // Create the user in the database
+    const user = await prisma.user.create({
+      data: {
+        name: data.name,
+        email: data.email,
+        emailVerified: true, // Pre-verified since admin is creating
+      },
+    });
+
+    // Create the account (password credential)
+    await prisma.account.create({
+      data: {
+        userId: user.id,
+        accountId: user.id,
+        providerId: "credential",
+        password: hashedPassword,
+      },
+    });
+
+    // Add as member of the organization with supervisor role
+    await prisma.member.create({
+      data: {
+        userId: user.id,
+        organizationId: session.organizationId,
+        role: "supervisor",
+      },
+    });
+
+    // Send credentials via email
+    const emailResult = await sendSupervisorCredentials(data.email, password);
+    
+    if (!emailResult.success) {
+      console.warn("User created but email failed to send");
+      // Still return success since user was created
+      return { 
+        success: true, 
+        member: { userId: user.id },
+        warning: "User created but email failed to send. Please share credentials manually.",
+        credentials: { email: data.email, password } // Return for manual sharing
+      };
+    }
+
+    revalidatePath("/users");
+    return { success: true, member: { userId: user.id } };
+  } catch (error) {
+    console.error("Failed to create supervisor:", error);
+    return { success: false, error: "Failed to create supervisor" };
   }
 }

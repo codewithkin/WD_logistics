@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { navigationConfig, NavItem } from "@/config/navigation";
+import { navigationSections, NavItem, NavSection } from "@/config/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useSession } from "@/components/providers/session-provider";
@@ -24,10 +24,34 @@ export function Sidebar({ pendingEditRequests = 0 }: SidebarProps) {
     const { role } = useSession();
     const [openMenus, setOpenMenus] = useState<string[]>([]);
 
-    // Filter navigation based on role
-    const filteredNav = navigationConfig.filter((item) =>
-        item.roles.includes(role)
-    );
+    // Check if a path is active (exact match for dashboard, otherwise starts with)
+    const isActive = (href: string) => {
+        if (href === "/dashboard") {
+            return pathname === "/dashboard";
+        }
+        return pathname.startsWith(href);
+    };
+
+    // Check if any child is active
+    const hasActiveChild = (item: NavItem): boolean => {
+        if (!item.children) return false;
+        return item.children.some((child) => isActive(child.href));
+    };
+
+    // Auto-open menus that have active children
+    useEffect(() => {
+        const menusToOpen: string[] = [];
+        navigationSections.forEach((section) => {
+            section.items.forEach((item) => {
+                if (item.children && hasActiveChild(item)) {
+                    menusToOpen.push(item.title);
+                }
+            });
+        });
+        if (menusToOpen.length > 0) {
+            setOpenMenus((prev) => [...new Set([...prev, ...menusToOpen])]);
+        }
+    }, [pathname]);
 
     const toggleMenu = (title: string) => {
         setOpenMenus((prev) =>
@@ -37,7 +61,13 @@ export function Sidebar({ pendingEditRequests = 0 }: SidebarProps) {
         );
     };
 
-    const isActive = (href: string) => pathname.startsWith(href);
+    // Filter sections based on role
+    const filteredSections = navigationSections
+        .map((section) => ({
+            ...section,
+            items: section.items.filter((item) => item.roles.includes(role)),
+        }))
+        .filter((section) => section.items.length > 0);
 
     const renderNavItem = (item: NavItem) => {
         // Filter children by role
@@ -48,6 +78,9 @@ export function Sidebar({ pendingEditRequests = 0 }: SidebarProps) {
         const hasChildren = filteredChildren && filteredChildren.length > 0;
         const isOpen = openMenus.includes(item.title);
         const Icon = item.icon;
+        const itemActive = isActive(item.href);
+        const childActive = hasActiveChild(item);
+        const isParentActive = hasChildren && childActive;
 
         if (hasChildren) {
             return (
@@ -60,8 +93,8 @@ export function Sidebar({ pendingEditRequests = 0 }: SidebarProps) {
                         <Button
                             variant="ghost"
                             className={cn(
-                                "w-full justify-between px-3 py-2 h-10",
-                                isActive(item.href) && "bg-accent"
+                                "w-full justify-between px-3 py-2 h-10 transition-colors",
+                                isParentActive && "bg-green-500 text-white hover:bg-green-600 hover:text-white"
                             )}
                         >
                             <span className="flex items-center gap-3">
@@ -75,16 +108,17 @@ export function Sidebar({ pendingEditRequests = 0 }: SidebarProps) {
                             )}
                         </Button>
                     </CollapsibleTrigger>
-                    <CollapsibleContent className="pl-6 space-y-1">
+                    <CollapsibleContent className="pl-6 space-y-1 mt-1">
                         {filteredChildren.map((child) => {
                             const ChildIcon = child.icon;
+                            const childIsActive = isActive(child.href);
                             return (
                                 <Link key={child.href} href={child.href}>
                                     <Button
                                         variant="ghost"
                                         className={cn(
-                                            "w-full justify-start px-3 py-2 h-9",
-                                            isActive(child.href) && "bg-accent font-medium"
+                                            "w-full justify-start px-3 py-2 h-9 transition-colors",
+                                            childIsActive && "bg-gray-200 dark:bg-gray-700 font-medium"
                                         )}
                                     >
                                         <ChildIcon className="h-4 w-4 mr-3" />
@@ -103,8 +137,8 @@ export function Sidebar({ pendingEditRequests = 0 }: SidebarProps) {
                 <Button
                     variant="ghost"
                     className={cn(
-                        "w-full justify-start px-3 py-2 h-10",
-                        isActive(item.href) && "bg-accent font-medium"
+                        "w-full justify-start px-3 py-2 h-10 transition-colors",
+                        itemActive && "bg-green-500 text-white hover:bg-green-600 hover:text-white font-medium"
                     )}
                 >
                     <Icon className="h-4 w-4 mr-3" />
@@ -119,12 +153,31 @@ export function Sidebar({ pendingEditRequests = 0 }: SidebarProps) {
         );
     };
 
+    const renderSection = (section: NavSection, index: number) => {
+        const filteredItems = section.items.filter((item) =>
+            item.roles.includes(role)
+        );
+
+        if (filteredItems.length === 0) return null;
+
+        return (
+            <div key={section.label} className={cn(index > 0 && "mt-6")}>
+                <h4 className="px-3 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    {section.label}
+                </h4>
+                <div className="space-y-1">
+                    {filteredItems.map(renderNavItem)}
+                </div>
+            </div>
+        );
+    };
+
     return (
         <aside className="w-64 border-r bg-card h-screen sticky top-0 flex flex-col">
             {/* Logo */}
             <div className="p-4 border-b">
                 <Link href="/dashboard" className="flex items-center gap-2">
-                    <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                    <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center">
                         <span className="text-white font-bold text-sm">WD</span>
                     </div>
                     <span className="font-bold text-lg">WD Logistics</span>
@@ -132,8 +185,8 @@ export function Sidebar({ pendingEditRequests = 0 }: SidebarProps) {
             </div>
 
             {/* Navigation */}
-            <nav className="flex-1 overflow-y-auto p-3 space-y-1">
-                {filteredNav.map(renderNavItem)}
+            <nav className="flex-1 overflow-y-auto p-3">
+                {filteredSections.map((section, index) => renderSection(section, index))}
             </nav>
 
             {/* User Role Badge */}

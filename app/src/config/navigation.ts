@@ -26,120 +26,160 @@ export interface NavItem {
   children?: NavItem[];
 }
 
-export const navigationConfig: NavItem[] = [
+export interface NavSection {
+  label: string;
+  items: NavItem[];
+}
+
+export const navigationSections: NavSection[] = [
   {
-    title: "Dashboard",
-    href: "/dashboard",
-    icon: LayoutDashboard,
-    roles: ["admin", "supervisor", "staff"],
+    label: "Overview",
+    items: [
+      {
+        title: "Dashboard",
+        href: "/dashboard",
+        icon: LayoutDashboard,
+        roles: ["admin", "supervisor", "staff"],
+      },
+    ],
   },
   {
-    title: "Fleet",
-    href: "/fleet",
-    icon: Truck,
-    roles: ["admin", "supervisor", "staff"],
-    children: [
+    label: "Fleet Management",
+    items: [
       {
-        title: "Trucks",
-        href: "/fleet/trucks",
+        title: "Fleet",
+        href: "/fleet",
         icon: Truck,
         roles: ["admin", "supervisor", "staff"],
+        children: [
+          {
+            title: "Trucks",
+            href: "/fleet/trucks",
+            icon: Truck,
+            roles: ["admin", "supervisor", "staff"],
+          },
+          {
+            title: "Drivers",
+            href: "/fleet/drivers",
+            icon: Users,
+            roles: ["admin", "supervisor", "staff"],
+          },
+        ],
       },
       {
-        title: "Drivers",
-        href: "/fleet/drivers",
-        icon: Users,
-        roles: ["admin", "supervisor", "staff"],
-      },
-    ],
-  },
-  {
-    title: "Operations",
-    href: "/operations",
-    icon: Route,
-    roles: ["admin", "supervisor", "staff"],
-    children: [
-      {
-        title: "Trips",
-        href: "/operations/trips",
+        title: "Operations",
+        href: "/operations",
         icon: Route,
         roles: ["admin", "supervisor", "staff"],
-      },
-      {
-        title: "Expenses",
-        href: "/operations/expenses",
-        icon: Receipt,
-        roles: ["admin", "supervisor", "staff"],
+        children: [
+          {
+            title: "Trips",
+            href: "/operations/trips",
+            icon: Route,
+            roles: ["admin", "supervisor", "staff"],
+          },
+          {
+            title: "Expenses",
+            href: "/operations/expenses",
+            icon: Receipt,
+            roles: ["admin", "supervisor", "staff"],
+          },
+        ],
       },
     ],
   },
   {
-    title: "Customers",
-    href: "/customers",
-    icon: Building2,
-    roles: ["admin", "supervisor", "staff"],
-  },
-  {
-    title: "Finance",
-    href: "/finance",
-    icon: DollarSign,
-    roles: ["admin", "supervisor", "staff"],
-    children: [
+    label: "Business",
+    items: [
       {
-        title: "Invoices",
-        href: "/finance/invoices",
-        icon: FileText,
+        title: "Customers",
+        href: "/customers",
+        icon: Building2,
         roles: ["admin", "supervisor", "staff"],
       },
       {
-        title: "Payments",
-        href: "/finance/payments",
+        title: "Finance",
+        href: "/finance",
         icon: DollarSign,
         roles: ["admin", "supervisor", "staff"],
+        children: [
+          {
+            title: "Invoices",
+            href: "/finance/invoices",
+            icon: FileText,
+            roles: ["admin", "supervisor", "staff"],
+          },
+          {
+            title: "Payments",
+            href: "/finance/payments",
+            icon: DollarSign,
+            roles: ["admin", "supervisor", "staff"],
+          },
+        ],
+      },
+      {
+        title: "Inventory",
+        href: "/inventory",
+        icon: Package,
+        roles: ["admin", "supervisor", "staff"],
       },
     ],
   },
   {
-    title: "Inventory",
-    href: "/inventory",
-    icon: Package,
-    roles: ["admin", "supervisor", "staff"],
+    label: "Team",
+    items: [
+      {
+        title: "Employees",
+        href: "/employees",
+        icon: UserCog,
+        roles: ["admin", "supervisor", "staff"],
+      },
+      {
+        title: "Edit Requests",
+        href: "/edit-requests",
+        icon: ClipboardEdit,
+        roles: ["admin", "supervisor", "staff"],
+        badge: "pending",
+      },
+    ],
   },
   {
-    title: "Employees",
-    href: "/employees",
-    icon: UserCog,
-    roles: ["admin", "supervisor", "staff"],
+    label: "Tools",
+    items: [
+      {
+        title: "AI Assistant",
+        href: "/ai",
+        icon: Bot,
+        roles: ["admin", "supervisor", "staff"],
+      },
+      {
+        title: "Reports",
+        href: "/reports",
+        icon: BarChart3,
+        roles: ["admin"],
+      },
+    ],
   },
   {
-    title: "Edit Requests",
-    href: "/edit-requests",
-    icon: ClipboardEdit,
-    roles: ["admin", "supervisor", "staff"],
-    badge: "pending",
-  },
-  {
-    title: "AI Assistant",
-    href: "/ai",
-    icon: Bot,
-    roles: ["admin", "supervisor", "staff"],
-  },
-  {
-    title: "Reports",
-    href: "/reports",
-    icon: BarChart3,
-    roles: ["admin"],
-  },
-  {
-    title: "Users",
-    href: "/users",
-    icon: Users,
-    roles: ["admin"],
-  },
-  {
-    title: "Settings",
-    href: "/settings",
-    icon: Settings,
-    roles: ["admin"],
+    label: "Administration",
+    items: [
+      {
+        title: "Users",
+        href: "/users",
+        icon: Users,
+        roles: ["admin"],
+      },
+      {
+        title: "Settings",
+        href: "/settings",
+        icon: Settings,
+        roles: ["admin"],
+      },
+    ],
   },
 ];
+
+// Flat list for backward compatibility
+export const navigationConfig: NavItem[] = navigationSections.flatMap(
+  (section) => section.items
+);

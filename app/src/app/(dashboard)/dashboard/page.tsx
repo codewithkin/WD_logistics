@@ -4,18 +4,14 @@ import { PageHeader } from "@/components/layout/page-header";
 import { DashboardStats } from "./_components/dashboard-stats";
 import { RecentTrips } from "./_components/recent-trips";
 import { PendingEditRequests } from "./_components/pending-edit-requests";
-import { FleetStatus } from "./_components/fleet-status";
 import { OverdueInvoices } from "./_components/overdue-invoices";
 import { RevenueExpensesChart } from "@/components/dashboard/revenue-expenses-chart";
 import { getRevenueExpensesData } from "@/lib/dashboard/revenue-expenses";
-import { FleetUtilizationChart } from "@/components/dashboard/fleet-utilization-chart";
-import { getFleetUtilizationData } from "@/lib/dashboard/fleet-utilization";
-import { TripStatusChart } from "@/components/dashboard/trip-status-chart";
-import { getTripStatusDistributionData } from "@/lib/dashboard/trip-status";
 import { PerformanceTrendChart } from "@/components/dashboard/performance-trend-chart";
 import { getPerformanceTrendData } from "@/lib/dashboard/performance-trend";
 import { DriverPerformanceTable } from "@/components/dashboard/driver-performance-table";
 import { getDriverPerformanceData } from "@/lib/dashboard/driver-performance";
+import { QuickActions } from "./_components/quick-actions";
 
 export default async function DashboardPage() {
     const session = await requireAuth();
@@ -30,8 +26,6 @@ export default async function DashboardPage() {
         recentTrips,
         overdueInvoices,
         revenueExpensesData,
-        fleetUtilizationData,
-        tripStatusData,
         performanceTrendData,
         driverPerformanceData,
     ] = await Promise.all([
@@ -89,10 +83,6 @@ export default async function DashboardPage() {
         }),
         // Revenue vs Expenses data
         getRevenueExpensesData(),
-        // Fleet utilization data
-        getFleetUtilizationData(),
-        // Trip status distribution
-        getTripStatusDistributionData(),
         // Performance trend data
         getPerformanceTrendData(),
         // Driver performance data
@@ -120,10 +110,13 @@ export default async function DashboardPage() {
 
     return (
         <div>
-            <PageHeader
-                title="Dashboard"
-                description={`Welcome back, ${session.user.name}`}
-            />
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+                <PageHeader
+                    title="Dashboard"
+                    description={`Welcome back, ${session.user.name}`}
+                />
+                <QuickActions role={role} />
+            </div>
 
             {/* Stats Cards */}
             <DashboardStats stats={stats} role={role} />
@@ -131,16 +124,6 @@ export default async function DashboardPage() {
             {/* Revenue vs Expenses Chart - Full Width */}
             <div className="mt-6">
                 <RevenueExpensesChart data={revenueExpensesData} />
-            </div>
-
-            {/* Fleet Utilization Chart - Full Width */}
-            <div className="mt-6">
-                <FleetUtilizationChart data={fleetUtilizationData} />
-            </div>
-
-            {/* Trip Status Distribution Chart - Full Width */}
-            <div className="mt-6">
-                <TripStatusChart data={tripStatusData} />
             </div>
 
             {/* Performance Trend Chart - Full Width */}
@@ -157,9 +140,6 @@ export default async function DashboardPage() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
                 {/* Recent Trips */}
                 <RecentTrips trips={recentTrips} />
-
-                {/* Fleet Status */}
-                <FleetStatus fleetStatus={fleetStatus} />
 
                 {/* Admin/Supervisor Only: Pending Edit Requests */}
                 {(role === "admin" || role === "supervisor") && pendingRequests > 0 && (
