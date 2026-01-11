@@ -228,9 +228,8 @@ export function ExpenseCategoriesSection({ categories: initialCategories }: Expe
                                             key={color}
                                             type="button"
                                             onClick={() => field.onChange(color)}
-                                            className={`h-8 w-8 rounded-full border-2 transition-all ${
-                                                field.value === color ? "border-primary scale-110" : "border-transparent"
-                                            }`}
+                                            className={`h-8 w-8 rounded-full border-2 transition-all ${field.value === color ? "border-primary scale-110" : "border-transparent"
+                                                }`}
                                             style={{ backgroundColor: color }}
                                         />
                                     ))}

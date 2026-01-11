@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Plus, FileDown, FileText, FileSpreadsheet, BarChart3, Settings } from "lucide-react";
 import Link from "next/link";
-import { ExpensesTable } from "./expenses-table";
+import { ExpensesTableClient } from "./expenses-table-client";
 import { ExpenseCharts } from "./expense-charts";
 import { ExpenseCategoriesSection } from "./expense-categories-section";
 
@@ -21,11 +21,38 @@ interface Category {
     };
 }
 
-interface ExpensesOverviewProps {
-    categories: Category[];
+interface Expense {
+    id: string;
+    amount: number;
+    description: string | null;
+    date: Date;
+    vendor: string | null;
+    reference: string | null;
+    receiptUrl: string | null;
+    category: {
+        id: string;
+        name: string;
+        color: string | null;
+    };
+    truckExpenses: Array<{
+        truck: {
+            registrationNo: string;
+        };
+    }>;
+    tripExpenses: Array<{
+        trip: {
+            originCity: string;
+            destinationCity: string;
+        };
+    }>;
 }
 
-export function ExpensesOverview({ categories }: ExpensesOverviewProps) {
+interface ExpensesOverviewProps {
+    categories: Category[];
+    expenses: Expense[];
+}
+
+export function ExpensesOverview({ categories, expenses }: ExpensesOverviewProps) {
     const [activeTab, setActiveTab] = useState("expenses");
 
     const handleExportPDF = () => {
@@ -77,7 +104,7 @@ export function ExpensesOverview({ categories }: ExpensesOverviewProps) {
 
             <Tabs value={activeTab} className="space-y-4">
                 <TabsContent value="expenses" className="space-y-4">
-                    <ExpensesTable />
+                    <ExpensesTableClient expenses={expenses} />
                 </TabsContent>
 
                 <TabsContent value="charts" className="space-y-4">
