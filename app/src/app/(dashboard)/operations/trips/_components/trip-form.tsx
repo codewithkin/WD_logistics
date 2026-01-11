@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -154,11 +153,9 @@ export function TripForm({ trip, trucks, drivers, customers }: TripFormProps) {
 
     return (
         <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)}>
-                <Card>
-                    <CardContent className="grid gap-6 pt-6">
-                        {/* Route Information */}
-                        <div className="grid gap-4 md:grid-cols-2">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                {/* Route Information */}
+                <div className="grid gap-4 md:grid-cols-2">
                             <FormField
                                 control={form.control}
                                 name="originCity"
@@ -602,22 +599,21 @@ export function TripForm({ trip, trucks, drivers, customers }: TripFormProps) {
                                 </FormItem>
                             )}
                         />
-                    </CardContent>
-                    <CardFooter className="flex justify-end gap-2">
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => router.back()}
-                            disabled={isLoading}
-                        >
-                            Cancel
-                        </Button>
-                        <Button type="submit" disabled={isLoading}>
-                            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            {isEditing ? "Update Trip" : "Create Trip"}
-                        </Button>
-                    </CardFooter>
-                </Card>
+
+                <div className="flex justify-end gap-2 pt-4">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => router.back()}
+                        disabled={isLoading}
+                    >
+                        Cancel
+                    </Button>
+                    <Button type="submit" disabled={isLoading}>
+                        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        {isEditing ? "Update Trip" : "Create Trip"}
+                    </Button>
+                </div>
             </form>
         </Form>
     );
