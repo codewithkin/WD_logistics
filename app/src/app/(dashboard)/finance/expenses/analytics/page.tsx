@@ -111,15 +111,16 @@ export default async function ExpenseAnalyticsPage() {
             <PageHeader
                 title="Expense Analytics"
                 description="Analyze expenses by category, truck, and trip"
-                action={
-                    <Link href="/finance/expenses">
-                        <Button variant="outline">
-                            <ArrowLeft className="mr-2 h-4 w-4" />
-                            Back to Expenses
-                        </Button>
-                    </Link>
-                }
             />
+            
+            <div className="flex justify-end">
+                <Link href="/finance/expenses">
+                    <Button variant="outline">
+                        <ArrowLeft className="mr-2 h-4 w-4" />
+                        Back to Expenses
+                    </Button>
+                </Link>
+            </div>
 
             {/* Summary Card */}
             <Card>
