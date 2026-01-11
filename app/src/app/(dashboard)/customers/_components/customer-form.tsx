@@ -169,7 +169,7 @@ export function CustomerForm({ customer }: CustomerFormProps) {
                             <FormControl>
                                 <Textarea
                                     placeholder="123 Business St, City, State, ZIP"
-                                    className="min-h-[80px]"
+                                    className="min-h-20"
                                     {...field}
                                 />
                             </FormControl>
@@ -196,31 +196,33 @@ export function CustomerForm({ customer }: CustomerFormProps) {
                     )}
                 />
 
-                <FormField
-                    control={form.control}
-                    name="status"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Status</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                <FormControl>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select status" />
-                                    </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                    <SelectItem value="active">Active</SelectItem>
-                                    <SelectItem value="inactive">Inactive</SelectItem>
-                                    <SelectItem value="suspended">Suspended</SelectItem>
-                                </SelectContent>
-                            </Select>
-                            <FormDescription>
-                                Inactive/suspended customers won&apos;t appear in trip/invoice dropdowns
-                            </FormDescription>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
+                {isEditing && (
+                    <FormField
+                        control={form.control}
+                        name="status"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Status</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <FormControl>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select status" />
+                                        </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                        <SelectItem value="active">Active</SelectItem>
+                                        <SelectItem value="inactive">Inactive</SelectItem>
+                                        <SelectItem value="suspended">Suspended</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <FormDescription>
+                                    Inactive/suspended customers won&apos;t appear in trip/invoice dropdowns
+                                </FormDescription>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                )}
 
                 <div className="flex justify-end gap-2 pt-4">
                     <Button
