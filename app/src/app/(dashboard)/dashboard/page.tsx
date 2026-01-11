@@ -2,8 +2,6 @@ import { requireAuth } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/layout/page-header";
 import { DashboardStats } from "./_components/dashboard-stats";
-import { RecentTrips } from "./_components/recent-trips";
-import { PendingEditRequests } from "./_components/pending-edit-requests";
 import { OverdueInvoices } from "./_components/overdue-invoices";
 import { RevenueExpensesChart } from "@/components/dashboard/revenue-expenses-chart";
 import { getRevenueExpensesData } from "@/lib/dashboard/revenue-expenses";
@@ -22,8 +20,6 @@ export default async function DashboardPage() {
         truckStats,
         tripStats,
         revenueStats,
-        pendingRequests,
-        recentTrips,
         overdueInvoices,
         revenueExpensesData,
         performanceTrendData,
@@ -54,21 +50,6 @@ export default async function DashboardPage() {
                 },
             },
             _sum: { revenue: true },
-        }),
-        // Pending edit requests
-        prisma.editRequest.count({
-            where: { status: "pending" },
-        }),
-        // Recent trips
-        prisma.trip.findMany({
-            where: { organizationId },
-            include: {
-                truck: true,
-                driver: true,
-                customer: true,
-            },
-            orderBy: { scheduledDate: "desc" },
-            take: 5,
         }),
         // Overdue invoices
         prisma.invoice.findMany({
@@ -104,7 +85,6 @@ export default async function DashboardPage() {
         totalTrucks,
         tripsThisMonth: tripStats,
         revenueThisMonth: revenueStats._sum.revenue || 0,
-        pendingEditRequests: pendingRequests,
         overdueInvoicesCount: overdueInvoices.length,
     };
 
@@ -136,21 +116,12 @@ export default async function DashboardPage() {
                 <DriverPerformanceTable data={driverPerformanceData} />
             </div>
 
-            {/* Main Content Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-                {/* Recent Trips */}
-                <RecentTrips trips={recentTrips} />
-
-                {/* Admin/Supervisor Only: Pending Edit Requests */}
-                {(role === "admin" || role === "supervisor") && pendingRequests > 0 && (
-                    <PendingEditRequests count={pendingRequests} />
-                )}
-
-                {/* Admin Only: Overdue Invoices */}
-                {role === "admin" && overdueInvoices.length > 0 && (
+            {/* Admin Only: Overdue Invoices */}
+            {role === "admin" && overdueInvoices.length > 0 && (
+                <div className="mt-6">
                     <OverdueInvoices invoices={overdueInvoices} />
-                )}
-            </div>
+                </div>
+            )}
         </div>
     );
 }
