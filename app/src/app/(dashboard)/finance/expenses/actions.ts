@@ -4,6 +4,9 @@ import { requireRole } from "@/lib/session";
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { renderToBuffer } from "@react-pdf/renderer";
+import React from "react";
+import { ExpenseReportPDF, type ExpenseExportData } from "@/lib/reports/expense-report-template";
 
 export interface ExpenseFormData {
   categoryId: string;
@@ -13,6 +16,7 @@ export interface ExpenseFormData {
   notes?: string;
   truckIds?: string[];
   tripIds?: string[];
+  driverIds?: string[];
 }
 
 export async function createExpense(data: ExpenseFormData) {
@@ -34,6 +38,11 @@ export async function createExpense(data: ExpenseFormData) {
       tripExpenses: data.tripIds?.length
         ? {
             create: data.tripIds.map((tripId) => ({ tripId })),
+          }
+        : undefined,
+      driverExpenses: data.driverIds?.length
+        ? {
+            create: data.driverIds.map((driverId) => ({ driverId })),
           }
         : undefined,
     },
@@ -85,6 +94,16 @@ export async function updateExpense(id: string, data: ExpenseFormData) {
       if (data.tripIds.length > 0) {
         await tx.tripExpense.createMany({
           data: data.tripIds.map((tripId) => ({ tripId, expenseId: id })),
+        });
+      }
+    }
+
+    // Update driver associations
+    if (data.driverIds !== undefined) {
+      await tx.driverExpense.deleteMany({ where: { expenseId: id } });
+      if (data.driverIds.length > 0) {
+        await tx.driverExpense.createMany({
+          data: data.driverIds.map((driverId) => ({ driverId, expenseId: id })),
         });
       }
     }
@@ -213,5 +232,85 @@ export async function getExpensesForCharts(days: number = 30) {
       .sort((a, b) => new Date(a.month).getTime() - new Date(b.month).getTime()),
     total,
   };
+}
+
+export async function exportExpensesPDF() {
+  const user = await requireRole(["admin", "supervisor", "staff"]);
+
+  const expenses = await prisma.expense.findMany({
+    where: {
+      organizationId: user.organizationId,
+    },
+    include: {
+      category: {
+        select: { name: true, color: true },
+      },
+      truckExpenses: {
+        include: {
+          truck: { select: { registrationNo: true } },
+        },
+      },
+      tripExpenses: {
+        include: {
+          trip: { select: { originCity: true, destinationCity: true } },
+        },
+      },
+      driverExpenses: {
+        include: {
+          driver: { select: { firstName: true, lastName: true } },
+        },
+      },
+    },
+    orderBy: { date: "desc" },
+  });
+
+  const exportData: ExpenseExportData[] = expenses.map((expense) => ({
+    id: expense.id,
+    date: expense.date,
+    category: expense.category.name,
+    categoryColor: expense.category.color || "#71717a",
+    description: expense.description,
+    amount: expense.amount,
+    trucks: expense.truckExpenses.map((te) => te.truck.registrationNo),
+    trips: expense.tripExpenses.map((te) => `${te.trip.originCity}→${te.trip.destinationCity}`),
+    drivers: expense.driverExpenses.map((de) => `${de.driver.firstName} ${de.driver.lastName}`),
+  }));
+
+  // Calculate summary stats
+  const totalAmount = exportData.reduce((sum, e) => sum + e.amount, 0);
+  const byCategory = exportData.reduce((acc, e) => {
+    acc[e.category] = (acc[e.category] || 0) + e.amount;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const meta = {
+    generatedAt: new Date(),
+    totalExpenses: exportData.length,
+    totalAmount,
+    organizationName: "WD Logistics",
+  };
+
+  try {
+    const pdfDoc = React.createElement(ExpenseReportPDF, { 
+      expenses: exportData, 
+      meta, 
+      byCategory: Object.entries(byCategory).map(([name, amount]) => ({ name, amount }))
+    });
+    const buffer = await renderToBuffer(pdfDoc as any);
+    const base64 = buffer.toString("base64");
+
+    return {
+      success: true,
+      data: base64,
+      filename: `expenses-report-${new Date().toISOString().split("T")[0]}.pdf`,
+      mimeType: "application/pdf",
+    };
+  } catch (error) {
+    console.error("Failed to generate PDF:", error);
+    return {
+      success: false,
+      error: "Failed to generate PDF report",
+    };
+  }
 }
 

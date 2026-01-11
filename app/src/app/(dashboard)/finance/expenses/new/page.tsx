@@ -6,7 +6,7 @@ import prisma from "@/lib/prisma";
 export default async function NewExpensePage() {
     const user = await requireRole(["admin", "supervisor", "staff"]);
 
-    const [categories, trucks, trips] = await Promise.all([
+    const [categories, trucks, trips, drivers] = await Promise.all([
         prisma.expenseCategory.findMany({
             where: {
                 organizationId: user.organizationId,
@@ -16,6 +16,7 @@ export default async function NewExpensePage() {
                 name: true,
                 isTruck: true,
                 isTrip: true,
+                isDriver: true,
             },
             orderBy: {
                 name: "asc",
@@ -65,6 +66,22 @@ export default async function NewExpensePage() {
                 scheduledDate: "desc",
             },
         }),
+        prisma.driver.findMany({
+            where: {
+                organizationId: user.organizationId,
+                status: "active",
+            },
+            select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                phone: true,
+                licenseNumber: true,
+            },
+            orderBy: {
+                firstName: "asc",
+            },
+        }),
     ]);
 
     return (
@@ -78,6 +95,7 @@ export default async function NewExpensePage() {
                     categories={categories}
                     trucks={trucks}
                     trips={trips}
+                    drivers={drivers}
                 />
             </div>
         </div>

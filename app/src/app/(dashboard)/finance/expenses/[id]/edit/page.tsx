@@ -12,7 +12,7 @@ export default async function EditExpensePage({ params }: EditExpensePageProps) 
     const { id } = await params;
     const user = await requireRole(["admin", "supervisor", "staff"]);
 
-    const [expense, categories, trucks, trips] = await Promise.all([
+    const [expense, categories, trucks, trips, drivers] = await Promise.all([
         prisma.expense.findUnique({
             where: {
                 id,
@@ -29,6 +29,11 @@ export default async function EditExpensePage({ params }: EditExpensePageProps) 
                         tripId: true,
                     },
                 },
+                driverExpenses: {
+                    select: {
+                        driverId: true,
+                    },
+                },
             },
         }),
         prisma.expenseCategory.findMany({
@@ -40,6 +45,7 @@ export default async function EditExpensePage({ params }: EditExpensePageProps) 
                 name: true,
                 isTruck: true,
                 isTrip: true,
+                isDriver: true,
             },
             orderBy: {
                 name: "asc",
@@ -89,6 +95,22 @@ export default async function EditExpensePage({ params }: EditExpensePageProps) 
                 scheduledDate: "desc",
             },
         }),
+        prisma.driver.findMany({
+            where: {
+                organizationId: user.organizationId,
+                status: "active",
+            },
+            select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                phone: true,
+                licenseNumber: true,
+            },
+            orderBy: {
+                firstName: "asc",
+            },
+        }),
     ]);
 
     if (!expense) {
@@ -106,6 +128,7 @@ export default async function EditExpensePage({ params }: EditExpensePageProps) 
                     categories={categories}
                     trucks={trucks}
                     trips={trips}
+                    drivers={drivers}
                     expense={expense}
                 />
             </div>
