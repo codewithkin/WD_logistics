@@ -4,7 +4,13 @@ import { useState, useMemo } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Plus, FileSpreadsheet, BarChart3, Settings, DollarSign, Receipt, Truck, MapPin, List } from "lucide-react";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Plus, FileSpreadsheet, BarChart3, Settings, DollarSign, Receipt, Truck, MapPin, List, FileText, Download, User } from "lucide-react";
 import Link from "next/link";
 import { ExpensesTableClient } from "./expenses-table-client";
 import { ExpenseCharts } from "./expense-charts";
@@ -47,6 +53,12 @@ interface Expense {
             destinationCity: string;
         };
     }>;
+    driverExpenses?: Array<{
+        driver: {
+            firstName: string;
+            lastName: string;
+        };
+    }>;
 }
 
 interface ExpensesOverviewProps {
@@ -81,6 +93,11 @@ export function ExpensesOverview({ categories, expenses }: ExpensesOverviewProps
 
     const handleExportCSV = () => {
         const event = new CustomEvent("export-csv");
+        window.dispatchEvent(event);
+    };
+
+    const handleExportPDF = () => {
+        const event = new CustomEvent("export-pdf");
         window.dispatchEvent(event);
     };
 
@@ -163,10 +180,24 @@ export function ExpensesOverview({ categories, expenses }: ExpensesOverviewProps
                     </Tabs>
 
                     <div className="flex gap-2 w-full sm:w-auto">
-                        <Button variant="outline" size="sm" onClick={handleExportCSV} className="flex-1 sm:flex-none">
-                            <FileSpreadsheet className="mr-2 h-4 w-4" />
-                            Export
-                        </Button>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="outline" size="sm" className="flex-1 sm:flex-none">
+                                    <Download className="mr-2 h-4 w-4" />
+                                    Export
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={handleExportCSV}>
+                                    <FileSpreadsheet className="mr-2 h-4 w-4" />
+                                    Export as CSV
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={handleExportPDF}>
+                                    <FileText className="mr-2 h-4 w-4" />
+                                    Export as PDF
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                         <Link href="/finance/expenses/new" className="flex-1 sm:flex-none">
                             <Button size="sm" className="w-full">
                                 <Plus className="mr-2 h-4 w-4" />

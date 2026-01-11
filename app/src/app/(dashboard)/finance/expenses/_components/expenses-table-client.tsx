@@ -25,9 +25,9 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { MoreHorizontal, Pencil, Trash2, Receipt as ReceiptIcon, Search, Filter, X, Truck, MapPin, Plus } from "lucide-react";
+import { MoreHorizontal, Pencil, Trash2, Receipt as ReceiptIcon, Search, Filter, X, Truck, MapPin, Plus, Loader2 } from "lucide-react";
 import Link from "next/link";
-import { deleteExpense } from "../actions";
+import { deleteExpense, exportExpensesPDF } from "../actions";
 import { useRouter } from "next/navigation";
 import { formatCurrency } from "@/lib/utils";
 
@@ -161,29 +161,62 @@ export function ExpensesTableClient({ expenses }: ExpensesTableProps) {
 
     // Export handlers
     useEffect(() => {
-        const handleExportPDF = () => {
-            alert("PDF export for expenses table is not yet implemented");
+        const handleExportPDF = async () => {
+            try {
+                const result = await exportExpensesPDF();
+                if (result.success && result.data) {
+                    // Convert base64 to blob
+                    const byteCharacters = atob(result.data);
+                    const byteNumbers = new Array(byteCharacters.length);
+                    for (let i = 0; i < byteCharacters.length; i++) {
+                        byteNumbers[i] = byteCharacters.charCodeAt(i);
+                    }
+                    const byteArray = new Uint8Array(byteNumbers);
+                    const blob = new Blob([byteArray], { type: result.mimeType || "application/pdf" });
+
+                    // Download file
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = result.filename || "expenses-report.pdf";
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                } else {
+                    alert(result.error || "Failed to generate PDF");
+                }
+            } catch (error) {
+                console.error("PDF export error:", error);
+                alert("Failed to generate PDF report");
+            }
         };
 
         const handleExportCSV = () => {
+            // Escape CSV values properly
+            const escapeCSV = (value: string) => {
+                if (value.includes(",") || value.includes('"') || value.includes("\n")) {
+                    return `"${value.replace(/"/g, '""')}"`;
+                }
+                return value;
+            };
+
             const csvData = filteredExpenses
                 .map((expense) => {
                     const trucks = expense.truckExpenses.map((te) => te.truck.registrationNo).join("; ");
                     const trips = expense.tripExpenses.map((te) => `${te.trip.originCity}→${te.trip.destinationCity}`).join("; ");
                     return [
-                        new Date(expense.date).toLocaleDateString(),
-                        expense.category.name,
-                        expense.description || "",
-                        trucks || "N/A",
-                        trips || "N/A",
-                        expense.vendor || "",
-                        expense.reference || "",
-                        expense.amount,
+                        escapeCSV(new Date(expense.date).toLocaleDateString()),
+                        escapeCSV(expense.category.name),
+                        escapeCSV(expense.description || ""),
+                        escapeCSV(trucks || "N/A"),
+                        escapeCSV(trips || "N/A"),
+                        expense.amount.toFixed(2),
                     ].join(",");
                 })
                 .join("\n");
-            const csv = "Date,Category,Description,Trucks,Trips,Vendor,Reference,Amount\n" + csvData;
-            const blob = new Blob([csv], { type: "text/csv" });
+            
+            const header = "Date,Category,Description,Trucks,Trips,Amount";
+            const csv = header + "\n" + csvData;
+            const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement("a");
             a.href = url;
