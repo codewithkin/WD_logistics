@@ -72,7 +72,7 @@ export function AssignTruck({ driverId, currentTruckId, currentTruckName }: Assi
     };
 
     const selectedTruck = trucks.find((t) => t.id === selectedTruckId);
-    const displayName = selectedTruck 
+    const displayName = selectedTruck
         ? selectedTruck.registrationNo
         : currentTruckName;
 

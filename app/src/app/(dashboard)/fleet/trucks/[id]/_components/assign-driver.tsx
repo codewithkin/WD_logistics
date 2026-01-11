@@ -71,7 +71,7 @@ export function AssignDriver({ truckId, currentDriverId, currentDriverName }: As
     };
 
     const selectedDriver = drivers.find((d) => d.id === selectedDriverId);
-    const displayName = selectedDriver 
+    const displayName = selectedDriver
         ? `${selectedDriver.firstName} ${selectedDriver.lastName}`
         : currentDriverName;
 
