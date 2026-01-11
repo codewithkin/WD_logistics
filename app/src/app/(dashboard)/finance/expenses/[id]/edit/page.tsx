@@ -102,11 +102,11 @@ export default async function EditExpensePage({ params }: EditExpensePageProps) 
                 description="Update expense details"
             />
             <div className="max-w-2xl">
-                <ExpenseForm 
-                    categories={categories} 
+                <ExpenseForm
+                    categories={categories}
                     trucks={trucks}
                     trips={trips}
-                    expense={expense} 
+                    expense={expense}
                 />
             </div>
         </div>

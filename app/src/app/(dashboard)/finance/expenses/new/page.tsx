@@ -74,8 +74,8 @@ export default async function NewExpensePage() {
                 description="Record a new business expense"
             />
             <div className="max-w-2xl">
-                <ExpenseForm 
-                    categories={categories} 
+                <ExpenseForm
+                    categories={categories}
                     trucks={trucks}
                     trips={trips}
                 />

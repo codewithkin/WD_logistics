@@ -112,7 +112,7 @@ export default async function ExpenseAnalyticsPage() {
                 title="Expense Analytics"
                 description="Analyze expenses by category, truck, and trip"
             />
-            
+
             <div className="flex justify-end">
                 <Link href="/finance/expenses">
                     <Button variant="outline">
@@ -257,7 +257,7 @@ export default async function ExpenseAnalyticsPage() {
                                             {data.trip.originCity} → {data.trip.destinationCity}
                                         </p>
                                         <p className="text-xs text-muted-foreground">
-                                            {new Date(data.trip.scheduledDate).toLocaleDateString()} • 
+                                            {new Date(data.trip.scheduledDate).toLocaleDateString()} •
                                             {data.trip.truck.registrationNo} • {data.count}{" "}
                                             {data.count === 1 ? "expense" : "expenses"}
                                         </p>

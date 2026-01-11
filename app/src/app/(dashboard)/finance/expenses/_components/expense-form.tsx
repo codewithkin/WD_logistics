@@ -117,7 +117,7 @@ export function ExpenseForm({ categories, trucks, trips, expense }: ExpenseFormP
             if (name === 'categoryId') {
                 const category = categories.find(c => c.id === value.categoryId);
                 setSelectedCategory(category || null);
-                
+
                 // Clear selections if category doesn't support them
                 if (category && !category.isTruck) {
                     form.setValue('truckIds', []);
@@ -378,8 +378,8 @@ export function ExpenseForm({ categories, trucks, trips, expense }: ExpenseFormP
                                                                 {trip.originCity} → {trip.destinationCity}
                                                             </FormLabel>
                                                             <p className="text-xs text-muted-foreground">
-                                                                {new Date(trip.scheduledDate).toLocaleDateString()} • 
-                                                                {trip.truck.registrationNo} • 
+                                                                {new Date(trip.scheduledDate).toLocaleDateString()} •
+                                                                {trip.truck.registrationNo} •
                                                                 {trip.driver.firstName} {trip.driver.lastName}
                                                             </p>
                                                         </div>

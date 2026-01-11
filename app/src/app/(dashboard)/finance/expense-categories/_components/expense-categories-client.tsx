@@ -119,7 +119,7 @@ export function ExpenseCategoriesClient({ categories }: ExpenseCategoriesClientP
 
     const handleUpdate = async (values: z.infer<typeof categorySchema>) => {
         if (!editingCategory) return;
-        
+
         try {
             await updateExpenseCategory(editingCategory.id, values);
             setEditingCategory(null);
@@ -189,9 +189,8 @@ export function ExpenseCategoriesClient({ categories }: ExpenseCategoriesClientP
                                         key={color}
                                         type="button"
                                         onClick={() => field.onChange(color)}
-                                        className={`h-8 w-8 rounded-full border-2 ${
-                                            field.value === color ? "border-foreground" : "border-transparent"
-                                        }`}
+                                        className={`h-8 w-8 rounded-full border-2 ${field.value === color ? "border-foreground" : "border-transparent"
+                                            }`}
                                         style={{ backgroundColor: color }}
                                     />
                                 ))}
@@ -338,13 +337,13 @@ export function ExpenseCategoriesClient({ categories }: ExpenseCategoriesClientP
                                     </TableCell>
                                     <TableCell>
                                         <div className="flex gap-2">
-                                            <Dialog 
-                                                open={editingCategory?.id === category.id} 
+                                            <Dialog
+                                                open={editingCategory?.id === category.id}
                                                 onOpenChange={(open) => !open && setEditingCategory(null)}
                                             >
                                                 <DialogTrigger asChild>
-                                                    <Button 
-                                                        variant="ghost" 
+                                                    <Button
+                                                        variant="ghost"
                                                         size="icon"
                                                         onClick={() => handleEdit(category)}
                                                     >
@@ -361,7 +360,7 @@ export function ExpenseCategoriesClient({ categories }: ExpenseCategoriesClientP
                                                     <CategoryFormContent onSubmit={handleUpdate} />
                                                 </DialogContent>
                                             </Dialog>
-                                            
+
                                             <Button
                                                 variant="ghost"
                                                 size="icon"
