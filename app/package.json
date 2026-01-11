@@ -15,6 +15,7 @@
     "db:seed": "bun prisma/seed.ts"
   },
   "dependencies": {
+    "@aws-sdk/s3-request-presigner": "^3.966.0",
     "@hookform/resolvers": "^5.2.2",
     "@prisma/client": "^7.2.0",
     "@radix-ui/react-alert-dialog": "^1.1.15",
@@ -52,6 +53,7 @@
     "recharts": "^3.6.0",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.4.0",
+    "uuid": "^13.0.0",
     "whatsapp-web.js": "^1.34.4",
     "zod": "^4.3.5"
   },
