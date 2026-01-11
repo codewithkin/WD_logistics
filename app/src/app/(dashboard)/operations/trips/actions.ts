@@ -22,7 +22,6 @@ export async function createTrip(data: {
   startOdometer?: number | null;
   endOdometer?: number | null;
   revenue: number;
-  status: TripStatus;
   scheduledDate: Date;
   startDate?: Date | null;
   endDate?: Date | null;
@@ -32,6 +31,13 @@ export async function createTrip(data: {
   notes?: string;
 }) {
   const session = await requireRole(["admin", "supervisor"]);
+
+  // Auto-determine status based on scheduled date
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const scheduledDay = new Date(data.scheduledDate);
+  scheduledDay.setHours(0, 0, 0, 0);
+  const status: TripStatus = scheduledDay <= today ? "in_progress" : "scheduled";
 
   try {
     const trip = await prisma.trip.create({
@@ -52,7 +58,7 @@ export async function createTrip(data: {
         startOdometer: data.startOdometer,
         endOdometer: data.endOdometer,
         revenue: data.revenue,
-        status: data.status,
+        status: status,
         scheduledDate: data.scheduledDate,
         startDate: data.startDate,
         endDate: data.endDate,
@@ -65,7 +71,7 @@ export async function createTrip(data: {
     });
 
     // Update driver and truck status if trip is in progress
-    if (data.status === "in_progress") {
+    if (status === "in_progress") {
       await prisma.driver.update({
         where: { id: data.driverId },
         data: { status: "active" },

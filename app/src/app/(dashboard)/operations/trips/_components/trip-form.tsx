@@ -134,8 +134,29 @@ export function TripForm({ trip, trucks, drivers, customers }: TripFormProps) {
                     customerId: data.customerId || null,
                 })
                 : await createTrip({
-                    ...data,
+                    originCity: data.originCity,
+                    originAddress: data.originAddress,
+                    originLat: data.originLat,
+                    originLng: data.originLng,
+                    destinationCity: data.destinationCity,
+                    destinationAddress: data.destinationAddress,
+                    destinationLat: data.destinationLat,
+                    destinationLng: data.destinationLng,
+                    loadDescription: data.loadDescription,
+                    loadWeight: data.loadWeight,
+                    loadUnits: data.loadUnits,
+                    estimatedMileage: data.estimatedMileage,
+                    actualMileage: data.actualMileage,
+                    startOdometer: data.startOdometer,
+                    endOdometer: data.endOdometer,
+                    revenue: data.revenue,
+                    scheduledDate: data.scheduledDate,
+                    startDate: data.startDate,
+                    endDate: data.endDate,
+                    truckId: data.truckId,
+                    driverId: data.driverId,
                     customerId: data.customerId || null,
+                    notes: data.notes,
                 });
 
             if (result.success) {
@@ -294,7 +315,7 @@ export function TripForm({ trip, trucks, drivers, customers }: TripFormProps) {
                 </div>
 
                 {/* Dates */}
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <div className={cn("grid gap-4 sm:grid-cols-2", isEditing ? "lg:grid-cols-4" : "lg:grid-cols-3")}>
                     <FormField
                         control={form.control}
                         name="scheduledDate"
@@ -397,30 +418,32 @@ export function TripForm({ trip, trucks, drivers, customers }: TripFormProps) {
                             </FormItem>
                         )}
                     />
-                    <FormField
-                        control={form.control}
-                        name="status"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Status</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                    <FormControl>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select status" />
-                                        </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        {Object.entries(TRIP_STATUS_LABELS).map(([value, label]) => (
-                                            <SelectItem key={value} value={value}>
-                                                {label}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
+                    {isEditing && (
+                        <FormField
+                            control={form.control}
+                            name="status"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Status</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormControl>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select status" />
+                                            </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                            {Object.entries(TRIP_STATUS_LABELS).map(([value, label]) => (
+                                                <SelectItem key={value} value={value}>
+                                                    {label}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                    )}
                 </div>
 
                 {/* Load Information */}
