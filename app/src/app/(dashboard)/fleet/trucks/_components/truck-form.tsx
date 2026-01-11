@@ -46,7 +46,6 @@ const truckSchema = z.object({
     year: numericString(z.number().min(1990).max(new Date().getFullYear() + 1)),
     status: z.enum(["active", "in_service", "in_repair", "inactive", "decommissioned"]),
     currentMileage: numericString(z.number().min(0)),
-    fuelType: z.string().optional(),
     tankCapacity: optionalNumericString(z.number().min(0)),
     image: z.string().optional(),
     notes: z.string().optional(),
@@ -63,7 +62,6 @@ interface TruckFormProps {
         year: number;
         status: string;
         currentMileage: number;
-        fuelType: string | null;
         tankCapacity: number | null;
         image: string | null;
         notes: string | null;
@@ -85,7 +83,6 @@ export function TruckForm({ truck }: TruckFormProps) {
             year: truck?.year ?? undefined,
             status: (truck?.status as TruckFormData["status"]) ?? "active",
             currentMileage: truck?.currentMileage ?? 0,
-            fuelType: truck?.fuelType ?? "",
             tankCapacity: truck?.tankCapacity ?? undefined,
             image: truck?.image ?? "",
             notes: truck?.notes ?? "",
@@ -197,7 +194,7 @@ export function TruckForm({ truck }: TruckFormProps) {
                     />
                 </div>
 
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-4 sm:grid-cols-2">
                     <FormField
                         control={form.control}
                         name="currentMileage"
@@ -207,30 +204,6 @@ export function TruckForm({ truck }: TruckFormProps) {
                                 <FormControl>
                                     <Input type="number" {...field} />
                                 </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                    <FormField
-                        control={form.control}
-                        name="fuelType"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Fuel Type</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                    <FormControl>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select fuel type" />
-                                        </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        <SelectItem value="diesel">Diesel</SelectItem>
-                                        <SelectItem value="petrol">Petrol</SelectItem>
-                                        <SelectItem value="electric">Electric</SelectItem>
-                                        <SelectItem value="hybrid">Hybrid</SelectItem>
-                                        <SelectItem value="cng">CNG</SelectItem>
-                                    </SelectContent>
-                                </Select>
                                 <FormMessage />
                             </FormItem>
                         )}
