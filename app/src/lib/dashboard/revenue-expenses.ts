@@ -6,7 +6,7 @@
  */
 
 import { requireRole } from "@/lib/session";
-import { db } from "@/lib/prisma";
+import prisma from "@/lib/prisma";
 import { startOfMonth, endOfMonth, subMonths, format } from "date-fns";
 
 export interface MonthlyRevenueExpense {
@@ -32,7 +32,7 @@ export async function getRevenueExpensesData(): Promise<MonthlyRevenueExpense[]>
     const monthEnd = endOfMonth(monthStart);
 
     // Get revenue from invoices for this month
-    const payments = await db.payment.findMany({
+    const payments = await prisma.payment.findMany({
       where: {
         invoice: {
           organizationId: organization,
@@ -50,7 +50,7 @@ export async function getRevenueExpensesData(): Promise<MonthlyRevenueExpense[]>
     const revenue = payments.reduce((sum, p) => sum + p.amount, 0);
 
     // Get expenses for this month
-    const expenses = await db.expense.findMany({
+    const expenses = await prisma.expense.findMany({
       where: {
         organizationId: organization,
         date: {

@@ -257,11 +257,10 @@ export function ReportsDashboard({ data }: ReportsDashboardProps) {
             </CardHeader>
             <CardContent>
               <div
-                className={`text-3xl font-bold ${
-                  thisMonthPaymentTotal - thisMonthExpenseTotal >= 0
+                className={`text-3xl font-bold ${thisMonthPaymentTotal - thisMonthExpenseTotal >= 0
                     ? "text-green-600"
                     : "text-red-600"
-                }`}
+                  }`}
               >
                 ${(thisMonthPaymentTotal - thisMonthExpenseTotal).toLocaleString()}
               </div>
@@ -341,9 +340,8 @@ export function ReportsDashboard({ data }: ReportsDashboardProps) {
                       <div className="text-right">
                         <p className="font-bold">${balance.toLocaleString()}</p>
                         <p
-                          className={`text-xs ${
-                            isOverdue ? "text-red-500" : "text-muted-foreground"
-                          }`}
+                          className={`text-xs ${isOverdue ? "text-red-500" : "text-muted-foreground"
+                            }`}
                         >
                           {isOverdue ? "Overdue: " : "Due: "}
                           {format(invoice.dueDate, "MMM d, yyyy")}
@@ -430,11 +428,10 @@ export function ReportsDashboard({ data }: ReportsDashboardProps) {
                     <div
                       className="h-2 rounded-full bg-primary"
                       style={{
-                        width: `${
-                          totalTrucks > 0
+                        width: `${totalTrucks > 0
                             ? ((totalTrucks - activeTrucks) / totalTrucks) * 100
                             : 0
-                        }%`,
+                          }%`,
                       }}
                     />
                   </div>
@@ -448,8 +445,8 @@ export function ReportsDashboard({ data }: ReportsDashboardProps) {
                     <span>
                       {totalDrivers > 0
                         ? Math.round(
-                            ((totalDrivers - activeDrivers) / totalDrivers) * 100
-                          )
+                          ((totalDrivers - activeDrivers) / totalDrivers) * 100
+                        )
                         : 0}
                       %
                     </span>
@@ -458,11 +455,10 @@ export function ReportsDashboard({ data }: ReportsDashboardProps) {
                     <div
                       className="h-2 rounded-full bg-primary"
                       style={{
-                        width: `${
-                          totalDrivers > 0
+                        width: `${totalDrivers > 0
                             ? ((totalDrivers - activeDrivers) / totalDrivers) * 100
                             : 0
-                        }%`,
+                          }%`,
                       }}
                     />
                   </div>
@@ -491,9 +487,8 @@ export function ReportsDashboard({ data }: ReportsDashboardProps) {
                 <div className="flex justify-between items-center">
                   <span className="text-muted-foreground">Change</span>
                   <span
-                    className={`font-bold ${
-                      tripChange >= 0 ? "text-green-600" : "text-red-600"
-                    }`}
+                    className={`font-bold ${tripChange >= 0 ? "text-green-600" : "text-red-600"
+                      }`}
                   >
                     {tripChange >= 0 ? "+" : ""}
                     {tripChange}%

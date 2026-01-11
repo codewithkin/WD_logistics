@@ -5,7 +5,7 @@
  */
 
 import { requireRole } from "@/lib/session";
-import { db } from "@/lib/prisma";
+import prisma from "@/lib/prisma";
 
 export interface TripStatusData {
   status: string;
@@ -22,7 +22,7 @@ export async function getTripStatusDistributionData(): Promise<TripStatusData[]>
   const organization = user.organizationId;
 
   // Get trip counts by status
-  const trips = await db.trip.groupBy({
+  const trips = await prisma.trip.groupBy({
     by: ["status"],
     where: { organizationId: organization },
     _count: true,

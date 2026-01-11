@@ -8,7 +8,7 @@
  */
 
 import { requireRole } from "@/lib/session";
-import { db } from "@/lib/prisma";
+import prisma from "@/lib/prisma";
 import { startOfMonth, endOfMonth, subMonths, format } from "date-fns";
 
 export interface MonthlyPerformanceTrend {
@@ -34,7 +34,7 @@ export async function getPerformanceTrendData(): Promise<MonthlyPerformanceTrend
     const monthEnd = endOfMonth(monthStart);
 
     // Get revenue from completed trips
-    const trips = await db.trip.findMany({
+    const trips = await prisma.trip.findMany({
       where: {
         organizationId: organization,
         status: "completed",
@@ -52,7 +52,7 @@ export async function getPerformanceTrendData(): Promise<MonthlyPerformanceTrend
     const tripCount = trips.length;
 
     // Get trip count (all statuses)
-    const allTripsCount = await db.trip.count({
+    const allTripsCount = await prisma.trip.count({
       where: {
         organizationId: organization,
         scheduledDate: {
@@ -63,7 +63,7 @@ export async function getPerformanceTrendData(): Promise<MonthlyPerformanceTrend
     });
 
     // Get expenses
-    const expenses = await db.expense.findMany({
+    const expenses = await prisma.expense.findMany({
       where: {
         organizationId: organization,
         date: {

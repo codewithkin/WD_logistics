@@ -9,7 +9,7 @@
  */
 
 import { requireRole } from "@/lib/session";
-import { db } from "@/lib/prisma";
+import prisma from "@/lib/prisma";
 import { subMonths } from "date-fns";
 
 export interface DriverPerformanceMetric {
@@ -30,7 +30,7 @@ export async function getDriverPerformanceData(): Promise<DriverPerformanceMetri
   const organization = user.organizationId;
 
   // Get all drivers
-  const drivers = await db.driver.findMany({
+  const drivers = await prisma.driver.findMany({
     where: { organizationId: organization },
     select: {
       id: true,
@@ -45,7 +45,7 @@ export async function getDriverPerformanceData(): Promise<DriverPerformanceMetri
 
   for (const driver of drivers) {
     // Get trips in last 3 months
-    const trips = await db.trip.findMany({
+    const trips = await prisma.trip.findMany({
       where: {
         driverId: driver.id,
         organizationId: organization,
