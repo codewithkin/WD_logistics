@@ -283,8 +283,8 @@ export function ExpenseReportPDF({ expenses, meta, byCategory }: ExpenseReportPD
                     <View style={styles.summaryCard}>
                         <Text style={styles.summaryLabel}>Average per Expense</Text>
                         <Text style={styles.summaryValue}>
-                            {meta.totalExpenses > 0 
-                                ? formatCurrency(meta.totalAmount / meta.totalExpenses) 
+                            {meta.totalExpenses > 0
+                                ? formatCurrency(meta.totalAmount / meta.totalExpenses)
                                 : formatCurrency(0)}
                         </Text>
                     </View>
@@ -326,7 +326,7 @@ export function ExpenseReportPDF({ expenses, meta, byCategory }: ExpenseReportPD
                 {/* Expense Table */}
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>Detailed Expense List</Text>
-                    
+
                     {expenses.length === 0 ? (
                         <Text style={styles.noData}>No expenses recorded</Text>
                     ) : (
@@ -342,8 +342,8 @@ export function ExpenseReportPDF({ expenses, meta, byCategory }: ExpenseReportPD
 
                             {/* Table Rows */}
                             {expenses.slice(0, 25).map((expense, index) => (
-                                <View 
-                                    key={expense.id} 
+                                <View
+                                    key={expense.id}
                                     style={[styles.tableRow, index % 2 === 1 ? styles.tableRowAlt : {}]}
                                 >
                                     <Text style={[styles.tableCell, { width: "15%" }]}>

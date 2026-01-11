@@ -213,7 +213,7 @@ export function ExpensesTableClient({ expenses }: ExpensesTableProps) {
                     ].join(",");
                 })
                 .join("\n");
-            
+
             const header = "Date,Category,Description,Trucks,Trips,Amount";
             const csv = header + "\n" + csvData;
             const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
