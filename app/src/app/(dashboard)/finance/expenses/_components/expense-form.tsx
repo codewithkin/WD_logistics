@@ -13,7 +13,6 @@ import {
     FormDescription,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import {
     Select,
     SelectContent,
@@ -46,9 +45,10 @@ import { cn } from "@/lib/utils";
 const expenseSchema = z.object({
     categoryId: z.string().min(1, "Category is required"),
     amount: z.coerce.number().positive("Amount must be positive"),
-    description: z.string().optional(),
     date: z.coerce.date(),
-    notes: z.string().optional(),
+    description: z.string().optional(),
+    vendor: z.string().optional(),
+    receiptUrl: z.string().optional(),
     truckIds: z.array(z.string()).optional(),
     tripIds: z.array(z.string()).optional(),
 });
@@ -114,9 +114,10 @@ export function ExpenseForm({ categories, trucks, trips, expense }: ExpenseFormP
         defaultValues: {
             categoryId: expense?.categoryId || "",
             amount: expense?.amount || 0,
-            description: expense?.description || "",
             date: expense?.date || new Date(),
-            notes: expense?.notes || "",
+            description: expense?.description || "",
+            vendor: expense?.vendor || "",
+            receiptUrl: expense?.receiptUrl || "",
             truckIds: expense?.truckExpenses.map(te => te.truckId) || [],
             tripIds: expense?.tripExpenses.map(te => te.tripId) || [],
         },
@@ -159,9 +160,10 @@ export function ExpenseForm({ categories, trucks, trips, expense }: ExpenseFormP
             const data: ExpenseFormData = {
                 categoryId: values.categoryId,
                 amount: values.amount,
-                description: values.description,
                 date: values.date,
-                notes: values.notes,
+                description: values.description,
+                vendor: values.vendor,
+                receiptUrl: values.receiptUrl,
                 truckIds: values.truckIds,
                 tripIds: values.tripIds,
             };
@@ -181,7 +183,7 @@ export function ExpenseForm({ categories, trucks, trips, expense }: ExpenseFormP
     return (
         <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
                     <FormField
                         control={form.control}
                         name="categoryId"
@@ -190,7 +192,7 @@ export function ExpenseForm({ categories, trucks, trips, expense }: ExpenseFormP
                                 <FormLabel>Category *</FormLabel>
                                 <Select onValueChange={field.onChange} value={field.value}>
                                     <FormControl>
-                                        <SelectTrigger>
+                                        <SelectTrigger className="w-full">
                                             <SelectValue placeholder="Select category" />
                                         </SelectTrigger>
                                     </FormControl>
@@ -218,6 +220,7 @@ export function ExpenseForm({ categories, trucks, trips, expense }: ExpenseFormP
                                         type="number"
                                         step="0.01"
                                         placeholder="0.00"
+                                        className="w-full"
                                         {...field}
                                     />
                                 </FormControl>
@@ -235,12 +238,68 @@ export function ExpenseForm({ categories, trucks, trips, expense }: ExpenseFormP
                                 <FormControl>
                                     <Input
                                         type="date"
+                                        className="w-full"
                                         {...field}
                                         value={
                                             field.value instanceof Date
                                                 ? field.value.toISOString().split("T")[0]
                                                 : field.value
                                         }
+                                    />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+
+                    <FormField
+                        control={form.control}
+                        name="vendor"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Vendor</FormLabel>
+                                <FormControl>
+                                    <Input
+                                        placeholder="e.g., Shell, Engen, etc."
+                                        className="w-full"
+                                        {...field}
+                                    />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+
+                    <FormField
+                        control={form.control}
+                        name="description"
+                        render={({ field }) => (
+                            <FormItem className="sm:col-span-2">
+                                <FormLabel>Description</FormLabel>
+                                <FormControl>
+                                    <Input
+                                        placeholder="Brief description of the expense"
+                                        className="w-full"
+                                        {...field}
+                                    />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+
+                    <FormField
+                        control={form.control}
+                        name="receiptUrl"
+                        render={({ field }) => (
+                            <FormItem className="sm:col-span-2">
+                                <FormLabel>Receipt URL</FormLabel>
+                                <FormControl>
+                                    <Input
+                                        type="url"
+                                        placeholder="https://..."
+                                        className="w-full"
+                                        {...field}
                                     />
                                 </FormControl>
                                 <FormMessage />
@@ -255,123 +314,120 @@ export function ExpenseForm({ categories, trucks, trips, expense }: ExpenseFormP
                         control={form.control}
                         name="truckIds"
                         render={({ field }) => (
-                            <FormItem className="flex flex-col">
-                                <FormLabel>Associated Trucks</FormLabel>
-                                <FormDescription>
-                                    Select which truck(s) this expense applies to
-                                </FormDescription>
-                                <Popover open={truckSearchOpen} onOpenChange={setTruckSearchOpen}>
-                                    <PopoverTrigger asChild>
-                                        <FormControl>
-                                            <Button
-                                                variant="outline"
-                                                role="combobox"
-                                                aria-expanded={truckSearchOpen}
-                                                className={cn(
-                                                    "w-full justify-between",
-                                                    !field.value?.length && "text-muted-foreground"
-                                                )}
-                                            >
-                                                <span className="flex items-center gap-2">
-                                                    <Truck className="h-4 w-4" />
-                                                    {field.value?.length
-                                                        ? `${field.value.length} truck${field.value.length > 1 ? 's' : ''} selected`
-                                                        : "Select trucks..."}
-                                                </span>
-                                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                            </Button>
-                                        </FormControl>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-full p-0" align="start">
-                                        <Command shouldFilter={false}>
-                                            <CommandInput
-                                                placeholder="Search trucks..."
-                                                value={truckSearch}
-                                                onValueChange={setTruckSearch}
-                                            />
-                                            <CommandList>
-                                                <CommandEmpty>No trucks found.</CommandEmpty>
-                                                <CommandGroup>
-                                                    {filteredTrucks.map((truck) => {
-                                                        const isSelected = field.value?.includes(truck.id);
-                                                        return (
-                                                            <CommandItem
-                                                                key={truck.id}
-                                                                value={truck.id}
-                                                                onSelect={() => {
-                                                                    if (isSelected) {
-                                                                        field.onChange(
-                                                                            field.value?.filter(id => id !== truck.id)
-                                                                        );
-                                                                    } else {
-                                                                        field.onChange([...(field.value || []), truck.id]);
-                                                                    }
-                                                                }}
-                                                            >
-                                                                <div className={cn(
-                                                                    "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
-                                                                    isSelected
-                                                                        ? "bg-primary text-primary-foreground"
-                                                                        : "opacity-50 [&_svg]:invisible"
-                                                                )}>
-                                                                    <svg
-                                                                        className="h-3 w-3"
-                                                                        fill="none"
-                                                                        viewBox="0 0 24 24"
-                                                                        stroke="currentColor"
-                                                                        strokeWidth={3}
-                                                                    >
-                                                                        <path d="M5 13l4 4L19 7" />
-                                                                    </svg>
-                                                                </div>
-                                                                <div className="flex flex-col">
-                                                                    <span className="font-medium">{truck.registrationNo}</span>
-                                                                    <span className="text-xs text-muted-foreground">
-                                                                        {truck.make} {truck.model}
-                                                                    </span>
-                                                                </div>
-                                                            </CommandItem>
-                                                        );
-                                                    })}
-                                                </CommandGroup>
-                                            </CommandList>
-                                        </Command>
-                                    </PopoverContent>
-                                </Popover>
-
-                                {/* Selected trucks badges */}
-                                {field.value && field.value.length > 0 && (
-                                    <div className="flex flex-wrap gap-2 mt-2">
-                                        {field.value.map((truckId) => {
-                                            const truck = trucks.find(t => t.id === truckId);
-                                            if (!truck) return null;
-                                            return (
-                                                <Badge
-                                                    key={truckId}
-                                                    variant="secondary"
-                                                    className="flex items-center gap-1"
+                                <FormItem className="flex flex-col">
+                                    <FormLabel>Associated Trucks</FormLabel>
+                                    <Popover open={truckSearchOpen} onOpenChange={setTruckSearchOpen}>
+                                        <PopoverTrigger asChild>
+                                            <FormControl>
+                                                <Button
+                                                    variant="outline"
+                                                    role="combobox"
+                                                    aria-expanded={truckSearchOpen}
+                                                    className={cn(
+                                                        "w-full justify-between",
+                                                        !field.value?.length && "text-muted-foreground"
+                                                    )}
                                                 >
-                                                    {truck.registrationNo}
-                                                    <button
-                                                        type="button"
-                                                        className="ml-1 rounded-full outline-none ring-offset-background focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                                                        onClick={() => {
-                                                            field.onChange(
-                                                                field.value?.filter(id => id !== truckId)
+                                                    <span className="flex items-center gap-2">
+                                                        <Truck className="h-4 w-4" />
+                                                        {field.value?.length
+                                                            ? `${field.value.length} truck${field.value.length > 1 ? 's' : ''} selected`
+                                                            : "Select trucks..."}
+                                                    </span>
+                                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                </Button>
+                                            </FormControl>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-full p-0" align="start">
+                                            <Command shouldFilter={false}>
+                                                <CommandInput
+                                                    placeholder="Search trucks..."
+                                                    value={truckSearch}
+                                                    onValueChange={setTruckSearch}
+                                                />
+                                                <CommandList>
+                                                    <CommandEmpty>No trucks found.</CommandEmpty>
+                                                    <CommandGroup>
+                                                        {filteredTrucks.map((truck) => {
+                                                            const isSelected = field.value?.includes(truck.id);
+                                                            return (
+                                                                <CommandItem
+                                                                    key={truck.id}
+                                                                    value={truck.id}
+                                                                    onSelect={() => {
+                                                                        if (isSelected) {
+                                                                            field.onChange(
+                                                                                field.value?.filter(id => id !== truck.id)
+                                                                            );
+                                                                        } else {
+                                                                            field.onChange([...(field.value || []), truck.id]);
+                                                                        }
+                                                                    }}
+                                                                >
+                                                                    <div className={cn(
+                                                                        "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
+                                                                        isSelected
+                                                                            ? "bg-primary text-primary-foreground"
+                                                                            : "opacity-50 [&_svg]:invisible"
+                                                                    )}>
+                                                                        <svg
+                                                                            className="h-3 w-3"
+                                                                            fill="none"
+                                                                            viewBox="0 0 24 24"
+                                                                            stroke="currentColor"
+                                                                            strokeWidth={3}
+                                                                        >
+                                                                            <path d="M5 13l4 4L19 7" />
+                                                                        </svg>
+                                                                    </div>
+                                                                    <div className="flex flex-col">
+                                                                        <span className="font-medium">{truck.registrationNo}</span>
+                                                                        <span className="text-xs text-muted-foreground">
+                                                                            {truck.make} {truck.model}
+                                                                        </span>
+                                                                    </div>
+                                                                </CommandItem>
                                                             );
-                                                        }}
+                                                        })}
+                                                    </CommandGroup>
+                                                </CommandList>
+                                            </Command>
+                                        </PopoverContent>
+                                    </Popover>
+
+                                    {/* Selected trucks badges */}
+                                    {field.value && field.value.length > 0 && (
+                                        <div className="flex flex-wrap gap-2 mt-2">
+                                            {field.value.map((truckId) => {
+                                                const truck = trucks.find(t => t.id === truckId);
+                                                if (!truck) return null;
+                                                return (
+                                                    <Badge
+                                                        key={truckId}
+                                                        variant="secondary"
+                                                        className="flex items-center gap-1"
                                                     >
-                                                        <X className="h-3 w-3" />
-                                                    </button>
-                                                </Badge>
-                                            );
-                                        })}
-                                    </div>
-                                )}
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
+                                                        {truck.registrationNo}
+                                                        <button
+                                                            type="button"
+                                                            className="ml-1 rounded-full outline-none ring-offset-background focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                                                            onClick={() => {
+                                                                field.onChange(
+                                                                    field.value?.filter(id => id !== truckId)
+                                                                );
+                                                            }}
+                                                        >
+                                                            <X className="h-3 w-3" />
+                                                        </button>
+                                                    </Badge>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
                 )}
 
                 {/* Trip Association */}
@@ -434,38 +490,6 @@ export function ExpenseForm({ categories, trucks, trips, expense }: ExpenseFormP
                         )}
                     />
                 )}
-
-                <FormField
-                    control={form.control}
-                    name="description"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Description</FormLabel>
-                            <FormControl>
-                                <Input placeholder="Brief description" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-
-                <FormField
-                    control={form.control}
-                    name="notes"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Notes</FormLabel>
-                            <FormControl>
-                                <Textarea
-                                    placeholder="Additional notes"
-                                    className="min-h-[100px]"
-                                    {...field}
-                                />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
 
                 <div className="flex gap-4">
                     <Button type="submit" disabled={isSubmitting}>
