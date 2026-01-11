@@ -10,14 +10,32 @@ import { getAgentWhatsAppClient } from "./lib/whatsapp";
 
 const app = new Hono();
 
+// Allowed origins for CORS
+const allowedOrigins = [
+  "http://localhost:3000",
+  "http://127.0.0.1:3000",
+  process.env.WEB_APP_URL,
+].filter(Boolean) as string[];
+
 // Middleware
 app.use("*", logger());
 app.use(
   "*",
   cors({
-    origin: ["http://localhost:3000"],
+    origin: (origin) => {
+      // Allow requests with no origin (like mobile apps or curl)
+      if (!origin) return "*";
+      // Check if origin is in allowed list
+      if (allowedOrigins.includes(origin)) return origin;
+      // Allow any localhost port in development
+      if (origin.startsWith("http://localhost:") || origin.startsWith("http://127.0.0.1:")) {
+        return origin;
+      }
+      return null;
+    },
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowHeaders: ["Content-Type", "Authorization"],
+    allowHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+    credentials: true,
   })
 );
 
