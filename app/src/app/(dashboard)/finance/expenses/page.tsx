@@ -62,3 +62,6 @@ export default async function ExpensesPage() {
                 description="Track and manage all business expenses"
             />
             <ExpensesOverview categories={categories} expenses={expenses} />
+        </div>
+    );
+}
