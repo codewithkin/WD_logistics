@@ -13,6 +13,7 @@ import {
     FormDescription,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
     Select,
     SelectContent,
@@ -45,10 +46,9 @@ import { cn } from "@/lib/utils";
 const expenseSchema = z.object({
     categoryId: z.string().min(1, "Category is required"),
     amount: z.coerce.number().positive("Amount must be positive"),
-    date: z.coerce.date(),
     description: z.string().optional(),
-    vendor: z.string().optional(),
-    receiptUrl: z.string().optional(),
+    date: z.coerce.date(),
+    notes: z.string().optional(),
     truckIds: z.array(z.string()).optional(),
     tripIds: z.array(z.string()).optional(),
 });
@@ -114,10 +114,9 @@ export function ExpenseForm({ categories, trucks, trips, expense }: ExpenseFormP
         defaultValues: {
             categoryId: expense?.categoryId || "",
             amount: expense?.amount || 0,
-            date: expense?.date || new Date(),
             description: expense?.description || "",
-            vendor: expense?.vendor || "",
-            receiptUrl: expense?.receiptUrl || "",
+            date: expense?.date || new Date(),
+            notes: expense?.notes || "",
             truckIds: expense?.truckExpenses.map(te => te.truckId) || [],
             tripIds: expense?.tripExpenses.map(te => te.tripId) || [],
         },
@@ -160,10 +159,9 @@ export function ExpenseForm({ categories, trucks, trips, expense }: ExpenseFormP
             const data: ExpenseFormData = {
                 categoryId: values.categoryId,
                 amount: values.amount,
-                date: values.date,
                 description: values.description,
-                vendor: values.vendor,
-                receiptUrl: values.receiptUrl,
+                date: values.date,
+                notes: values.notes,
                 truckIds: values.truckIds,
                 tripIds: values.tripIds,
             };
@@ -183,7 +181,7 @@ export function ExpenseForm({ categories, trucks, trips, expense }: ExpenseFormP
     return (
         <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
+                <div className="grid gap-4 md:grid-cols-2">
                     <FormField
                         control={form.control}
                         name="categoryId"
@@ -192,7 +190,7 @@ export function ExpenseForm({ categories, trucks, trips, expense }: ExpenseFormP
                                 <FormLabel>Category *</FormLabel>
                                 <Select onValueChange={field.onChange} value={field.value}>
                                     <FormControl>
-                                        <SelectTrigger className="w-full">
+                                        <SelectTrigger>
                                             <SelectValue placeholder="Select category" />
                                         </SelectTrigger>
                                     </FormControl>
@@ -220,7 +218,6 @@ export function ExpenseForm({ categories, trucks, trips, expense }: ExpenseFormP
                                         type="number"
                                         step="0.01"
                                         placeholder="0.00"
-                                        className="w-full"
                                         {...field}
                                     />
                                 </FormControl>
@@ -238,7 +235,6 @@ export function ExpenseForm({ categories, trucks, trips, expense }: ExpenseFormP
                                 <FormControl>
                                     <Input
                                         type="date"
-                                        className="w-full"
                                         {...field}
                                         value={
                                             field.value instanceof Date
@@ -254,53 +250,12 @@ export function ExpenseForm({ categories, trucks, trips, expense }: ExpenseFormP
 
                     <FormField
                         control={form.control}
-                        name="vendor"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Vendor</FormLabel>
-                                <FormControl>
-                                    <Input
-                                        placeholder="e.g., Shell, Engen, etc."
-                                        className="w-full"
-                                        {...field}
-                                    />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-
-                    <FormField
-                        control={form.control}
                         name="description"
                         render={({ field }) => (
-                            <FormItem className="sm:col-span-2">
+                            <FormItem>
                                 <FormLabel>Description</FormLabel>
                                 <FormControl>
-                                    <Input
-                                        placeholder="Brief description of the expense"
-                                        className="w-full"
-                                        {...field}
-                                    />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-
-                    <FormField
-                        control={form.control}
-                        name="receiptUrl"
-                        render={({ field }) => (
-                            <FormItem className="sm:col-span-2">
-                                <FormLabel>Receipt URL</FormLabel>
-                                <FormControl>
-                                    <Input
-                                        type="url"
-                                        placeholder="https://..."
-                                        className="w-full"
-                                        {...field}
-                                    />
+                                    <Input placeholder="Brief description" {...field} />
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
@@ -316,6 +271,9 @@ export function ExpenseForm({ categories, trucks, trips, expense }: ExpenseFormP
                         render={({ field }) => (
                             <FormItem className="flex flex-col">
                                 <FormLabel>Associated Trucks</FormLabel>
+                                <FormDescription>
+                                    Select which truck(s) this expense applies to
+                                </FormDescription>
                                 <Popover open={truckSearchOpen} onOpenChange={setTruckSearchOpen}>
                                     <PopoverTrigger asChild>
                                         <FormControl>
@@ -338,7 +296,7 @@ export function ExpenseForm({ categories, trucks, trips, expense }: ExpenseFormP
                                             </Button>
                                         </FormControl>
                                     </PopoverTrigger>
-                                    <PopoverContent className="w-full p-0" align="start">
+                                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
                                         <Command shouldFilter={false}>
                                             <CommandInput
                                                 placeholder="Search trucks..."
@@ -490,6 +448,24 @@ export function ExpenseForm({ categories, trucks, trips, expense }: ExpenseFormP
                         )}
                     />
                 )}
+
+                <FormField
+                    control={form.control}
+                    name="notes"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Notes</FormLabel>
+                            <FormControl>
+                                <Textarea
+                                    placeholder="Additional notes"
+                                    className="min-h-[100px]"
+                                    {...field}
+                                />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
 
                 <div className="flex gap-4">
                     <Button type="submit" disabled={isSubmitting}>
