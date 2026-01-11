@@ -259,8 +259,8 @@ export function ReportsDashboard({ data }: ReportsDashboardProps) {
             <CardContent>
               <div
                 className={`text-2xl font-bold ${thisMonthPaymentTotal - thisMonthExpenseTotal >= 0
-                    ? "text-green-600"
-                    : "text-red-600"
+                  ? "text-green-600"
+                  : "text-red-600"
                   }`}
               >
                 ${(thisMonthPaymentTotal - thisMonthExpenseTotal).toLocaleString()}
@@ -445,8 +445,8 @@ export function ReportsDashboard({ data }: ReportsDashboardProps) {
                       className="h-2 rounded-full bg-primary"
                       style={{
                         width: `${totalTrucks > 0
-                            ? ((totalTrucks - activeTrucks) / totalTrucks) * 100
-                            : 0
+                          ? ((totalTrucks - activeTrucks) / totalTrucks) * 100
+                          : 0
                           }%`,
                       }}
                     />
@@ -472,8 +472,8 @@ export function ReportsDashboard({ data }: ReportsDashboardProps) {
                       className="h-2 rounded-full bg-primary"
                       style={{
                         width: `${totalDrivers > 0
-                            ? ((totalDrivers - activeDrivers) / totalDrivers) * 100
-                            : 0
+                          ? ((totalDrivers - activeDrivers) / totalDrivers) * 100
+                          : 0
                           }%`,
                       }}
                     />
