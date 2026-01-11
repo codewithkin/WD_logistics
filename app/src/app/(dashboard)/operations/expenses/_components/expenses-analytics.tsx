@@ -59,7 +59,7 @@ const STATUS_COLORS = {
 };
 
 const CATEGORY_COLORS = [
-    "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", 
+    "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6",
     "#ec4899", "#14b8a6", "#f97316", "#6366f1", "#84cc16"
 ];
 
@@ -109,8 +109,8 @@ export function ExpensesAnalytics({ analytics, expenses, canExport }: ExpensesAn
         window.print();
     };
 
-    const averageExpense = analytics.totalExpenses > 0 
-        ? analytics.totalAmount / analytics.totalExpenses 
+    const averageExpense = analytics.totalExpenses > 0
+        ? analytics.totalAmount / analytics.totalExpenses
         : 0;
 
     return (
