@@ -122,216 +122,216 @@ export function TruckForm({ truck }: TruckFormProps) {
         <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                 <div className="grid gap-4 md:grid-cols-2">
-                            <FormField
-                                control={form.control}
-                                name="registrationNo"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Registration Number</FormLabel>
-                                        <FormControl>
-                                            <Input placeholder="ABC-1234" {...field} />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                            <FormField
-                                control={form.control}
-                                name="status"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Status</FormLabel>
-                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                            <FormControl>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Select status" />
-                                                </SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                {Object.entries(TRUCK_STATUS_LABELS).map(([value, label]) => (
-                                                    <SelectItem key={value} value={value}>
-                                                        {label}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                        </div>
-
-                        <div className="grid gap-4 md:grid-cols-3">
-                            <FormField
-                                control={form.control}
-                                name="make"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Make</FormLabel>
-                                        <FormControl>
-                                            <Input placeholder="Ford" {...field} />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                            <FormField
-                                control={form.control}
-                                name="model"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Model</FormLabel>
-                                        <FormControl>
-                                            <Input placeholder="F-150" {...field} />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                            <FormField
-                                control={form.control}
-                                name="year"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Year</FormLabel>
-                                        <FormControl>
-                                            <Input type="number" {...field} />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                        </div>
-
-                        <div className="grid gap-4 md:grid-cols-2">
-                            <FormField
-                                control={form.control}
-                                name="chassisNumber"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Chassis Number</FormLabel>
-                                        <FormControl>
-                                            <Input placeholder="Chassis/VIN number" {...field} />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                            <FormField
-                                control={form.control}
-                                name="engineNumber"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Engine Number</FormLabel>
-                                        <FormControl>
-                                            <Input placeholder="Engine number" {...field} />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                        </div>
-
-                        <div className="grid gap-4 md:grid-cols-3">
-                            <FormField
-                                control={form.control}
-                                name="currentMileage"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Current Mileage (km)</FormLabel>
-                                        <FormControl>
-                                            <Input type="number" {...field} />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                            <FormField
-                                control={form.control}
-                                name="fuelType"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Fuel Type</FormLabel>
-                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                            <FormControl>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Select fuel type" />
-                                                </SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                <SelectItem value="diesel">Diesel</SelectItem>
-                                                <SelectItem value="petrol">Petrol</SelectItem>
-                                                <SelectItem value="electric">Electric</SelectItem>
-                                                <SelectItem value="hybrid">Hybrid</SelectItem>
-                                                <SelectItem value="cng">CNG</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                            <FormField
-                                control={form.control}
-                                name="tankCapacity"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Tank Capacity (L)</FormLabel>
-                                        <FormControl>
-                                            <Input type="number" step="0.1" {...field} />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                        </div>
-
-                        <FormField
-                            control={form.control}
-                            name="image"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Image URL</FormLabel>
+                    <FormField
+                        control={form.control}
+                        name="registrationNo"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Registration Number</FormLabel>
+                                <FormControl>
+                                    <Input placeholder="ABC-1234" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    <FormField
+                        control={form.control}
+                        name="status"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Status</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
                                     <FormControl>
-                                        <Input placeholder="https://..." {...field} />
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select status" />
+                                        </SelectTrigger>
                                     </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
+                                    <SelectContent>
+                                        {Object.entries(TRUCK_STATUS_LABELS).map(([value, label]) => (
+                                            <SelectItem key={value} value={value}>
+                                                {label}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                </div>
 
-                        <FormField
-                            control={form.control}
-                            name="notes"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Notes</FormLabel>
+                <div className="grid gap-4 md:grid-cols-3">
+                    <FormField
+                        control={form.control}
+                        name="make"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Make</FormLabel>
+                                <FormControl>
+                                    <Input placeholder="Ford" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    <FormField
+                        control={form.control}
+                        name="model"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Model</FormLabel>
+                                <FormControl>
+                                    <Input placeholder="F-150" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    <FormField
+                        control={form.control}
+                        name="year"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Year</FormLabel>
+                                <FormControl>
+                                    <Input type="number" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                    <FormField
+                        control={form.control}
+                        name="chassisNumber"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Chassis Number</FormLabel>
+                                <FormControl>
+                                    <Input placeholder="Chassis/VIN number" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    <FormField
+                        control={form.control}
+                        name="engineNumber"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Engine Number</FormLabel>
+                                <FormControl>
+                                    <Input placeholder="Engine number" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-3">
+                    <FormField
+                        control={form.control}
+                        name="currentMileage"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Current Mileage (km)</FormLabel>
+                                <FormControl>
+                                    <Input type="number" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    <FormField
+                        control={form.control}
+                        name="fuelType"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Fuel Type</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
                                     <FormControl>
-                                        <Textarea
-                                            placeholder="Additional notes about this truck..."
-                                            className="min-h-[100px]"
-                                            {...field}
-                                        />
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select fuel type" />
+                                        </SelectTrigger>
                                     </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
+                                    <SelectContent>
+                                        <SelectItem value="diesel">Diesel</SelectItem>
+                                        <SelectItem value="petrol">Petrol</SelectItem>
+                                        <SelectItem value="electric">Electric</SelectItem>
+                                        <SelectItem value="hybrid">Hybrid</SelectItem>
+                                        <SelectItem value="cng">CNG</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    <FormField
+                        control={form.control}
+                        name="tankCapacity"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Tank Capacity (L)</FormLabel>
+                                <FormControl>
+                                    <Input type="number" step="0.1" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                </div>
 
-                        <div className="flex justify-end gap-2 pt-4">
-                            <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => router.back()}
-                                disabled={isLoading}
-                            >
-                                Cancel
-                            </Button>
-                            <Button type="submit" disabled={isLoading}>
-                                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                {isEditing ? "Update Truck" : "Create Truck"}
-                            </Button>
-                        </div>
-                    </form>
-                </Form>
-            );
-        }
+                <FormField
+                    control={form.control}
+                    name="image"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Image URL</FormLabel>
+                            <FormControl>
+                                <Input placeholder="https://..." {...field} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+
+                <FormField
+                    control={form.control}
+                    name="notes"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Notes</FormLabel>
+                            <FormControl>
+                                <Textarea
+                                    placeholder="Additional notes about this truck..."
+                                    className="min-h-[100px]"
+                                    {...field}
+                                />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+
+                <div className="flex justify-end gap-2 pt-4">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => router.back()}
+                        disabled={isLoading}
+                    >
+                        Cancel
+                    </Button>
+                    <Button type="submit" disabled={isLoading}>
+                        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        {isEditing ? "Update Truck" : "Create Truck"}
+                    </Button>
+                </div>
+            </form>
+        </Form>
+    );
+}
