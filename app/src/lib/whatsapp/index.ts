@@ -4,12 +4,15 @@
  * This module provides WhatsApp messaging functionality using whatsapp-web.js.
  * It handles client initialization, authentication via QR code, and message sending.
  * 
+ * Based on wwebjs.dev documentation: https://wwebjs.dev/guide/
+ * 
  * Note: wweb-js requires a Chromium browser to run. In production, use puppeteer
  * with a proper headless configuration.
  */
 
 import { Client, LocalAuth, Message } from "whatsapp-web.js";
 import { EventEmitter } from "events";
+import qrcode from "qrcode-terminal";
 
 export type WhatsAppStatus = 
   | "disconnected" 
@@ -79,7 +82,9 @@ class WhatsAppService extends EventEmitter {
 
       // QR Code received
       this.client.on("qr", (qr) => {
-        console.log("WhatsApp QR Code received");
+        console.log("WhatsApp QR Code received - scan with your phone:");
+        // Display QR code in terminal for easy scanning
+        qrcode.generate(qr, { small: true });
         this.updateState({ status: "qr_ready", qrCode: qr });
         this.emit("qr", qr);
       });
