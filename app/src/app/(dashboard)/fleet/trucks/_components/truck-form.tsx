@@ -44,7 +44,6 @@ const truckSchema = z.object({
     make: z.string().min(1, "Make is required"),
     model: z.string().min(1, "Model is required"),
     year: numericString(z.number().min(1990).max(new Date().getFullYear() + 1)),
-    engineNumber: z.string().optional(),
     status: z.enum(["active", "in_service", "in_repair", "inactive", "decommissioned"]),
     currentMileage: numericString(z.number().min(0)),
     fuelType: z.string().optional(),
@@ -62,7 +61,6 @@ interface TruckFormProps {
         make: string;
         model: string;
         year: number;
-        engineNumber: string | null;
         status: string;
         currentMileage: number;
         fuelType: string | null;
@@ -85,7 +83,6 @@ export function TruckForm({ truck }: TruckFormProps) {
             make: truck?.make ?? "",
             model: truck?.model ?? "",
             year: truck?.year ?? undefined,
-            engineNumber: truck?.engineNumber ?? "",
             status: (truck?.status as TruckFormData["status"]) ?? "active",
             currentMileage: truck?.currentMileage ?? 0,
             fuelType: truck?.fuelType ?? "",
@@ -199,20 +196,6 @@ export function TruckForm({ truck }: TruckFormProps) {
                         )}
                     />
                 </div>
-
-                <FormField
-                    control={form.control}
-                    name="engineNumber"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Engine Number</FormLabel>
-                            <FormControl>
-                                <Input placeholder="Engine number" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
 
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     <FormField
