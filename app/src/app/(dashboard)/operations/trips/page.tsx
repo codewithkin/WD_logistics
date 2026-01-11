@@ -2,6 +2,7 @@ import { requireAuth } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/layout/page-header";
 import { TripsTable } from "./_components/trips-table";
+import { TripsAnalytics } from "./_components/trips-analytics";
 import { Plus } from "lucide-react";
 
 interface TripsPageProps {
@@ -35,10 +36,32 @@ export default async function TripsPage({ searchParams }: TripsPageProps) {
         orderBy: { scheduledDate: "desc" },
     });
 
+    // Calculate analytics
+    const totalTrips = trips.length;
+    const completedTrips = trips.filter(t => t.status === "completed").length;
+    const inProgressTrips = trips.filter(t => t.status === "in_progress").length;
+    const scheduledTrips = trips.filter(t => t.status === "scheduled").length;
+    const cancelledTrips = trips.filter(t => t.status === "cancelled").length;
+    const totalRevenue = trips.reduce((sum, t) => sum + t.revenue, 0);
+    const totalMileage = trips.reduce((sum, t) => sum + (t.actualMileage || t.estimatedMileage), 0);
+    const completionRate = totalTrips > 0 ? (completedTrips / totalTrips) * 100 : 0;
+
+    const analytics = {
+        totalTrips,
+        completedTrips,
+        inProgressTrips,
+        scheduledTrips,
+        cancelledTrips,
+        totalRevenue,
+        totalMileage,
+        completionRate,
+    };
+
     const canCreate = role === "admin" || role === "supervisor";
+    const canExport = role === "admin";
 
     return (
-        <div>
+        <div className="space-y-6">
             <PageHeader
                 title="Trips"
                 description="Manage and track all trips"
@@ -52,6 +75,7 @@ export default async function TripsPage({ searchParams }: TripsPageProps) {
                         : undefined
                 }
             />
+            <TripsAnalytics analytics={analytics} trips={trips} canExport={canExport} />
             <TripsTable trips={trips} role={role} />
         </div>
     );
