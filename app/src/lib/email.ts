@@ -296,3 +296,141 @@ ${orgName}
     `.trim(),
   });
 }
+
+/**
+ * Send invoice payment reminder email
+ */
+export interface InvoiceReminderEmailData {
+  customerName: string;
+  customerEmail: string;
+  invoiceNumber: string;
+  dueDate: Date;
+  total: number;
+  balance: number;
+  isOverdue: boolean;
+  daysOverdue?: number;
+  organizationName?: string;
+}
+
+export async function sendInvoiceReminderEmail(data: InvoiceReminderEmailData) {
+  const orgName = data.organizationName || "WD Logistics";
+  const formatCurrency = (amount: number) =>
+    new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(amount);
+  const formatDate = (date: Date) =>
+    new Intl.DateTimeFormat("en-US", { year: "numeric", month: "long", day: "numeric" }).format(date);
+
+  const subject = data.isOverdue
+    ? `⚠️ Overdue Invoice ${data.invoiceNumber} - Payment Required`
+    : `Payment Reminder: Invoice ${data.invoiceNumber} Due Soon`;
+
+  const urgencyMessage = data.isOverdue
+    ? `This invoice is now <strong>${data.daysOverdue || 0} days overdue</strong>. Please arrange payment immediately to avoid any service interruptions.`
+    : `This is a friendly reminder that your invoice is due on <strong>${formatDate(data.dueDate)}</strong>.`;
+
+  const headerColor = data.isOverdue ? "#dc2626" : "#1e40af";
+  const statusBadge = data.isOverdue
+    ? `<span style="background: #fef2f2; color: #dc2626; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;">OVERDUE</span>`
+    : `<span style="background: #fef3c7; color: #92400e; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;">DUE SOON</span>`;
+
+  return sendEmail({
+    to: data.customerEmail,
+    subject,
+    text: `
+Dear ${data.customerName},
+
+${data.isOverdue ? `OVERDUE NOTICE: Invoice #${data.invoiceNumber} is ${data.daysOverdue || 0} days overdue.` : `PAYMENT REMINDER: Invoice #${data.invoiceNumber} is due on ${formatDate(data.dueDate)}.`}
+
+Invoice Number: ${data.invoiceNumber}
+Due Date: ${formatDate(data.dueDate)}
+Total Amount: ${formatCurrency(data.total)}
+Balance Due: ${formatCurrency(data.balance)}
+
+Please arrange payment at your earliest convenience.
+
+If you have already made this payment, please disregard this notice or contact us to update our records.
+
+Thank you for your business.
+
+Best regards,
+${orgName}
+    `.trim(),
+    html: `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background: ${headerColor}; color: white; padding: 30px; text-align: center; }
+    .header h1 { margin: 0; font-size: 24px; }
+    .header p { margin: 5px 0 0; opacity: 0.9; }
+    .content { padding: 30px; background: #fff; }
+    .status-badge { text-align: center; margin: -15px 0 20px; }
+    .alert-box { background: ${data.isOverdue ? '#fef2f2' : '#fef3c7'}; border-left: 4px solid ${data.isOverdue ? '#dc2626' : '#f59e0b'}; padding: 15px 20px; border-radius: 0 8px 8px 0; margin: 20px 0; }
+    .invoice-details { background: #f9fafb; padding: 20px; border-radius: 8px; margin: 20px 0; }
+    .invoice-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #e5e7eb; }
+    .invoice-row:last-child { border-bottom: none; font-weight: bold; font-size: 18px; color: ${headerColor}; }
+    .invoice-label { color: #666; }
+    .invoice-value { font-weight: 600; }
+    .cta-button { display: block; text-align: center; margin: 30px 0; }
+    .cta-button a { background: ${headerColor}; color: white !important; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; display: inline-block; }
+    .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; border-top: 1px solid #e5e7eb; margin-top: 20px; }
+    .disclaimer { background: #f3f4f6; padding: 15px; border-radius: 8px; font-size: 12px; color: #666; margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>${orgName}</h1>
+      <p>Payment Reminder</p>
+    </div>
+    <div class="content">
+      <div class="status-badge">
+        ${statusBadge}
+      </div>
+      
+      <p>Dear ${data.customerName},</p>
+      
+      <div class="alert-box">
+        ${urgencyMessage}
+      </div>
+
+      <div class="invoice-details">
+        <div class="invoice-row">
+          <span class="invoice-label">Invoice Number:</span>
+          <span class="invoice-value">${data.invoiceNumber}</span>
+        </div>
+        <div class="invoice-row">
+          <span class="invoice-label">Due Date:</span>
+          <span class="invoice-value">${formatDate(data.dueDate)}</span>
+        </div>
+        <div class="invoice-row">
+          <span class="invoice-label">Total Amount:</span>
+          <span class="invoice-value">${formatCurrency(data.total)}</span>
+        </div>
+        <div class="invoice-row">
+          <span class="invoice-label">Balance Due:</span>
+          <span class="invoice-value">${formatCurrency(data.balance)}</span>
+        </div>
+      </div>
+
+      <p>Please arrange payment at your earliest convenience to keep your account in good standing.</p>
+
+      <div class="disclaimer">
+        <strong>Already paid?</strong> If you have already made this payment, please disregard this notice. 
+        It may take a few days for payments to be processed and reflected in our system.
+      </div>
+
+      <p style="margin-top: 30px;">Thank you for your continued business.</p>
+      <p>Best regards,<br><strong>${orgName}</strong></p>
+    </div>
+    <div class="footer">
+      <p>This is an automated payment reminder from ${orgName}.</p>
+    </div>
+  </div>
+</body>
+</html>
+    `.trim(),
+  });
+}
