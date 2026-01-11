@@ -27,6 +27,11 @@ import {
   CustomerStatementPDF,
   TripSummaryReportPDF,
 } from "@/lib/reports/pdf-generator";
+import {
+  generateFinancialReportProps,
+  generateFinancialReportCSV,
+} from "@/lib/reports/financial-data-fetchers";
+import { FinancialReportTemplate } from "@/lib/reports/financial-report-template";
 import React from "react";
 
 // Input validation schema
@@ -104,15 +109,24 @@ export async function generateReport(
       }
 
       case "revenue": {
-        const data = await fetchRevenueData(organizationId, start, end);
-
         if (format === "pdf") {
-          const pdfDoc = React.createElement(RevenueReportPDF, { data, meta });
+          const reportProps = await generateFinancialReportProps(
+            "revenue",
+            organizationId,
+            start,
+            end
+          );
+          const pdfDoc = React.createElement(FinancialReportTemplate, reportProps);
           fileBuffer = await renderToBuffer(pdfDoc as any);
           mimeType = "application/pdf";
           fileExtension = "pdf";
         } else {
-          const csvContent = generateRevenueCSV(data, meta);
+          const csvContent = await generateFinancialReportCSV(
+            "revenue",
+            organizationId,
+            start,
+            end
+          );
           fileBuffer = Buffer.from(csvContent, "utf-8");
           mimeType = "text/csv";
           fileExtension = "csv";
