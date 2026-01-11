@@ -84,7 +84,7 @@ export function AssignTruck({ driverId, currentTruckId, currentTruckName }: Assi
                         variant="outline"
                         role="combobox"
                         aria-expanded={open}
-                        className="w-full justify-between"
+                        className="flex-1 justify-between"
                         disabled={isLoading}
                     >
                         {displayName ? (
@@ -98,10 +98,10 @@ export function AssignTruck({ driverId, currentTruckId, currentTruckName }: Assi
                         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-75 p-0" align="start">
+                <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
                     <Command>
                         <CommandInput placeholder="Search trucks..." />
-                        <CommandList>
+                        <CommandList className="max-h-60 overflow-y-auto">
                             <CommandEmpty>No trucks found.</CommandEmpty>
                             <CommandGroup>
                                 {trucks.map((truck) => {
@@ -138,11 +138,12 @@ export function AssignTruck({ driverId, currentTruckId, currentTruckName }: Assi
             </Popover>
             {selectedTruckId && (
                 <Button
-                    variant="ghost"
+                    variant="secondary"
                     size="icon"
                     onClick={() => handleSelect(null)}
                     disabled={isLoading}
                     title="Unassign truck"
+                    className="shrink-0"
                 >
                     <X className="h-4 w-4" />
                 </Button>

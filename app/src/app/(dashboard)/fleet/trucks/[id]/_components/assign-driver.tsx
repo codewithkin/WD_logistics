@@ -83,7 +83,7 @@ export function AssignDriver({ truckId, currentDriverId, currentDriverName }: As
                         variant="outline"
                         role="combobox"
                         aria-expanded={open}
-                        className="w-full justify-between"
+                        className="flex-1 justify-between"
                         disabled={isLoading}
                     >
                         {displayName ? (
@@ -97,10 +97,10 @@ export function AssignDriver({ truckId, currentDriverId, currentDriverName }: As
                         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-75 p-0" align="start">
+                <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
                     <Command>
                         <CommandInput placeholder="Search drivers..." />
-                        <CommandList>
+                        <CommandList className="max-h-60 overflow-y-auto">
                             <CommandEmpty>No drivers found.</CommandEmpty>
                             <CommandGroup>
                                 {drivers.map((driver) => {
@@ -134,11 +134,12 @@ export function AssignDriver({ truckId, currentDriverId, currentDriverName }: As
             </Popover>
             {selectedDriverId && (
                 <Button
-                    variant="ghost"
+                    variant="secondary"
                     size="icon"
                     onClick={() => handleSelect(null)}
                     disabled={isLoading}
                     title="Unassign driver"
+                    className="shrink-0"
                 >
                     <X className="h-4 w-4" />
                 </Button>
