@@ -250,34 +250,34 @@ export function ReportsDashboard({ data }: ReportsDashboardProps) {
       </TabsContent>
 
       <TabsContent value="financial" className="space-y-6">
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Net Profit (This Month)</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Net Profit</CardTitle>
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div
-                className={`text-3xl font-bold ${thisMonthPaymentTotal - thisMonthExpenseTotal >= 0
+                className={`text-2xl font-bold ${thisMonthPaymentTotal - thisMonthExpenseTotal >= 0
                     ? "text-green-600"
                     : "text-red-600"
                   }`}
               >
                 ${(thisMonthPaymentTotal - thisMonthExpenseTotal).toLocaleString()}
               </div>
-              <div className="mt-2 text-sm text-muted-foreground">
-                Collections: ${thisMonthPaymentTotal.toLocaleString()}
-                <br />
-                Expenses: ${thisMonthExpenseTotal.toLocaleString()}
-              </div>
+              <p className="text-xs text-muted-foreground">
+                This month
+              </p>
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Outstanding Invoices</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Outstanding</CardTitle>
+              <Receipt className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-amber-600">
+              <div className="text-2xl font-bold text-amber-600">
                 $
                 {outstandingInvoices
                   .reduce((sum, inv) => {
@@ -286,25 +286,41 @@ export function ReportsDashboard({ data }: ReportsDashboardProps) {
                   }, 0)
                   .toLocaleString()}
               </div>
-              <p className="text-sm text-muted-foreground mt-2">
+              <p className="text-xs text-muted-foreground">
                 {outstandingInvoices.length} invoice(s) pending
               </p>
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Collection Rate</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Collection Rate</CardTitle>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">
+              <div className="text-2xl font-bold">
                 {thisMonthInvoiceTotal > 0
                   ? Math.round((thisMonthPaymentTotal / thisMonthInvoiceTotal) * 100)
                   : 0}
                 %
               </div>
-              <p className="text-sm text-muted-foreground mt-2">
-                of invoiced amount collected
+              <p className="text-xs text-muted-foreground">
+                of invoiced collected
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Expenses</CardTitle>
+              <Package className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                ${thisMonthExpenseTotal.toLocaleString()}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                This month
               </p>
             </CardContent>
           </Card>
