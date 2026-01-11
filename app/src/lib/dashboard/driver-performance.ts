@@ -58,7 +58,7 @@ export async function getDriverPerformanceData(): Promise<DriverPerformanceMetri
         id: true,
         status: true,
         revenue: true,
-        actualEndDate: true,
+        endDate: true,
         scheduledDate: true,
       },
     });
@@ -67,11 +67,11 @@ export async function getDriverPerformanceData(): Promise<DriverPerformanceMetri
     const completedTrips = trips.filter((t) => t.status === "completed").length;
     const revenue = trips.reduce((sum, t) => sum + (t.revenue || 0), 0);
 
-    // Calculate on-time percentage (trips where actualEndDate <= scheduledDate + buffer)
+    // Calculate on-time percentage (trips where endDate <= scheduledDate + buffer)
     const onTimeTrips = trips.filter((t) => {
-      if (!t.actualEndDate || !t.scheduledDate) return false;
+      if (!t.endDate || !t.scheduledDate) return false;
       const buffer = 24 * 60 * 60 * 1000; // 24 hour buffer
-      return t.actualEndDate.getTime() <= t.scheduledDate.getTime() + buffer;
+      return t.endDate.getTime() <= t.scheduledDate.getTime() + buffer;
     }).length;
 
     const onTimePercentage = totalTrips > 0 ? (onTimeTrips / totalTrips) * 100 : 0;

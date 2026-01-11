@@ -139,16 +139,22 @@ export async function sendInvoiceReminders(
         dueDate: { lt: overdueDate },
         balance: { gt: 0 },
         status: { notIn: ["paid", "cancelled"] },
-        OR: [
-          { reminderSent: false },
+        AND: [
           {
-            reminderSentAt: {
-              lt: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000), // Last reminder > 7 days ago
-            },
+            OR: [
+              { reminderSent: false },
+              {
+                reminderSentAt: {
+                  lt: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000), // Last reminder > 7 days ago
+                },
+              },
+            ],
+          },
+          // Don't send if past max reminder date
+          {
+            OR: [{ maxReminderDate: null }, { maxReminderDate: { gt: now } }],
           },
         ],
-        // Don't send if past max reminder date
-        OR: [{ maxReminderDate: null }, { maxReminderDate: { gt: now } }],
       },
       include: {
         customer: true,
