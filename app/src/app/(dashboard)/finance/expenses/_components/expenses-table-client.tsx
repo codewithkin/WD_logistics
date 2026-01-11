@@ -25,7 +25,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { MoreHorizontal, Pencil, Trash2, Receipt, Search, Filter, X, Truck, MapPin } from "lucide-react";
+import { MoreHorizontal, Pencil, Trash2, Receipt as ReceiptIcon, Search, Filter, X, Truck, MapPin, Plus } from "lucide-react";
 import Link from "next/link";
 import { deleteExpense } from "../actions";
 import { useRouter } from "next/navigation";
@@ -210,16 +210,16 @@ export function ExpensesTableClient({ expenses }: ExpensesTableProps) {
                     <div className="relative flex-1">
                         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                         <Input
-                            placeholder="Search expenses..."
+                            placeholder="Search by description, vendor, reference..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             className="pl-9"
                         />
                     </div>
                     {hasActiveFilters && (
-                        <Button variant="outline" onClick={clearFilters}>
+                        <Button variant="outline" onClick={clearFilters} size="sm">
                             <X className="mr-2 h-4 w-4" />
-                            Clear Filters
+                            Clear
                         </Button>
                     )}
                 </div>
@@ -227,21 +227,21 @@ export function ExpensesTableClient({ expenses }: ExpensesTableProps) {
                 {/* Filter Controls */}
                 <div className="flex flex-wrap gap-2">
                     <Select value={assignmentFilter} onValueChange={setAssignmentFilter}>
-                        <SelectTrigger className="w-[180px]">
+                        <SelectTrigger className="w-40">
                             <Filter className="mr-2 h-4 w-4" />
                             <SelectValue placeholder="Assignment" />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="all">All Assignments</SelectItem>
-                            <SelectItem value="trucks">With Trucks</SelectItem>
-                            <SelectItem value="trips">With Trips</SelectItem>
+                            <SelectItem value="all">All Types</SelectItem>
+                            <SelectItem value="trucks">Truck Expenses</SelectItem>
+                            <SelectItem value="trips">Trip Expenses</SelectItem>
                             <SelectItem value="unassigned">Unassigned</SelectItem>
                         </SelectContent>
                     </Select>
 
                     <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                        <SelectTrigger className="w-[180px]">
-                            <SelectValue placeholder="All Categories" />
+                        <SelectTrigger className="w-40">
+                            <SelectValue placeholder="Category" />
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="all">All Categories</SelectItem>
@@ -255,9 +255,9 @@ export function ExpensesTableClient({ expenses }: ExpensesTableProps) {
 
                     {trucks.length > 0 && (
                         <Select value={truckFilter} onValueChange={setTruckFilter}>
-                            <SelectTrigger className="w-[180px]">
+                            <SelectTrigger className="w-40">
                                 <Truck className="mr-2 h-4 w-4" />
-                                <SelectValue placeholder="All Trucks" />
+                                <SelectValue placeholder="Truck" />
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">All Trucks</SelectItem>
@@ -272,9 +272,9 @@ export function ExpensesTableClient({ expenses }: ExpensesTableProps) {
 
                     {trips.length > 0 && (
                         <Select value={tripFilter} onValueChange={setTripFilter}>
-                            <SelectTrigger className="w-[180px]">
+                            <SelectTrigger className="w-48">
                                 <MapPin className="mr-2 h-4 w-4" />
-                                <SelectValue placeholder="All Trips" />
+                                <SelectValue placeholder="Trip" />
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">All Trips</SelectItem>
@@ -289,63 +289,82 @@ export function ExpensesTableClient({ expenses }: ExpensesTableProps) {
                 </div>
 
                 {/* Summary */}
-                <div className="flex items-center justify-between rounded-lg border p-3 bg-muted/50">
+                <div className="flex items-center justify-between rounded-lg border bg-muted/30 px-4 py-3">
                     <div className="text-sm text-muted-foreground">
-                        Showing <span className="font-medium text-foreground">{filteredExpenses.length}</span> of{" "}
-                        <span className="font-medium text-foreground">{expenses.length}</span> expenses
+                        Showing <span className="font-semibold text-foreground">{filteredExpenses.length}</span> of{" "}
+                        <span className="font-semibold text-foreground">{expenses.length}</span> expenses
                     </div>
-                    <div className="text-sm font-medium">
-                        Total: <span className="text-lg">{formatCurrency(totalAmount)}</span>
+                    <div className="text-sm">
+                        Total: <span className="text-lg font-bold text-primary">{formatCurrency(totalAmount)}</span>
                     </div>
                 </div>
             </div>
 
             {/* Table */}
-            <div className="rounded-md border">
+            <div className="rounded-lg border overflow-hidden">
                 <Table>
                     <TableHeader>
-                        <TableRow>
-                            <TableHead>Date</TableHead>
-                            <TableHead>Category</TableHead>
-                            <TableHead>Description</TableHead>
-                            <TableHead>Associations</TableHead>
-                            <TableHead>Vendor</TableHead>
-                            <TableHead>Reference</TableHead>
-                            <TableHead className="text-right">Amount</TableHead>
-                            <TableHead className="w-[50px]"></TableHead>
+                        <TableRow className="bg-muted/50">
+                            <TableHead className="font-semibold">Date</TableHead>
+                            <TableHead className="font-semibold">Category</TableHead>
+                            <TableHead className="font-semibold">Description</TableHead>
+                            <TableHead className="font-semibold">Associations</TableHead>
+                            <TableHead className="font-semibold">Vendor</TableHead>
+                            <TableHead className="font-semibold">Reference</TableHead>
+                            <TableHead className="text-right font-semibold">Amount</TableHead>
+                            <TableHead className="w-12"></TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {filteredExpenses.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
-                                    {expenses.length === 0 ? "No expenses found" : "No expenses match your filters"}
+                                <TableCell colSpan={8} className="h-32 text-center">
+                                    <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                                        <ReceiptIcon className="h-8 w-8" />
+                                        <p>{expenses.length === 0 ? "No expenses yet" : "No expenses match your filters"}</p>
+                                        {expenses.length === 0 && (
+                                            <Link href="/finance/expenses/new">
+                                                <Button size="sm" variant="outline" className="mt-2">
+                                                    <Plus className="mr-2 h-4 w-4" />
+                                                    Add your first expense
+                                                </Button>
+                                            </Link>
+                                        )}
+                                    </div>
                                 </TableCell>
                             </TableRow>
                         ) : (
                             filteredExpenses.map((expense) => (
-                                <TableRow key={expense.id}>
-                                    <TableCell>
-                                        {new Date(expense.date).toLocaleDateString()}
+                                <TableRow key={expense.id} className="group">
+                                    <TableCell className="font-medium">
+                                        {new Date(expense.date).toLocaleDateString("en-US", {
+                                            month: "short",
+                                            day: "numeric",
+                                            year: "numeric"
+                                        })}
                                     </TableCell>
                                     <TableCell>
                                         <Badge
                                             variant="outline"
+                                            className="font-medium"
                                             style={{
                                                 borderColor: expense.category.color || undefined,
                                                 color: expense.category.color || undefined,
+                                                backgroundColor: expense.category.color ? `${expense.category.color}10` : undefined,
                                             }}
                                         >
                                             {expense.category.name}
                                         </Badge>
                                     </TableCell>
-                                    <TableCell>{expense.description || "-"}</TableCell>
+                                    <TableCell className="max-w-48 truncate">
+                                        {expense.description || <span className="text-muted-foreground">-</span>}
+                                    </TableCell>
                                     <TableCell>
-                                        <div className="flex flex-col gap-1.5">
+                                        <div className="flex flex-col gap-1">
                                             {expense.truckExpenses.length > 0 && (
                                                 <div className="flex flex-wrap gap-1">
                                                     {expense.truckExpenses.map((te, idx) => (
-                                                        <Badge key={idx} variant="secondary" className="text-xs">
+                                                        <Badge key={idx} variant="secondary" className="text-xs font-normal">
                                                             <Truck className="mr-1 h-3 w-3" />
                                                             {te.truck.registrationNo}
                                                         </Badge>
@@ -355,43 +374,44 @@ export function ExpensesTableClient({ expenses }: ExpensesTableProps) {
                                             {expense.tripExpenses.length > 0 && (
                                                 <div className="flex flex-wrap gap-1">
                                                     {expense.tripExpenses.map((te, idx) => (
-                                                        <Badge key={idx} variant="secondary" className="text-xs">
+                                                        <Badge key={idx} variant="secondary" className="text-xs font-normal">
                                                             <MapPin className="mr-1 h-3 w-3" />
-                                                            {te.trip.originCity}→{te.trip.destinationCity}
+                                                            {te.trip.originCity} → {te.trip.destinationCity}
                                                         </Badge>
                                                     ))}
                                                 </div>
                                             )}
                                             {expense.truckExpenses.length === 0 && expense.tripExpenses.length === 0 && (
-                                                <Badge variant="outline" className="text-xs text-muted-foreground">
-                                                    Unassigned
-                                                </Badge>
+                                                <span className="text-xs text-muted-foreground">—</span>
                                             )}
                                         </div>
                                     </TableCell>
-                                    <TableCell>{expense.vendor || "-"}</TableCell>
+                                    <TableCell>
+                                        {expense.vendor || <span className="text-muted-foreground">-</span>}
+                                    </TableCell>
                                     <TableCell>
                                         <div className="flex items-center gap-2">
-                                            {expense.reference || "-"}
+                                            {expense.reference || <span className="text-muted-foreground">-</span>}
                                             {expense.receiptUrl && (
                                                 <a
                                                     href={expense.receiptUrl}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
-                                                    className="text-muted-foreground hover:text-foreground"
+                                                    className="text-muted-foreground hover:text-primary transition-colors"
+                                                    title="View receipt"
                                                 >
-                                                    <Receipt className="h-4 w-4" />
+                                                    <ReceiptIcon className="h-4 w-4" />
                                                 </a>
                                             )}
                                         </div>
                                     </TableCell>
-                                    <TableCell className="text-right font-medium">
-                                        {formatCurrency(expense.amount)}
+                                    <TableCell className="text-right">
+                                        <span className="font-semibold">{formatCurrency(expense.amount)}</span>
                                     </TableCell>
                                     <TableCell>
                                         <DropdownMenu>
                                             <DropdownMenuTrigger asChild>
-                                                <Button variant="ghost" size="icon">
+                                                <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-opacity">
                                                     <MoreHorizontal className="h-4 w-4" />
                                                 </Button>
                                             </DropdownMenuTrigger>
@@ -405,7 +425,7 @@ export function ExpensesTableClient({ expenses }: ExpensesTableProps) {
                                                 <DropdownMenuItem
                                                     onClick={() => handleDelete(expense.id)}
                                                     disabled={deletingId === expense.id}
-                                                    className="text-destructive"
+                                                    className="text-destructive focus:text-destructive"
                                                 >
                                                     <Trash2 className="mr-2 h-4 w-4" />
                                                     Delete

@@ -32,7 +32,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Pencil, Trash2, Truck, MapPin } from "lucide-react";
+import { Plus, Pencil, Trash2, Truck, MapPin, FolderOpen } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -301,12 +301,13 @@ export function ExpenseCategoriesSection({ categories: initialCategories }: Expe
     );
 
     return (
-        <div className="space-y-4">
-            <div className="flex justify-between items-center">
+        <div className="space-y-6">
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
                     <h3 className="text-lg font-semibold">Expense Categories</h3>
                     <p className="text-sm text-muted-foreground">
-                        Manage categories for organizing expenses
+                        Organize expenses by creating custom categories
                     </p>
                 </div>
                 <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
@@ -318,7 +319,7 @@ export function ExpenseCategoriesSection({ categories: initialCategories }: Expe
                     </DialogTrigger>
                     <DialogContent>
                         <DialogHeader>
-                            <DialogTitle>Create Expense Category</DialogTitle>
+                            <DialogTitle>Create Category</DialogTitle>
                             <DialogDescription>
                                 Add a new category for organizing expenses
                             </DialogDescription>
@@ -328,61 +329,87 @@ export function ExpenseCategoriesSection({ categories: initialCategories }: Expe
                 </Dialog>
             </div>
 
-            <div className="rounded-md border">
+            {/* Categories Table */}
+            <div className="rounded-lg border overflow-hidden">
                 <Table>
                     <TableHeader>
-                        <TableRow>
-                            <TableHead>Name</TableHead>
-                            <TableHead>Description</TableHead>
-                            <TableHead>Types</TableHead>
-                            <TableHead>Expenses</TableHead>
-                            <TableHead className="w-[100px]">Actions</TableHead>
+                        <TableRow className="bg-muted/50">
+                            <TableHead className="font-semibold">Category</TableHead>
+                            <TableHead className="font-semibold">Description</TableHead>
+                            <TableHead className="font-semibold">Types</TableHead>
+                            <TableHead className="font-semibold text-center">Expenses</TableHead>
+                            <TableHead className="w-24 font-semibold text-center">Actions</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {categories.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={5} className="text-center text-muted-foreground">
-                                    No categories found
+                                <TableCell colSpan={5} className="h-32 text-center">
+                                    <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                                        <FolderOpen className="h-8 w-8" />
+                                        <p>No categories yet</p>
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => setIsCreateOpen(true)}
+                                            className="mt-2"
+                                        >
+                                            <Plus className="mr-2 h-4 w-4" />
+                                            Create your first category
+                                        </Button>
+                                    </div>
                                 </TableCell>
                             </TableRow>
                         ) : (
                             categories.map((category) => (
-                                <TableRow key={category.id}>
+                                <TableRow key={category.id} className="group">
                                     <TableCell>
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex items-center gap-3">
                                             <div
-                                                className="h-3 w-3 rounded-full"
-                                                style={{ backgroundColor: category.color || "#71717a" }}
+                                                className="h-4 w-4 rounded-full shrink-0 ring-2 ring-offset-2 ring-offset-background"
+                                                style={{
+                                                    backgroundColor: category.color || "#71717a",
+                                                    // @ts-expect-error: CSS variable for ring color
+                                                    "--tw-ring-color": category.color || "#71717a"
+                                                }}
                                             />
                                             <span className="font-medium">{category.name}</span>
                                         </div>
                                     </TableCell>
-                                    <TableCell>{category.description || "-"}</TableCell>
+                                    <TableCell className="max-w-48">
+                                        <span className="text-muted-foreground truncate block">
+                                            {category.description || "—"}
+                                        </span>
+                                    </TableCell>
                                     <TableCell>
-                                        <div className="flex gap-2">
+                                        <div className="flex gap-1.5">
                                             {category.isTruck && (
-                                                <Badge variant="secondary">
+                                                <Badge variant="secondary" className="text-xs font-normal">
                                                     <Truck className="mr-1 h-3 w-3" />
                                                     Truck
                                                 </Badge>
                                             )}
                                             {category.isTrip && (
-                                                <Badge variant="secondary">
+                                                <Badge variant="secondary" className="text-xs font-normal">
                                                     <MapPin className="mr-1 h-3 w-3" />
                                                     Trip
                                                 </Badge>
                                             )}
-                                            {!category.isTruck && !category.isTrip && "-"}
+                                            {!category.isTruck && !category.isTrip && (
+                                                <span className="text-muted-foreground text-sm">General</span>
+                                            )}
                                         </div>
                                     </TableCell>
-                                    <TableCell>
-                                        <Badge variant="outline">
-                                            {category._count.expenses} {category._count.expenses === 1 ? "expense" : "expenses"}
+                                    <TableCell className="text-center">
+                                        <Badge
+                                            variant={category._count.expenses > 0 ? "default" : "outline"}
+                                            className="font-medium"
+                                        >
+                                            {category._count.expenses}
                                         </Badge>
                                     </TableCell>
                                     <TableCell>
-                                        <div className="flex gap-2">
+                                        <div className="flex justify-center gap-1">
                                             <Dialog
                                                 open={editingCategory?.id === category.id}
                                                 onOpenChange={(open) => !open && setEditingCategory(null)}
@@ -392,6 +419,7 @@ export function ExpenseCategoriesSection({ categories: initialCategories }: Expe
                                                         variant="ghost"
                                                         size="icon"
                                                         onClick={() => handleEdit(category)}
+                                                        className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
                                                     >
                                                         <Pencil className="h-4 w-4" />
                                                     </Button>
@@ -412,7 +440,8 @@ export function ExpenseCategoriesSection({ categories: initialCategories }: Expe
                                                 size="icon"
                                                 onClick={() => handleDelete(category.id)}
                                                 disabled={deletingId === category.id || category._count.expenses > 0}
-                                                title={category._count.expenses > 0 ? "Cannot delete category with expenses" : "Delete category"}
+                                                className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                title={category._count.expenses > 0 ? "Cannot delete - has expenses" : "Delete category"}
                                             >
                                                 <Trash2 className="h-4 w-4 text-destructive" />
                                             </Button>
@@ -424,6 +453,14 @@ export function ExpenseCategoriesSection({ categories: initialCategories }: Expe
                     </TableBody>
                 </Table>
             </div>
+
+            {/* Summary */}
+            {categories.length > 0 && (
+                <div className="flex items-center justify-between text-sm text-muted-foreground px-1">
+                    <span>{categories.length} {categories.length === 1 ? "category" : "categories"}</span>
+                    <span>{categories.reduce((sum, c) => sum + c._count.expenses, 0)} total expenses</span>
+                </div>
+            )}
         </div>
     );
 }
