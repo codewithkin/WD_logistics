@@ -39,9 +39,7 @@ const driverSchema = z.object({
     email: z.string().email().optional().or(z.literal("")),
     whatsappNumber: z.string().optional().or(z.literal("")),
     licenseNumber: z.string().min(1, "License number is required"),
-    licenseExpiry: z.date().optional().nullable(),
     passportNumber: z.string().optional().or(z.literal("")),
-    dateOfBirth: z.date().optional().nullable(),
     status: z.enum(["active", "on_leave", "suspended", "terminated"]),
     address: z.string().optional(),
     notes: z.string().optional(),
@@ -64,9 +62,7 @@ interface DriverFormProps {
         email: string | null;
         whatsappNumber: string | null;
         licenseNumber: string;
-        licenseExpiry: Date | null;
         passportNumber: string | null;
-        dateOfBirth: Date | null;
         status: string;
         address: string | null;
         notes: string | null;
@@ -90,9 +86,7 @@ export function DriverForm({ driver, availableTrucks }: DriverFormProps) {
             email: driver?.email ?? "",
             whatsappNumber: driver?.whatsappNumber ?? "",
             licenseNumber: driver?.licenseNumber ?? "",
-            licenseExpiry: driver?.licenseExpiry ?? null,
             passportNumber: driver?.passportNumber ?? "",
-            dateOfBirth: driver?.dateOfBirth ?? null,
             status: (driver?.status as DriverFormData["status"]) ?? "active",
             address: driver?.address ?? "",
             notes: driver?.notes ?? "",
@@ -110,9 +104,7 @@ export function DriverForm({ driver, availableTrucks }: DriverFormProps) {
                 email: data.email || undefined,
                 whatsappNumber: data.whatsappNumber || undefined,
                 licenseNumber: data.licenseNumber,
-                licenseExpiry: data.licenseExpiry,
                 passportNumber: data.passportNumber || undefined,
-                dateOfBirth: data.dateOfBirth,
                 status: data.status,
                 address: data.address,
                 notes: data.notes,
@@ -239,105 +231,33 @@ export function DriverForm({ driver, availableTrucks }: DriverFormProps) {
                     )}
                 </div>
 
-                <div className="grid gap-4 sm:grid-cols-2">
-                    <FormField
-                        control={form.control}
-                        name="licenseNumber"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>License Number</FormLabel>
-                                <FormControl>
-                                    <Input placeholder="DL-123456789" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                    <FormField
-                        control={form.control}
-                        name="licenseExpiry"
-                        render={({ field }) => (
-                            <FormItem className="flex flex-col">
-                                <FormLabel>License Expiry (Optional)</FormLabel>
-                                <Popover>
-                                    <PopoverTrigger asChild>
-                                        <FormControl>
-                                            <Button
-                                                variant="outline"
-                                                className={cn(
-                                                    "w-full pl-3 text-left font-normal",
-                                                    !field.value && "text-muted-foreground"
-                                                )}
-                                            >
-                                                {field.value ? format(field.value, "PPP") : "Pick a date"}
-                                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                            </Button>
-                                        </FormControl>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0" align="start">
-                                        <Calendar
-                                            mode="single"
-                                            selected={field.value ?? undefined}
-                                            onSelect={field.onChange}
-                                            initialFocus
-                                        />
-                                    </PopoverContent>
-                                </Popover>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                </div>
+                <FormField
+                    control={form.control}
+                    name="licenseNumber"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>License Number</FormLabel>
+                            <FormControl>
+                                <Input placeholder="DL-123456789" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
 
-                <div className="grid gap-4 sm:grid-cols-2">
-                    <FormField
-                        control={form.control}
-                        name="passportNumber"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Passport Number (Optional)</FormLabel>
-                                <FormControl>
-                                    <Input placeholder="Pass123456" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                    <FormField
-                        control={form.control}
-                        name="dateOfBirth"
-                        render={({ field }) => (
-                            <FormItem className="flex flex-col">
-                                <FormLabel>Date of Birth (Optional)</FormLabel>
-                                <Popover>
-                                    <PopoverTrigger asChild>
-                                        <FormControl>
-                                            <Button
-                                                variant="outline"
-                                                className={cn(
-                                                    "w-full pl-3 text-left font-normal",
-                                                    !field.value && "text-muted-foreground"
-                                                )}
-                                            >
-                                                {field.value ? format(field.value, "PPP") : "Pick a date"}
-                                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                            </Button>
-                                        </FormControl>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0" align="start">
-                                        <Calendar
-                                            mode="single"
-                                            selected={field.value ?? undefined}
-                                            onSelect={field.onChange}
-                                            initialFocus
-                                        />
-                                    </PopoverContent>
-                                </Popover>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                </div>
+                <FormField
+                    control={form.control}
+                    name="passportNumber"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Passport Number (Optional)</FormLabel>
+                            <FormControl>
+                                <Input placeholder="Pass123456" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
 
                 <FormField
                     control={form.control}

@@ -12,9 +12,7 @@ export async function createDriver(data: {
   email?: string;
   whatsappNumber?: string;
   licenseNumber: string;
-  licenseExpiry?: Date | null;
   passportNumber?: string;
-  dateOfBirth?: Date | null;
   status: DriverStatus;
   address?: string;
   notes?: string;
@@ -42,9 +40,7 @@ export async function createDriver(data: {
         email: data.email,
         whatsappNumber: data.whatsappNumber,
         licenseNumber: data.licenseNumber,
-        licenseExpiry: data.licenseExpiry,
         passportNumber: data.passportNumber,
-        dateOfBirth: data.dateOfBirth,
         status: data.status,
         address: data.address,
         notes: data.notes,
@@ -70,9 +66,7 @@ export async function updateDriver(
     email?: string;
     whatsappNumber?: string;
     licenseNumber?: string;
-    licenseExpiry?: Date | null;
     passportNumber?: string;
-    dateOfBirth?: Date | null;
     status?: DriverStatus;
     address?: string;
     notes?: string;
@@ -130,9 +124,7 @@ export async function updateDriver(
         email: data.email,
         whatsappNumber: data.whatsappNumber,
         licenseNumber: data.licenseNumber,
-        licenseExpiry: data.licenseExpiry,
         passportNumber: data.passportNumber,
-        dateOfBirth: data.dateOfBirth,
         status: data.status,
         address: data.address,
         notes: data.notes,

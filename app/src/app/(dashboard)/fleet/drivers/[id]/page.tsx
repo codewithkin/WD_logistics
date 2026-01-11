@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Pencil, Truck, Calendar, Phone, Mail, MapPin, AlertTriangle, FileText } from "lucide-react";
+import { Pencil, Truck, Calendar, Phone, Mail, MapPin, FileText } from "lucide-react";
 import { format } from "date-fns";
 import { DRIVER_STATUS_LABELS, DRIVER_STATUS_COLORS, DriverStatus } from "@/lib/types";
 
@@ -39,9 +39,6 @@ export default async function DriverDetailPage({ params }: DriverDetailPageProps
     }
 
     const canEdit = role === "admin" || role === "supervisor";
-    const isLicenseExpiringSoon =
-        driver.licenseExpiry &&
-        driver.licenseExpiry.getTime() - Date.now() < 30 * 24 * 60 * 60 * 1000;
 
     return (
         <div>
@@ -140,25 +137,10 @@ export default async function DriverDetailPage({ params }: DriverDetailPageProps
                             <Calendar className="h-5 w-5" /> License Information
                         </CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-4">
+                    <CardContent>
                         <div className="flex items-center justify-between">
                             <span className="text-muted-foreground">License Number</span>
                             <span className="font-medium">{driver.licenseNumber}</span>
-                        </div>
-                        <Separator />
-                        <div className="flex items-center justify-between">
-                            <span className="text-muted-foreground">Expiry Date</span>
-                            <div className="flex items-center gap-2">
-                                <span className="font-medium">
-                                    {driver.licenseExpiry ? format(driver.licenseExpiry, "PPP") : "Not set"}
-                                </span>
-                                {isLicenseExpiringSoon && (
-                                    <Badge variant="destructive" className="gap-1">
-                                        <AlertTriangle className="h-3 w-3" />
-                                        Expiring Soon
-                                    </Badge>
-                                )}
-                            </div>
                         </div>
                     </CardContent>
                 </Card>
