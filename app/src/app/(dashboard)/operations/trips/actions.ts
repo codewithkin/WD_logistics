@@ -27,7 +27,7 @@ export async function createTrip(data: {
   endDate?: Date | null;
   truckId: string;
   driverId: string;
-  customerId?: string | null;
+  customerId: string;
   notes?: string;
 }) {
   const session = await requireRole(["admin", "supervisor"]);

@@ -58,7 +58,7 @@ const tripSchema = z.object({
     endDate: z.date().optional().nullable(),
     truckId: z.string().min(1, "Truck is required"),
     driverId: z.string().min(1, "Driver is required"),
-    customerId: z.string().optional().nullable(),
+    customerId: z.string().min(1, "Customer is required"),
     notes: z.string().optional(),
 });
 
@@ -85,7 +85,7 @@ interface TripFormProps {
         endDate: Date | null;
         truckId: string;
         driverId: string;
-        customerId: string | null;
+        customerId: string;
         notes: string | null;
     };
     trucks: Array<{ id: string; registrationNo: string }>;
@@ -120,7 +120,7 @@ export function TripForm({ trip, trucks, drivers, customers }: TripFormProps) {
             endDate: trip?.endDate ?? null,
             truckId: trip?.truckId ?? "",
             driverId: trip?.driverId ?? "",
-            customerId: trip?.customerId ?? null,
+            customerId: trip?.customerId ?? "",
             notes: trip?.notes ?? "",
         },
     });
@@ -131,7 +131,7 @@ export function TripForm({ trip, trucks, drivers, customers }: TripFormProps) {
             const result = isEditing
                 ? await updateTrip(trip.id, {
                     ...data,
-                    customerId: data.customerId || null,
+                    customerId: data.customerId,
                 })
                 : await createTrip({
                     originCity: data.originCity,
@@ -151,7 +151,7 @@ export function TripForm({ trip, trucks, drivers, customers }: TripFormProps) {
                     endDate: data.endDate,
                     truckId: data.truckId,
                     driverId: data.driverId,
-                    customerId: data.customerId || null,
+                    customerId: data.customerId,
                     notes: data.notes,
                 });
 
