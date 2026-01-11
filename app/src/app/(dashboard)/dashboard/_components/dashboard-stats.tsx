@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Truck, Route, DollarSign, ClipboardEdit, AlertTriangle } from "lucide-react";
+import { Truck, Route, DollarSign, AlertTriangle } from "lucide-react";
 import { Role } from "@/lib/types";
 
 interface DashboardStatsProps {
@@ -8,7 +8,6 @@ interface DashboardStatsProps {
         totalTrucks: number;
         tripsThisMonth: number;
         revenueThisMonth: number;
-        pendingEditRequests: number;
         overdueInvoicesCount: number;
     };
     role: Role;
@@ -35,13 +34,6 @@ export function DashboardStats({ stats, role }: DashboardStatsProps) {
             value: `$${stats.revenueThisMonth.toLocaleString()}`,
             icon: DollarSign,
             description: "from completed trips",
-            roles: ["admin", "supervisor"] as Role[],
-        },
-        {
-            title: "Pending Requests",
-            value: stats.pendingEditRequests.toString(),
-            icon: ClipboardEdit,
-            description: "awaiting approval",
             roles: ["admin", "supervisor"] as Role[],
         },
         {
