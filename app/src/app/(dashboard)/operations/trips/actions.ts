@@ -5,6 +5,28 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, requireRole } from "@/lib/session";
 import { TripStatus } from "@/lib/types";
 
+const AGENT_URL = process.env.AGENT_URL || "http://localhost:3001";
+
+/**
+ * Notify driver about trip assignment via WhatsApp
+ */
+async function notifyDriverOfTrip(tripId: string, organizationId: string) {
+  try {
+    await fetch(`${AGENT_URL}/webhooks/trip-assigned`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        tripId,
+        organizationId,
+        sendImmediately: true,
+      }),
+    });
+  } catch (error) {
+    console.error("Failed to notify driver:", error);
+    // Don't throw - this is a non-blocking notification
+  }
+}
+
 export async function createTrip(data: {
   originCity: string;
   originAddress?: string;
@@ -81,6 +103,9 @@ export async function createTrip(data: {
         data: { status: "in_service" },
       });
     }
+
+    // Notify driver via WhatsApp (async, don't block)
+    notifyDriverOfTrip(trip.id, session.organizationId);
 
     revalidatePath("/operations/trips");
     revalidatePath("/fleet/trucks");

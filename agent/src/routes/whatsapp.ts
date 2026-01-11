@@ -11,6 +11,18 @@ import { zValidator } from "@hono/zod-validator";
 import { getAgentWhatsAppClient } from "../lib/whatsapp";
 import { getMemoryManager, getRateLimiter, getInputGuard } from "../lib/memory";
 import { db } from "../lib/prisma";
+import {
+  tripAssignmentTemplate,
+  invoiceReminderTemplate,
+  tripStatusTemplate,
+  deliveryConfirmationTemplate,
+  paymentReceivedTemplate,
+  dailyScheduleTemplate,
+  type TripMessageData,
+  type InvoiceMessageData,
+  type TripStatusMessageData,
+  type DeliveryConfirmationData,
+} from "../lib/message-templates";
 
 const whatsapp = new Hono();
 
@@ -388,6 +400,321 @@ whatsapp.post(
         },
         500
       );
+    }
+  }
+);
+
+// ============================================================================
+// TEMPLATED MESSAGING ENDPOINTS - Direct WhatsApp, no AI
+// ============================================================================
+
+// Schema for trip assignment template
+const tripTemplateSchema = z.object({
+  phoneNumber: z.string().min(7),
+  organizationId: z.string(),
+  data: z.object({
+    driverName: z.string(),
+    originCity: z.string(),
+    originAddress: z.string().optional(),
+    destinationCity: z.string(),
+    destinationAddress: z.string().optional(),
+    scheduledDate: z.coerce.date(),
+    loadDescription: z.string().optional(),
+    loadWeight: z.number().optional(),
+    loadUnits: z.number().optional(),
+    truckRegistration: z.string(),
+    customerName: z.string(),
+    notes: z.string().optional(),
+  }),
+});
+
+// Schema for invoice reminder template
+const invoiceTemplateSchema = z.object({
+  phoneNumber: z.string().min(7),
+  organizationId: z.string(),
+  data: z.object({
+    customerName: z.string(),
+    invoiceNumber: z.string(),
+    total: z.number(),
+    dueDate: z.coerce.date(),
+    balance: z.number(),
+    organizationName: z.string(),
+  }),
+});
+
+// Schema for trip status template
+const tripStatusTemplateSchema = z.object({
+  phoneNumber: z.string().min(7),
+  organizationId: z.string(),
+  data: z.object({
+    customerName: z.string(),
+    tripOrigin: z.string(),
+    tripDestination: z.string(),
+    status: z.enum(["in_progress", "completed", "delayed", "cancelled"]),
+    estimatedArrival: z.coerce.date().optional(),
+    notes: z.string().optional(),
+  }),
+});
+
+// Schema for delivery confirmation template
+const deliveryTemplateSchema = z.object({
+  phoneNumber: z.string().min(7),
+  organizationId: z.string(),
+  data: z.object({
+    customerName: z.string(),
+    tripOrigin: z.string(),
+    tripDestination: z.string(),
+    deliveryDate: z.coerce.date(),
+    driverName: z.string(),
+  }),
+});
+
+// Schema for payment received template
+const paymentTemplateSchema = z.object({
+  phoneNumber: z.string().min(7),
+  organizationId: z.string(),
+  data: z.object({
+    customerName: z.string(),
+    invoiceNumber: z.string(),
+    amount: z.number(),
+    paymentDate: z.coerce.date(),
+    paymentMethod: z.string(),
+    organizationName: z.string(),
+  }),
+});
+
+/**
+ * POST /whatsapp/template/trip-assignment - Send trip assignment notification
+ * Direct WhatsApp message using pre-defined template (no AI)
+ */
+whatsapp.post(
+  "/template/trip-assignment",
+  zValidator("json", tripTemplateSchema),
+  async (c) => {
+    try {
+      const { phoneNumber, organizationId, data } = c.req.valid("json");
+
+      const client = getAgentWhatsAppClient();
+      if (!client.isConnected()) {
+        return c.json({ success: false, error: "WhatsApp not connected" }, 503);
+      }
+
+      const message = tripAssignmentTemplate(data as TripMessageData);
+      const result = await client.sendMessage(phoneNumber, message);
+
+      // Log to database
+      await db.notification.create({
+        data: {
+          type: "trip_assignment",
+          channel: "whatsapp",
+          recipientType: "driver",
+          title: "Trip Assignment Sent",
+          message: message,
+          status: "sent",
+          sentAt: new Date(),
+        },
+      });
+
+      return c.json({
+        success: true,
+        messageId: result.id,
+        template: "trip_assignment",
+        to: phoneNumber,
+      });
+    } catch (error) {
+      console.error("Template send error:", error);
+      return c.json({
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to send",
+      }, 500);
+    }
+  }
+);
+
+/**
+ * POST /whatsapp/template/invoice-reminder - Send invoice reminder
+ * Direct WhatsApp message using pre-defined template (no AI)
+ */
+whatsapp.post(
+  "/template/invoice-reminder",
+  zValidator("json", invoiceTemplateSchema),
+  async (c) => {
+    try {
+      const { phoneNumber, organizationId, data } = c.req.valid("json");
+
+      const client = getAgentWhatsAppClient();
+      if (!client.isConnected()) {
+        return c.json({ success: false, error: "WhatsApp not connected" }, 503);
+      }
+
+      const message = invoiceReminderTemplate(data as InvoiceMessageData);
+      const result = await client.sendMessage(phoneNumber, message);
+
+      await db.notification.create({
+        data: {
+          type: "invoice_reminder",
+          channel: "whatsapp",
+          recipientType: "customer",
+          title: "Invoice Reminder Sent",
+          message: message,
+          status: "sent",
+          sentAt: new Date(),
+        },
+      });
+
+      return c.json({
+        success: true,
+        messageId: result.id,
+        template: "invoice_reminder",
+        to: phoneNumber,
+      });
+    } catch (error) {
+      console.error("Template send error:", error);
+      return c.json({
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to send",
+      }, 500);
+    }
+  }
+);
+
+/**
+ * POST /whatsapp/template/trip-status - Send trip status update to customer
+ * Direct WhatsApp message using pre-defined template (no AI)
+ */
+whatsapp.post(
+  "/template/trip-status",
+  zValidator("json", tripStatusTemplateSchema),
+  async (c) => {
+    try {
+      const { phoneNumber, organizationId, data } = c.req.valid("json");
+
+      const client = getAgentWhatsAppClient();
+      if (!client.isConnected()) {
+        return c.json({ success: false, error: "WhatsApp not connected" }, 503);
+      }
+
+      const message = tripStatusTemplate(data as TripStatusMessageData);
+      const result = await client.sendMessage(phoneNumber, message);
+
+      await db.notification.create({
+        data: {
+          type: "trip_status",
+          channel: "whatsapp",
+          recipientType: "customer",
+          title: "Trip Status Update Sent",
+          message: message,
+          status: "sent",
+          sentAt: new Date(),
+        },
+      });
+
+      return c.json({
+        success: true,
+        messageId: result.id,
+        template: "trip_status",
+        to: phoneNumber,
+      });
+    } catch (error) {
+      console.error("Template send error:", error);
+      return c.json({
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to send",
+      }, 500);
+    }
+  }
+);
+
+/**
+ * POST /whatsapp/template/delivery-confirmation - Send delivery confirmation
+ * Direct WhatsApp message using pre-defined template (no AI)
+ */
+whatsapp.post(
+  "/template/delivery-confirmation",
+  zValidator("json", deliveryTemplateSchema),
+  async (c) => {
+    try {
+      const { phoneNumber, organizationId, data } = c.req.valid("json");
+
+      const client = getAgentWhatsAppClient();
+      if (!client.isConnected()) {
+        return c.json({ success: false, error: "WhatsApp not connected" }, 503);
+      }
+
+      const message = deliveryConfirmationTemplate(data as DeliveryConfirmationData);
+      const result = await client.sendMessage(phoneNumber, message);
+
+      await db.notification.create({
+        data: {
+          type: "delivery_confirmation",
+          channel: "whatsapp",
+          recipientType: "customer",
+          title: "Delivery Confirmation Sent",
+          message: message,
+          status: "sent",
+          sentAt: new Date(),
+        },
+      });
+
+      return c.json({
+        success: true,
+        messageId: result.id,
+        template: "delivery_confirmation",
+        to: phoneNumber,
+      });
+    } catch (error) {
+      console.error("Template send error:", error);
+      return c.json({
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to send",
+      }, 500);
+    }
+  }
+);
+
+/**
+ * POST /whatsapp/template/payment-received - Send payment confirmation
+ * Direct WhatsApp message using pre-defined template (no AI)
+ */
+whatsapp.post(
+  "/template/payment-received",
+  zValidator("json", paymentTemplateSchema),
+  async (c) => {
+    try {
+      const { phoneNumber, organizationId, data } = c.req.valid("json");
+
+      const client = getAgentWhatsAppClient();
+      if (!client.isConnected()) {
+        return c.json({ success: false, error: "WhatsApp not connected" }, 503);
+      }
+
+      const message = paymentReceivedTemplate(data);
+      const result = await client.sendMessage(phoneNumber, message);
+
+      await db.notification.create({
+        data: {
+          type: "payment_received",
+          channel: "whatsapp",
+          recipientType: "customer",
+          title: "Payment Confirmation Sent",
+          message: message,
+          status: "sent",
+          sentAt: new Date(),
+        },
+      });
+
+      return c.json({
+        success: true,
+        messageId: result.id,
+        template: "payment_received",
+        to: phoneNumber,
+      });
+    } catch (error) {
+      console.error("Template send error:", error);
+      return c.json({
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to send",
+      }, 500);
     }
   }
 );

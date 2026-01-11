@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { InvoiceStatus } from "@/lib/types";
+import { sendInvoiceEmail } from "@/lib/email";
 
 export async function createInvoice(data: {
   invoiceNumber: string;
@@ -32,6 +33,18 @@ export async function createInvoice(data: {
       return { success: false, error: "An invoice with this number already exists" };
     }
 
+    // Fetch customer details for email
+    const customer = await prisma.customer.findUnique({
+      where: { id: data.customerId },
+      select: { name: true, email: true },
+    });
+
+    // Fetch organization name
+    const organization = await prisma.organization.findUnique({
+      where: { id: session.organizationId },
+      select: { name: true },
+    });
+
     const invoice = await prisma.invoice.create({
       data: {
         organizationId: session.organizationId,
@@ -48,6 +61,24 @@ export async function createInvoice(data: {
         notes: data.notes,
       },
     });
+
+    // Send invoice email to customer (async, don't block)
+    if (customer?.email) {
+      sendInvoiceEmail({
+        customerName: customer.name,
+        customerEmail: customer.email,
+        invoiceNumber: data.invoiceNumber,
+        issueDate: data.issueDate,
+        dueDate: data.dueDate,
+        subtotal: data.subtotal,
+        tax: data.tax,
+        total: data.total,
+        organizationName: organization?.name,
+        notes: data.notes,
+      }).catch((err) => {
+        console.error("Failed to send invoice email:", err);
+      });
+    }
 
     revalidatePath("/finance/invoices");
     return { success: true, invoice };

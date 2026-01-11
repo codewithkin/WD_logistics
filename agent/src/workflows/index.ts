@@ -1,5 +1,6 @@
 import prisma from "../lib/prisma";
 import { logisticsAgent } from "../agents/logistics-agent";
+import { tripAssignmentTemplate, invoiceReminderTemplate, type TripMessageData, type InvoiceMessageData } from "../lib/message-templates";
 
 export interface WorkflowResult {
   success: boolean;
@@ -453,30 +454,23 @@ export async function notifyTripAssignment(
       };
     }
 
-    const scheduledDateStr = trip.scheduledDate.toLocaleDateString("en-US", {
-      weekday: "long",
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
+    // Use the pre-defined message template
+    const templateData: TripMessageData = {
+      driverName: trip.driver.firstName,
+      originCity: trip.originCity,
+      originAddress: trip.originAddress || undefined,
+      destinationCity: trip.destinationCity,
+      destinationAddress: trip.destinationAddress || undefined,
+      scheduledDate: trip.scheduledDate,
+      loadDescription: trip.loadDescription || undefined,
+      loadWeight: trip.loadWeight || undefined,
+      loadUnits: trip.loadUnits || undefined,
+      truckRegistration: trip.truck.registrationNo,
+      customerName: trip.customer?.name || "Not specified",
+      notes: trip.notes || undefined,
+    };
 
-    const message = `🚚 *New Trip Assignment*
-
-Hi ${trip.driver.firstName}!
-
-You have been assigned a new trip:
-
-📅 *Date:* ${scheduledDateStr}
-🛣️ *Route:* ${trip.originCity} → ${trip.destinationCity}
-🚛 *Truck:* ${trip.truck.registrationNo}
-${trip.customer ? `👤 *Customer:* ${trip.customer.name}` : ""}
-${trip.loadDescription ? `📦 *Load:* ${trip.loadDescription}` : ""}
-${trip.loadWeight ? `⚖️ *Weight:* ${trip.loadWeight} kg` : ""}
-${trip.estimatedMileage ? `📏 *Est. Distance:* ${trip.estimatedMileage} km` : ""}
-
-Please confirm your availability by replying to this message.
-
-_WD Logistics_`;
+    const message = tripAssignmentTemplate(templateData);
 
     // Create notification record
     await prisma.notification.create({
@@ -535,6 +529,7 @@ export async function sendInvoiceReminderById(
       where: { id: invoiceId },
       include: {
         customer: true,
+        organization: true,
       },
     });
 
@@ -579,49 +574,18 @@ export async function sendInvoiceReminderById(
     const daysOverdue = isOverdue
       ? Math.ceil((now.getTime() - invoice.dueDate.getTime()) / (1000 * 60 * 60 * 24))
       : 0;
-    const daysDue = !isOverdue
-      ? Math.ceil((invoice.dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-      : 0;
 
-    const dueDateStr = invoice.dueDate.toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
+    // Use the pre-defined message template
+    const templateData: InvoiceMessageData = {
+      customerName: invoice.customer.name,
+      invoiceNumber: invoice.invoiceNumber,
+      total: invoice.total,
+      dueDate: invoice.dueDate,
+      balance: invoice.balance,
+      organizationName: invoice.organization?.name || "WD Logistics",
+    };
 
-    const message = isOverdue
-      ? `📋 *Payment Reminder*
-
-Dear ${invoice.customer.name},
-
-This is a reminder that Invoice *#${invoice.invoiceNumber}* is *${daysOverdue} days overdue*.
-
-💰 *Amount Due:* $${invoice.balance.toFixed(2)}
-📅 *Original Due Date:* ${dueDateStr}
-
-Please arrange payment at your earliest convenience to avoid any service interruptions.
-
-If you have already made payment, please disregard this message or reply with your payment confirmation.
-
-Thank you for your business.
-
-_WD Logistics_`
-      : `📋 *Payment Reminder*
-
-Dear ${invoice.customer.name},
-
-This is a friendly reminder that Invoice *#${invoice.invoiceNumber}* is due in *${daysDue} days*.
-
-💰 *Amount Due:* $${invoice.balance.toFixed(2)}
-📅 *Due Date:* ${dueDateStr}
-
-Please arrange payment before the due date.
-
-If you have already made payment, please disregard this message.
-
-Thank you for your business.
-
-_WD Logistics_`;
+    const message = invoiceReminderTemplate(templateData);
 
     // Create notification record
     await prisma.notification.create({

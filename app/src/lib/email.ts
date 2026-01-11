@@ -134,3 +134,165 @@ export function generateRandomPassword(length: number = 12): string {
     .sort(() => Math.random() - 0.5)
     .join("");
 }
+
+/**
+ * Send invoice email to customer
+ */
+export interface InvoiceEmailData {
+  customerName: string;
+  customerEmail: string;
+  invoiceNumber: string;
+  issueDate: Date;
+  dueDate: Date;
+  subtotal: number;
+  tax: number;
+  total: number;
+  items?: Array<{
+    description: string;
+    quantity: number;
+    unitPrice: number;
+    total: number;
+  }>;
+  organizationName?: string;
+  notes?: string;
+}
+
+export async function sendInvoiceEmail(data: InvoiceEmailData) {
+  const orgName = data.organizationName || "WD Logistics";
+  const formatCurrency = (amount: number) => 
+    new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(amount);
+  const formatDate = (date: Date) => 
+    new Intl.DateTimeFormat("en-US", { year: "numeric", month: "long", day: "numeric" }).format(date);
+
+  const itemsHtml = data.items && data.items.length > 0
+    ? `
+      <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+        <thead>
+          <tr style="background: #f3f4f6;">
+            <th style="padding: 12px; text-align: left; border-bottom: 2px solid #1e40af;">Description</th>
+            <th style="padding: 12px; text-align: center; border-bottom: 2px solid #1e40af;">Qty</th>
+            <th style="padding: 12px; text-align: right; border-bottom: 2px solid #1e40af;">Unit Price</th>
+            <th style="padding: 12px; text-align: right; border-bottom: 2px solid #1e40af;">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${data.items.map((item, idx) => `
+            <tr style="background: ${idx % 2 === 0 ? '#fff' : '#f9fafb'};">
+              <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">${item.description}</td>
+              <td style="padding: 12px; text-align: center; border-bottom: 1px solid #e5e7eb;">${item.quantity}</td>
+              <td style="padding: 12px; text-align: right; border-bottom: 1px solid #e5e7eb;">${formatCurrency(item.unitPrice)}</td>
+              <td style="padding: 12px; text-align: right; border-bottom: 1px solid #e5e7eb;">${formatCurrency(item.total)}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `
+    : '';
+
+  return sendEmail({
+    to: data.customerEmail,
+    subject: `Invoice ${data.invoiceNumber} from ${orgName}`,
+    text: `
+Dear ${data.customerName},
+
+Please find attached your invoice details:
+
+Invoice Number: ${data.invoiceNumber}
+Issue Date: ${formatDate(data.issueDate)}
+Due Date: ${formatDate(data.dueDate)}
+
+Subtotal: ${formatCurrency(data.subtotal)}
+Tax: ${formatCurrency(data.tax)}
+Total Due: ${formatCurrency(data.total)}
+
+${data.notes ? `Notes: ${data.notes}` : ''}
+
+Thank you for your business.
+
+Best regards,
+${orgName}
+    `.trim(),
+    html: `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background: #1e40af; color: white; padding: 30px; text-align: center; }
+    .header h1 { margin: 0; font-size: 24px; }
+    .header p { margin: 5px 0 0; opacity: 0.9; }
+    .content { padding: 30px; background: #fff; }
+    .invoice-details { background: #f9fafb; padding: 20px; border-radius: 8px; margin: 20px 0; }
+    .invoice-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e5e7eb; }
+    .invoice-row:last-child { border-bottom: none; }
+    .invoice-label { color: #666; }
+    .invoice-value { font-weight: 600; }
+    .totals { background: #1e40af; color: white; padding: 20px; border-radius: 8px; margin-top: 20px; }
+    .totals-row { display: flex; justify-content: space-between; padding: 5px 0; }
+    .totals-row.total { font-size: 18px; font-weight: bold; border-top: 1px solid rgba(255,255,255,0.3); padding-top: 10px; margin-top: 10px; }
+    .notes { background: #fef3c7; padding: 15px; border-radius: 8px; margin-top: 20px; border-left: 4px solid #f59e0b; }
+    .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>${orgName}</h1>
+      <p>Invoice ${data.invoiceNumber}</p>
+    </div>
+    <div class="content">
+      <p>Dear ${data.customerName},</p>
+      <p>Thank you for your business. Please find your invoice details below:</p>
+      
+      <div class="invoice-details">
+        <div class="invoice-row">
+          <span class="invoice-label">Invoice Number:</span>
+          <span class="invoice-value">${data.invoiceNumber}</span>
+        </div>
+        <div class="invoice-row">
+          <span class="invoice-label">Issue Date:</span>
+          <span class="invoice-value">${formatDate(data.issueDate)}</span>
+        </div>
+        <div class="invoice-row">
+          <span class="invoice-label">Due Date:</span>
+          <span class="invoice-value">${formatDate(data.dueDate)}</span>
+        </div>
+      </div>
+
+      ${itemsHtml}
+
+      <div class="totals">
+        <div class="totals-row">
+          <span>Subtotal:</span>
+          <span>${formatCurrency(data.subtotal)}</span>
+        </div>
+        <div class="totals-row">
+          <span>Tax:</span>
+          <span>${formatCurrency(data.tax)}</span>
+        </div>
+        <div class="totals-row total">
+          <span>Total Due:</span>
+          <span>${formatCurrency(data.total)}</span>
+        </div>
+      </div>
+
+      ${data.notes ? `
+        <div class="notes">
+          <strong>Notes:</strong> ${data.notes}
+        </div>
+      ` : ''}
+
+      <p style="margin-top: 30px;">If you have any questions, please don't hesitate to contact us.</p>
+      <p>Best regards,<br><strong>${orgName}</strong></p>
+    </div>
+    <div class="footer">
+      <p>This invoice was generated automatically by ${orgName}.</p>
+    </div>
+  </div>
+</body>
+</html>
+    `.trim(),
+  });
+}
