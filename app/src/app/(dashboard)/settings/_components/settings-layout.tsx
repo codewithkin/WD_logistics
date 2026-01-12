@@ -2,12 +2,12 @@
 
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { 
-    User, 
-    Settings as SettingsIcon, 
-    Bell, 
-    Shield, 
-    Users, 
+import {
+    User,
+    Settings as SettingsIcon,
+    Bell,
+    Shield,
+    Users,
     CreditCard,
     Building2,
     Palette,
