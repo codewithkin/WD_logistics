@@ -165,8 +165,8 @@ export function ExpenseCharts({ categories }: ExpenseChartsProps) {
                         </div>
                         {trend.direction !== "neutral" && (
                             <div className={`flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium ${trend.direction === "up"
-                                    ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                                    : "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                                ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                                : "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
                                 }`}>
                                 {trend.direction === "up" ? (
                                     <TrendingUp className="h-4 w-4" />
