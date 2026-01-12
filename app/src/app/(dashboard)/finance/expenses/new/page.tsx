@@ -90,7 +90,7 @@ export default async function NewExpensePage() {
                 title="Add Expense"
                 description="Record a new business expense"
             />
-            <div className="max-w-2xl">
+            <div className="w-full">
                 <ExpenseForm
                     categories={categories}
                     trucks={trucks}

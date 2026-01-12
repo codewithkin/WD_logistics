@@ -224,7 +224,7 @@ export function ExpenseForm({ categories, trucks, trips, drivers, expense }: Exp
     return (
         <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
                     <FormField
                         control={form.control}
                         name="categoryId"
@@ -321,7 +321,7 @@ export function ExpenseForm({ categories, trucks, trips, drivers, expense }: Exp
                         You must associate this expense with at least one truck, trip, or driver
                     </p>
 
-                    <div className="grid gap-4 md:grid-cols-3">
+                    <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                         {/* Truck Association */}
                         <FormField
                             control={form.control}
