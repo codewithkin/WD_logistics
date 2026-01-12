@@ -3,58 +3,66 @@ import { PrismaClient } from "@/generated/prisma/client";
 import { hashPassword } from "better-auth/crypto";
 
 const prisma = new PrismaClient({
-  // For Prisma 7.x - use adapter for local, accelerateUrl for cloud
   ...(process.env.ACCELERATE_URL
     ? { accelerateUrl: process.env.ACCELERATE_URL }
     : {}),
   log: ["error", "warn"],
 });
 
-// Helper function to generate random date in the past 12 months
+// Helper functions
 function randomDate(monthsAgo: number): Date {
   const now = new Date();
-  const start = new Date(now);
-  start.setMonth(start.getMonth() - monthsAgo);
-  const end = monthsAgo > 0 ? new Date(now.getFullYear(), now.getMonth() - monthsAgo + 1, 0) : now;
+  const start = new Date(now.getFullYear(), now.getMonth() - monthsAgo, 1);
+  const end = monthsAgo === 0 ? now : new Date(now.getFullYear(), now.getMonth() - monthsAgo + 1, 0);
   return new Date(start.getTime() + Math.random() * (end.getTime() - start.getTime()));
 }
 
-// Helper to get random item from array
 function randomItem<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-// Helper to get random number in range
 function randomNumber(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-// Helper to get random float
 function randomFloat(min: number, max: number, decimals: number = 2): number {
   return parseFloat((Math.random() * (max - min) + min).toFixed(decimals));
 }
 
+function generateId(): string {
+  return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+}
+
 async function main() {
-  console.log("🌱 Starting comprehensive seed...");
+  console.log("🌱 Starting comprehensive seed...\n");
 
-  // Check if admin user already exists
-  const existingAdmin = await prisma.user.findFirst({
-    where: { email: "admin@wdlogistics.com" },
-    include: { members: true },
-  });
+  // ============================================================================
+  // STEP 1: Clean up existing data
+  // ============================================================================
+  console.log("🧹 Cleaning up existing data...");
+  
+  await prisma.$transaction([
+    prisma.tripExpense.deleteMany({}),
+    prisma.truckExpense.deleteMany({}),
+    prisma.driverExpense.deleteMany({}),
+    prisma.expense.deleteMany({}),
+    prisma.trip.deleteMany({}),
+    prisma.driver.deleteMany({}),
+    prisma.truck.deleteMany({}),
+    prisma.customer.deleteMany({}),
+    prisma.employee.deleteMany({}),
+    prisma.expenseCategory.deleteMany({}),
+  ]);
+  
+  console.log("✅ Cleaned up existing data\n");
 
-  if (existingAdmin && existingAdmin.members.length > 0) {
-    console.log("✅ Admin user already exists:", existingAdmin.email);
-    console.log("✅ Admin is already a member of an organization");
-    return;
-  }
-
-  // Check if organization exists
+  // ============================================================================
+  // STEP 2: Get or Create Organization
+  // ============================================================================
   let organization = await prisma.organization.findFirst({
     where: { slug: "wd-logistics" },
   });
 
-  // Create organization if it doesn't exist
   if (!organization) {
     organization = await prisma.organization.create({
       data: {
@@ -70,24 +78,22 @@ async function main() {
         }),
       },
     });
-    console.log("✅ Organization created:", organization.name);
+    console.log("✅ Created organization:", organization.name);
   } else {
-    console.log("✅ Organization already exists:", organization.name);
+    console.log("✅ Using existing organization:", organization.name);
   }
 
-  // Create admin user if doesn't exist
-  if (existingAdmin && existingAdmin.members.length === 0) {
-    await prisma.member.create({
-      data: {
-        organizationId: organization.id,
-        userId: existingAdmin.id,
-        role: "admin",
-      },
-    });
-    console.log("✅ Added existing admin user to organization");
-  } else if (!existingAdmin) {
+  // ============================================================================
+  // STEP 3: Get or Create Admin User
+  // ============================================================================
+  const existingAdmin = await prisma.user.findFirst({
+    where: { email: "admin@wdlogistics.com" },
+    include: { members: true },
+  });
+
+  if (!existingAdmin) {
     const hashedPassword = await hashPassword("Admin@123");
-    const adminUser = await prisma.user.create({
+    await prisma.user.create({
       data: {
         name: "System Admin",
         email: "admin@wdlogistics.com",
@@ -107,53 +113,50 @@ async function main() {
         },
       },
     });
-    console.log("✅ Admin user created:", adminUser.email);
-  }
-
-  // Create expense categories
-  const existingCategories = await prisma.expenseCategory.count({
-    where: { organizationId: organization.id },
-  });
-
-  let categories: any[];
-  if (existingCategories === 0) {
-    const categoryData = [
-      { name: "Fuel", isTrip: true, isTruck: true, isDriver: true, color: "#ef4444", description: "Fuel and diesel costs" },
-      { name: "Maintenance", isTruck: true, color: "#f97316", description: "Regular maintenance and servicing" },
-      { name: "Tires", isTruck: true, color: "#84cc16", description: "Tire purchases and replacements" },
-      { name: "Tolls", isTrip: true, isDriver: true, color: "#06b6d4", description: "Highway tolls and road fees" },
-      { name: "Parking", isTrip: true, isDriver: true, color: "#8b5cf6", description: "Parking fees" },
-      { name: "Driver Allowance", isTrip: true, isDriver: true, color: "#ec4899", description: "Per diem and meal allowances" },
-      { name: "Insurance", isTruck: true, color: "#6366f1", description: "Vehicle insurance premiums" },
-      { name: "Registration", isTruck: true, color: "#14b8a6", description: "Vehicle registration and licensing" },
-      { name: "Repairs", isTruck: true, isDriver: true, color: "#f59e0b", description: "Emergency repairs and fixes" },
-      { name: "Oil Change", isTruck: true, color: "#22c55e", description: "Engine oil and filter changes" },
-      { name: "Loading/Unloading", isTrip: true, color: "#a855f7", description: "Loading and unloading labor costs" },
-      { name: "Other", isTrip: true, isTruck: true, isDriver: true, color: "#71717a", description: "Miscellaneous expenses" },
-    ];
-
-    for (const cat of categoryData) {
-      await prisma.expenseCategory.create({
-        data: {
-          organizationId: organization.id,
-          ...cat,
-        },
-      });
-    }
-    console.log(`✅ Created ${categoryData.length} expense categories`);
-    
-    categories = await prisma.expenseCategory.findMany({
-      where: { organizationId: organization.id },
+    console.log("✅ Created admin user: admin@wdlogistics.com");
+  } else if (existingAdmin.members.length === 0) {
+    await prisma.member.create({
+      data: {
+        organizationId: organization.id,
+        userId: existingAdmin.id,
+        role: "admin",
+      },
     });
+    console.log("✅ Added existing admin to organization");
   } else {
-    console.log(`✅ Expense categories already exist (${existingCategories})`);
-    categories = await prisma.expenseCategory.findMany({
-      where: { organizationId: organization.id },
-    });
+    console.log("✅ Admin user already exists");
   }
 
-  // Create Customers
-  console.log("📦 Creating customers...");
+  // ============================================================================
+  // STEP 4: Create Expense Categories (batch)
+  // ============================================================================
+  console.log("\n📁 Creating expense categories...");
+  const categoryData = [
+    { id: generateId(), name: "Fuel", isTrip: true, isTruck: true, isDriver: true, color: "#ef4444", description: "Fuel and diesel costs" },
+    { id: generateId(), name: "Maintenance", isTrip: false, isTruck: true, isDriver: false, color: "#f97316", description: "Regular maintenance and servicing" },
+    { id: generateId(), name: "Tires", isTrip: false, isTruck: true, isDriver: false, color: "#84cc16", description: "Tire purchases and replacements" },
+    { id: generateId(), name: "Tolls", isTrip: true, isTruck: false, isDriver: true, color: "#06b6d4", description: "Highway tolls and road fees" },
+    { id: generateId(), name: "Parking", isTrip: true, isTruck: false, isDriver: true, color: "#8b5cf6", description: "Parking fees" },
+    { id: generateId(), name: "Driver Allowance", isTrip: true, isTruck: false, isDriver: true, color: "#ec4899", description: "Per diem and meal allowances" },
+    { id: generateId(), name: "Insurance", isTrip: false, isTruck: true, isDriver: false, color: "#6366f1", description: "Vehicle insurance premiums" },
+    { id: generateId(), name: "Registration", isTrip: false, isTruck: true, isDriver: false, color: "#14b8a6", description: "Vehicle registration and licensing" },
+    { id: generateId(), name: "Repairs", isTrip: false, isTruck: true, isDriver: true, color: "#f59e0b", description: "Emergency repairs and fixes" },
+    { id: generateId(), name: "Oil Change", isTrip: false, isTruck: true, isDriver: false, color: "#22c55e", description: "Engine oil and filter changes" },
+    { id: generateId(), name: "Loading/Unloading", isTrip: true, isTruck: false, isDriver: false, color: "#a855f7", description: "Loading and unloading labor costs" },
+    { id: generateId(), name: "Other", isTrip: true, isTruck: true, isDriver: true, color: "#71717a", description: "Miscellaneous expenses" },
+  ];
+
+  await prisma.expenseCategory.createMany({
+    data: categoryData.map(c => ({ ...c, organizationId: organization.id })),
+  });
+  
+  const categories = await prisma.expenseCategory.findMany({ where: { organizationId: organization.id } });
+  console.log(`✅ Created ${categories.length} expense categories`);
+
+  // ============================================================================
+  // STEP 5: Create Customers (batch)
+  // ============================================================================
+  console.log("\n📦 Creating customers...");
   const customerNames = [
     "East Africa Breweries", "Bamburi Cement", "Kenya Tea Estates", 
     "Safaricom Distribution", "Bidco Africa", "Coca-Cola CCBA",
@@ -161,29 +164,29 @@ async function main() {
     "Mumias Sugar Company", "Kenya Seed Company", "Farmer's Choice"
   ];
 
-  const customers = [];
-  for (const name of customerNames) {
-    const customer = await prisma.customer.create({
-      data: {
-        organizationId: organization.id,
-        name,
-        contactPerson: `${name.split(' ')[0]} Manager`,
-        email: `contact@${name.toLowerCase().replace(/\s+/g, '')}.com`,
-        phone: `+25470${randomNumber(1000000, 9999999)}`,
-        address: `${randomNumber(1, 999)} Industrial Area, Nairobi`,
-        paymentTerms: randomItem([15, 30, 45, 60]),
-        creditLimit: randomFloat(500000, 2000000, 0),
-        balance: 0,
-        status: "active",
-      },
-    });
-    customers.push(customer);
-  }
+  const customerRecords = customerNames.map(name => ({
+    id: generateId(),
+    organizationId: organization.id,
+    name,
+    contactPerson: `${name.split(' ')[0]} Manager`,
+    email: `contact@${name.toLowerCase().replace(/\s+/g, '')}.com`,
+    phone: `+25470${randomNumber(1000000, 9999999)}`,
+    address: `${randomNumber(1, 999)} Industrial Area, Nairobi`,
+    paymentTerms: randomItem([15, 30, 45, 60]),
+    creditLimit: randomFloat(500000, 2000000, 0),
+    balance: 0,
+    status: "active",
+  }));
+
+  await prisma.customer.createMany({ data: customerRecords });
+  const customers = await prisma.customer.findMany({ where: { organizationId: organization.id } });
   console.log(`✅ Created ${customers.length} customers`);
 
-  // Create Trucks
-  console.log("🚛 Creating trucks...");
-  const truckData = [
+  // ============================================================================
+  // STEP 6: Create Trucks (batch)
+  // ============================================================================
+  console.log("\n🚛 Creating trucks...");
+  const truckSpecs = [
     { make: "Mercedes-Benz", model: "Actros", year: 2021, registrationNo: "KBZ 123A" },
     { make: "Scania", model: "R450", year: 2020, registrationNo: "KCA 456B" },
     { make: "Volvo", model: "FH16", year: 2022, registrationNo: "KCD 789C" },
@@ -196,25 +199,25 @@ async function main() {
     { make: "MAN", model: "TGM", year: 2021, registrationNo: "KCD 012J" },
   ];
 
-  const trucks = [];
-  for (const data of truckData) {
-    const truck = await prisma.truck.create({
-      data: {
-        organizationId: organization.id,
-        ...data,
-        status: randomItem(["active", "active", "active", "in_service"]),
-        currentMileage: randomNumber(50000, 250000),
-        fuelType: "Diesel",
-        tankCapacity: randomFloat(200, 400, 0),
-        notes: randomItem([null, "Regular maintenance schedule", "Recently serviced", "Due for inspection"]),
-      },
-    });
-    trucks.push(truck);
-  }
+  const truckRecords = truckSpecs.map(spec => ({
+    id: generateId(),
+    organizationId: organization.id,
+    ...spec,
+    status: randomItem(["active", "active", "active", "in_service"]),
+    currentMileage: randomNumber(50000, 250000),
+    fuelType: "Diesel",
+    tankCapacity: randomFloat(200, 400, 0),
+    notes: randomItem([null, "Regular maintenance schedule", "Recently serviced", "Due for inspection"]),
+  }));
+
+  await prisma.truck.createMany({ data: truckRecords });
+  const trucks = await prisma.truck.findMany({ where: { organizationId: organization.id } });
   console.log(`✅ Created ${trucks.length} trucks`);
 
-  // Create Drivers
-  console.log("👨‍✈️ Creating drivers...");
+  // ============================================================================
+  // STEP 7: Create Drivers (batch, then update truck assignments)
+  // ============================================================================
+  console.log("\n👨‍✈️ Creating drivers...");
   const driverNames = [
     { firstName: "John", lastName: "Kamau" },
     { firstName: "Peter", lastName: "Ochieng" },
@@ -228,33 +231,30 @@ async function main() {
     { firstName: "Francis", lastName: "Omondi" },
   ];
 
-  const drivers = [];
-  for (let i = 0; i < driverNames.length; i++) {
-    const { firstName, lastName } = driverNames[i];
-    const truck = i < trucks.length ? trucks[i] : null;
-    
-    const driver = await prisma.driver.create({
-      data: {
-        organizationId: organization.id,
-        firstName,
-        lastName,
-        email: `${firstName.toLowerCase()}.${lastName.toLowerCase()}@wdlogistics.com`,
-        phone: `+25472${randomNumber(1000000, 9999999)}`,
-        whatsappNumber: `+25472${randomNumber(1000000, 9999999)}`,
-        licenseNumber: `DL-${randomNumber(100000, 999999)}`,
-        passportNumber: `A${randomNumber(1000000, 9999999)}`,
-        status: "active",
-        startDate: new Date(2020 + randomNumber(0, 3), randomNumber(0, 11), randomNumber(1, 28)),
-        assignedTruckId: truck?.id,
-      },
-    });
-    drivers.push(driver);
-  }
-  console.log(`✅ Created ${drivers.length} drivers`);
+  const driverRecords = driverNames.map((d, i) => ({
+    id: generateId(),
+    organizationId: organization.id,
+    firstName: d.firstName,
+    lastName: d.lastName,
+    email: `${d.firstName.toLowerCase()}.${d.lastName.toLowerCase()}@wdlogistics.com`,
+    phone: `+25472${randomNumber(1000000, 9999999)}`,
+    whatsappNumber: `+25472${randomNumber(1000000, 9999999)}`,
+    licenseNumber: `DL-${randomNumber(100000, 999999)}`,
+    passportNumber: `A${randomNumber(1000000, 9999999)}`,
+    status: "active",
+    startDate: new Date(2020 + randomNumber(0, 3), randomNumber(0, 11), randomNumber(1, 28)),
+    assignedTruckId: i < trucks.length ? trucks[i].id : null,
+  }));
 
-  // Create Employees
-  console.log("👥 Creating employees...");
-  const employeeData = [
+  await prisma.driver.createMany({ data: driverRecords });
+  const drivers = await prisma.driver.findMany({ where: { organizationId: organization.id } });
+  console.log(`✅ Created ${drivers.length} drivers (${trucks.length} assigned to trucks)`);
+
+  // ============================================================================
+  // STEP 8: Create Employees (batch)
+  // ============================================================================
+  console.log("\n👥 Creating employees...");
+  const employeeSpecs = [
     { firstName: "Mary", lastName: "Wanjiku", position: "Operations Manager", department: "Operations" },
     { firstName: "Grace", lastName: "Akinyi", position: "Finance Officer", department: "Finance" },
     { firstName: "Lucy", lastName: "Njeri", position: "HR Manager", department: "Human Resources" },
@@ -265,28 +265,27 @@ async function main() {
     { firstName: "Susan", lastName: "Moraa", position: "Customer Service", department: "Operations" },
   ];
 
-  const employees = [];
-  for (const data of employeeData) {
-    const employee = await prisma.employee.create({
-      data: {
-        organizationId: organization.id,
-        ...data,
-        email: `${data.firstName.toLowerCase()}.${data.lastName.toLowerCase()}@wdlogistics.com`,
-        phone: `+25471${randomNumber(1000000, 9999999)}`,
-        idNumber: `${randomNumber(10000000, 99999999)}`,
-        address: `${randomNumber(1, 500)} ${randomItem(["Kilimani", "Westlands", "Parklands", "South C"])} Estate, Nairobi`,
-        emergencyContact: `+25470${randomNumber(1000000, 9999999)}`,
-        salary: randomFloat(40000, 150000, 0),
-        status: "active",
-        startDate: new Date(2019 + randomNumber(0, 4), randomNumber(0, 11), randomNumber(1, 28)),
-      },
-    });
-    employees.push(employee);
-  }
-  console.log(`✅ Created ${employees.length} employees`);
+  const employeeRecords = employeeSpecs.map(e => ({
+    id: generateId(),
+    organizationId: organization.id,
+    ...e,
+    email: `${e.firstName.toLowerCase()}.${e.lastName.toLowerCase()}@wdlogistics.com`,
+    phone: `+25471${randomNumber(1000000, 9999999)}`,
+    idNumber: `${randomNumber(10000000, 99999999)}`,
+    address: `${randomNumber(1, 500)} ${randomItem(["Kilimani", "Westlands", "Parklands", "South C"])} Estate, Nairobi`,
+    emergencyContact: `+25470${randomNumber(1000000, 9999999)}`,
+    salary: randomFloat(40000, 150000, 0),
+    status: "active",
+    startDate: new Date(2019 + randomNumber(0, 4), randomNumber(0, 11), randomNumber(1, 28)),
+  }));
 
-  // Create Trips and associated expenses for the last 12 months
-  console.log("🗺️  Creating trips and expenses for the last 12 months...");
+  await prisma.employee.createMany({ data: employeeRecords });
+  console.log(`✅ Created ${employeeSpecs.length} employees`);
+
+  // ============================================================================
+  // STEP 9: Create Trips and Expenses (batch insert)
+  // ============================================================================
+  console.log("\n🗺️  Creating trips and expenses (batched)...");
   
   const routes = [
     { origin: "Nairobi", destination: "Mombasa", distance: 485, revenue: [80000, 150000] },
@@ -307,147 +306,145 @@ async function main() {
     "Electronics", "Food Products", "Industrial Equipment"
   ];
 
-  let tripCount = 0;
-  let expenseCount = 0;
+  const getCat = (name: string) => categories.find(c => c.name === name)!;
+
+  // Build all trips and expenses in memory first
+  const allTrips: any[] = [];
+  const allExpenses: any[] = [];
+  const allTripExpenses: any[] = [];
+  const allTruckExpenses: any[] = [];
+  const allDriverExpenses: any[] = [];
+
+  // Drivers with trucks (for trips)
+  const driversWithTrucks = drivers.filter(d => d.assignedTruckId !== null);
 
   for (let month = 11; month >= 0; month--) {
     const tripsThisMonth = randomNumber(15, 25);
     
     for (let i = 0; i < tripsThisMonth; i++) {
       const route = randomItem(routes);
-      const truck = randomItem(trucks);
-      const driver = randomItem(drivers);
+      const driverIdx = randomNumber(0, driversWithTrucks.length - 1);
+      const driver = driversWithTrucks[driverIdx];
+      const truck = trucks.find(t => t.id === driver.assignedTruckId)!;
       const customer = randomItem(customers);
       const scheduledDate = randomDate(month);
-      const isCompleted = month > 0 || randomNumber(1, 100) > 30;
       
-      const startDate = isCompleted ? new Date(scheduledDate.getTime() + randomNumber(0, 24) * 3600000) : null;
-      const endDate = isCompleted && startDate ? new Date(startDate.getTime() + randomNumber(6, 48) * 3600000) : null;
+      const isCompleted = month > 0 || randomNumber(1, 100) > 30;
+      const isInProgress = !isCompleted && month === 0 && randomNumber(1, 100) > 50;
+      
+      const startDate = isCompleted || isInProgress 
+        ? new Date(scheduledDate.getTime() + randomNumber(0, 24) * 3600000) 
+        : null;
+      const endDate = isCompleted && startDate 
+        ? new Date(startDate.getTime() + randomNumber(6, 48) * 3600000) 
+        : null;
       
       const actualMileage = isCompleted ? route.distance + randomNumber(-20, 50) : null;
-      const revenueAmount = randomFloat(route.revenue[0], route.revenue[1], 0);
+      const startOdometer = truck.currentMileage + randomNumber(0, 1000) * (11 - month);
 
-      const trip = await prisma.trip.create({
-        data: {
-          organizationId: organization.id,
-          truckId: truck.id,
-          driverId: driver.id,
-          customerId: customer.id,
-          originCity: route.origin,
-          destinationCity: route.destination,
-          originAddress: `${route.origin} Depot, ${route.origin}`,
-          destinationAddress: `${route.destination} Warehouse, ${route.destination}`,
-          loadDescription: randomItem(loadDescriptions),
-          loadWeight: randomFloat(5000, 25000, 0),
-          loadUnits: randomNumber(50, 500),
-          estimatedMileage: route.distance,
-          actualMileage,
-          startOdometer: truck.currentMileage + randomNumber(0, 5000),
-          endOdometer: isCompleted ? truck.currentMileage + randomNumber(0, 5000) + actualMileage! : null,
-          revenue: revenueAmount,
-          status: isCompleted ? "completed" : (startDate ? "in_progress" : "scheduled"),
-          scheduledDate,
-          startDate,
-          endDate,
-          driverNotified: true,
-          notifiedAt: new Date(scheduledDate.getTime() - randomNumber(1, 48) * 3600000),
-        },
+      const tripId = generateId();
+      allTrips.push({
+        id: tripId,
+        organizationId: organization.id,
+        truckId: truck.id,
+        driverId: driver.id,
+        customerId: customer.id,
+        originCity: route.origin,
+        destinationCity: route.destination,
+        originAddress: `${route.origin} Depot, ${route.origin}`,
+        destinationAddress: `${route.destination} Warehouse, ${route.destination}`,
+        loadDescription: randomItem(loadDescriptions),
+        loadWeight: randomFloat(5000, 25000, 0),
+        loadUnits: randomNumber(50, 500),
+        estimatedMileage: route.distance,
+        actualMileage,
+        startOdometer,
+        endOdometer: isCompleted && actualMileage ? startOdometer + actualMileage : null,
+        revenue: randomFloat(route.revenue[0], route.revenue[1], 0),
+        status: isCompleted ? "completed" : (isInProgress ? "in_progress" : "scheduled"),
+        scheduledDate,
+        startDate,
+        endDate,
+        driverNotified: true,
+        notifiedAt: new Date(scheduledDate.getTime() - randomNumber(1, 48) * 3600000),
       });
-      tripCount++;
 
       // Create expenses for completed trips
-      if (isCompleted && startDate) {
-        // Fuel expense (almost always)
-        const fuelCategory = categories.find(c => c.name === "Fuel");
-        if (fuelCategory) {
-          const fuelExpense = await prisma.expense.create({
-            data: {
-              organizationId: organization.id,
-              categoryId: fuelCategory.id,
-              amount: randomFloat(actualMileage! * 25, actualMileage! * 35, 0),
-              date: new Date(startDate.getTime() + randomNumber(0, 12) * 3600000),
-              notes: `Fuel for ${route.origin} to ${route.destination} trip`,
-              tripExpenses: { create: { tripId: trip.id } },
-              truckExpenses: { create: { truckId: truck.id } },
-            },
+      if (isCompleted && startDate && actualMileage) {
+        // Fuel expense
+        const fuelExpenseId = generateId();
+        allExpenses.push({
+          id: fuelExpenseId,
+          organizationId: organization.id,
+          categoryId: getCat("Fuel").id,
+          amount: randomFloat(actualMileage * 25, actualMileage * 35, 0),
+          date: new Date(startDate.getTime() + randomNumber(0, 6) * 3600000),
+          notes: `Fuel for ${route.origin} → ${route.destination}`,
+        });
+        allTripExpenses.push({ id: generateId(), tripId, expenseId: fuelExpenseId });
+        allTruckExpenses.push({ id: generateId(), truckId: truck.id, expenseId: fuelExpenseId });
+        allDriverExpenses.push({ id: generateId(), driverId: driver.id, expenseId: fuelExpenseId });
+
+        // Driver allowance - 80%
+        if (randomNumber(1, 100) <= 80) {
+          const allowanceId = generateId();
+          allExpenses.push({
+            id: allowanceId,
+            organizationId: organization.id,
+            categoryId: getCat("Driver Allowance").id,
+            amount: randomFloat(2000, 5000, 0),
+            date: startDate,
+            notes: `Per diem for ${driver.firstName} ${driver.lastName}`,
           });
-          expenseCount++;
+          allTripExpenses.push({ id: generateId(), tripId, expenseId: allowanceId });
+          allDriverExpenses.push({ id: generateId(), driverId: driver.id, expenseId: allowanceId });
         }
 
-        // Driver allowance
-        const allowanceCategory = categories.find(c => c.name === "Driver Allowance");
-        if (allowanceCategory && randomNumber(1, 100) > 20) {
-          await prisma.expense.create({
-            data: {
-              organizationId: organization.id,
-              categoryId: allowanceCategory.id,
-              amount: randomFloat(2000, 5000, 0),
-              date: startDate,
-              notes: `Per diem for ${driver.firstName} ${driver.lastName}`,
-              tripExpenses: { create: { tripId: trip.id } },
-              driverExpenses: { create: { driverId: driver.id } },
-            },
+        // Tolls - 60%
+        if (randomNumber(1, 100) <= 60) {
+          const tollId = generateId();
+          allExpenses.push({
+            id: tollId,
+            organizationId: organization.id,
+            categoryId: getCat("Tolls").id,
+            amount: randomFloat(500, 2000, 0),
+            date: new Date(startDate.getTime() + randomNumber(2, 10) * 3600000),
+            notes: `Highway tolls: ${route.origin} → ${route.destination}`,
           });
-          expenseCount++;
+          allTripExpenses.push({ id: generateId(), tripId, expenseId: tollId });
         }
 
-        // Tolls (sometimes)
-        if (randomNumber(1, 100) > 40) {
-          const tollsCategory = categories.find(c => c.name === "Tolls");
-          if (tollsCategory) {
-            await prisma.expense.create({
-              data: {
-                organizationId: organization.id,
-                categoryId: tollsCategory.id,
-                amount: randomFloat(500, 2000, 0),
-                date: new Date(startDate.getTime() + randomNumber(2, 10) * 3600000),
-                notes: `Highway tolls for ${route.origin}-${route.destination}`,
-                tripExpenses: { create: { tripId: trip.id } },
-              },
-            });
-            expenseCount++;
-          }
+        // Parking - 40%
+        if (randomNumber(1, 100) <= 40 && endDate) {
+          const parkingId = generateId();
+          allExpenses.push({
+            id: parkingId,
+            organizationId: organization.id,
+            categoryId: getCat("Parking").id,
+            amount: randomFloat(200, 800, 0),
+            date: new Date(endDate.getTime() - randomNumber(1, 3) * 3600000),
+            notes: `Overnight parking at ${route.destination}`,
+          });
+          allTripExpenses.push({ id: generateId(), tripId, expenseId: parkingId });
         }
 
-        // Parking (sometimes)
-        if (randomNumber(1, 100) > 60) {
-          const parkingCategory = categories.find(c => c.name === "Parking");
-          if (parkingCategory) {
-            await prisma.expense.create({
-              data: {
-                organizationId: organization.id,
-                categoryId: parkingCategory.id,
-                amount: randomFloat(200, 800, 0),
-                date: new Date(endDate!.getTime() - randomNumber(1, 3) * 3600000),
-                notes: `Overnight parking at ${route.destination}`,
-                tripExpenses: { create: { tripId: trip.id } },
-              },
-            });
-            expenseCount++;
-          }
-        }
-
-        // Loading/Unloading (sometimes)
-        if (randomNumber(1, 100) > 50) {
-          const loadingCategory = categories.find(c => c.name === "Loading/Unloading");
-          if (loadingCategory) {
-            await prisma.expense.create({
-              data: {
-                organizationId: organization.id,
-                categoryId: loadingCategory.id,
-                amount: randomFloat(1500, 4000, 0),
-                date: endDate!,
-                notes: `Labor costs for unloading at ${route.destination}`,
-                tripExpenses: { create: { tripId: trip.id } },
-              },
-            });
-            expenseCount++;
-          }
+        // Loading/Unloading - 50%
+        if (randomNumber(1, 100) <= 50 && endDate) {
+          const loadingId = generateId();
+          allExpenses.push({
+            id: loadingId,
+            organizationId: organization.id,
+            categoryId: getCat("Loading/Unloading").id,
+            amount: randomFloat(1500, 4000, 0),
+            date: endDate,
+            notes: `Labor costs at ${route.destination}`,
+          });
+          allTripExpenses.push({ id: generateId(), tripId, expenseId: loadingId });
         }
       }
     }
 
-    // Add some truck maintenance expenses each month
+    // Truck maintenance expenses each month (not linked to trips)
     const maintenanceCount = randomNumber(3, 6);
     for (let i = 0; i < maintenanceCount; i++) {
       const truck = randomItem(trucks);
@@ -459,40 +456,62 @@ async function main() {
         { category: "Insurance", amount: [50000, 150000], notes: "Monthly insurance premium" },
       ]);
 
-      const category = categories.find(c => c.name === expenseType.category);
-      if (category) {
-        await prisma.expense.create({
-          data: {
-            organizationId: organization.id,
-            categoryId: category.id,
-            amount: randomFloat(expenseType.amount[0], expenseType.amount[1], 0),
-            date: randomDate(month),
-            notes: `${expenseType.notes} - ${truck.registrationNo}`,
-            truckExpenses: { create: { truckId: truck.id } },
-          },
-        });
-        expenseCount++;
-      }
+      const expenseId = generateId();
+      allExpenses.push({
+        id: expenseId,
+        organizationId: organization.id,
+        categoryId: getCat(expenseType.category).id,
+        amount: randomFloat(expenseType.amount[0], expenseType.amount[1], 0),
+        date: randomDate(month),
+        notes: `${expenseType.notes} - ${truck.registrationNo}`,
+      });
+      allTruckExpenses.push({ id: generateId(), truckId: truck.id, expenseId });
     }
   }
 
-  console.log(`✅ Created ${tripCount} trips`);
-  console.log(`✅ Created ${expenseCount} expenses`);
+  // Batch insert all data
+  console.log(`   Inserting ${allTrips.length} trips...`);
+  await prisma.trip.createMany({ data: allTrips });
+  
+  console.log(`   Inserting ${allExpenses.length} expenses...`);
+  await prisma.expense.createMany({ data: allExpenses });
+  
+  console.log(`   Linking expenses to trips (${allTripExpenses.length})...`);
+  await prisma.tripExpense.createMany({ data: allTripExpenses });
+  
+  console.log(`   Linking expenses to trucks (${allTruckExpenses.length})...`);
+  await prisma.truckExpense.createMany({ data: allTruckExpenses });
+  
+  console.log(`   Linking expenses to drivers (${allDriverExpenses.length})...`);
+  await prisma.driverExpense.createMany({ data: allDriverExpenses });
 
-  console.log("\n🎉 Comprehensive seed completed successfully!");
-  console.log("\n📊 Summary:");
-  console.log(`   Organizations: 1`);
-  console.log(`   Customers: ${customers.length}`);
-  console.log(`   Trucks: ${trucks.length}`);
-  console.log(`   Drivers: ${drivers.length}`);
-  console.log(`   Employees: ${employees.length}`);
-  console.log(`   Trips (12 months): ${tripCount}`);
-  console.log(`   Expenses (12 months): ${expenseCount}`);
-  console.log(`   Expense Categories: ${categories.length}`);
-  console.log("\n📝 Admin credentials:");
-  console.log("   Email: admin@wdlogistics.com");
+  console.log(`✅ Created ${allTrips.length} trips`);
+  console.log(`✅ Created ${allExpenses.length} expenses`);
+
+  // ============================================================================
+  // SUMMARY
+  // ============================================================================
+  console.log("\n" + "=".repeat(60));
+  console.log("🎉 SEED COMPLETED SUCCESSFULLY!");
+  console.log("=".repeat(60));
+  console.log("\n📊 Data Summary:");
+  console.log(`   • Organization: 1 (WD Logistics)`);
+  console.log(`   • Customers:    ${customers.length}`);
+  console.log(`   • Trucks:       ${trucks.length}`);
+  console.log(`   • Drivers:      ${drivers.length} (${trucks.length} assigned to trucks)`);
+  console.log(`   • Employees:    ${employeeSpecs.length}`);
+  console.log(`   • Categories:   ${categories.length}`);
+  console.log(`   • Trips:        ${allTrips.length}`);
+  console.log(`   • Expenses:     ${allExpenses.length}`);
+  console.log("\n🔗 Relationships:");
+  console.log(`   • TripExpenses:   ${allTripExpenses.length}`);
+  console.log(`   • TruckExpenses:  ${allTruckExpenses.length}`);
+  console.log(`   • DriverExpenses: ${allDriverExpenses.length}`);
+  console.log("\n📝 Admin Credentials:");
+  console.log("   Email:    admin@wdlogistics.com");
   console.log("   Password: Admin@123");
   console.log("\n⚠️  Please change the password after first login!");
+  console.log("=".repeat(60) + "\n");
 }
 
 main()
