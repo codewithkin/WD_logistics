@@ -12,8 +12,8 @@ export interface ExpenseExportData {
     date: Date;
     category: string;
     categoryColor: string;
-    description: string | null;
     amount: number;
+    notes?: string;
     trucks: string[];
     trips: string[];
     drivers: string[];
@@ -335,7 +335,7 @@ export function ExpenseReportPDF({ expenses, meta, byCategory }: ExpenseReportPD
                             <View style={styles.tableHeader}>
                                 <Text style={[styles.tableHeaderText, { width: "15%" }]}>Date</Text>
                                 <Text style={[styles.tableHeaderText, { width: "15%" }]}>Category</Text>
-                                <Text style={[styles.tableHeaderText, { width: "25%" }]}>Description</Text>
+                                <Text style={[styles.tableHeaderText, { width: "25%" }]}>Notes</Text>
                                 <Text style={[styles.tableHeaderText, { width: "20%" }]}>Associations</Text>
                                 <Text style={[styles.tableHeaderText, { width: "15%", textAlign: "right" }]}>Amount</Text>
                             </View>
@@ -353,7 +353,7 @@ export function ExpenseReportPDF({ expenses, meta, byCategory }: ExpenseReportPD
                                         {expense.category}
                                     </Text>
                                     <Text style={[styles.tableCell, { width: "25%" }]}>
-                                        {expense.description || "-"}
+                                        {expense.notes || "-"}
                                     </Text>
                                     <View style={{ width: "20%" }}>
                                         <View style={styles.badgeContainer}>

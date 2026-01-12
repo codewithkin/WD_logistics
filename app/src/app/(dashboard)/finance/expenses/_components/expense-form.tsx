@@ -46,7 +46,6 @@ import { cn } from "@/lib/utils";
 const expenseSchema = z.object({
     categoryId: z.string().min(1, "Category is required"),
     amount: z.coerce.number().positive("Amount must be positive"),
-    description: z.string().optional(),
     date: z.coerce.date(),
     notes: z.string().optional(),
     truckIds: z.array(z.string()).optional(),
@@ -111,7 +110,6 @@ interface ExpenseFormProps {
         id: string;
         categoryId: string;
         amount: number;
-        description: string | null;
         date: Date;
         vendor: string | null;
         reference: string | null;
@@ -138,7 +136,6 @@ export function ExpenseForm({ categories, trucks, trips, drivers, expense }: Exp
         defaultValues: {
             categoryId: expense?.categoryId || "",
             amount: expense?.amount || 0,
-            description: expense?.description || "",
             date: expense?.date || new Date(),
             notes: expense?.notes || "",
             truckIds: expense?.truckExpenses.map(te => te.truckId) || [],
@@ -201,7 +198,6 @@ export function ExpenseForm({ categories, trucks, trips, drivers, expense }: Exp
             const data: ExpenseFormData = {
                 categoryId: values.categoryId,
                 amount: values.amount,
-                description: values.description,
                 date: values.date,
                 notes: values.notes,
                 truckIds: values.truckIds,
@@ -285,20 +281,6 @@ export function ExpenseForm({ categories, trucks, trips, drivers, expense }: Exp
                                                 : field.value
                                         }
                                     />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-
-                    <FormField
-                        control={form.control}
-                        name="description"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Description</FormLabel>
-                                <FormControl>
-                                    <Input placeholder="Brief description" {...field} />
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>

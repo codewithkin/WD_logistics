@@ -11,7 +11,6 @@ import { ExpenseReportPDF, type ExpenseExportData } from "@/lib/reports/expense-
 export interface ExpenseFormData {
   categoryId: string;
   amount: number;
-  description?: string;
   date: Date;
   notes?: string;
   truckIds?: string[];
@@ -27,7 +26,6 @@ export async function createExpense(data: ExpenseFormData) {
       organizationId: user.organizationId,
       categoryId: data.categoryId,
       amount: data.amount,
-      description: data.description,
       date: data.date,
       notes: data.notes,
       truckExpenses: data.truckIds?.length
@@ -72,7 +70,6 @@ export async function updateExpense(id: string, data: ExpenseFormData) {
       data: {
         categoryId: data.categoryId,
         amount: data.amount,
-        description: data.description,
         date: data.date,
         notes: data.notes,
       },
@@ -292,8 +289,8 @@ export async function exportExpensesPDF() {
     date: expense.date,
     category: expense.category.name,
     categoryColor: expense.category.color || "#71717a",
-    description: expense.description,
     amount: expense.amount,
+    notes: expense.notes ?? undefined,
     trucks: expense.truckExpenses.map((te) => te.truck.registrationNo),
     trips: expense.tripExpenses.map((te) => `${te.trip.originCity}→${te.trip.destinationCity}`),
     drivers: expense.driverExpenses.map((de) => `${de.driver.firstName} ${de.driver.lastName}`),
