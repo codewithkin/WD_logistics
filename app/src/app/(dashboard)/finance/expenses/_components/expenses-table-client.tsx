@@ -36,9 +36,6 @@ interface Expense {
     amount: number;
     description: string | null;
     date: Date;
-    vendor: string | null;
-    reference: string | null;
-    receiptUrl: string | null;
     category: {
         id: string;
         name: string;
@@ -53,6 +50,12 @@ interface Expense {
         trip: {
             originCity: string;
             destinationCity: string;
+        };
+    }>;
+    driverExpenses?: Array<{
+        driver: {
+            firstName: string;
+            lastName: string;
         };
     }>;
 }
@@ -112,8 +115,6 @@ export function ExpensesTableClient({ expenses }: ExpensesTableProps) {
             // Search filter
             const matchesSearch = searchQuery === "" ||
                 expense.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                expense.vendor?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                expense.reference?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 expense.category.name.toLowerCase().includes(searchQuery.toLowerCase());
 
             // Category filter
@@ -342,8 +343,6 @@ export function ExpensesTableClient({ expenses }: ExpensesTableProps) {
                             <TableHead className="font-semibold">Category</TableHead>
                             <TableHead className="font-semibold">Description</TableHead>
                             <TableHead className="font-semibold">Associations</TableHead>
-                            <TableHead className="font-semibold">Vendor</TableHead>
-                            <TableHead className="font-semibold">Reference</TableHead>
                             <TableHead className="text-right font-semibold">Amount</TableHead>
                             <TableHead className="w-12"></TableHead>
                         </TableRow>
@@ -351,7 +350,7 @@ export function ExpensesTableClient({ expenses }: ExpensesTableProps) {
                     <TableBody>
                         {filteredExpenses.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={8} className="h-32 text-center">
+                                <TableCell colSpan={6} className="h-32 text-center">
                                     <div className="flex flex-col items-center gap-2 text-muted-foreground">
                                         <ReceiptIcon className="h-8 w-8" />
                                         <p>{expenses.length === 0 ? "No expenses yet" : "No expenses match your filters"}</p>
@@ -416,25 +415,6 @@ export function ExpensesTableClient({ expenses }: ExpensesTableProps) {
                                             )}
                                             {expense.truckExpenses.length === 0 && expense.tripExpenses.length === 0 && (
                                                 <span className="text-xs text-muted-foreground">—</span>
-                                            )}
-                                        </div>
-                                    </TableCell>
-                                    <TableCell>
-                                        {expense.vendor || <span className="text-muted-foreground">-</span>}
-                                    </TableCell>
-                                    <TableCell>
-                                        <div className="flex items-center gap-2">
-                                            {expense.reference || <span className="text-muted-foreground">-</span>}
-                                            {expense.receiptUrl && (
-                                                <a
-                                                    href={expense.receiptUrl}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="text-muted-foreground hover:text-primary transition-colors"
-                                                    title="View receipt"
-                                                >
-                                                    <ReceiptIcon className="h-4 w-4" />
-                                                </a>
                                             )}
                                         </div>
                                     </TableCell>

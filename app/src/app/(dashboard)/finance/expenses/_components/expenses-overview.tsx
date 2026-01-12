@@ -34,9 +34,6 @@ interface Expense {
     amount: number;
     description: string | null;
     date: Date;
-    vendor: string | null;
-    reference: string | null;
-    receiptUrl: string | null;
     category: {
         id: string;
         name: string;

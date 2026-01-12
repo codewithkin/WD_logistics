@@ -49,6 +49,16 @@ export default async function ExpensesPage() {
                     },
                 },
             },
+            driverExpenses: {
+                include: {
+                    driver: {
+                        select: {
+                            firstName: true,
+                            lastName: true,
+                        },
+                    },
+                },
+            },
         },
         orderBy: {
             date: "desc",

@@ -17,6 +17,7 @@ import {
     MapPin,
     ArrowLeft,
     Tag,
+    User,
 } from "lucide-react";
 
 interface ExpensePageProps {
@@ -65,6 +66,18 @@ export default async function ExpensePage({ params }: ExpensePageProps) {
                                     lastName: true,
                                 },
                             },
+                        },
+                    },
+                },
+            },
+            driverExpenses: {
+                include: {
+                    driver: {
+                        select: {
+                            id: true,
+                            firstName: true,
+                            lastName: true,
+                            phone: true,
                         },
                     },
                 },
@@ -245,11 +258,44 @@ export default async function ExpensePage({ params }: ExpensePageProps) {
                         </Card>
                     )}
 
+                    {/* Associated Drivers */}
+                    {expense.driverExpenses.length > 0 && (
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2 text-base">
+                                    <User className="h-4 w-4" />
+                                    Associated Drivers
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-3">
+                                {expense.driverExpenses.map(({ driver }) => (
+                                    <Link
+                                        key={driver.id}
+                                        href={`/fleet/drivers/${driver.id}`}
+                                        className="flex items-center gap-3 p-3 rounded-lg border hover:bg-muted/50 transition-colors"
+                                    >
+                                        <div className="h-10 w-10 rounded-full bg-blue-500/10 flex items-center justify-center">
+                                            <User className="h-5 w-5 text-blue-500" />
+                                        </div>
+                                        <div>
+                                            <p className="font-medium">{driver.firstName} {driver.lastName}</p>
+                                            {driver.phone && (
+                                                <p className="text-sm text-muted-foreground">
+                                                    {driver.phone}
+                                                </p>
+                                            )}
+                                        </div>
+                                    </Link>
+                                ))}
+                            </CardContent>
+                        </Card>
+                    )}
+
                     {/* No Associations */}
-                    {expense.truckExpenses.length === 0 && expense.tripExpenses.length === 0 && (
+                    {expense.truckExpenses.length === 0 && expense.tripExpenses.length === 0 && expense.driverExpenses.length === 0 && (
                         <Card>
                             <CardContent className="py-8 text-center text-muted-foreground">
-                                <p>No truck or trip associations</p>
+                                <p>No truck, trip, or driver associations</p>
                             </CardContent>
                         </Card>
                     )}
