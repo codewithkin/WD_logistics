@@ -11,7 +11,7 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -64,11 +64,6 @@ interface UsersTableProps {
     currentUserId: string;
 }
 
-const roleVariants: Record<string, "default" | "secondary" | "outline"> = {
-    admin: "default",
-    supervisor: "secondary",
-    staff: "outline",
-};
 
 export function UsersTable({ members, currentUserId }: UsersTableProps) {
     const router = useRouter();
@@ -214,10 +209,7 @@ export function UsersTable({ members, currentUserId }: UsersTableProps) {
                                                     </div>
                                                 </TableCell>
                                                 <TableCell>
-                                                    <Badge variant={roleVariants[member.role] || "outline"}>
-                                                        {ROLE_LABELS[member.role as keyof typeof ROLE_LABELS] ||
-                                                            member.role}
-                                                    </Badge>
+                                                    <StatusBadge status={member.role} type="role" />
                                                 </TableCell>
                                                 <TableCell>
                                                     {format(member.createdAt, "MMM d, yyyy")}

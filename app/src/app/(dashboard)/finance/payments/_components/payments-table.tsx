@@ -12,7 +12,7 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -34,7 +34,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { MoreHorizontal, Pencil, Trash2, Search } from "lucide-react";
 import { format } from "date-fns";
-import { Role, PAYMENT_METHOD_LABELS } from "@/lib/types";
+import { Role } from "@/lib/types";
 import { deletePayment } from "../actions";
 import { toast } from "sonner";
 
@@ -156,10 +156,7 @@ export function PaymentsTable({ payments, role }: PaymentsTableProps) {
                                             </Link>
                                         </TableCell>
                                         <TableCell>
-                                            <Badge variant="outline">
-                                                {PAYMENT_METHOD_LABELS[payment.method as keyof typeof PAYMENT_METHOD_LABELS] ||
-                                                    payment.method}
-                                            </Badge>
+                                            <StatusBadge status={payment.method} type="paymentMethod" />
                                         </TableCell>
                                         <TableCell>
                                             {payment.reference || <span className="text-muted-foreground">—</span>}

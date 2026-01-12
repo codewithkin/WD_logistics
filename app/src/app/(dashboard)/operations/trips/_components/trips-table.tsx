@@ -12,7 +12,7 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -41,7 +41,7 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { MoreHorizontal, Eye, Pencil, Trash2, Search, FileEdit, MapPin } from "lucide-react";
 import { format } from "date-fns";
-import { TripStatus, Role, TRIP_STATUS_LABELS, TRIP_STATUS_COLORS } from "@/lib/types";
+import { Role, TRIP_STATUS_LABELS } from "@/lib/types";
 import { deleteTrip, requestEditTrip } from "../actions";
 import { toast } from "sonner";
 
@@ -199,9 +199,7 @@ export function TripsTable({ trips, role }: TripsTableProps) {
                                             )}
                                         </TableCell>
                                         <TableCell>
-                                            <Badge className={TRIP_STATUS_COLORS[trip.status as TripStatus]}>
-                                                {TRIP_STATUS_LABELS[trip.status as TripStatus]}
-                                            </Badge>
+                                            <StatusBadge status={trip.status} type="trip" />
                                         </TableCell>
                                         <TableCell>
                                             <Link

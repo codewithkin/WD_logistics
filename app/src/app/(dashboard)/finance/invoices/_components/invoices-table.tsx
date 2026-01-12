@@ -12,7 +12,7 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -41,7 +41,7 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { MoreHorizontal, Eye, Pencil, Trash2, Search, CreditCard } from "lucide-react";
 import { format } from "date-fns";
-import { InvoiceStatus, Role, INVOICE_STATUS_LABELS, INVOICE_STATUS_COLORS } from "@/lib/types";
+import { Role, INVOICE_STATUS_LABELS } from "@/lib/types";
 import { deleteInvoice } from "../actions";
 import { toast } from "sonner";
 
@@ -178,9 +178,7 @@ export function InvoicesTable({ invoices, role }: InvoicesTableProps) {
                                                 </span>
                                             </TableCell>
                                             <TableCell>
-                                                <Badge className={INVOICE_STATUS_COLORS[invoice.status as InvoiceStatus]}>
-                                                    {INVOICE_STATUS_LABELS[invoice.status as InvoiceStatus]}
-                                                </Badge>
+                                                <StatusBadge status={invoice.status} type="invoice" />
                                             </TableCell>
                                             <TableCell className="text-right font-medium">
                                                 ${invoice.total.toLocaleString()}

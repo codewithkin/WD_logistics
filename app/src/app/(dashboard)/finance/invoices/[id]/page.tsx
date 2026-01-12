@@ -4,7 +4,7 @@ import { requireAuth } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -16,7 +16,7 @@ import {
     DollarSign,
 } from "lucide-react";
 import { format } from "date-fns";
-import { INVOICE_STATUS_LABELS, INVOICE_STATUS_COLORS, PAYMENT_METHOD_LABELS, InvoiceStatus, PaymentMethod } from "@/lib/types";
+import { PAYMENT_METHOD_LABELS, PaymentMethod } from "@/lib/types";
 import { SendReminderButton } from "./_components/send-reminder-button";
 
 interface InvoiceDetailPageProps {
@@ -75,9 +75,7 @@ export default async function InvoiceDetailPage({ params }: InvoiceDetailPagePro
                     <CardContent className="space-y-4">
                         <div className="flex items-center justify-between">
                             <span className="text-muted-foreground">Status</span>
-                            <Badge className={INVOICE_STATUS_COLORS[invoice.status as InvoiceStatus]}>
-                                {INVOICE_STATUS_LABELS[invoice.status as InvoiceStatus]}
-                            </Badge>
+                            <StatusBadge status={invoice.status} type="invoice" />
                         </div>
                         <Separator />
                         <div className="flex items-center justify-between">

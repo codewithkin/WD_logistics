@@ -4,22 +4,17 @@ import { requireAuth } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Mail, Phone, Building2, Calendar, DollarSign } from "lucide-react";
 import { format, differenceInYears, differenceInMonths } from "date-fns";
-import { EMPLOYEE_STATUS_LABELS } from "@/lib/types";
+
 
 interface EmployeeDetailPageProps {
     params: Promise<{ id: string }>;
 }
 
-const statusVariants: Record<string, "default" | "secondary" | "destructive"> = {
-    active: "default",
-    on_leave: "secondary",
-    terminated: "destructive",
-};
 
 export default async function EmployeeDetailPage({ params }: EmployeeDetailPageProps) {
     const { id } = await params;
@@ -68,11 +63,7 @@ export default async function EmployeeDetailPage({ params }: EmployeeDetailPageP
                     <CardContent className="space-y-4">
                         <div className="flex items-center justify-between">
                             <span className="text-muted-foreground">Status</span>
-                            <Badge variant={statusVariants[employee.status] || "secondary"}>
-                                {EMPLOYEE_STATUS_LABELS[
-                                    employee.status as keyof typeof EMPLOYEE_STATUS_LABELS
-                                ] || employee.status}
-                            </Badge>
+                            <StatusBadge status={employee.status} type="employee" />
                         </div>
                         <Separator />
                         <div className="space-y-3">

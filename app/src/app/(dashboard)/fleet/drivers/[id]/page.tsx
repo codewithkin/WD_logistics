@@ -4,12 +4,11 @@ import { requireAuth } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Pencil, Truck, Calendar, Phone, Mail, FileText } from "lucide-react";
 import { format } from "date-fns";
-import { DRIVER_STATUS_LABELS, DRIVER_STATUS_COLORS, DriverStatus } from "@/lib/types";
 import { AssignTruck } from "./_components/assign-truck";
 
 interface DriverDetailPageProps {
@@ -66,9 +65,7 @@ export default async function DriverDetailPage({ params }: DriverDetailPageProps
                     <CardContent className="space-y-4">
                         <div className="flex items-center justify-between">
                             <span className="text-muted-foreground">Status</span>
-                            <Badge className={DRIVER_STATUS_COLORS[driver.status as DriverStatus]}>
-                                {DRIVER_STATUS_LABELS[driver.status as DriverStatus]}
-                            </Badge>
+                            <StatusBadge status={driver.status} type="driver" />
                         </div>
                         <Separator />
                         <div className="flex items-center justify-between">

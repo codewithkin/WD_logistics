@@ -12,7 +12,7 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -61,12 +61,6 @@ interface EmployeesTableProps {
     employees: Employee[];
     role: Role;
 }
-
-const statusVariants: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
-    active: "default",
-    on_leave: "secondary",
-    terminated: "destructive",
-};
 
 export function EmployeesTable({ employees, role }: EmployeesTableProps) {
     const router = useRouter();
@@ -189,11 +183,7 @@ export function EmployeesTable({ employees, role }: EmployeesTableProps) {
                                         </TableCell>
                                         <TableCell>{format(employee.startDate, "MMM d, yyyy")}</TableCell>
                                         <TableCell>
-                                            <Badge variant={statusVariants[employee.status] || "secondary"}>
-                                                {EMPLOYEE_STATUS_LABELS[
-                                                    employee.status as keyof typeof EMPLOYEE_STATUS_LABELS
-                                                ] || employee.status}
-                                            </Badge>
+                                            <StatusBadge status={employee.status} type="employee" />
                                         </TableCell>
                                         <TableCell>
                                             <DropdownMenu>

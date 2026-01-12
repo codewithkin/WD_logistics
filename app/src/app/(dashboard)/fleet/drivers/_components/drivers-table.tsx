@@ -12,7 +12,7 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -40,7 +40,7 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { MoreHorizontal, Eye, Pencil, Trash2, Search, FileEdit } from "lucide-react";
-import { DriverStatus, Role, DRIVER_STATUS_LABELS, DRIVER_STATUS_COLORS } from "@/lib/types";
+import { Role, DRIVER_STATUS_LABELS } from "@/lib/types";
 import { deleteDriver, requestEditDriver } from "../actions";
 import { toast } from "sonner";
 
@@ -175,9 +175,7 @@ export function DriversTable({ drivers, role }: DriversTableProps) {
                                         <TableCell>{driver.phone}</TableCell>
                                         <TableCell>{driver.licenseNumber}</TableCell>
                                         <TableCell>
-                                            <Badge className={DRIVER_STATUS_COLORS[driver.status as DriverStatus]}>
-                                                {DRIVER_STATUS_LABELS[driver.status as DriverStatus]}
-                                            </Badge>
+                                            <StatusBadge status={driver.status} type="driver" />
                                         </TableCell>
                                         <TableCell>
                                             {driver.assignedTruck ? (

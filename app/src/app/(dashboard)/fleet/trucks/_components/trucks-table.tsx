@@ -12,7 +12,7 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -40,7 +40,7 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { MoreHorizontal, Eye, Pencil, Trash2, Search, FileEdit } from "lucide-react";
-import { TruckStatus, Role, TRUCK_STATUS_LABELS, TRUCK_STATUS_COLORS } from "@/lib/types";
+import { Role } from "@/lib/types";
 import { deleteTruck, requestEditTruck } from "../actions";
 import { toast } from "sonner";
 
@@ -178,9 +178,7 @@ export function TrucksTable({ trucks, role }: TrucksTableProps) {
                                         </TableCell>
                                         <TableCell>{truck.year}</TableCell>
                                         <TableCell>
-                                            <Badge className={TRUCK_STATUS_COLORS[truck.status as TruckStatus]}>
-                                                {TRUCK_STATUS_LABELS[truck.status as TruckStatus]}
-                                            </Badge>
+                                            <StatusBadge status={truck.status} type="truck" />
                                         </TableCell>
                                         <TableCell>{truck.currentMileage.toLocaleString()} km</TableCell>
                                         <TableCell>

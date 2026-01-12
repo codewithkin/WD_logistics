@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
-import { TRIP_STATUS_LABELS, TRIP_STATUS_COLORS, TripStatus } from "@/lib/types";
+
 
 interface Trip {
     id: string;
@@ -58,9 +58,7 @@ export function RecentTrips({ trips }: RecentTripsProps) {
                                     )}
                                 </div>
                                 <div className="text-right space-y-1">
-                                    <Badge variant={TRIP_STATUS_COLORS[trip.status as TripStatus]}>
-                                        {TRIP_STATUS_LABELS[trip.status as TripStatus]}
-                                    </Badge>
+                                    <StatusBadge status={trip.status} type="trip" />
                                     <p className="text-xs text-muted-foreground">
                                         {new Date(trip.scheduledDate).toLocaleDateString()}
                                     </p>

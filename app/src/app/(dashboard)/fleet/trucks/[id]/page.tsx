@@ -4,12 +4,11 @@ import { requireAuth } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Pencil, User, Gauge, FileText } from "lucide-react";
 import { format } from "date-fns";
-import { TRUCK_STATUS_LABELS, TRUCK_STATUS_COLORS, TruckStatus } from "@/lib/types";
 import { AssignDriver } from "./_components/assign-driver";
 
 interface TruckDetailPageProps {
@@ -66,9 +65,7 @@ export default async function TruckDetailPage({ params }: TruckDetailPageProps) 
                     <CardContent className="space-y-4">
                         <div className="flex items-center justify-between">
                             <span className="text-muted-foreground">Status</span>
-                            <Badge className={TRUCK_STATUS_COLORS[truck.status as TruckStatus]}>
-                                {TRUCK_STATUS_LABELS[truck.status as TruckStatus]}
-                            </Badge>
+                            <StatusBadge status={truck.status} type="truck" />
                         </div>
                         <Separator />
                         <div className="flex items-center justify-between">

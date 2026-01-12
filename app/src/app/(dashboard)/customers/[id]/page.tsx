@@ -4,7 +4,7 @@ import { requireAuth } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Pencil, Mail, Phone, MapPin, User, FileText, DollarSign, Truck } from "lucide-react";
@@ -72,9 +72,7 @@ export default async function CustomerDetailPage({ params }: CustomerDetailPageP
                     <CardContent className="space-y-4">
                         <div className="flex items-center justify-between">
                             <span className="text-muted-foreground">Status</span>
-                            <Badge variant={customer.status === "active" ? "default" : "secondary"}>
-                                {customer.status.charAt(0).toUpperCase() + customer.status.slice(1)}
-                            </Badge>
+                            <StatusBadge status={customer.status} type="customer" />
                         </div>
                         {customer.contactPerson && (
                             <>
@@ -235,13 +233,11 @@ export default async function CustomerDetailPage({ params }: CustomerDetailPageP
                                                 {format(invoice.issueDate, "MMM d, yyyy")}
                                             </p>
                                         </div>
-                                        <div className="text-right">
+                                        <div className="text-right flex items-center gap-2">
                                             <span className="font-medium">
                                                 ${invoice.total.toLocaleString()}
                                             </span>
-                                            <Badge variant="outline" className="ml-2">
-                                                {invoice.status}
-                                            </Badge>
+                                            <StatusBadge status={invoice.status} type="invoice" />
                                         </div>
                                     </div>
                                 ))}

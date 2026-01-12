@@ -12,7 +12,7 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -138,9 +138,7 @@ export function CustomersTable({ customers, role }: CustomersTableProps) {
                                             </div>
                                         </TableCell>
                                         <TableCell>
-                                            <Badge variant={customer.status === "active" ? "default" : "secondary"}>
-                                                {customer.status.charAt(0).toUpperCase() + customer.status.slice(1)}
-                                            </Badge>
+                                            <StatusBadge status={customer.status} type="customer" />
                                         </TableCell>
                                         <TableCell>{customer._count.trips}</TableCell>
                                         <TableCell>{customer._count.invoices}</TableCell>

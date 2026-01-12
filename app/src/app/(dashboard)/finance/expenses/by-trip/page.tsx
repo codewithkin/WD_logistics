@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { ArrowLeft, MapPin, Calendar, Truck as TruckIcon } from "lucide-react";
@@ -101,14 +102,7 @@ export default async function ExpensesByTripPage() {
                                                 {trip.truck.registrationNo} • {trip.driver.firstName} {trip.driver.lastName}
                                             </div>
                                             <div>
-                                                <Badge variant={
-                                                    trip.status === "completed" ? "default" :
-                                                        trip.status === "in_progress" ? "secondary" :
-                                                            trip.status === "cancelled" ? "destructive" :
-                                                                "outline"
-                                                }>
-                                                    {trip.status}
-                                                </Badge>
+                                                <StatusBadge status={trip.status} type="trip" />
                                             </div>
                                         </CardDescription>
                                     </div>

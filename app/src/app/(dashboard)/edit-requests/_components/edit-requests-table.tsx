@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -70,11 +71,6 @@ interface EditRequestsTableProps {
     role: Role;
 }
 
-const statusVariants: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
-    pending: "outline",
-    approved: "default",
-    rejected: "destructive",
-};
 
 const entityLabels: Record<string, string> = {
     truck: "Truck",
@@ -200,9 +196,9 @@ export function EditRequestsTable({ editRequests, role }: EditRequestsTableProps
                             </Select>
                         </div>
                         {pendingCount > 0 && canReview && (
-                            <Badge variant="outline" className="text-amber-600">
+                            <span className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 px-2 py-1 rounded-md text-sm font-medium">
                                 {pendingCount} pending review
-                            </Badge>
+                            </span>
                         )}
                     </div>
 
@@ -258,11 +254,7 @@ export function EditRequestsTable({ editRequests, role }: EditRequestsTableProps
                                                 </TableCell>
                                                 <TableCell>{request.requestedBy.name}</TableCell>
                                                 <TableCell>
-                                                    <Badge variant={statusVariants[request.status] || "secondary"}>
-                                                        {EDIT_REQUEST_STATUS_LABELS[
-                                                            request.status as keyof typeof EDIT_REQUEST_STATUS_LABELS
-                                                        ] || request.status}
-                                                    </Badge>
+                                                    <StatusBadge status={request.status} type="editRequest" />
                                                 </TableCell>
                                                 {canReview && (
                                                     <TableCell>
@@ -348,11 +340,7 @@ export function EditRequestsTable({ editRequests, role }: EditRequestsTableProps
                                 </div>
                                 <div>
                                     <p className="text-sm text-muted-foreground">Status</p>
-                                    <Badge variant={statusVariants[selectedRequest.status] || "secondary"}>
-                                        {EDIT_REQUEST_STATUS_LABELS[
-                                            selectedRequest.status as keyof typeof EDIT_REQUEST_STATUS_LABELS
-                                        ] || selectedRequest.status}
-                                    </Badge>
+                                    <StatusBadge status={selectedRequest.status} type="editRequest" />
                                 </div>
                                 <div>
                                     <p className="text-sm text-muted-foreground">Requested By</p>

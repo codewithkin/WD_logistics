@@ -4,7 +4,7 @@ import { requireAuth } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -19,7 +19,6 @@ import {
     Receipt,
 } from "lucide-react";
 import { format } from "date-fns";
-import { TRIP_STATUS_LABELS, TRIP_STATUS_COLORS, TripStatus } from "@/lib/types";
 import { NotifyDriverButton } from "./_components/notify-driver-button";
 
 interface TripDetailPageProps {
@@ -84,9 +83,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
                     <CardContent className="space-y-4">
                         <div className="flex items-center justify-between">
                             <span className="text-muted-foreground">Status</span>
-                            <Badge className={TRIP_STATUS_COLORS[trip.status as TripStatus]}>
-                                {TRIP_STATUS_LABELS[trip.status as TripStatus]}
-                            </Badge>
+                            <StatusBadge status={trip.status} type="trip" />
                         </div>
                         <Separator />
                         <div className="flex items-center justify-between">
