@@ -211,6 +211,13 @@ export function ExpenseForm({ categories, trucks, trips, drivers, expense }: Exp
                 await createExpense(data);
             }
         } catch (error) {
+            // Check if this is a redirect error (which is expected and not an error)
+            if (error instanceof Error) {
+                // Next.js redirect() throws RedirectError with name property
+                if (error.name === "RedirectError" || (error as any).digest?.startsWith("NEXT_REDIRECT")) {
+                    return;
+                }
+            }
             console.error("Failed to save expense:", error);
             alert("Failed to save expense");
             setIsSubmitting(false);
