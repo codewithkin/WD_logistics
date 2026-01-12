@@ -3,6 +3,7 @@
 import { createContext, useContext, ReactNode } from "react";
 import { Role } from "@/lib/types";
 import { getPermissions, RolePermissions } from "@/lib/permissions";
+import { AlertProvider } from "@/components/ui/custom-alert";
 
 interface SessionUser {
     id: string;
@@ -48,7 +49,9 @@ export function SessionProvider({
                 isLoading,
             }}
         >
-            {children}
+            <AlertProvider>
+                {children}
+            </AlertProvider>
         </SessionContext.Provider>
     );
 }

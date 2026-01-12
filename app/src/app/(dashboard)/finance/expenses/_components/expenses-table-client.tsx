@@ -82,7 +82,7 @@ export function ExpensesTableClient({ expenses }: ExpensesTableProps) {
             router.refresh();
         } catch (error) {
             console.error("Failed to delete expense:", error);
-            alert("Failed to delete expense");
+            showAlert("Failed to delete expense");
         } finally {
             setDeletingId(null);
         }
@@ -183,11 +183,11 @@ export function ExpensesTableClient({ expenses }: ExpensesTableProps) {
                     a.click();
                     window.URL.revokeObjectURL(url);
                 } else {
-                    alert(result.error || "Failed to generate PDF");
+                    showAlert(result.error || "Failed to generate PDF");
                 }
             } catch (error) {
                 console.error("PDF export error:", error);
-                alert("Failed to generate PDF report");
+                showAlert("Failed to generate PDF report");
             }
         };
 

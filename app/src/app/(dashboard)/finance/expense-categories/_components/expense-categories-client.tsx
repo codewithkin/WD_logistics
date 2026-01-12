@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { showAlert } from "@/components/ui/custom-alert";
 import {
     Table,
     TableBody,
@@ -102,7 +103,7 @@ export function ExpenseCategoriesClient({ categories }: ExpenseCategoriesClientP
             router.refresh();
         } catch (error) {
             console.error("Failed to create category:", error);
-            alert(error instanceof Error ? error.message : "Failed to create category");
+            showAlert(error instanceof Error ? error.message : "Failed to create category");
         }
     };
 
@@ -127,7 +128,7 @@ export function ExpenseCategoriesClient({ categories }: ExpenseCategoriesClientP
             router.refresh();
         } catch (error) {
             console.error("Failed to update category:", error);
-            alert(error instanceof Error ? error.message : "Failed to update category");
+            showAlert(error instanceof Error ? error.message : "Failed to update category");
         }
     };
 
@@ -140,7 +141,7 @@ export function ExpenseCategoriesClient({ categories }: ExpenseCategoriesClientP
             router.refresh();
         } catch (error) {
             console.error("Failed to delete category:", error);
-            alert(error instanceof Error ? error.message : "Failed to delete category");
+            showAlert(error instanceof Error ? error.message : \"Failed to delete category\");
         } finally {
             setDeletingId(null);
         }

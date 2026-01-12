@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { showAlert } from "@/components/ui/custom-alert";
 import {
     Table,
     TableBody,
@@ -98,7 +99,7 @@ export function ExpenseCategoriesSection({ categories: initialCategories }: Expe
     // Export handlers
     useEffect(() => {
         const handleExportPDF = () => {
-            alert("PDF export for categories is not yet implemented");
+            showAlert("PDF export for categories is not yet implemented", "info");
         };
 
         const handleExportCSV = () => {
@@ -132,7 +133,7 @@ export function ExpenseCategoriesSection({ categories: initialCategories }: Expe
             router.refresh();
         } catch (error) {
             console.error("Failed to create category:", error);
-            alert(error instanceof Error ? error.message : "Failed to create category");
+            showAlert(error instanceof Error ? error.message : "Failed to create category");
         }
     };
 
@@ -157,7 +158,7 @@ export function ExpenseCategoriesSection({ categories: initialCategories }: Expe
             router.refresh();
         } catch (error) {
             console.error("Failed to update category:", error);
-            alert("Failed to update category");
+            showAlert("Failed to delete category");
         }
     };
 
@@ -166,7 +167,7 @@ export function ExpenseCategoriesSection({ categories: initialCategories }: Expe
         if (!category) return;
 
         if (category._count.expenses > 0) {
-            alert("Cannot delete a category that has expenses associated with it");
+            showAlert("Cannot delete a category that has expenses associated with it", "warning");
             return;
         }
 
@@ -178,7 +179,7 @@ export function ExpenseCategoriesSection({ categories: initialCategories }: Expe
             router.refresh();
         } catch (error) {
             console.error("Failed to delete category:", error);
-            alert("Failed to delete category");
+            showAlert("Failed to update category");
         } finally {
             setDeletingId(null);
         }

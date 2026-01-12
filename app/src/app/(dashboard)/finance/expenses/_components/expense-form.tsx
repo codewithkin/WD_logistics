@@ -42,6 +42,7 @@ import { z } from "zod";
 import { createExpense, updateExpense, type ExpenseFormData } from "../actions";
 import { Loader2, ChevronsUpDown, X, Truck, User, MapPin, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { showAlert } from "@/components/ui/custom-alert";
 
 const expenseSchema = z.object({
     categoryId: z.string().min(1, "Category is required"),
@@ -219,7 +220,7 @@ export function ExpenseForm({ categories, trucks, trips, drivers, expense }: Exp
                 }
             }
             console.error("Failed to save expense:", error);
-            alert("Failed to save expense");
+            showAlert("Failed to save expense");
             setIsSubmitting(false);
         }
     };
