@@ -173,6 +173,16 @@ export async function getExpensesForCharts(days: number = 30) {
           },
         },
       },
+      driverExpenses: {
+        include: {
+          driver: {
+            select: {
+              firstName: true,
+              lastName: true,
+            },
+          },
+        },
+      },
     },
     orderBy: { date: "desc" },
   });
@@ -207,6 +217,16 @@ export async function getExpensesForCharts(days: number = 30) {
     });
   });
 
+  // Aggregate by driver
+  const driverMap = new Map<string, number>();
+  expenses.forEach((expense) => {
+    expense.driverExpenses.forEach((de) => {
+      const key = `${de.driver.firstName} ${de.driver.lastName}`;
+      const current = driverMap.get(key) || 0;
+      driverMap.set(key, current + expense.amount);
+    });
+  });
+
   // Aggregate by month
   const monthMap = new Map<string, number>();
   expenses.forEach((expense) => {
@@ -226,6 +246,9 @@ export async function getExpensesForCharts(days: number = 30) {
       .sort((a, b) => b.amount - a.amount),
     byTrip: Array.from(tripMap.entries())
       .map(([trip, amount]) => ({ trip, amount }))
+      .sort((a, b) => b.amount - a.amount),
+    byDriver: Array.from(driverMap.entries())
+      .map(([driver, amount]) => ({ driver, amount }))
       .sort((a, b) => b.amount - a.amount),
     byMonth: Array.from(monthMap.entries())
       .map(([month, amount]) => ({ month, amount }))

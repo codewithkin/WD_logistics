@@ -40,7 +40,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { createExpense, updateExpense, type ExpenseFormData } from "../actions";
-import { Loader2, ChevronsUpDown, X, Truck, User } from "lucide-react";
+import { Loader2, ChevronsUpDown, X, Truck, User, MapPin, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const expenseSchema = z.object({
@@ -52,7 +52,18 @@ const expenseSchema = z.object({
     truckIds: z.array(z.string()).optional(),
     tripIds: z.array(z.string()).optional(),
     driverIds: z.array(z.string()).optional(),
-});
+}).refine(
+    (data) => {
+        const hasTruck = data.truckIds && data.truckIds.length > 0;
+        const hasTrip = data.tripIds && data.tripIds.length > 0;
+        const hasDriver = data.driverIds && data.driverIds.length > 0;
+        return hasTruck || hasTrip || hasDriver;
+    },
+    {
+        message: "You must associate this expense with at least one truck, trip, or driver",
+        path: ["truckIds"], // This will show the error on the associations section
+    }
+);
 
 interface ExpenseCategory {
     id: string;
@@ -117,11 +128,10 @@ export function ExpenseForm({ categories, trucks, trips, drivers, expense }: Exp
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [truckSearchOpen, setTruckSearchOpen] = useState(false);
     const [truckSearch, setTruckSearch] = useState("");
+    const [tripSearchOpen, setTripSearchOpen] = useState(false);
+    const [tripSearch, setTripSearch] = useState("");
     const [driverSearchOpen, setDriverSearchOpen] = useState(false);
     const [driverSearch, setDriverSearch] = useState("");
-    const [selectedCategory, setSelectedCategory] = useState<ExpenseCategory | null>(
-        expense ? categories.find(c => c.id === expense.categoryId) || null : null
-    );
 
     const form = useForm<z.infer<typeof expenseSchema>>({
         resolver: zodResolver(expenseSchema),
@@ -162,27 +172,28 @@ export function ExpenseForm({ categories, trucks, trips, drivers, expense }: Exp
         );
     }, [drivers, driverSearch]);
 
-    // Watch category changes
-    useEffect(() => {
-        const subscription = form.watch((value, { name }) => {
-            if (name === 'categoryId') {
-                const category = categories.find(c => c.id === value.categoryId);
-                setSelectedCategory(category || null);
+    // Filter trips based on search
+    const filteredTrips = useMemo(() => {
+        if (!tripSearch) return trips;
+        const search = tripSearch.toLowerCase();
+        return trips.filter(
+            trip =>
+                trip.originCity.toLowerCase().includes(search) ||
+                trip.destinationCity.toLowerCase().includes(search) ||
+                trip.truck.registrationNo.toLowerCase().includes(search) ||
+                trip.driver.firstName.toLowerCase().includes(search) ||
+                trip.driver.lastName.toLowerCase().includes(search)
+        );
+    }, [trips, tripSearch]);
 
-                // Clear selections if category doesn't support them
-                if (category && !category.isTruck) {
-                    form.setValue('truckIds', []);
-                }
-                if (category && !category.isTrip) {
-                    form.setValue('tripIds', []);
-                }
-                if (category && !category.isDriver) {
-                    form.setValue('driverIds', []);
-                }
-            }
-        });
-        return () => subscription.unsubscribe();
-    }, [form, categories]);
+    // Watch for association changes to clear errors
+    const truckIds = form.watch('truckIds');
+    const tripIds = form.watch('tripIds');
+    const driverIds = form.watch('driverIds');
+
+    const hasAssociation = (truckIds && truckIds.length > 0) ||
+        (tripIds && tripIds.length > 0) ||
+        (driverIds && driverIds.length > 0);
 
     const onSubmit = async (values: z.infer<typeof expenseSchema>) => {
         setIsSubmitting(true);
@@ -295,316 +306,307 @@ export function ExpenseForm({ categories, trucks, trips, drivers, expense }: Exp
                     />
                 </div>
 
-                {/* Truck Association - Searchable Dropdown */}
-                {selectedCategory?.isTruck && trucks.length > 0 && (
-                    <FormField
-                        control={form.control}
-                        name="truckIds"
-                        render={({ field }) => (
-                            <FormItem className="flex flex-col">
-                                <FormLabel>Associated Trucks</FormLabel>
-                                <FormDescription>
-                                    Select which truck(s) this expense applies to
-                                </FormDescription>
-                                <Popover open={truckSearchOpen} onOpenChange={setTruckSearchOpen}>
-                                    <PopoverTrigger asChild>
-                                        <FormControl>
-                                            <Button
-                                                variant="outline"
-                                                role="combobox"
-                                                aria-expanded={truckSearchOpen}
-                                                className={cn(
-                                                    "w-full justify-between",
-                                                    !field.value?.length && "text-muted-foreground"
-                                                )}
-                                            >
-                                                <span className="flex items-center gap-2">
-                                                    <Truck className="h-4 w-4" />
+                {/* Association Selection - Required */}
+                <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                        <h3 className="text-sm font-medium">Associate Expense With *</h3>
+                        {!hasAssociation && form.formState.isSubmitted && (
+                            <span className="text-sm text-destructive flex items-center gap-1">
+                                <AlertCircle className="h-4 w-4" />
+                                Select at least one
+                            </span>
+                        )}
+                    </div>
+                    <p className="text-sm text-muted-foreground -mt-2">
+                        You must associate this expense with at least one truck, trip, or driver
+                    </p>
+
+                    <div className="grid gap-4 md:grid-cols-3">
+                        {/* Truck Association */}
+                        <FormField
+                            control={form.control}
+                            name="truckIds"
+                            render={({ field }) => (
+                                <FormItem className="flex flex-col">
+                                    <FormLabel className="flex items-center gap-2">
+                                        <Truck className="h-4 w-4" />
+                                        Truck
+                                    </FormLabel>
+                                    <Popover open={truckSearchOpen} onOpenChange={setTruckSearchOpen}>
+                                        <PopoverTrigger asChild>
+                                            <FormControl>
+                                                <Button
+                                                    variant="outline"
+                                                    role="combobox"
+                                                    aria-expanded={truckSearchOpen}
+                                                    className={cn(
+                                                        "w-full justify-between",
+                                                        field.value?.length && "border-primary",
+                                                        !field.value?.length && "text-muted-foreground"
+                                                    )}
+                                                >
                                                     {field.value?.length
-                                                        ? `${field.value.length} truck${field.value.length > 1 ? 's' : ''} selected`
+                                                        ? `${field.value.length} selected`
                                                         : "Select trucks..."}
-                                                </span>
-                                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                            </Button>
-                                        </FormControl>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                                        <Command shouldFilter={false}>
-                                            <CommandInput
-                                                placeholder="Search trucks..."
-                                                value={truckSearch}
-                                                onValueChange={setTruckSearch}
-                                            />
-                                            <CommandList>
-                                                <CommandEmpty>No trucks found.</CommandEmpty>
-                                                <CommandGroup>
-                                                    {filteredTrucks.map((truck) => {
-                                                        const isSelected = field.value?.includes(truck.id);
-                                                        return (
-                                                            <CommandItem
-                                                                key={truck.id}
-                                                                value={truck.id}
-                                                                onSelect={() => {
-                                                                    if (isSelected) {
-                                                                        field.onChange(
-                                                                            field.value?.filter(id => id !== truck.id)
-                                                                        );
-                                                                    } else {
-                                                                        field.onChange([...(field.value || []), truck.id]);
-                                                                    }
-                                                                }}
-                                                            >
-                                                                <div className={cn(
-                                                                    "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
-                                                                    isSelected
-                                                                        ? "bg-primary text-primary-foreground"
-                                                                        : "opacity-50 [&_svg]:invisible"
-                                                                )}>
-                                                                    <svg
-                                                                        className="h-3 w-3"
-                                                                        fill="none"
-                                                                        viewBox="0 0 24 24"
-                                                                        stroke="currentColor"
-                                                                        strokeWidth={3}
-                                                                    >
-                                                                        <path d="M5 13l4 4L19 7" />
-                                                                    </svg>
-                                                                </div>
-                                                                <div className="flex flex-col">
-                                                                    <span className="font-medium">{truck.registrationNo}</span>
-                                                                    <span className="text-xs text-muted-foreground">
-                                                                        {truck.make} {truck.model}
-                                                                    </span>
-                                                                </div>
-                                                            </CommandItem>
-                                                        );
-                                                    })}
-                                                </CommandGroup>
-                                            </CommandList>
-                                        </Command>
-                                    </PopoverContent>
-                                </Popover>
-
-                                {/* Selected trucks badges */}
-                                {field.value && field.value.length > 0 && (
-                                    <div className="flex flex-wrap gap-2 mt-2">
-                                        {field.value.map((truckId) => {
-                                            const truck = trucks.find(t => t.id === truckId);
-                                            if (!truck) return null;
-                                            return (
-                                                <Badge
-                                                    key={truckId}
-                                                    variant="secondary"
-                                                    className="flex items-center gap-1"
-                                                >
-                                                    {truck.registrationNo}
-                                                    <button
-                                                        type="button"
-                                                        className="ml-1 rounded-full outline-none ring-offset-background focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                                                        onClick={() => {
-                                                            field.onChange(
-                                                                field.value?.filter(id => id !== truckId)
+                                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                </Button>
+                                            </FormControl>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                                            <Command shouldFilter={false}>
+                                                <CommandInput
+                                                    placeholder="Search trucks..."
+                                                    value={truckSearch}
+                                                    onValueChange={setTruckSearch}
+                                                />
+                                                <CommandList>
+                                                    <CommandEmpty>No trucks found.</CommandEmpty>
+                                                    <CommandGroup>
+                                                        {filteredTrucks.map((truck) => {
+                                                            const isSelected = field.value?.includes(truck.id);
+                                                            return (
+                                                                <CommandItem
+                                                                    key={truck.id}
+                                                                    value={truck.id}
+                                                                    onSelect={() => {
+                                                                        if (isSelected) {
+                                                                            field.onChange(field.value?.filter(id => id !== truck.id));
+                                                                        } else {
+                                                                            field.onChange([...(field.value || []), truck.id]);
+                                                                        }
+                                                                    }}
+                                                                >
+                                                                    <div className={cn(
+                                                                        "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
+                                                                        isSelected ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible"
+                                                                    )}>
+                                                                        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                                                            <path d="M5 13l4 4L19 7" />
+                                                                        </svg>
+                                                                    </div>
+                                                                    <div className="flex flex-col">
+                                                                        <span className="font-medium">{truck.registrationNo}</span>
+                                                                        <span className="text-xs text-muted-foreground">{truck.make} {truck.model}</span>
+                                                                    </div>
+                                                                </CommandItem>
                                                             );
-                                                        }}
-                                                    >
-                                                        <X className="h-3 w-3" />
-                                                    </button>
-                                                </Badge>
-                                            );
-                                        })}
-                                    </div>
-                                )}
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                )}
-
-                {/* Driver Association - Searchable Dropdown */}
-                {selectedCategory?.isDriver && drivers.length > 0 && (
-                    <FormField
-                        control={form.control}
-                        name="driverIds"
-                        render={({ field }) => (
-                            <FormItem className="flex flex-col">
-                                <FormLabel>Associated Drivers</FormLabel>
-                                <FormDescription>
-                                    Select which driver(s) this expense applies to
-                                </FormDescription>
-                                <Popover open={driverSearchOpen} onOpenChange={setDriverSearchOpen}>
-                                    <PopoverTrigger asChild>
-                                        <FormControl>
-                                            <Button
-                                                variant="outline"
-                                                role="combobox"
-                                                aria-expanded={driverSearchOpen}
-                                                className={cn(
-                                                    "w-full justify-between",
-                                                    !field.value?.length && "text-muted-foreground"
-                                                )}
-                                            >
-                                                <span className="flex items-center gap-2">
-                                                    <User className="h-4 w-4" />
-                                                    {field.value?.length
-                                                        ? `${field.value.length} driver${field.value.length > 1 ? 's' : ''} selected`
-                                                        : "Select drivers..."}
-                                                </span>
-                                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                            </Button>
-                                        </FormControl>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                                        <Command shouldFilter={false}>
-                                            <CommandInput
-                                                placeholder="Search drivers..."
-                                                value={driverSearch}
-                                                onValueChange={setDriverSearch}
-                                            />
-                                            <CommandList>
-                                                <CommandEmpty>No drivers found.</CommandEmpty>
-                                                <CommandGroup>
-                                                    {filteredDrivers.map((driver) => {
-                                                        const isSelected = field.value?.includes(driver.id);
-                                                        return (
-                                                            <CommandItem
-                                                                key={driver.id}
-                                                                value={driver.id}
-                                                                onSelect={() => {
-                                                                    if (isSelected) {
-                                                                        field.onChange(
-                                                                            field.value?.filter(id => id !== driver.id)
-                                                                        );
-                                                                    } else {
-                                                                        field.onChange([...(field.value || []), driver.id]);
-                                                                    }
-                                                                }}
-                                                            >
-                                                                <div className={cn(
-                                                                    "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
-                                                                    isSelected
-                                                                        ? "bg-primary text-primary-foreground"
-                                                                        : "opacity-50 [&_svg]:invisible"
-                                                                )}>
-                                                                    <svg
-                                                                        className="h-3 w-3"
-                                                                        fill="none"
-                                                                        viewBox="0 0 24 24"
-                                                                        stroke="currentColor"
-                                                                        strokeWidth={3}
-                                                                    >
-                                                                        <path d="M5 13l4 4L19 7" />
-                                                                    </svg>
-                                                                </div>
-                                                                <div className="flex flex-col">
-                                                                    <span className="font-medium">{driver.firstName} {driver.lastName}</span>
-                                                                    <span className="text-xs text-muted-foreground">
-                                                                        License: {driver.licenseNumber}
-                                                                    </span>
-                                                                </div>
-                                                            </CommandItem>
-                                                        );
-                                                    })}
-                                                </CommandGroup>
-                                            </CommandList>
-                                        </Command>
-                                    </PopoverContent>
-                                </Popover>
-
-                                {/* Selected drivers badges */}
-                                {field.value && field.value.length > 0 && (
-                                    <div className="flex flex-wrap gap-2 mt-2">
-                                        {field.value.map((driverId) => {
-                                            const driver = drivers.find(d => d.id === driverId);
-                                            if (!driver) return null;
-                                            return (
-                                                <Badge
-                                                    key={driverId}
-                                                    variant="secondary"
-                                                    className="flex items-center gap-1"
-                                                >
-                                                    {driver.firstName} {driver.lastName}
-                                                    <button
-                                                        type="button"
-                                                        className="ml-1 rounded-full outline-none ring-offset-background focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                                                        onClick={() => {
-                                                            field.onChange(
-                                                                field.value?.filter(id => id !== driverId)
-                                                            );
-                                                        }}
-                                                    >
-                                                        <X className="h-3 w-3" />
-                                                    </button>
-                                                </Badge>
-                                            );
-                                        })}
-                                    </div>
-                                )}
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                )}
-
-                {/* Trip Association */}
-                {selectedCategory?.isTrip && trips.length > 0 && (
-                    <FormField
-                        control={form.control}
-                        name="tripIds"
-                        render={() => (
-                            <FormItem>
-                                <div className="mb-4">
-                                    <FormLabel>Associated Trips</FormLabel>
-                                    <FormDescription>
-                                        Select which trip(s) this expense applies to
-                                    </FormDescription>
-                                </div>
-                                <div className="grid gap-3">
-                                    {trips.map((trip) => (
-                                        <FormField
-                                            key={trip.id}
-                                            control={form.control}
-                                            name="tripIds"
-                                            render={({ field }) => {
+                                                        })}
+                                                    </CommandGroup>
+                                                </CommandList>
+                                            </Command>
+                                        </PopoverContent>
+                                    </Popover>
+                                    {field.value && field.value.length > 0 && (
+                                        <div className="flex flex-wrap gap-1 mt-2">
+                                            {field.value.map((truckId) => {
+                                                const truck = trucks.find(t => t.id === truckId);
+                                                if (!truck) return null;
                                                 return (
-                                                    <FormItem
-                                                        key={trip.id}
-                                                        className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-3"
-                                                    >
-                                                        <FormControl>
-                                                            <Checkbox
-                                                                checked={field.value?.includes(trip.id)}
-                                                                onCheckedChange={(checked) => {
-                                                                    return checked
-                                                                        ? field.onChange([...(field.value || []), trip.id])
-                                                                        : field.onChange(
-                                                                            field.value?.filter(
-                                                                                (value) => value !== trip.id
-                                                                            )
-                                                                        );
-                                                                }}
-                                                            />
-                                                        </FormControl>
-                                                        <div className="space-y-1 leading-none flex-1">
-                                                            <FormLabel className="font-medium">
-                                                                {trip.originCity} → {trip.destinationCity}
-                                                            </FormLabel>
-                                                            <p className="text-xs text-muted-foreground">
-                                                                {new Date(trip.scheduledDate).toLocaleDateString()} •
-                                                                {trip.truck.registrationNo} •
-                                                                {trip.driver.firstName} {trip.driver.lastName}
-                                                            </p>
-                                                        </div>
-                                                    </FormItem>
+                                                    <Badge key={truckId} variant="secondary" className="text-xs">
+                                                        {truck.registrationNo}
+                                                        <button type="button" className="ml-1" onClick={() => field.onChange(field.value?.filter(id => id !== truckId))}>
+                                                            <X className="h-3 w-3" />
+                                                        </button>
+                                                    </Badge>
                                                 );
-                                            }}
-                                        />
-                                    ))}
-                                </div>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                )}
+                                            })}
+                                        </div>
+                                    )}
+                                </FormItem>
+                            )}
+                        />
+
+                        {/* Trip Association */}
+                        <FormField
+                            control={form.control}
+                            name="tripIds"
+                            render={({ field }) => (
+                                <FormItem className="flex flex-col">
+                                    <FormLabel className="flex items-center gap-2">
+                                        <MapPin className="h-4 w-4" />
+                                        Trip
+                                    </FormLabel>
+                                    <Popover open={tripSearchOpen} onOpenChange={setTripSearchOpen}>
+                                        <PopoverTrigger asChild>
+                                            <FormControl>
+                                                <Button
+                                                    variant="outline"
+                                                    role="combobox"
+                                                    aria-expanded={tripSearchOpen}
+                                                    className={cn(
+                                                        "w-full justify-between",
+                                                        field.value?.length && "border-primary",
+                                                        !field.value?.length && "text-muted-foreground"
+                                                    )}
+                                                >
+                                                    {field.value?.length
+                                                        ? `${field.value.length} selected`
+                                                        : "Select trips..."}
+                                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                </Button>
+                                            </FormControl>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                                            <Command shouldFilter={false}>
+                                                <CommandInput
+                                                    placeholder="Search trips..."
+                                                    value={tripSearch}
+                                                    onValueChange={setTripSearch}
+                                                />
+                                                <CommandList>
+                                                    <CommandEmpty>No trips found.</CommandEmpty>
+                                                    <CommandGroup>
+                                                        {filteredTrips.map((trip) => {
+                                                            const isSelected = field.value?.includes(trip.id);
+                                                            return (
+                                                                <CommandItem
+                                                                    key={trip.id}
+                                                                    value={trip.id}
+                                                                    onSelect={() => {
+                                                                        if (isSelected) {
+                                                                            field.onChange(field.value?.filter(id => id !== trip.id));
+                                                                        } else {
+                                                                            field.onChange([...(field.value || []), trip.id]);
+                                                                        }
+                                                                    }}
+                                                                >
+                                                                    <div className={cn(
+                                                                        "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
+                                                                        isSelected ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible"
+                                                                    )}>
+                                                                        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                                                            <path d="M5 13l4 4L19 7" />
+                                                                        </svg>
+                                                                    </div>
+                                                                    <div className="flex flex-col">
+                                                                        <span className="font-medium">{trip.originCity} → {trip.destinationCity}</span>
+                                                                        <span className="text-xs text-muted-foreground">
+                                                                            {new Date(trip.scheduledDate).toLocaleDateString()} • {trip.truck.registrationNo}
+                                                                        </span>
+                                                                    </div>
+                                                                </CommandItem>
+                                                            );
+                                                        })}
+                                                    </CommandGroup>
+                                                </CommandList>
+                                            </Command>
+                                        </PopoverContent>
+                                    </Popover>
+                                    {field.value && field.value.length > 0 && (
+                                        <div className="flex flex-wrap gap-1 mt-2">
+                                            {field.value.map((tripId) => {
+                                                const trip = trips.find(t => t.id === tripId);
+                                                if (!trip) return null;
+                                                return (
+                                                    <Badge key={tripId} variant="secondary" className="text-xs">
+                                                        {trip.originCity}→{trip.destinationCity}
+                                                        <button type="button" className="ml-1" onClick={() => field.onChange(field.value?.filter(id => id !== tripId))}>
+                                                            <X className="h-3 w-3" />
+                                                        </button>
+                                                    </Badge>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </FormItem>
+                            )}
+                        />
+
+                        {/* Driver Association */}
+                        <FormField
+                            control={form.control}
+                            name="driverIds"
+                            render={({ field }) => (
+                                <FormItem className="flex flex-col">
+                                    <FormLabel className="flex items-center gap-2">
+                                        <User className="h-4 w-4" />
+                                        Driver
+                                    </FormLabel>
+                                    <Popover open={driverSearchOpen} onOpenChange={setDriverSearchOpen}>
+                                        <PopoverTrigger asChild>
+                                            <FormControl>
+                                                <Button
+                                                    variant="outline"
+                                                    role="combobox"
+                                                    aria-expanded={driverSearchOpen}
+                                                    className={cn(
+                                                        "w-full justify-between",
+                                                        field.value?.length && "border-primary",
+                                                        !field.value?.length && "text-muted-foreground"
+                                                    )}
+                                                >
+                                                    {field.value?.length
+                                                        ? `${field.value.length} selected`
+                                                        : "Select drivers..."}
+                                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                </Button>
+                                            </FormControl>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                                            <Command shouldFilter={false}>
+                                                <CommandInput
+                                                    placeholder="Search drivers..."
+                                                    value={driverSearch}
+                                                    onValueChange={setDriverSearch}
+                                                />
+                                                <CommandList>
+                                                    <CommandEmpty>No drivers found.</CommandEmpty>
+                                                    <CommandGroup>
+                                                        {filteredDrivers.map((driver) => {
+                                                            const isSelected = field.value?.includes(driver.id);
+                                                            return (
+                                                                <CommandItem
+                                                                    key={driver.id}
+                                                                    value={driver.id}
+                                                                    onSelect={() => {
+                                                                        if (isSelected) {
+                                                                            field.onChange(field.value?.filter(id => id !== driver.id));
+                                                                        } else {
+                                                                            field.onChange([...(field.value || []), driver.id]);
+                                                                        }
+                                                                    }}
+                                                                >
+                                                                    <div className={cn(
+                                                                        "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
+                                                                        isSelected ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible"
+                                                                    )}>
+                                                                        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                                                            <path d="M5 13l4 4L19 7" />
+                                                                        </svg>
+                                                                    </div>
+                                                                    <div className="flex flex-col">
+                                                                        <span className="font-medium">{driver.firstName} {driver.lastName}</span>
+                                                                        <span className="text-xs text-muted-foreground">License: {driver.licenseNumber}</span>
+                                                                    </div>
+                                                                </CommandItem>
+                                                            );
+                                                        })}
+                                                    </CommandGroup>
+                                                </CommandList>
+                                            </Command>
+                                        </PopoverContent>
+                                    </Popover>
+                                    {field.value && field.value.length > 0 && (
+                                        <div className="flex flex-wrap gap-1 mt-2">
+                                            {field.value.map((driverId) => {
+                                                const driver = drivers.find(d => d.id === driverId);
+                                                if (!driver) return null;
+                                                return (
+                                                    <Badge key={driverId} variant="secondary" className="text-xs">
+                                                        {driver.firstName} {driver.lastName}
+                                                        <button type="button" className="ml-1" onClick={() => field.onChange(field.value?.filter(id => id !== driverId))}>
+                                                            <X className="h-3 w-3" />
+                                                        </button>
+                                                    </Badge>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </FormItem>
+                            )}
+                        />
+                    </div>
+                </div>
 
                 <FormField
                     control={form.control}
