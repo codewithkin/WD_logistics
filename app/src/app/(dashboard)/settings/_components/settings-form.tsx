@@ -119,26 +119,52 @@ export function SettingsForm({ organization }: SettingsFormProps) {
         <div className="space-y-6">
             <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <Building2 className="h-5 w-5" />
-                                Organization Information
-                            </CardTitle>
-                            <CardDescription>
+                    {/* Organization Information Section */}
+                    <div className="space-y-4">
+                        <div>
+                            <h2 className="text-lg font-semibold">Organization Information</h2>
+                            <p className="text-sm text-muted-foreground">
                                 Basic information about your organization
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="grid gap-4 md:grid-cols-2">
+                            </p>
+                        </div>
+                        <Card>
+                            <CardContent className="pt-6 space-y-4">
+                                <div className="grid gap-4 md:grid-cols-2">
+                                    <FormField
+                                        control={form.control}
+                                        name="name"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Organization Name</FormLabel>
+                                                <FormControl>
+                                                    <Input placeholder="WD Logistics" {...field} />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control}
+                                        name="phone"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Phone</FormLabel>
+                                                <FormControl>
+                                                    <Input placeholder="+1234567890" {...field} />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                </div>
                                 <FormField
                                     control={form.control}
-                                    name="name"
+                                    name="email"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Organization Name</FormLabel>
+                                            <FormLabel>Email</FormLabel>
                                             <FormControl>
-                                                <Input placeholder="WD Logistics" {...field} />
+                                                <Input type="email" placeholder="contact@wdlogistics.com" {...field} />
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>
@@ -146,126 +172,100 @@ export function SettingsForm({ organization }: SettingsFormProps) {
                                 />
                                 <FormField
                                     control={form.control}
-                                    name="phone"
+                                    name="address"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Phone</FormLabel>
+                                            <FormLabel>Address</FormLabel>
                                             <FormControl>
-                                                <Input placeholder="+1234567890" {...field} />
+                                                <Input placeholder="123 Logistics Ave, City, Country" {...field} />
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>
                                     )}
                                 />
-                            </div>
-                            <FormField
-                                control={form.control}
-                                name="email"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Email</FormLabel>
-                                        <FormControl>
-                                            <Input type="email" placeholder="contact@wdlogistics.com" {...field} />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                            <FormField
-                                control={form.control}
-                                name="address"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Address</FormLabel>
-                                        <FormControl>
-                                            <Input placeholder="123 Logistics Ave, City, Country" {...field} />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                            <FormField
-                                control={form.control}
-                                name="logo"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Logo URL</FormLabel>
-                                        <FormControl>
-                                            <Input placeholder="https://example.com/logo.png" {...field} />
-                                        </FormControl>
-                                        <FormDescription>
-                                            URL to your organization logo (used in reports and branding)
-                                        </FormDescription>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                        </CardContent>
-                    </Card>
+                                <FormField
+                                    control={form.control}
+                                    name="logo"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Logo URL</FormLabel>
+                                            <FormControl>
+                                                <Input placeholder="https://example.com/logo.png" {...field} />
+                                            </FormControl>
+                                            <FormDescription>
+                                                URL to your organization logo (used in reports and branding)
+                                            </FormDescription>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            </CardContent>
+                        </Card>
+                    </div>
 
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <Globe className="h-5 w-5" />
-                                Regional Settings
-                            </CardTitle>
-                            <CardDescription>
+                    {/* Regional Settings Section */}
+                    <div className="space-y-4">
+                        <div>
+                            <h2 className="text-lg font-semibold">Regional Settings</h2>
+                            <p className="text-sm text-muted-foreground">
                                 Configure currency and timezone for your organization
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="grid gap-4 md:grid-cols-2">
-                                <FormField
-                                    control={form.control}
-                                    name="currency"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Currency</FormLabel>
-                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                <FormControl>
-                                                    <SelectTrigger>
-                                                        <SelectValue placeholder="Select currency" />
-                                                    </SelectTrigger>
-                                                </FormControl>
-                                                <SelectContent>
-                                                    {CURRENCIES.map((currency) => (
-                                                        <SelectItem key={currency.value} value={currency.value}>
-                                                            {currency.label}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                                <FormField
-                                    control={form.control}
-                                    name="timezone"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Timezone</FormLabel>
-                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                <FormControl>
-                                                    <SelectTrigger>
-                                                        <SelectValue placeholder="Select timezone" />
-                                                    </SelectTrigger>
-                                                </FormControl>
-                                                <SelectContent>
-                                                    {TIMEZONES.map((tz) => (
-                                                        <SelectItem key={tz.value} value={tz.value}>
-                                                            {tz.label}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                            </div>
-                        </CardContent>
-                    </Card>
+                            </p>
+                        </div>
+                        <Card>
+                            <CardContent className="pt-6 space-y-4">
+                                <div className="grid gap-4 md:grid-cols-2">
+                                    <FormField
+                                        control={form.control}
+                                        name="currency"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Currency</FormLabel>
+                                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                    <FormControl>
+                                                        <SelectTrigger>
+                                                            <SelectValue placeholder="Select currency" />
+                                                        </SelectTrigger>
+                                                    </FormControl>
+                                                    <SelectContent>
+                                                        {CURRENCIES.map((currency) => (
+                                                            <SelectItem key={currency.value} value={currency.value}>
+                                                                {currency.label}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control}
+                                        name="timezone"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Timezone</FormLabel>
+                                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                    <FormControl>
+                                                        <SelectTrigger>
+                                                            <SelectValue placeholder="Select timezone" />
+                                                        </SelectTrigger>
+                                                    </FormControl>
+                                                    <SelectContent>
+                                                        {TIMEZONES.map((tz) => (
+                                                            <SelectItem key={tz.value} value={tz.value}>
+                                                                {tz.label}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
 
                     <div className="flex justify-end">
                         <Button type="submit" disabled={isLoading}>
