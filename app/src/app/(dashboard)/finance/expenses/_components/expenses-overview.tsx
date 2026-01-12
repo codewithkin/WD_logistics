@@ -10,11 +10,10 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Plus, FileSpreadsheet, BarChart3, Settings, DollarSign, Receipt, Truck, MapPin, List, FileText, Download, User } from "lucide-react";
+import { Plus, FileSpreadsheet, BarChart3, DollarSign, Receipt, Truck, MapPin, List, FileText, Download, User } from "lucide-react";
 import Link from "next/link";
 import { ExpensesTableClient } from "./expenses-table-client";
 import { ExpenseCharts } from "./expense-charts";
-import { ExpenseCategoriesSection } from "./expense-categories-section";
 import { formatCurrency } from "@/lib/utils";
 
 interface Category {
@@ -160,7 +159,7 @@ export function ExpensesOverview({ categories, expenses }: ExpensesOverviewProps
             <div className="rounded-lg border bg-card">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b p-4">
                     <Tabs value={activeTab} onValueChange={setActiveTab}>
-                        <TabsList className="grid w-full grid-cols-3 sm:w-auto">
+                        <TabsList className="grid w-full grid-cols-2 sm:w-auto">
                             <TabsTrigger value="expenses" className="gap-2">
                                 <List className="h-4 w-4" />
                                 <span className="hidden sm:inline">Expenses</span>
@@ -168,10 +167,6 @@ export function ExpensesOverview({ categories, expenses }: ExpensesOverviewProps
                             <TabsTrigger value="charts" className="gap-2">
                                 <BarChart3 className="h-4 w-4" />
                                 <span className="hidden sm:inline">Analytics</span>
-                            </TabsTrigger>
-                            <TabsTrigger value="categories" className="gap-2">
-                                <Settings className="h-4 w-4" />
-                                <span className="hidden sm:inline">Categories</span>
                             </TabsTrigger>
                         </TabsList>
                     </Tabs>
@@ -212,10 +207,6 @@ export function ExpensesOverview({ categories, expenses }: ExpensesOverviewProps
 
                         <TabsContent value="charts" className="mt-0">
                             <ExpenseCharts categories={categories} />
-                        </TabsContent>
-
-                        <TabsContent value="categories" className="mt-0">
-                            <ExpenseCategoriesSection categories={categories} />
                         </TabsContent>
                     </Tabs>
                 </div>
