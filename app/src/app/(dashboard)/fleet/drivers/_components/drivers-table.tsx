@@ -90,6 +90,13 @@ export function DriversTable({ drivers, role }: DriversTableProps) {
         return matchesSearch && matchesStatus;
     });
 
+    const pagination = usePagination({
+        defaultPageSize: 10,
+        totalItems: filteredDrivers.length,
+    });
+
+    const paginatedDrivers = filteredDrivers.slice(pagination.startIndex, pagination.endIndex);
+
     const handleDelete = async () => {
         if (!deleteId) return;
         setIsDeleting(true);
