@@ -34,6 +34,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { PaginationControls } from "@/components/ui/pagination-controls";
 import { usePagination } from "@/hooks/use-pagination";
+import { ExportOptionsDialog, type ExportScope } from "@/components/ui/export-options-dialog";
 import {
     Select,
     SelectContent,
@@ -41,10 +42,10 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { MoreHorizontal, Pencil, Trash2, Search, Eye, Truck } from "lucide-react";
+import { MoreHorizontal, Pencil, Trash2, Search, Eye, FileText, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { Role, EMPLOYEE_STATUS_LABELS } from "@/lib/types";
-import { deleteEmployee } from "../actions";
+import { deleteEmployee, exportEmployeesPDF } from "../actions";
 import { toast } from "sonner";
 
 interface Employee {
@@ -70,6 +71,8 @@ export function EmployeesTable({ employees, role }: EmployeesTableProps) {
     const [statusFilter, setStatusFilter] = useState<string>("all");
     const [deleteId, setDeleteId] = useState<string | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [exportDialogOpen, setExportDialogOpen] = useState(false);
+    const [isExporting, setIsExporting] = useState(false);
 
     const canEdit = role === "admin" || role === "supervisor";
     const canDelete = role === "admin";
@@ -109,32 +112,86 @@ export function EmployeesTable({ employees, role }: EmployeesTableProps) {
         }
     };
 
+    const handleExportConfirm = async (scope: ExportScope) => {
+        setIsExporting(true);
+        try {
+            const employeeIds = scope === "current-page"
+                ? paginatedEmployees.map((emp) => emp.id)
+                : filteredEmployees.map((emp) => emp.id);
+
+            const result = await exportEmployeesPDF({
+                employeeIds,
+                startDate: new Date(new Date().setMonth(new Date().getMonth() - 1)),
+                endDate: new Date(),
+            });
+
+            if (result.success && result.pdf) {
+                const byteCharacters = atob(result.pdf);
+                const byteNumbers = new Array(byteCharacters.length);
+                for (let i = 0; i < byteCharacters.length; i++) {
+                    byteNumbers[i] = byteCharacters.charCodeAt(i);
+                }
+                const byteArray = new Uint8Array(byteNumbers);
+                const blob = new Blob([byteArray], { type: "application/pdf" });
+
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = result.filename || "employees-report.pdf";
+                a.click();
+                window.URL.revokeObjectURL(url);
+                toast.success("Report exported successfully");
+            } else {
+                toast.error(result.error || "Failed to generate report");
+            }
+        } catch {
+            toast.error("An error occurred while exporting");
+        } finally {
+            setIsExporting(false);
+        }
+    };
+
     return (
         <Card>
             <CardContent className="p-6">
-                <div className="flex flex-col gap-4 md:flex-row md:items-center mb-6">
-                    <div className="relative flex-1 max-w-sm">
-                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input
-                            placeholder="Search employees..."
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                            className="pl-9"
-                        />
+                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-6">
+                    <div className="flex flex-col gap-4 flex-1 md:flex-row md:items-center">
+                        <div className="relative flex-1 max-w-sm">
+                            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                            <Input
+                                placeholder="Search employees..."
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                                className="pl-9"
+                            />
+                        </div>
+                        <Select value={statusFilter} onValueChange={setStatusFilter}>
+                            <SelectTrigger className="w-[150px]">
+                                <SelectValue placeholder="Status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All Status</SelectItem>
+                                {Object.entries(EMPLOYEE_STATUS_LABELS).map(([value, label]) => (
+                                    <SelectItem key={value} value={value}>
+                                        {label}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
                     </div>
-                    <Select value={statusFilter} onValueChange={setStatusFilter}>
-                        <SelectTrigger className="w-[150px]">
-                            <SelectValue placeholder="Status" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">All Status</SelectItem>
-                            {Object.entries(EMPLOYEE_STATUS_LABELS).map(([value, label]) => (
-                                <SelectItem key={value} value={value}>
-                                    {label}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setExportDialogOpen(true)}
+                        disabled={isExporting}
+                    >
+                        {isExporting ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                            <FileText className="mr-2 h-4 w-4" />
+                        )}
+                        Export Report
+                    </Button>
                 </div>
 
                 <div className="rounded-md border">
@@ -238,6 +295,15 @@ export function EmployeesTable({ employees, role }: EmployeesTableProps) {
                     <PaginationControls {...pagination} />
                 </div>
             </CardContent>
+
+            <ExportOptionsDialog
+                open={exportDialogOpen}
+                onOpenChange={setExportDialogOpen}
+                currentPageCount={employees.length}
+                totalCount={employees.length}
+                onExport={handleExportConfirm}
+                isLoading={isExporting}
+            />
 
             <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
                 <AlertDialogContent>
