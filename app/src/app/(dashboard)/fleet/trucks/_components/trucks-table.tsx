@@ -42,7 +42,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { PaginationControls } from "@/components/ui/pagination-controls";
 import { usePagination } from "@/hooks/use-pagination";
 import { MoreHorizontal, Eye, Pencil, Trash2, Search, FileEdit } from "lucide-react";
-import { Role } from "@/lib/types";
+import { Role, TRUCK_STATUS_LABELS } from "@/lib/types";
 import { deleteTruck, requestEditTruck } from "../actions";
 import { toast } from "sonner";
 
@@ -89,6 +89,13 @@ export function TrucksTable({ trucks, role }: TrucksTableProps) {
         const matchesStatus = statusFilter === "all" || truck.status === statusFilter;
         return matchesSearch && matchesStatus;
     });
+
+    const pagination = usePagination({
+        defaultPageSize: 10,
+        totalItems: filteredTrucks.length,
+    });
+
+    const paginatedTrucks = filteredTrucks.slice(pagination.startIndex, pagination.endIndex);
 
     const handleDelete = async () => {
         if (!deleteId) return;
