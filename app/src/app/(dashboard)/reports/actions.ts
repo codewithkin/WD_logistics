@@ -1,6 +1,5 @@
 "use server";
 
-import { renderToBuffer } from "@react-pdf/renderer";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { z } from "zod";
@@ -21,18 +20,12 @@ import {
   generateTripSummaryCSV,
 } from "@/lib/reports/csv-generator";
 import {
-  ProfitPerUnitReportPDF,
-  RevenueReportPDF,
-  ExpenseReportPDF,
-  CustomerStatementPDF,
-  TripSummaryReportPDF,
-} from "@/lib/reports/pdf-generator";
-import {
-  generateFinancialReportProps,
-  generateFinancialReportCSV,
-} from "@/lib/reports/financial-data-fetchers";
-import { FinancialReportTemplate } from "@/lib/reports/financial-report-template";
-import React from "react";
+  generateProfitPerUnitPDF,
+  generateRevenueReportPDF,
+  generateExpenseReportPDF,
+  generateTripSummaryPDF,
+  generateCustomerStatementPDF,
+} from "@/lib/reports/pdf-report-generator";
 
 // Input validation schema
 const generateReportSchema = z.object({
@@ -77,14 +70,9 @@ export async function generateReport(
 
     const start = new Date(startDate);
     const end = new Date(endDate);
-    const meta = {
-      startDate: start.toISOString().split("T")[0],
-      endDate: end.toISOString().split("T")[0],
-      period,
-      generatedAt: new Date(),
-    };
+    const periodObj = { startDate: start, endDate: end };
 
-    let fileBuffer: Buffer;
+    let fileBuffer: Buffer | Uint8Array;
     let mimeType: string;
     let fileExtension: string;
     let filename: string;
@@ -94,44 +82,53 @@ export async function generateReport(
         const data = await fetchProfitPerUnitData(organizationId, start, end);
 
         if (format === "pdf") {
-          const pdfDoc = React.createElement(ProfitPerUnitReportPDF, { data, meta });
-          fileBuffer = await renderToBuffer(pdfDoc as any);
+          const pdfBytes = generateProfitPerUnitPDF({
+            trucks: data,
+            period: periodObj,
+          });
+          fileBuffer = pdfBytes;
           mimeType = "application/pdf";
           fileExtension = "pdf";
         } else {
+          const meta = {
+            startDate: start.toISOString().split("T")[0],
+            endDate: end.toISOString().split("T")[0],
+            period,
+            generatedAt: new Date(),
+          };
           const csvContent = generateProfitPerUnitCSV(data, meta);
           fileBuffer = Buffer.from(csvContent, "utf-8");
           mimeType = "text/csv";
           fileExtension = "csv";
         }
-        filename = `profit-per-unit-${meta.startDate}-to-${meta.endDate}.${fileExtension}`;
+        filename = `profit-per-unit-${start.toISOString().split("T")[0]}-to-${end.toISOString().split("T")[0]}.${fileExtension}`;
         break;
       }
 
       case "revenue": {
+        const data = await fetchRevenueData(organizationId, start, end);
+        
         if (format === "pdf") {
-          const reportProps = await generateFinancialReportProps(
-            "revenue",
-            organizationId,
-            start,
-            end
-          );
-          const pdfDoc = React.createElement(FinancialReportTemplate, reportProps);
-          fileBuffer = await renderToBuffer(pdfDoc as any);
+          const pdfBytes = generateRevenueReportPDF({
+            items: data,
+            period: periodObj,
+          });
+          fileBuffer = pdfBytes;
           mimeType = "application/pdf";
           fileExtension = "pdf";
         } else {
-          const csvContent = await generateFinancialReportCSV(
-            "revenue",
-            organizationId,
-            start,
-            end
-          );
+          const meta = {
+            startDate: start.toISOString().split("T")[0],
+            endDate: end.toISOString().split("T")[0],
+            period,
+            generatedAt: new Date(),
+          };
+          const csvContent = generateRevenueCSV(data, meta);
           fileBuffer = Buffer.from(csvContent, "utf-8");
           mimeType = "text/csv";
           fileExtension = "csv";
         }
-        filename = `revenue-${meta.startDate}-to-${meta.endDate}.${fileExtension}`;
+        filename = `revenue-${start.toISOString().split("T")[0]}-to-${end.toISOString().split("T")[0]}.${fileExtension}`;
         break;
       }
 
@@ -139,17 +136,33 @@ export async function generateReport(
         const data = await fetchExpenseData(organizationId, start, end);
 
         if (format === "pdf") {
-          const pdfDoc = React.createElement(ExpenseReportPDF, { data, meta });
-          fileBuffer = await renderToBuffer(pdfDoc as any);
+          const pdfBytes = generateExpenseReportPDF({
+            expenses: data.map((e) => ({
+              date: e.date,
+              category: e.category,
+              description: e.description,
+              amount: e.amount,
+              trucks: e.truck ? [e.truck] : [],
+              trips: e.trip ? [e.trip] : [],
+            })),
+            period: periodObj,
+          });
+          fileBuffer = pdfBytes;
           mimeType = "application/pdf";
           fileExtension = "pdf";
         } else {
+          const meta = {
+            startDate: start.toISOString().split("T")[0],
+            endDate: end.toISOString().split("T")[0],
+            period,
+            generatedAt: new Date(),
+          };
           const csvContent = generateExpenseCSV(data, meta);
           fileBuffer = Buffer.from(csvContent, "utf-8");
           mimeType = "text/csv";
           fileExtension = "csv";
         }
-        filename = `expenses-${meta.startDate}-to-${meta.endDate}.${fileExtension}`;
+        filename = `expenses-${start.toISOString().split("T")[0]}-to-${end.toISOString().split("T")[0]}.${fileExtension}`;
         break;
       }
 
@@ -165,26 +178,28 @@ export async function generateReport(
           end
         );
 
-        const statementMeta = {
-          ...meta,
-          customerName: statementData.customer.name,
-        };
-
         if (format === "pdf") {
-          const pdfDoc = React.createElement(CustomerStatementPDF, {
+          const pdfBytes = generateCustomerStatementPDF({
             customer: statementData.customer,
             entries: statementData.entries,
             openingBalance: statementData.openingBalance,
             closingBalance: statementData.closingBalance,
-            meta: statementMeta,
+            period: periodObj,
           });
-          fileBuffer = await renderToBuffer(pdfDoc as any);
+          fileBuffer = pdfBytes;
           mimeType = "application/pdf";
           fileExtension = "pdf";
         } else {
+          const meta = {
+            startDate: start.toISOString().split("T")[0],
+            endDate: end.toISOString().split("T")[0],
+            period,
+            generatedAt: new Date(),
+            customerName: statementData.customer.name,
+          };
           const csvContent = generateCustomerStatementCSV(
             statementData.entries,
-            statementMeta,
+            meta,
             statementData.openingBalance,
             statementData.closingBalance
           );
@@ -192,7 +207,7 @@ export async function generateReport(
           mimeType = "text/csv";
           fileExtension = "csv";
         }
-        filename = `statement-${statementData.customer.name.replace(/\s+/g, "-")}-${meta.startDate}-to-${meta.endDate}.${fileExtension}`;
+        filename = `statement-${statementData.customer.name.replace(/\s+/g, "-")}-${start.toISOString().split("T")[0]}-to-${end.toISOString().split("T")[0]}.${fileExtension}`;
         break;
       }
 
@@ -200,17 +215,36 @@ export async function generateReport(
         const data = await fetchTripSummaryData(organizationId, start, end);
 
         if (format === "pdf") {
-          const pdfDoc = React.createElement(TripSummaryReportPDF, { data, meta });
-          fileBuffer = await renderToBuffer(pdfDoc as any);
+          const pdfBytes = generateTripSummaryPDF({
+            trips: data.map((t) => ({
+              tripNumber: t.tripNumber,
+              date: t.date,
+              origin: t.origin,
+              destination: t.destination,
+              truck: t.truck,
+              driver: t.driver,
+              revenue: t.revenue,
+              expenses: t.expenses,
+              profit: t.profit,
+            })),
+            period: periodObj,
+          });
+          fileBuffer = pdfBytes;
           mimeType = "application/pdf";
           fileExtension = "pdf";
         } else {
+          const meta = {
+            startDate: start.toISOString().split("T")[0],
+            endDate: end.toISOString().split("T")[0],
+            period,
+            generatedAt: new Date(),
+          };
           const csvContent = generateTripSummaryCSV(data, meta);
           fileBuffer = Buffer.from(csvContent, "utf-8");
           mimeType = "text/csv";
           fileExtension = "csv";
         }
-        filename = `trip-summary-${meta.startDate}-to-${meta.endDate}.${fileExtension}`;
+        filename = `trip-summary-${start.toISOString().split("T")[0]}-to-${end.toISOString().split("T")[0]}.${fileExtension}`;
         break;
       }
 
@@ -232,7 +266,7 @@ export async function generateReport(
     });
 
     // Convert buffer to base64 for client download
-    const base64Data = fileBuffer.toString("base64");
+    const base64Data = Buffer.from(fileBuffer).toString("base64");
 
     return {
       success: true,
