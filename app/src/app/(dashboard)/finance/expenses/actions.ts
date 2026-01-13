@@ -4,9 +4,7 @@ import { requireRole } from "@/lib/session";
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { renderToBuffer } from "@react-pdf/renderer";
-import React from "react";
-import { ExpenseReportPDF, type ExpenseExportData } from "@/lib/reports/expense-report-template";
+import { generateExpenseReportPDF } from "@/lib/reports/pdf-report-generator";
 
 export interface ExpenseFormData {
   categoryId: string;
@@ -284,40 +282,26 @@ export async function exportExpensesPDF() {
     orderBy: { date: "desc" },
   });
 
-  const exportData: ExpenseExportData[] = expenses.map((expense) => ({
-    id: expense.id,
-    date: expense.date,
-    category: expense.category.name,
-    categoryColor: expense.category.color || "#71717a",
-    amount: expense.amount,
-    notes: expense.notes ?? undefined,
-    trucks: expense.truckExpenses.map((te) => te.truck.registrationNo),
-    trips: expense.tripExpenses.map((te) => `${te.trip.originCity}→${te.trip.destinationCity}`),
-    drivers: expense.driverExpenses.map((de) => `${de.driver.firstName} ${de.driver.lastName}`),
-  }));
-
-  // Calculate summary stats
-  const totalAmount = exportData.reduce((sum, e) => sum + e.amount, 0);
-  const byCategory = exportData.reduce((acc, e) => {
-    acc[e.category] = (acc[e.category] || 0) + e.amount;
-    return acc;
-  }, {} as Record<string, number>);
-
-  const meta = {
-    generatedAt: new Date(),
-    totalExpenses: exportData.length,
-    totalAmount,
-    organizationName: "WD Logistics",
-  };
+  // Get date range from expenses
+  const dates = expenses.map((e) => new Date(e.date).getTime());
+  const startDate = dates.length > 0 ? new Date(Math.min(...dates)) : new Date();
+  const endDate = dates.length > 0 ? new Date(Math.max(...dates)) : new Date();
 
   try {
-    const pdfDoc = React.createElement(ExpenseReportPDF, { 
-      expenses: exportData, 
-      meta, 
-      byCategory: Object.entries(byCategory).map(([name, amount]) => ({ name, amount }))
+    const pdfBytes = generateExpenseReportPDF({
+      expenses: expenses.map((expense) => ({
+        date: expense.date,
+        category: expense.category.name,
+        description: expense.notes ?? undefined,
+        amount: expense.amount,
+        trucks: expense.truckExpenses.map((te) => te.truck.registrationNo),
+        trips: expense.tripExpenses.map((te) => `${te.trip.originCity}→${te.trip.destinationCity}`),
+        drivers: expense.driverExpenses.map((de) => `${de.driver.firstName} ${de.driver.lastName}`),
+      })),
+      period: { startDate, endDate },
     });
-    const buffer = await renderToBuffer(pdfDoc as any);
-    const base64 = buffer.toString("base64");
+
+    const base64 = Buffer.from(pdfBytes).toString("base64");
 
     return {
       success: true,
