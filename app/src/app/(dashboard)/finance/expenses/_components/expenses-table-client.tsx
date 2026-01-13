@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PaginationControls } from "@/components/ui/pagination-controls";
 import { usePagination } from "@/hooks/use-pagination";
+import { ExportOptionsDialog, type ExportScope } from "@/components/ui/export-options-dialog";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -74,6 +75,13 @@ export function ExpensesTableClient({ expenses }: ExpensesTableProps) {
     const [truckFilter, setTruckFilter] = useState<string>("all");
     const [tripFilter, setTripFilter] = useState<string>("all");
     const [assignmentFilter, setAssignmentFilter] = useState<string>("all"); // all, trucks, trips, unassigned
+    const [exportDialogOpen, setExportDialogOpen] = useState(false);
+    const [exportType, setExportType] = useState<"pdf" | "csv">("pdf");
+    const [isExporting, setIsExporting] = useState(false);
+
+    const showAlert = (message: string) => {
+        alert(message);
+    };
 
     const handleDelete = async (id: string) => {
         if (!confirm("Are you sure you want to delete this expense?")) return;
@@ -243,6 +251,96 @@ export function ExpensesTableClient({ expenses }: ExpensesTableProps) {
             window.removeEventListener("export-csv", handleExportCSV);
         };
     }, [filteredExpenses]);
+
+    const handleExportClick = (type: "pdf" | "csv") => {
+        setExportType(type);
+        setExportDialogOpen(true);
+    };
+
+    const handleExportConfirm = async (scope: ExportScope) => {
+        setIsExporting(true);
+        try {
+            const dataToExport = scope === "current-page" ? paginatedExpenses : filteredExpenses;
+
+            if (exportType === "pdf") {
+                const result = await exportExpensesPDF();
+                if (result.success && result.data) {
+                    // Convert base64 to blob
+                    const byteCharacters = atob(result.data);
+                    const byteNumbers = new Array(byteCharacters.length);
+                    for (let i = 0; i < byteCharacters.length; i++) {
+                        byteNumbers[i] = byteCharacters.charCodeAt(i);
+                    }
+                    const byteArray = new Uint8Array(byteNumbers);
+                    const blob = new Blob([byteArray], { type: result.mimeType || "application/pdf" });
+
+                    // Download file
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = result.filename || "expenses-report.pdf";
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                } else {
+                    showAlert(result.error || "Failed to generate PDF");
+                }
+            } else {
+                // CSV Export
+                const escapeCSV = (value: string) => {
+                    if (value.includes(",") || value.includes('"') || value.includes("\n")) {
+                        return `"${value.replace(/"/g, '""')}"`;
+                    }
+                    return value;
+                };
+
+                const csvData = dataToExport
+                    .map((expense) => {
+                        const trucks = expense.truckExpenses.map((te) => te.truck.registrationNo).join("; ");
+                        const trips = expense.tripExpenses.map((te) => `${te.trip.originCity}→${te.trip.destinationCity}`).join("; ");
+                        return [
+                            escapeCSV(new Date(expense.date).toLocaleDateString()),
+                            escapeCSV(expense.category.name),
+                            escapeCSV(expense.description || ""),
+                            escapeCSV(trucks || "N/A"),
+                            escapeCSV(trips || "N/A"),
+                            expense.amount.toFixed(2),
+                        ].join(",");
+                    })
+                    .join("\n");
+
+                const header = "Date,Category,Description,Trucks,Trips,Amount";
+                const csv = header + "\n" + csvData;
+                const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `expenses-${new Date().toISOString().split("T")[0]}.csv`;
+                a.click();
+                window.URL.revokeObjectURL(url);
+            }
+        } finally {
+            setIsExporting(false);
+        }
+    };
+
+    // Listen for export click events from buttons
+    useEffect(() => {
+        const handleExportPDFClick = (e: Event) => {
+            handleExportClick("pdf");
+        };
+
+        const handleExportCSVClick = (e: Event) => {
+            handleExportClick("csv");
+        };
+
+        window.addEventListener("export-pdf-click", handleExportPDFClick);
+        window.addEventListener("export-csv-click", handleExportCSVClick);
+
+        return () => {
+            window.removeEventListener("export-pdf-click", handleExportPDFClick);
+            window.removeEventListener("export-csv-click", handleExportCSVClick);
+        };
+    }, []);
 
     return (
         <div className="space-y-4">
@@ -480,6 +578,15 @@ export function ExpensesTableClient({ expenses }: ExpensesTableProps) {
                     pageSizeOptions={[10, 25, 50]}
                 />
             </div>
+
+            <ExportOptionsDialog
+                open={exportDialogOpen}
+                onOpenChange={setExportDialogOpen}
+                onExport={handleExportConfirm}
+                currentPageCount={paginatedExpenses.length}
+                totalCount={filteredExpenses.length}
+                isLoading={isExporting}
+            />
         </div>
     );
 }

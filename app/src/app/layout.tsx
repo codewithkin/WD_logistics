@@ -14,52 +14,66 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "WD Logistics | Fleet Management & Transportation Solutions",
+    default: "WD Logistics | Enterprise Fleet Management & Logistics Platform",
     template: "%s | WD Logistics",
   },
   description:
-    "WD Logistics provides comprehensive fleet management, transportation, and logistics solutions. Track trips, manage drivers, handle invoices, and optimize your logistics operations with our all-in-one platform.",
+    "WD Logistics is an enterprise-grade fleet management platform designed for trucking companies. Streamline operations with AI-powered trip tracking, real-time driver management, comprehensive financial reporting, and intelligent logistics optimization.",
   keywords: [
-    "logistics",
-    "fleet management",
-    "transportation",
-    "trucking",
-    "freight",
-    "delivery management",
-    "driver management",
-    "trip tracking",
-    "invoice management",
-    "supply chain",
+    "fleet management software",
+    "logistics platform",
+    "trucking management",
+    "transportation software",
+    "driver management system",
+    "trip tracking platform",
+    "fleet operations",
+    "logistics optimization",
+    "expense management",
+    "financial reporting",
+    "freight management",
+    "AI logistics",
+    "vehicle tracking",
+    "supply chain management",
   ],
   authors: [{ name: "WD Logistics" }],
   creator: "WD Logistics",
   publisher: "WD Logistics",
+  applicationName: "WD Logistics",
+  category: "Business",
+  classification: "Fleet Management & Logistics",
   robots: {
     index: true,
     follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+    },
   },
   openGraph: {
     type: "website",
     locale: "en_US",
     url: "https://wdlogistics.com",
     siteName: "WD Logistics",
-    title: "WD Logistics | Fleet Management & Transportation Solutions",
+    title: "WD Logistics | Enterprise Fleet Management & Logistics Platform",
     description:
-      "Comprehensive fleet management, transportation, and logistics solutions. Optimize your operations with our all-in-one platform.",
+      "AI-powered fleet management platform for trucking companies. Optimize operations, track trips, manage drivers, and streamline financial reporting.",
     images: [
       {
         url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: "WD Logistics - Fleet Management Platform",
+        alt: "WD Logistics - Enterprise Fleet Management Platform",
+        type: "image/png",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "WD Logistics | Fleet Management & Transportation Solutions",
+    site: "@WDLogistics",
+    creator: "@WDLogistics",
+    title: "WD Logistics | Enterprise Fleet Management Platform",
     description:
-      "Comprehensive fleet management, transportation, and logistics solutions.",
+      "AI-powered fleet management and logistics optimization for modern trucking companies.",
     images: ["/og-image.png"],
   },
   icons: {
@@ -72,6 +86,9 @@ export const metadata: Metadata = {
   },
   manifest: "/site.webmanifest",
   metadataBase: new URL(process.env.BETTER_AUTH_URL || "http://localhost:3000"),
+  verification: {
+    google: "YOUR_GOOGLE_VERIFICATION_ID",
+  },
 };
 
 export default function RootLayout({

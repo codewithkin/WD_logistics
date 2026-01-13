@@ -64,6 +64,7 @@ interface ExpensesOverviewProps {
 
 export function ExpensesOverview({ categories, expenses }: ExpensesOverviewProps) {
     const [activeTab, setActiveTab] = useState("expenses");
+    const tableRef = useState<any>(null)[1];
 
     // Calculate summary stats
     const stats = useMemo(() => {
@@ -88,12 +89,12 @@ export function ExpensesOverview({ categories, expenses }: ExpensesOverviewProps
     }, [expenses, categories]);
 
     const handleExportCSV = () => {
-        const event = new CustomEvent("export-csv");
+        const event = new CustomEvent("export-csv-click", { detail: "all-data" });
         window.dispatchEvent(event);
     };
 
     const handleExportPDF = () => {
-        const event = new CustomEvent("export-pdf");
+        const event = new CustomEvent("export-pdf-click", { detail: "all-data" });
         window.dispatchEvent(event);
     };
 
