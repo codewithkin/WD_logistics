@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, requireRole } from "@/lib/session";
 import { TruckStatus } from "@/lib/types";
+import { generateTruckReportPDF } from "@/lib/reports/pdf-report-generator";
 
 export async function createTruck(data: {
   registrationNo: string;
@@ -257,5 +258,87 @@ export async function requestEditTruck(truckId: string) {
   } catch (error) {
     console.error("Failed to create edit request:", error);
     return { success: false, error: "Failed to submit edit request" };
+  }
+}
+
+export async function exportTrucksPDF(options?: {
+  truckIds?: string[];
+  startDate?: Date;
+  endDate?: Date;
+}) {
+  const session = await requireAuth();
+
+  try {
+    const startDate = options?.startDate || new Date(new Date().setMonth(new Date().getMonth() - 1));
+    const endDate = options?.endDate || new Date();
+
+    const whereClause: Record<string, unknown> = {
+      organizationId: session.organizationId,
+    };
+
+    if (options?.truckIds && options.truckIds.length > 0) {
+      whereClause.id = { in: options.truckIds };
+    }
+
+    const trucks = await prisma.truck.findMany({
+      where: whereClause,
+      include: {
+        assignedDriver: {
+          select: {
+            firstName: true,
+            lastName: true,
+          },
+        },
+        trips: {
+          where: {
+            createdAt: {
+              gte: startDate,
+              lte: endDate,
+            },
+          },
+          select: {
+            id: true,
+          },
+        },
+      },
+      orderBy: { registrationNo: "asc" },
+    });
+
+    const truckData = trucks.map((truck) => ({
+      registrationNo: truck.registrationNo,
+      make: truck.make,
+      model: truck.model,
+      year: truck.year,
+      status: truck.status,
+      currentMileage: truck.currentMileage,
+      fuelType: truck.fuelType || "N/A",
+      assignedDriver: truck.assignedDriver
+        ? `${truck.assignedDriver.firstName} ${truck.assignedDriver.lastName}`
+        : "Unassigned",
+      trips: truck.trips.length,
+    }));
+
+    const analytics = {
+      totalTrucks: trucks.length,
+      activeTrucks: trucks.filter((t) => t.status === "active").length,
+      trucksWithDriver: trucks.filter((t) => t.assignedDriver).length,
+      totalMileage: trucks.reduce((sum, t) => sum + t.currentMileage, 0),
+      totalTrips: trucks.reduce((sum, t) => sum + t.trips.length, 0),
+    };
+
+    const pdfBytes = generateTruckReportPDF({
+      trucks: truckData,
+      analytics,
+      period: { startDate, endDate },
+    });
+
+    return {
+      success: true,
+      pdf: Buffer.from(pdfBytes).toString("base64"),
+      filename: `truck-report-${new Date().toISOString().split("T")[0]}.pdf`,
+    };
+  } catch (error) {
+    console.error("Failed to export trucks PDF:", error);
+    return { success: false, error: "Failed to generate PDF report" };
   }
 }

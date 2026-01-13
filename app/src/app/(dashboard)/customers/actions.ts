@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireRole } from "@/lib/session";
+import { requireAuth, requireRole } from "@/lib/session";
+import { generateCustomerReportPDF } from "@/lib/reports/pdf-report-generator";
 
 export async function createCustomer(data: {
   name: string;
@@ -100,5 +101,93 @@ export async function deleteCustomer(id: string) {
   } catch (error) {
     console.error("Failed to delete customer:", error);
     return { success: false, error: "Failed to delete customer" };
+  }
+}
+
+export async function exportCustomersPDF(options?: {
+  customerIds?: string[];
+  startDate?: Date;
+  endDate?: Date;
+}) {
+  const session = await requireAuth();
+
+  try {
+    const startDate = options?.startDate || new Date(new Date().setMonth(new Date().getMonth() - 1));
+    const endDate = options?.endDate || new Date();
+
+    const whereClause: Record<string, unknown> = {
+      organizationId: session.organizationId,
+    };
+
+    if (options?.customerIds && options.customerIds.length > 0) {
+      whereClause.id = { in: options.customerIds };
+    }
+
+    const customers = await prisma.customer.findMany({
+      where: whereClause,
+      include: {
+        trips: {
+          where: {
+            createdAt: {
+              gte: startDate,
+              lte: endDate,
+            },
+          },
+          select: {
+            id: true,
+          },
+        },
+        invoices: {
+          where: {
+            createdAt: {
+              gte: startDate,
+              lte: endDate,
+            },
+          },
+          select: {
+            id: true,
+            total: true,
+          },
+        },
+      },
+      orderBy: { name: "asc" },
+    });
+
+    const customerData = customers.map((customer) => ({
+      name: customer.name,
+      contactPerson: customer.contactPerson || "N/A",
+      email: customer.email || "N/A",
+      phone: customer.phone || "N/A",
+      address: customer.address || "N/A",
+      trips: customer.trips.length,
+      invoices: customer.invoices.length,
+      totalRevenue: customer.invoices.reduce((sum, inv) => sum + inv.total, 0),
+    }));
+
+    const analytics = {
+      totalCustomers: customers.length,
+      customersWithTrips: customers.filter((c) => c.trips.length > 0).length,
+      totalTrips: customers.reduce((sum, c) => sum + c.trips.length, 0),
+      totalInvoices: customers.reduce((sum, c) => sum + c.invoices.length, 0),
+      totalRevenue: customers.reduce(
+        (sum, c) => sum + c.invoices.reduce((iSum, inv) => iSum + inv.total, 0),
+        0
+      ),
+    };
+
+    const pdfBytes = generateCustomerReportPDF({
+      customers: customerData,
+      analytics,
+      period: { startDate, endDate },
+    });
+
+    return {
+      success: true,
+      pdf: Buffer.from(pdfBytes).toString("base64"),
+      filename: `customer-report-${new Date().toISOString().split("T")[0]}.pdf`,
+    };
+  } catch (error) {
+    console.error("Failed to export customers PDF:", error);
+    return { success: false, error: "Failed to generate PDF report" };
   }
 }
