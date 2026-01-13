@@ -320,7 +320,7 @@ export function EditRequestsTable({ editRequests, role }: EditRequestsTableProps
                         </Table>
                     </div>
                     <div className="mt-4">
-                        <PaginationControls {...pagination} />
+                        <PaginationControls {...pagination} totalItems={filteredRequests.length} />
                     </div>
                 </CardContent>
             </Card>

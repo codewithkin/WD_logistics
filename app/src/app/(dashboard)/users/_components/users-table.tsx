@@ -264,7 +264,7 @@ export function UsersTable({ members, currentUserId }: UsersTableProps) {
                         </Table>
                     </div>
                     <div className="mt-4">
-                        <PaginationControls {...pagination} />
+                        <PaginationControls {...pagination} totalItems={filteredMembers.length} />
                     </div>
                 </CardContent>
             </Card>

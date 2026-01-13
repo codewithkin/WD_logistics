@@ -2,12 +2,15 @@ import "dotenv/config";
 import { PrismaClient } from "@/generated/prisma/client";
 import { hashPassword } from "better-auth/crypto";
 
-const prisma = new PrismaClient({
-  ...(process.env.ACCELERATE_URL
-    ? { accelerateUrl: process.env.ACCELERATE_URL }
-    : {}),
+const prismaConfig: any = {
   log: ["error", "warn"],
-});
+};
+
+if (process.env.ACCELERATE_URL) {
+  prismaConfig.accelerateUrl = process.env.ACCELERATE_URL;
+}
+
+const prisma = new PrismaClient(prismaConfig);
 
 // Helper functions
 function randomDate(monthsAgo: number): Date {

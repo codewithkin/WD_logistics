@@ -292,7 +292,7 @@ export async function exportExpensesPDF() {
       expenses: expenses.map((expense) => ({
         date: expense.date,
         category: expense.category.name,
-        description: expense.notes ?? undefined,
+        description: expense.notes ?? "",
         amount: expense.amount,
         trucks: expense.truckExpenses.map((te) => te.truck.registrationNo),
         trips: expense.tripExpenses.map((te) => `${te.trip.originCity}→${te.trip.destinationCity}`),

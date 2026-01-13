@@ -336,7 +336,7 @@ export function DriversAnalytics({ analytics, drivers, canExport }: DriversAnaly
                                         paddingAngle={2}
                                         dataKey="count"
                                         nameKey="type"
-                                        label={({ type, count }) => `${type}: ${count}`}
+                                        label={(props: any) => `${props.type}: ${props.count}`}
                                     >
                                         {analytics.licenseBreakdown.map((entry, index) => (
                                             <Cell key={`cell-${index}`} fill={LICENSE_COLORS[index % LICENSE_COLORS.length]} />

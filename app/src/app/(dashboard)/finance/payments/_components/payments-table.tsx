@@ -267,7 +267,7 @@ export function PaymentsTable({ payments, role }: PaymentsTableProps) {
                     </Table>
                 </div>
                 <div className="mt-4">
-                    <PaginationControls {...pagination} />
+                    <PaginationControls {...pagination} totalItems={filteredPayments.length} />
                 </div>
             </CardContent>
 

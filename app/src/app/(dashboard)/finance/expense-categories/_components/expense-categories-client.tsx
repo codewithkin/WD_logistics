@@ -43,8 +43,8 @@ import { useRouter } from "next/navigation";
 const categorySchema = z.object({
     name: z.string().min(1, "Name is required"),
     description: z.string().optional(),
-    isTruck: z.boolean().default(false),
-    isTrip: z.boolean().default(false),
+    isTruck: z.boolean(),
+    isTrip: z.boolean(),
     color: z.string().optional(),
 });
 

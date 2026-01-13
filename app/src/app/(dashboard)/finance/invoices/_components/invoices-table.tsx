@@ -312,7 +312,7 @@ export function InvoicesTable({ invoices, role }: InvoicesTableProps) {
                     </Table>
                 </div>
                 <div className="mt-4">
-                    <PaginationControls {...pagination} />
+                    <PaginationControls {...pagination} totalItems={filteredInvoices.length} />
                 </div>
             </CardContent>
 

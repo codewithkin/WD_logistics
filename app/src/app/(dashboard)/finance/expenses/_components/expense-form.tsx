@@ -46,8 +46,8 @@ import { showAlert } from "@/components/ui/custom-alert";
 
 const expenseSchema = z.object({
     categoryId: z.string().min(1, "Category is required"),
-    amount: z.coerce.number().positive("Amount must be positive"),
-    date: z.coerce.date(),
+    amount: z.number().positive("Amount must be positive"),
+    date: z.date(),
     notes: z.string().optional(),
     truckIds: z.array(z.string()).optional(),
     tripIds: z.array(z.string()).optional(),

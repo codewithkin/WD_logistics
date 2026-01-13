@@ -14,18 +14,10 @@ import {
     ChevronsLeft,
     ChevronsRight,
 } from "lucide-react";
+import { UsePaginationReturn } from "@/hooks/use-pagination";
 
-interface PaginationControlsProps {
-    currentPage: number;
-    totalPages: number;
-    pageSize: number;
+interface PaginationControlsProps extends UsePaginationReturn {
     totalItems: number;
-    startIndex: number;
-    endIndex: number;
-    onPageChange: (page: number) => void;
-    onPageSizeChange: (size: number) => void;
-    canGoToPreviousPage: boolean;
-    canGoToNextPage: boolean;
     pageSizeOptions?: number[];
 }
 
@@ -36,10 +28,14 @@ export function PaginationControls({
     totalItems,
     startIndex,
     endIndex,
-    onPageChange,
-    onPageSizeChange,
+    setCurrentPage,
+    setPageSize,
     canGoToPreviousPage,
     canGoToNextPage,
+    goToFirstPage,
+    goToLastPage,
+    goToPreviousPage,
+    goToNextPage,
     pageSizeOptions = [10, 25, 50, 100],
 }: PaginationControlsProps) {
     return (
@@ -52,7 +48,7 @@ export function PaginationControls({
                 </div>
                 <div className="flex items-center gap-2">
                     <span className="text-sm text-muted-foreground">Rows per page:</span>
-                    <Select value={String(pageSize)} onValueChange={(value) => onPageSizeChange(Number(value))}>
+                    <Select value={String(pageSize)} onValueChange={(value) => setPageSize(Number(value))}>
                         <SelectTrigger className="w-[70px]">
                             <SelectValue />
                         </SelectTrigger>
@@ -71,7 +67,7 @@ export function PaginationControls({
                 <Button
                     variant="outline"
                     size="icon"
-                    onClick={() => onPageChange(1)}
+                    onClick={goToFirstPage}
                     disabled={!canGoToPreviousPage}
                     title="First page"
                 >
@@ -80,7 +76,7 @@ export function PaginationControls({
                 <Button
                     variant="outline"
                     size="icon"
-                    onClick={() => onPageChange(currentPage - 1)}
+                    onClick={goToPreviousPage}
                     disabled={!canGoToPreviousPage}
                     title="Previous page"
                 >
@@ -97,7 +93,7 @@ export function PaginationControls({
                         onChange={(e) => {
                             const page = Number(e.target.value);
                             if (page >= 1 && page <= totalPages) {
-                                onPageChange(page);
+                                setCurrentPage(page);
                             }
                         }}
                         className="w-12 rounded border border-input bg-background px-2 py-1 text-center text-sm"
@@ -108,7 +104,7 @@ export function PaginationControls({
                 <Button
                     variant="outline"
                     size="icon"
-                    onClick={() => onPageChange(currentPage + 1)}
+                    onClick={goToNextPage}
                     disabled={!canGoToNextPage}
                     title="Next page"
                 >
@@ -117,7 +113,7 @@ export function PaginationControls({
                 <Button
                     variant="outline"
                     size="icon"
-                    onClick={() => onPageChange(totalPages)}
+                    onClick={goToLastPage}
                     disabled={!canGoToNextPage}
                     title="Last page"
                 >

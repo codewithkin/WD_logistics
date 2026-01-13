@@ -118,19 +118,8 @@ export function ExpenseCategoriesTableClient({ categories }: ExpenseCategoriesTa
 
             <div className="mt-6 pt-6 border-t">
                 <PaginationControls
-                    currentPage={pagination.currentPage}
-                    totalPages={pagination.totalPages}
-                    pageSize={pagination.pageSize}
+                    {...pagination}
                     totalItems={categories.length}
-                    startIndex={pagination.startIndex}
-                    endIndex={pagination.endIndex}
-                    onPageChange={pagination.setCurrentPage}
-                    onPageSizeChange={(size) => {
-                        pagination.setPageSize(size);
-                        pagination.goToFirstPage();
-                    }}
-                    canGoToPreviousPage={pagination.canGoToPreviousPage}
-                    canGoToNextPage={pagination.canGoToNextPage}
                     pageSizeOptions={[10, 25, 50]}
                 />
             </div>

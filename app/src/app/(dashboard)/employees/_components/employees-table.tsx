@@ -292,7 +292,7 @@ export function EmployeesTable({ employees, role }: EmployeesTableProps) {
                     </Table>
                 </div>
                 <div className="mt-4">
-                    <PaginationControls {...pagination} />
+                    <PaginationControls {...pagination} totalItems={filteredEmployees.length} />
                 </div>
             </CardContent>
 
