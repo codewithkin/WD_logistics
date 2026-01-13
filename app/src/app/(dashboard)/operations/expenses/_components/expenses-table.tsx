@@ -94,6 +94,13 @@ export function ExpensesTable({ expenses, role }: ExpensesTableProps) {
         return descriptionMatch || categoryMatch || vendorMatch || tripMatch;
     });
 
+    const pagination = usePagination({
+        defaultPageSize: 10,
+        totalItems: filteredExpenses.length,
+    });
+
+    const paginatedExpenses = filteredExpenses.slice(pagination.startIndex, pagination.endIndex);
+
     const totalExpenses = filteredExpenses.reduce((sum, exp) => sum + exp.amount, 0);
 
     const handleDelete = async () => {
