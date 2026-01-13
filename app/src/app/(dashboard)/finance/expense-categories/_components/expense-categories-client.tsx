@@ -141,7 +141,7 @@ export function ExpenseCategoriesClient({ categories }: ExpenseCategoriesClientP
             router.refresh();
         } catch (error) {
             console.error("Failed to delete category:", error);
-            showAlert(error instanceof Error ? error.message : \"Failed to delete category\");
+            showAlert(error instanceof Error ? error.message : "Failed to delete category");
         } finally {
             setDeletingId(null);
         }

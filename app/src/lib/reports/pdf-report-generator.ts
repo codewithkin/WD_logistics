@@ -1246,3 +1246,68 @@ export function generatePaymentReportPDF(data: {
   const generator = new PDFReportGenerator(config);
   return generator.generate();
 }
+
+/**
+ * Generate an Employees Report PDF
+ */
+export function generateEmployeeReportPDF(data: {
+  employees: Array<{
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    position: string;
+    department: string;
+    status: string;
+    startDate: Date | string;
+  }>;
+  analytics: {
+    totalEmployees: number;
+    activeEmployees: number;
+    byDepartment: { [key: string]: number };
+    byPosition: { [key: string]: number };
+  };
+  period: { startDate: Date | string; endDate: Date | string };
+}): Uint8Array {
+  const config: ReportConfig = {
+    title: "Employees Report",
+    subtitle: "Staff Directory & Employment Summary",
+    reportType: "employee-report",
+    period: data.period,
+    summary: [
+      { label: "Total Employees", value: data.analytics.totalEmployees, format: "number" },
+      { label: "Active Employees", value: data.analytics.activeEmployees, format: "number" },
+    ],
+    sections: [
+      {
+        title: "Employee Details",
+        columns: [
+          { header: "Name", key: "fullName", align: "left" },
+          { header: "Position", key: "position", align: "left" },
+          { header: "Department", key: "department", align: "left" },
+          { header: "Email", key: "email", align: "left" },
+          { header: "Phone", key: "phone", align: "left" },
+          { header: "Status", key: "status", align: "center" },
+          { header: "Start Date", key: "startDate", format: "date", align: "center" },
+        ],
+        data: data.employees.map((emp) => ({
+          fullName: `${emp.firstName} ${emp.lastName}`,
+          position: emp.position,
+          department: emp.department || "N/A",
+          email: emp.email || "N/A",
+          phone: emp.phone || "N/A",
+          status: emp.status.replace(/_/g, " "),
+          startDate: emp.startDate,
+        })),
+        showTotal: false,
+      },
+    ],
+    notes: [
+      "Employee status reflects current employment status as of report date.",
+      "Department and position information current as of the reporting period.",
+    ],
+  };
+
+  const generator = new PDFReportGenerator(config);
+  return generator.generate();
+}
