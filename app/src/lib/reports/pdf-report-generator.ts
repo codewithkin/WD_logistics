@@ -961,3 +961,148 @@ export function generateOperationsExpenseReportPDF(data: {
   const generator = new PDFReportGenerator(config);
   return generator.generate();
 }
+
+/**
+ * Generate a Truck Fleet Report PDF
+ */
+export function generateTruckReportPDF(data: {
+  trucks: Array<{
+    registrationNo: string;
+    make: string;
+    model: string;
+    year: number;
+    status: string;
+    currentMileage: number;
+    fuelType: string;
+    assignedDriver: string;
+    trips: number;
+  }>;
+  analytics: {
+    totalTrucks: number;
+    activeTrucks: number;
+    trucksWithDriver: number;
+    totalMileage: number;
+    totalTrips: number;
+  };
+  period: { startDate: Date | string; endDate: Date | string };
+}): Uint8Array {
+  const config: ReportConfig = {
+    title: "Fleet Truck Report",
+    subtitle: "Vehicle Inventory & Status",
+    reportType: "truck-report",
+    period: data.period,
+    summary: [
+      { label: "Total Trucks", value: data.analytics.totalTrucks, format: "number" },
+      { label: "Active Trucks", value: data.analytics.activeTrucks, format: "number" },
+      { label: "With Assigned Driver", value: data.analytics.trucksWithDriver, format: "number" },
+      { label: "Total Mileage", value: data.analytics.totalMileage, format: "number" },
+      { label: "Total Trips", value: data.analytics.totalTrips, format: "number" },
+    ],
+    sections: [
+      {
+        title: "Truck Details",
+        columns: [
+          { header: "Reg. No.", key: "registrationNo", align: "left" },
+          { header: "Make/Model", key: "makeModel", align: "left" },
+          { header: "Year", key: "year", format: "number", align: "center" },
+          { header: "Status", key: "status", align: "center" },
+          { header: "Mileage", key: "currentMileage", format: "number", align: "right" },
+          { header: "Fuel Type", key: "fuelType", align: "center" },
+          { header: "Driver", key: "assignedDriver", align: "left" },
+          { header: "Trips", key: "trips", format: "number", align: "center" },
+        ],
+        data: data.trucks.map((t) => ({
+          registrationNo: t.registrationNo,
+          makeModel: `${t.make} ${t.model}`,
+          year: t.year,
+          status: t.status.replace(/_/g, " "),
+          currentMileage: t.currentMileage,
+          fuelType: t.fuelType || "N/A",
+          assignedDriver: t.assignedDriver || "Unassigned",
+          trips: t.trips,
+        })),
+        showTotal: true,
+        totalLabel: "Totals",
+        totalColumns: ["currentMileage", "trips"],
+      },
+    ],
+    notes: [
+      "Mileage figures reflect odometer readings at the time of report generation.",
+      "Trip counts include all trips during the reporting period.",
+    ],
+  };
+
+  const generator = new PDFReportGenerator(config);
+  return generator.generate();
+}
+
+/**
+ * Generate a Customer Report PDF
+ */
+export function generateCustomerReportPDF(data: {
+  customers: Array<{
+    name: string;
+    contactPerson: string;
+    email: string;
+    phone: string;
+    address: string;
+    trips: number;
+    invoices: number;
+    totalRevenue: number;
+  }>;
+  analytics: {
+    totalCustomers: number;
+    customersWithTrips: number;
+    totalTrips: number;
+    totalInvoices: number;
+    totalRevenue: number;
+  };
+  period: { startDate: Date | string; endDate: Date | string };
+}): Uint8Array {
+  const config: ReportConfig = {
+    title: "Customer Report",
+    subtitle: "Client Overview & Activity",
+    reportType: "customer-report",
+    period: data.period,
+    summary: [
+      { label: "Total Customers", value: data.analytics.totalCustomers, format: "number" },
+      { label: "Active Customers", value: data.analytics.customersWithTrips, format: "number" },
+      { label: "Total Trips", value: data.analytics.totalTrips, format: "number" },
+      { label: "Total Invoices", value: data.analytics.totalInvoices, format: "number" },
+      { label: "Total Revenue", value: data.analytics.totalRevenue, format: "currency" },
+    ],
+    sections: [
+      {
+        title: "Customer Details",
+        columns: [
+          { header: "Company Name", key: "name", align: "left" },
+          { header: "Contact Person", key: "contactPerson", align: "left" },
+          { header: "Email", key: "email", align: "left" },
+          { header: "Phone", key: "phone", align: "left" },
+          { header: "Trips", key: "trips", format: "number", align: "center" },
+          { header: "Invoices", key: "invoices", format: "number", align: "center" },
+          { header: "Revenue", key: "totalRevenue", format: "currency", align: "right" },
+        ],
+        data: data.customers.map((c) => ({
+          name: c.name,
+          contactPerson: c.contactPerson || "N/A",
+          email: c.email || "N/A",
+          phone: c.phone || "N/A",
+          trips: c.trips,
+          invoices: c.invoices,
+          totalRevenue: c.totalRevenue,
+        })),
+        showTotal: true,
+        totalLabel: "Totals",
+        totalColumns: ["trips", "invoices", "totalRevenue"],
+      },
+    ],
+    notes: [
+      "All amounts are in United States Dollars (USD).",
+      "Revenue figures reflect total invoiced amounts for the reporting period.",
+    ],
+  };
+
+  const generator = new PDFReportGenerator(config);
+  return generator.generate();
+}
