@@ -67,10 +67,11 @@ interface ReportsDashboardProps {
   };
   onGeneratePDF?: () => void;
   onGenerateCSV?: () => void;
+  onExportDashboard?: () => void;
   isGenerating?: boolean;
 }
 
-export function ReportsDashboard({ data, onGeneratePDF, onGenerateCSV, isGenerating = false }: ReportsDashboardProps) {
+export function ReportsDashboard({ data, onGeneratePDF, onGenerateCSV, onExportDashboard, isGenerating = false }: ReportsDashboardProps) {
   const {
     totalTrucks,
     activeTrucks,
@@ -126,6 +127,15 @@ export function ReportsDashboard({ data, onGeneratePDF, onGenerateCSV, isGenerat
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              {onExportDashboard && (
+                <>
+                  <DropdownMenuItem onClick={onExportDashboard}>
+                    <FileText className="mr-2 h-4 w-4" />
+                    Export Dashboard Summary
+                  </DropdownMenuItem>
+                  <div className="my-2 h-px bg-border" />
+                </>
+              )}
               {onGeneratePDF && (
                 <DropdownMenuItem onClick={onGeneratePDF}>
                   <FileText className="mr-2 h-4 w-4" />

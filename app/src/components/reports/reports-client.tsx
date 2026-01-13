@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { generateReport } from "@/app/(dashboard)/reports/actions";
+import { exportDashboardPDF } from "@/app/(dashboard)/reports/actions";
 import { format, startOfMonth, endOfMonth, subMonths } from "date-fns";
 import { ReportsDashboard } from "./reports-dashboard";
 
@@ -58,6 +59,37 @@ export function ReportsClient({
     });
   };
 
+  const handleExportDashboard = () => {
+    startTransition(async () => {
+      try {
+        const result = await exportDashboardPDF();
+
+        if (result.success && result.pdf) {
+          const byteCharacters = atob(result.pdf);
+          const byteNumbers = new Array(byteCharacters.length);
+          for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+          }
+          const byteArray = new Uint8Array(byteNumbers);
+          const blob = new Blob([byteArray], { type: "application/pdf" });
+
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = result.filename || "dashboard-summary.pdf";
+          a.click();
+          window.URL.revokeObjectURL(url);
+
+          toast.success("Dashboard exported successfully");
+        } else {
+          toast.error(result.error || "Failed to export dashboard");
+        }
+      } catch {
+        toast.error("An error occurred while exporting dashboard");
+      }
+    });
+  };
+
   // If dashboardContent is a React component (ReportsDashboard), clone it with additional props
   const EnhancedDashboard = dashboardContent.type === ReportsDashboard
     ? () => {
@@ -67,6 +99,7 @@ export function ReportsClient({
           {...dashboardContent.props}
           onGeneratePDF={() => handleGenerateReport("pdf")}
           onGenerateCSV={() => handleGenerateReport("csv")}
+          onExportDashboard={handleExportDashboard}
           isGenerating={isPending}
         />
       );
