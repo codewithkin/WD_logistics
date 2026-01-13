@@ -1,8 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Download, FileSpreadsheet, DollarSign, Clock, CheckCircle, XCircle, CreditCard, TrendingUp } from "lucide-react";
+import { Download, FileSpreadsheet, DollarSign, Clock, CheckCircle, XCircle, CreditCard, TrendingUp, Loader2 } from "lucide-react";
 import {
     PieChart,
     Pie,
@@ -17,6 +18,7 @@ import {
     Legend,
 } from "recharts";
 import { format } from "date-fns";
+import { exportOperationsExpensesPDF } from "../actions";
 
 interface Expense {
     id: string;
@@ -64,6 +66,8 @@ const CATEGORY_COLORS = [
 ];
 
 export function ExpensesAnalytics({ analytics, expenses, canExport }: ExpensesAnalyticsProps) {
+    const [isExporting, setIsExporting] = useState(false);
+
     const statusData = [
         { name: "Pending", value: analytics.pendingExpenses, color: STATUS_COLORS.pending },
         { name: "Approved", value: analytics.approvedExpenses, color: STATUS_COLORS.approved },
@@ -105,8 +109,30 @@ export function ExpensesAnalytics({ analytics, expenses, canExport }: ExpensesAn
         URL.revokeObjectURL(url);
     };
 
-    const handleExportPDF = () => {
-        window.print();
+    const handleExportPDF = async () => {
+        setIsExporting(true);
+        try {
+            const result = await exportOperationsExpensesPDF();
+            if (result.success && result.data) {
+                const byteCharacters = atob(result.data);
+                const byteNumbers = new Array(byteCharacters.length);
+                for (let i = 0; i < byteCharacters.length; i++) {
+                    byteNumbers[i] = byteCharacters.charCodeAt(i);
+                }
+                const byteArray = new Uint8Array(byteNumbers);
+                const blob = new Blob([byteArray], { type: result.mimeType || "application/pdf" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = result.filename || "operations-expenses-report.pdf";
+                a.click();
+                URL.revokeObjectURL(url);
+            }
+        } catch (error) {
+            console.error("PDF export error:", error);
+        } finally {
+            setIsExporting(false);
+        }
     };
 
     const averageExpense = analytics.totalExpenses > 0
@@ -122,8 +148,8 @@ export function ExpensesAnalytics({ analytics, expenses, canExport }: ExpensesAn
                         <FileSpreadsheet className="mr-2 h-4 w-4" />
                         Export CSV
                     </Button>
-                    <Button variant="outline" onClick={handleExportPDF}>
-                        <Download className="mr-2 h-4 w-4" />
+                    <Button variant="outline" onClick={handleExportPDF} disabled={isExporting}>
+                        {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
                         Export PDF
                     </Button>
                 </div>
