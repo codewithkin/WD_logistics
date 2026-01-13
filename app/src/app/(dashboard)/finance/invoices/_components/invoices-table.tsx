@@ -40,6 +40,8 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { MoreHorizontal, Eye, Pencil, Trash2, Search, CreditCard } from "lucide-react";
+import { PaginationControls } from "@/components/ui/pagination-controls";
+import { usePagination } from "@/hooks/use-pagination";
 import { format } from "date-fns";
 import { Role, INVOICE_STATUS_LABELS } from "@/lib/types";
 import { deleteInvoice } from "../actions";
@@ -83,6 +85,9 @@ export function InvoicesTable({ invoices, role }: InvoicesTableProps) {
         const matchesStatus = statusFilter === "all" || invoice.status === statusFilter;
         return matchesSearch && matchesStatus;
     });
+
+    const pagination = usePagination({ defaultPageSize: 10, totalItems: filteredInvoices.length });
+    const paginatedInvoices = filteredInvoices.slice(pagination.startIndex, pagination.endIndex);
 
     const handleDelete = async () => {
         if (!deleteId) return;
@@ -153,7 +158,7 @@ export function InvoicesTable({ invoices, role }: InvoicesTableProps) {
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                filteredInvoices.map((invoice) => {
+                                paginatedInvoices.map((invoice) => {
                                     const totalPaid = invoice.payments.reduce((sum, p) => sum + p.amount, 0);
                                     const isOverdue =
                                         invoice.status !== "paid" &&
@@ -248,6 +253,9 @@ export function InvoicesTable({ invoices, role }: InvoicesTableProps) {
                             )}
                         </TableBody>
                     </Table>
+                </div>
+                <div className="mt-4">
+                    <PaginationControls {...pagination} />
                 </div>
             </CardContent>
 

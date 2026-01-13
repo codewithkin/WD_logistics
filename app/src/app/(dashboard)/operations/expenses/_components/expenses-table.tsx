@@ -32,6 +32,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
+import { PaginationControls } from "@/components/ui/pagination-controls";
+import { usePagination } from "@/hooks/use-pagination";
 import { MoreHorizontal, Pencil, Trash2, Search } from "lucide-react";
 import { format } from "date-fns";
 import { Role } from "@/lib/types";
@@ -144,14 +146,14 @@ export function ExpensesTable({ expenses, role }: ExpensesTableProps) {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {filteredExpenses.length === 0 ? (
+                            {paginatedExpenses.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={6} className="text-center h-24 text-muted-foreground">
                                         No expenses found
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                filteredExpenses.map((expense) => (
+                                paginatedExpenses.map((expense) => (
                                     <TableRow key={expense.id}>
                                         <TableCell className="font-medium">
                                             {expense.description || expense.category.name}
@@ -214,6 +216,25 @@ export function ExpensesTable({ expenses, role }: ExpensesTableProps) {
                             )}
                         </TableBody>
                     </Table>
+                </div>
+
+                <div className="mt-6 pt-6 border-t">
+                    <PaginationControls
+                        currentPage={pagination.currentPage}
+                        totalPages={pagination.totalPages}
+                        pageSize={pagination.pageSize}
+                        totalItems={filteredExpenses.length}
+                        startIndex={pagination.startIndex}
+                        endIndex={pagination.endIndex}
+                        onPageChange={pagination.setCurrentPage}
+                        onPageSizeChange={(size) => {
+                            pagination.setPageSize(size);
+                            pagination.goToFirstPage();
+                        }}
+                        canGoToPreviousPage={pagination.canGoToPreviousPage}
+                        canGoToNextPage={pagination.canGoToNextPage}
+                        pageSizeOptions={[10, 25, 50]}
+                    />
                 </div>
             </CardContent>
 

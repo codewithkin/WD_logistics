@@ -40,6 +40,8 @@ import {
 } from "@/components/ui/select";
 import { MoreHorizontal, Search, Check, X, Eye, ExternalLink } from "lucide-react";
 import { format } from "date-fns";
+import { PaginationControls } from "@/components/ui/pagination-controls";
+import { usePagination } from "@/hooks/use-pagination";
 import { Role, EDIT_REQUEST_STATUS_LABELS } from "@/lib/types";
 import { approveEditRequest, rejectEditRequest } from "../actions";
 import { toast } from "sonner";
@@ -116,6 +118,9 @@ export function EditRequestsTable({ editRequests, role }: EditRequestsTableProps
 
         return matchesSearch && matchesFilter;
     });
+
+    const pagination = usePagination({ defaultPageSize: 10, totalItems: filteredRequests.length });
+    const paginatedRequests = filteredRequests.slice(pagination.startIndex, pagination.endIndex);
 
     const pendingCount = editRequests.filter((r) => r.status === "pending").length;
 
@@ -226,7 +231,7 @@ export function EditRequestsTable({ editRequests, role }: EditRequestsTableProps
                                         </TableCell>
                                     </TableRow>
                                 ) : (
-                                    filteredRequests.map((request) => {
+                                    paginatedRequests.map((request) => {
                                         const entityLink = getEntityLink(request.entityType, request.entityId);
 
                                         return (
@@ -313,6 +318,9 @@ export function EditRequestsTable({ editRequests, role }: EditRequestsTableProps
                                 )}
                             </TableBody>
                         </Table>
+                    </div>
+                    <div className="mt-4">
+                        <PaginationControls {...pagination} />
                     </div>
                 </CardContent>
             </Card>

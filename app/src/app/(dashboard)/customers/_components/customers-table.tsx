@@ -32,6 +32,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
+import { PaginationControls } from "@/components/ui/pagination-controls";
+import { usePagination } from "@/hooks/use-pagination";
 import { MoreHorizontal, Eye, Pencil, Trash2, Search } from "lucide-react";
 import { Role } from "@/lib/types";
 import { deleteCustomer } from "../actions";
@@ -71,6 +73,13 @@ export function CustomersTable({ customers, role }: CustomersTableProps) {
             customer.phone?.toLowerCase().includes(search.toLowerCase())
         );
     });
+
+    const pagination = usePagination({
+        defaultPageSize: 10,
+        totalItems: filteredCustomers.length,
+    });
+
+    const paginatedCustomers = filteredCustomers.slice(pagination.startIndex, pagination.endIndex);
 
     const handleDelete = async () => {
         if (!deleteId) return;
@@ -119,14 +128,14 @@ export function CustomersTable({ customers, role }: CustomersTableProps) {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {filteredCustomers.length === 0 ? (
+                            {paginatedCustomers.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={6} className="text-center h-24 text-muted-foreground">
                                         No customers found
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                filteredCustomers.map((customer) => (
+                                paginatedCustomers.map((customer) => (
                                     <TableRow key={customer.id}>
                                         <TableCell className="font-medium">{customer.name}</TableCell>
                                         <TableCell>
@@ -185,6 +194,25 @@ export function CustomersTable({ customers, role }: CustomersTableProps) {
                             )}
                         </TableBody>
                     </Table>
+                </div>
+
+                <div className="mt-6 pt-6 border-t">
+                    <PaginationControls
+                        currentPage={pagination.currentPage}
+                        totalPages={pagination.totalPages}
+                        pageSize={pagination.pageSize}
+                        totalItems={filteredCustomers.length}
+                        startIndex={pagination.startIndex}
+                        endIndex={pagination.endIndex}
+                        onPageChange={pagination.setCurrentPage}
+                        onPageSizeChange={(size) => {
+                            pagination.setPageSize(size);
+                            pagination.goToFirstPage();
+                        }}
+                        canGoToPreviousPage={pagination.canGoToPreviousPage}
+                        canGoToNextPage={pagination.canGoToNextPage}
+                        pageSizeOptions={[10, 25, 50]}
+                    />
                 </div>
             </CardContent>
 

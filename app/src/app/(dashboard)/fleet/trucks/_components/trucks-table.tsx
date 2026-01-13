@@ -39,6 +39,8 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
+import { PaginationControls } from "@/components/ui/pagination-controls";
+import { usePagination } from "@/hooks/use-pagination";
 import { MoreHorizontal, Eye, Pencil, Trash2, Search, FileEdit } from "lucide-react";
 import { Role } from "@/lib/types";
 import { deleteTruck, requestEditTruck } from "../actions";
@@ -163,14 +165,14 @@ export function TrucksTable({ trucks, role }: TrucksTableProps) {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {filteredTrucks.length === 0 ? (
+                            {paginatedTrucks.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={8} className="text-center h-24 text-muted-foreground">
                                         No trucks found
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                filteredTrucks.map((truck) => (
+                                paginatedTrucks.map((truck) => (
                                     <TableRow key={truck.id}>
                                         <TableCell className="font-medium">{truck.registrationNo}</TableCell>
                                         <TableCell>
@@ -243,6 +245,25 @@ export function TrucksTable({ trucks, role }: TrucksTableProps) {
                             )}
                         </TableBody>
                     </Table>
+                </div>
+
+                <div className="mt-6 pt-6 border-t">
+                    <PaginationControls
+                        currentPage={pagination.currentPage}
+                        totalPages={pagination.totalPages}
+                        pageSize={pagination.pageSize}
+                        totalItems={filteredTrucks.length}
+                        startIndex={pagination.startIndex}
+                        endIndex={pagination.endIndex}
+                        onPageChange={pagination.setCurrentPage}
+                        onPageSizeChange={(size) => {
+                            pagination.setPageSize(size);
+                            pagination.goToFirstPage();
+                        }}
+                        canGoToPreviousPage={pagination.canGoToPreviousPage}
+                        canGoToNextPage={pagination.canGoToNextPage}
+                        pageSizeOptions={[10, 25, 50]}
+                    />
                 </div>
             </CardContent>
 

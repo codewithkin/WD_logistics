@@ -11,6 +11,8 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { PaginationControls } from "@/components/ui/pagination-controls";
+import { usePagination } from "@/hooks/use-pagination";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -143,6 +145,13 @@ export function ExpensesTableClient({ expenses }: ExpensesTableProps) {
             return matchesSearch && matchesCategory && matchesTruck && matchesTrip && matchesAssignment;
         });
     }, [expenses, searchQuery, categoryFilter, truckFilter, tripFilter, assignmentFilter]);
+
+    const pagination = usePagination({
+        defaultPageSize: 10,
+        totalItems: filteredExpenses.length,
+    });
+
+    const paginatedExpenses = filteredExpenses.slice(pagination.startIndex, pagination.endIndex);
 
     // Calculate total
     const totalAmount = useMemo(() => {
@@ -348,7 +357,7 @@ export function ExpensesTableClient({ expenses }: ExpensesTableProps) {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {filteredExpenses.length === 0 ? (
+                        {paginatedExpenses.length === 0 ? (
                             <TableRow>
                                 <TableCell colSpan={6} className="h-32 text-center">
                                     <div className="flex flex-col items-center gap-2 text-muted-foreground">
@@ -366,7 +375,7 @@ export function ExpensesTableClient({ expenses }: ExpensesTableProps) {
                                 </TableCell>
                             </TableRow>
                         ) : (
-                            filteredExpenses.map((expense) => (
+                            paginatedExpenses.map((expense) => (
                                 <TableRow key={expense.id} className="group">
                                     <TableCell className="font-medium">
                                         {new Date(expense.date).toLocaleDateString("en-US", {
@@ -451,6 +460,25 @@ export function ExpensesTableClient({ expenses }: ExpensesTableProps) {
                         )}
                     </TableBody>
                 </Table>
+            </div>
+
+            <div className="mt-6 pt-6 border-t">
+                <PaginationControls
+                    currentPage={pagination.currentPage}
+                    totalPages={pagination.totalPages}
+                    pageSize={pagination.pageSize}
+                    totalItems={filteredExpenses.length}
+                    startIndex={pagination.startIndex}
+                    endIndex={pagination.endIndex}
+                    onPageChange={pagination.setCurrentPage}
+                    onPageSizeChange={(size) => {
+                        pagination.setPageSize(size);
+                        pagination.goToFirstPage();
+                    }}
+                    canGoToPreviousPage={pagination.canGoToPreviousPage}
+                    canGoToNextPage={pagination.canGoToNextPage}
+                    pageSizeOptions={[10, 25, 50]}
+                />
             </div>
         </div>
     );

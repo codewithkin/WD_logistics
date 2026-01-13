@@ -20,6 +20,8 @@ import {
 import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { PaginationControls } from "@/components/ui/pagination-controls";
+import { usePagination } from "@/hooks/use-pagination";
 
 interface ExpenseCategory {
     id: string;
@@ -40,6 +42,13 @@ interface ExpenseCategoriesTableClientProps {
 export function ExpenseCategoriesTableClient({ categories }: ExpenseCategoriesTableClientProps) {
     const router = useRouter();
 
+    const pagination = usePagination({
+        defaultPageSize: 10,
+        totalItems: categories.length,
+    });
+
+    const paginatedCategories = categories.slice(pagination.startIndex, pagination.endIndex);
+
     return (
         <div className="rounded-md border">
             <Table>
@@ -53,14 +62,14 @@ export function ExpenseCategoriesTableClient({ categories }: ExpenseCategoriesTa
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {categories.length === 0 ? (
+                    {paginatedCategories.length === 0 ? (
                         <TableRow>
                             <TableCell colSpan={5} className="text-center text-muted-foreground">
                                 No expense categories found
                             </TableCell>
                         </TableRow>
                     ) : (
-                        categories.map((category) => (
+                        paginatedCategories.map((category) => (
                             <TableRow key={category.id}>
                                 <TableCell>
                                     <div className="flex items-center gap-2">
@@ -106,6 +115,25 @@ export function ExpenseCategoriesTableClient({ categories }: ExpenseCategoriesTa
                     )}
                 </TableBody>
             </Table>
+
+            <div className="mt-6 pt-6 border-t">
+                <PaginationControls
+                    currentPage={pagination.currentPage}
+                    totalPages={pagination.totalPages}
+                    pageSize={pagination.pageSize}
+                    totalItems={categories.length}
+                    startIndex={pagination.startIndex}
+                    endIndex={pagination.endIndex}
+                    onPageChange={pagination.setCurrentPage}
+                    onPageSizeChange={(size) => {
+                        pagination.setPageSize(size);
+                        pagination.goToFirstPage();
+                    }}
+                    canGoToPreviousPage={pagination.canGoToPreviousPage}
+                    canGoToNextPage={pagination.canGoToNextPage}
+                    pageSizeOptions={[10, 25, 50]}
+                />
+            </div>
         </div>
     );
 }

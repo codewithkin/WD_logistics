@@ -39,6 +39,8 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
+import { PaginationControls } from "@/components/ui/pagination-controls";
+import { usePagination } from "@/hooks/use-pagination";
 import { MoreHorizontal, Eye, Pencil, Trash2, Search, FileEdit } from "lucide-react";
 import { Role, DRIVER_STATUS_LABELS } from "@/lib/types";
 import { deleteDriver, requestEditDriver } from "../actions";
@@ -162,14 +164,14 @@ export function DriversTable({ drivers, role }: DriversTableProps) {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {filteredDrivers.length === 0 ? (
+                            {paginatedDrivers.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={7} className="text-center h-24 text-muted-foreground">
                                         No drivers found
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                filteredDrivers.map((driver) => (
+                                paginatedDrivers.map((driver) => (
                                     <TableRow key={driver.id}>
                                         <TableCell className="font-medium">{driver.firstName} {driver.lastName}</TableCell>
                                         <TableCell>{driver.phone}</TableCell>
@@ -239,6 +241,25 @@ export function DriversTable({ drivers, role }: DriversTableProps) {
                             )}
                         </TableBody>
                     </Table>
+                </div>
+
+                <div className="mt-6 pt-6 border-t">
+                    <PaginationControls
+                        currentPage={pagination.currentPage}
+                        totalPages={pagination.totalPages}
+                        pageSize={pagination.pageSize}
+                        totalItems={filteredDrivers.length}
+                        startIndex={pagination.startIndex}
+                        endIndex={pagination.endIndex}
+                        onPageChange={pagination.setCurrentPage}
+                        onPageSizeChange={(size) => {
+                            pagination.setPageSize(size);
+                            pagination.goToFirstPage();
+                        }}
+                        canGoToPreviousPage={pagination.canGoToPreviousPage}
+                        canGoToNextPage={pagination.canGoToNextPage}
+                        pageSizeOptions={[10, 25, 50]}
+                    />
                 </div>
             </CardContent>
 

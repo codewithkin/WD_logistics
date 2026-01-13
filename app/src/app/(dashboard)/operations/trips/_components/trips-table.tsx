@@ -13,6 +13,8 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { PaginationControls } from "@/components/ui/pagination-controls";
+import { usePagination } from "@/hooks/use-pagination";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -97,6 +99,13 @@ export function TripsTable({ trips, role }: TripsTableProps) {
         return matchesSearch && matchesStatus;
     });
 
+    const pagination = usePagination({
+        defaultPageSize: 10,
+        totalItems: filteredTrips.length,
+    });
+
+    const paginatedTrips = filteredTrips.slice(pagination.startIndex, pagination.endIndex);
+
     const handleDelete = async () => {
         if (!deleteId) return;
         setIsDeleting(true);
@@ -172,14 +181,14 @@ export function TripsTable({ trips, role }: TripsTableProps) {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {filteredTrips.length === 0 ? (
+                            {paginatedTrips.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={8} className="text-center h-24 text-muted-foreground">
                                         No trips found
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                filteredTrips.map((trip) => (
+                                paginatedTrips.map((trip) => (
                                     <TableRow key={trip.id}>
                                         <TableCell>
                                             <div className="flex items-center gap-2">
@@ -281,6 +290,25 @@ export function TripsTable({ trips, role }: TripsTableProps) {
                             )}
                         </TableBody>
                     </Table>
+                </div>
+
+                <div className="mt-6 pt-6 border-t">
+                    <PaginationControls
+                        currentPage={pagination.currentPage}
+                        totalPages={pagination.totalPages}
+                        pageSize={pagination.pageSize}
+                        totalItems={filteredTrips.length}
+                        startIndex={pagination.startIndex}
+                        endIndex={pagination.endIndex}
+                        onPageChange={pagination.setCurrentPage}
+                        onPageSizeChange={(size) => {
+                            pagination.setPageSize(size);
+                            pagination.goToFirstPage();
+                        }}
+                        canGoToPreviousPage={pagination.canGoToPreviousPage}
+                        canGoToNextPage={pagination.canGoToNextPage}
+                        pageSizeOptions={[10, 25, 50]}
+                    />
                 </div>
             </CardContent>
 

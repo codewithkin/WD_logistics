@@ -41,6 +41,8 @@ import {
 } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { MoreHorizontal, Search, Trash2, Shield } from "lucide-react";
+import { PaginationControls } from "@/components/ui/pagination-controls";
+import { usePagination } from "@/hooks/use-pagination";
 import { format } from "date-fns";
 import { ROLE_LABELS } from "@/lib/types";
 import { updateMemberRole, removeMember } from "../actions";
@@ -83,6 +85,9 @@ export function UsersTable({ members, currentUserId }: UsersTableProps) {
 
         return matchesSearch && matchesFilter;
     });
+
+    const pagination = usePagination({ defaultPageSize: 10, totalItems: filteredMembers.length });
+    const paginatedMembers = filteredMembers.slice(pagination.startIndex, pagination.endIndex);
 
     const handleRemove = async () => {
         if (!removeId) return;
@@ -180,7 +185,7 @@ export function UsersTable({ members, currentUserId }: UsersTableProps) {
                                         </TableCell>
                                     </TableRow>
                                 ) : (
-                                    filteredMembers.map((member) => {
+                                    paginatedMembers.map((member) => {
                                         const isCurrentUser = member.user.id === currentUserId;
 
                                         return (
@@ -257,6 +262,9 @@ export function UsersTable({ members, currentUserId }: UsersTableProps) {
                                 )}
                             </TableBody>
                         </Table>
+                    </div>
+                    <div className="mt-4">
+                        <PaginationControls {...pagination} />
                     </div>
                 </CardContent>
             </Card>

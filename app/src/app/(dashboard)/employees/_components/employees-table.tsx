@@ -32,6 +32,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
+import { PaginationControls } from "@/components/ui/pagination-controls";
+import { usePagination } from "@/hooks/use-pagination";
 import {
     Select,
     SelectContent,
@@ -84,6 +86,9 @@ export function EmployeesTable({ employees, role }: EmployeesTableProps) {
 
         return matchesSearch && matchesFilter;
     });
+
+    const pagination = usePagination({ defaultPageSize: 10, totalItems: filteredEmployees.length });
+    const paginatedEmployees = filteredEmployees.slice(pagination.startIndex, pagination.endIndex);
 
     const handleDelete = async () => {
         if (!deleteId) return;
@@ -156,7 +161,7 @@ export function EmployeesTable({ employees, role }: EmployeesTableProps) {
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                filteredEmployees.map((employee) => (
+                                paginatedEmployees.map((employee) => (
                                     <TableRow key={employee.id}>
                                         <TableCell>
                                             <div className="flex items-center gap-2">
@@ -228,6 +233,9 @@ export function EmployeesTable({ employees, role }: EmployeesTableProps) {
                             )}
                         </TableBody>
                     </Table>
+                </div>
+                <div className="mt-4">
+                    <PaginationControls {...pagination} />
                 </div>
             </CardContent>
 

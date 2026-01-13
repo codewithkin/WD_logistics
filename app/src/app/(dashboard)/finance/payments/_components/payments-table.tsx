@@ -33,6 +33,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { MoreHorizontal, Pencil, Trash2, Search } from "lucide-react";
+import { PaginationControls } from "@/components/ui/pagination-controls";
+import { usePagination } from "@/hooks/use-pagination";
 import { format } from "date-fns";
 import { Role } from "@/lib/types";
 import { deletePayment } from "../actions";
@@ -75,6 +77,9 @@ export function PaymentsTable({ payments, role }: PaymentsTableProps) {
             payment.reference?.toLowerCase().includes(search.toLowerCase())
         );
     });
+
+    const pagination = usePagination({ defaultPageSize: 10, totalItems: filteredPayments.length });
+    const paginatedPayments = filteredPayments.slice(pagination.startIndex, pagination.endIndex);
 
     const totalPayments = filteredPayments.reduce((sum, p) => sum + p.amount, 0);
 
@@ -136,7 +141,7 @@ export function PaymentsTable({ payments, role }: PaymentsTableProps) {
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                filteredPayments.map((payment) => (
+                                paginatedPayments.map((payment) => (
                                     <TableRow key={payment.id}>
                                         <TableCell>{format(payment.paymentDate, "MMM d, yyyy")}</TableCell>
                                         <TableCell>
@@ -203,6 +208,9 @@ export function PaymentsTable({ payments, role }: PaymentsTableProps) {
                             )}
                         </TableBody>
                     </Table>
+                </div>
+                <div className="mt-4">
+                    <PaginationControls {...pagination} />
                 </div>
             </CardContent>
 
