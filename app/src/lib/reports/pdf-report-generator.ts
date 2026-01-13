@@ -1106,3 +1106,143 @@ export function generateCustomerReportPDF(data: {
   const generator = new PDFReportGenerator(config);
   return generator.generate();
 }
+
+/**
+ * Generate an Invoices Report PDF
+ */
+export function generateInvoiceReportPDF(data: {
+  invoices: Array<{
+    invoiceNumber: string;
+    customer: string;
+    issueDate: Date | string;
+    dueDate: Date | string;
+    total: number;
+    amountPaid: number;
+    balance: number;
+    status: string;
+  }>;
+  analytics: {
+    totalInvoices: number;
+    totalValue: number;
+    totalPaid: number;
+    totalBalance: number;
+    paidCount: number;
+    overdueCount: number;
+  };
+  period: { startDate: Date | string; endDate: Date | string };
+}): Uint8Array {
+  const config: ReportConfig = {
+    title: "Invoices Report",
+    subtitle: "Invoice Status & Payment Summary",
+    reportType: "invoice-report",
+    period: data.period,
+    summary: [
+      { label: "Total Invoices", value: data.analytics.totalInvoices, format: "number" },
+      { label: "Total Value", value: data.analytics.totalValue, format: "currency" },
+      { label: "Amount Paid", value: data.analytics.totalPaid, format: "currency" },
+      { label: "Outstanding Balance", value: data.analytics.totalBalance, format: "currency" },
+      { label: "Paid Count", value: data.analytics.paidCount, format: "number" },
+      { label: "Overdue Count", value: data.analytics.overdueCount, format: "number" },
+    ],
+    sections: [
+      {
+        title: "Invoice Details",
+        columns: [
+          { header: "Invoice #", key: "invoiceNumber", align: "left" },
+          { header: "Customer", key: "customer", align: "left" },
+          { header: "Issue Date", key: "issueDate", format: "date", align: "center" },
+          { header: "Due Date", key: "dueDate", format: "date", align: "center" },
+          { header: "Status", key: "status", align: "center" },
+          { header: "Total", key: "total", format: "currency", align: "right" },
+          { header: "Paid", key: "amountPaid", format: "currency", align: "right" },
+          { header: "Balance", key: "balance", format: "currency", align: "right" },
+        ],
+        data: data.invoices.map((inv) => ({
+          invoiceNumber: inv.invoiceNumber,
+          customer: inv.customer,
+          issueDate: inv.issueDate,
+          dueDate: inv.dueDate,
+          status: inv.status.replace(/_/g, " "),
+          total: inv.total,
+          amountPaid: inv.amountPaid,
+          balance: inv.balance,
+        })),
+        showTotal: true,
+        totalLabel: "Totals",
+        totalColumns: ["total", "amountPaid", "balance"],
+      },
+    ],
+    notes: [
+      "All amounts are in United States Dollars (USD).",
+      "Balance = Total - Amount Paid.",
+      "Overdue invoices are those with due dates in the past and unpaid balance.",
+    ],
+  };
+
+  const generator = new PDFReportGenerator(config);
+  return generator.generate();
+}
+
+/**
+ * Generate a Payments Report PDF
+ */
+export function generatePaymentReportPDF(data: {
+  payments: Array<{
+    invoiceNumber: string;
+    customer: string;
+    amount: number;
+    paymentDate: Date | string;
+    method: string;
+    reference: string;
+  }>;
+  analytics: {
+    totalPayments: number;
+    totalAmount: number;
+    averageAmount: number;
+    paymentMethods: { [key: string]: number };
+  };
+  period: { startDate: Date | string; endDate: Date | string };
+}): Uint8Array {
+  const config: ReportConfig = {
+    title: "Payments Report",
+    subtitle: "Payment Transactions & Collection Summary",
+    reportType: "payment-report",
+    period: data.period,
+    summary: [
+      { label: "Total Payments", value: data.analytics.totalPayments, format: "number" },
+      { label: "Total Amount", value: data.analytics.totalAmount, format: "currency" },
+      { label: "Average Payment", value: data.analytics.averageAmount, format: "currency" },
+    ],
+    sections: [
+      {
+        title: "Payment Details",
+        columns: [
+          { header: "Invoice #", key: "invoiceNumber", align: "left" },
+          { header: "Customer", key: "customer", align: "left" },
+          { header: "Payment Date", key: "paymentDate", format: "date", align: "center" },
+          { header: "Method", key: "method", align: "center" },
+          { header: "Reference", key: "reference", align: "left" },
+          { header: "Amount", key: "amount", format: "currency", align: "right" },
+        ],
+        data: data.payments.map((pmt) => ({
+          invoiceNumber: pmt.invoiceNumber,
+          customer: pmt.customer,
+          paymentDate: pmt.paymentDate,
+          method: pmt.method,
+          reference: pmt.reference || "N/A",
+          amount: pmt.amount,
+        })),
+        showTotal: true,
+        totalLabel: "Total",
+        totalColumns: ["amount"],
+      },
+    ],
+    notes: [
+      "All amounts are in United States Dollars (USD).",
+      "Payment methods tracked for business analysis and reconciliation.",
+    ],
+  };
+
+  const generator = new PDFReportGenerator(config);
+  return generator.generate();
+}
