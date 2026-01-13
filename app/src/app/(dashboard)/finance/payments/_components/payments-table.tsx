@@ -32,12 +32,13 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { MoreHorizontal, Pencil, Trash2, Search } from "lucide-react";
+import { MoreHorizontal, Pencil, Trash2, Search, FileText, Loader2 } from "lucide-react";
 import { PaginationControls } from "@/components/ui/pagination-controls";
 import { usePagination } from "@/hooks/use-pagination";
+import { ExportOptionsDialog, type ExportScope } from "@/components/ui/export-options-dialog";
 import { format } from "date-fns";
 import { Role } from "@/lib/types";
-import { deletePayment } from "../actions";
+import { deletePayment, exportPaymentsPDF } from "../actions";
 import { toast } from "sonner";
 
 interface Payment {
@@ -66,6 +67,8 @@ export function PaymentsTable({ payments, role }: PaymentsTableProps) {
     const [search, setSearch] = useState("");
     const [deleteId, setDeleteId] = useState<string | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [exportDialogOpen, setExportDialogOpen] = useState(false);
+    const [isExporting, setIsExporting] = useState(false);
 
     const canEdit = role === "admin" || role === "supervisor";
     const canDelete = role === "admin";
@@ -102,6 +105,45 @@ export function PaymentsTable({ payments, role }: PaymentsTableProps) {
         }
     };
 
+    const handleExportConfirm = async (scope: ExportScope) => {
+        setIsExporting(true);
+        try {
+            const paymentIds = scope === "current-page"
+                ? paginatedPayments.map((p) => p.id)
+                : filteredPayments.map((p) => p.id);
+
+            const result = await exportPaymentsPDF({
+                paymentIds,
+                startDate: new Date(new Date().setMonth(new Date().getMonth() - 1)),
+                endDate: new Date(),
+            });
+
+            if (result.success && result.pdf) {
+                const byteCharacters = atob(result.pdf);
+                const byteNumbers = new Array(byteCharacters.length);
+                for (let i = 0; i < byteCharacters.length; i++) {
+                    byteNumbers[i] = byteCharacters.charCodeAt(i);
+                }
+                const byteArray = new Uint8Array(byteNumbers);
+                const blob = new Blob([byteArray], { type: "application/pdf" });
+
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = result.filename || "payments-report.pdf";
+                a.click();
+                window.URL.revokeObjectURL(url);
+                toast.success("Report exported successfully");
+            } else {
+                toast.error(result.error || "Failed to generate report");
+            }
+        } catch {
+            toast.error("An error occurred while exporting");
+        } finally {
+            setIsExporting(false);
+        }
+    };
+
     return (
         <Card>
             <CardContent className="p-6">
@@ -115,8 +157,23 @@ export function PaymentsTable({ payments, role }: PaymentsTableProps) {
                             className="pl-9"
                         />
                     </div>
-                    <div className="text-sm text-muted-foreground">
-                        Total: <span className="font-bold text-foreground">${totalPayments.toLocaleString()}</span>
+                    <div className="flex gap-2 items-center">
+                        <div className="text-sm text-muted-foreground">
+                            Total: <span className="font-bold text-foreground">${totalPayments.toLocaleString()}</span>
+                        </div>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setExportDialogOpen(true)}
+                            disabled={isExporting}
+                        >
+                            {isExporting ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                                <FileText className="mr-2 h-4 w-4" />
+                            )}
+                            Export Report
+                        </Button>
                     </div>
                 </div>
 
@@ -234,6 +291,15 @@ export function PaymentsTable({ payments, role }: PaymentsTableProps) {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+
+            <ExportOptionsDialog
+                open={exportDialogOpen}
+                onOpenChange={setExportDialogOpen}
+                currentPageCount={paginatedPayments.length}
+                totalCount={filteredPayments.length}
+                onExport={handleExportConfirm}
+                isLoading={isExporting}
+            />
         </Card>
     );
 }
