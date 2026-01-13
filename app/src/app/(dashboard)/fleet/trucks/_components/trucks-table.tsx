@@ -41,9 +41,10 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { PaginationControls } from "@/components/ui/pagination-controls";
 import { usePagination } from "@/hooks/use-pagination";
-import { MoreHorizontal, Eye, Pencil, Trash2, Search, FileEdit } from "lucide-react";
+import { ExportOptionsDialog, type ExportScope } from "@/components/ui/export-options-dialog";
+import { MoreHorizontal, Eye, Pencil, Trash2, Search, FileEdit, FileText, Download, Loader2 } from "lucide-react";
 import { Role, TRUCK_STATUS_LABELS } from "@/lib/types";
-import { deleteTruck, requestEditTruck } from "../actions";
+import { deleteTruck, requestEditTruck, exportTrucksPDF } from "../actions";
 import { toast } from "sonner";
 
 interface Truck {
@@ -76,6 +77,8 @@ export function TrucksTable({ trucks, role }: TrucksTableProps) {
     const [statusFilter, setStatusFilter] = useState<string>("all");
     const [deleteId, setDeleteId] = useState<string | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [exportDialogOpen, setExportDialogOpen] = useState(false);
+    const [isExporting, setIsExporting] = useState(false);
 
     const canEdit = role === "admin" || role === "supervisor";
     const canDelete = role === "admin";
@@ -129,6 +132,80 @@ export function TrucksTable({ trucks, role }: TrucksTableProps) {
         }
     };
 
+    const handleExportConfirm = async (scope: ExportScope) => {
+        setIsExporting(true);
+        try {
+            const truckIds = scope === "current-page"
+                ? paginatedTrucks.map((t) => t.id)
+                : filteredTrucks.map((t) => t.id);
+
+            const result = await exportTrucksPDF({
+                truckIds,
+                startDate: new Date(new Date().setMonth(new Date().getMonth() - 1)),
+                endDate: new Date(),
+            });
+
+            if (result.success && result.pdf) {
+                const byteCharacters = atob(result.pdf);
+                const byteNumbers = new Array(byteCharacters.length);
+                for (let i = 0; i < byteCharacters.length; i++) {
+                    byteNumbers[i] = byteCharacters.charCodeAt(i);
+                }
+                const byteArray = new Uint8Array(byteNumbers);
+                const blob = new Blob([byteArray], { type: "application/pdf" });
+
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = result.filename || "truck-report.pdf";
+                a.click();
+                window.URL.revokeObjectURL(url);
+                toast.success("Report exported successfully");
+            } else {
+                toast.error(result.error || "Failed to generate report");
+            }
+        } catch {
+            toast.error("An error occurred while exporting");
+        } finally {
+            setIsExporting(false);
+        }
+    };
+
+    const handleExportCSV = (scope: ExportScope) => {
+        const dataToExport = scope === "current-page" ? paginatedTrucks : filteredTrucks;
+
+        const escapeCSV = (value: string) => {
+            if (value.includes(",") || value.includes('"') || value.includes("\n")) {
+                return `"${value.replace(/"/g, '""')}"`;
+            }
+            return value;
+        };
+
+        const csvData = dataToExport
+            .map((truck) => [
+                escapeCSV(truck.registrationNo),
+                escapeCSV(`${truck.make} ${truck.model}`),
+                truck.year,
+                escapeCSV(TRUCK_STATUS_LABELS[truck.status as keyof typeof TRUCK_STATUS_LABELS] || truck.status),
+                truck.currentMileage,
+                escapeCSV(truck.fuelType || "N/A"),
+                escapeCSV(truck.assignedDriver ? `${truck.assignedDriver.firstName} ${truck.assignedDriver.lastName}` : "Unassigned"),
+                truck._count.trips,
+            ].join(","))
+            .join("\n");
+
+        const header = "Registration No,Make/Model,Year,Status,Mileage,Fuel Type,Driver,Trips";
+        const csv = header + "\n" + csvData;
+        const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `trucks-${new Date().toISOString().split("T")[0]}.csv`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+        toast.success("CSV exported successfully");
+    };
+
     return (
         <Card>
             <CardContent className="p-6">
@@ -142,19 +219,34 @@ export function TrucksTable({ trucks, role }: TrucksTableProps) {
                             className="pl-9"
                         />
                     </div>
-                    <Select value={statusFilter} onValueChange={setStatusFilter}>
-                        <SelectTrigger className="w-[180px]">
-                            <SelectValue placeholder="Filter by status" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">All Statuses</SelectItem>
-                            {Object.entries(TRUCK_STATUS_LABELS).map(([value, label]) => (
-                                <SelectItem key={value} value={value}>
-                                    {label}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                    <div className="flex gap-2 items-center">
+                        <Select value={statusFilter} onValueChange={setStatusFilter}>
+                            <SelectTrigger className="w-[180px]">
+                                <SelectValue placeholder="Filter by status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All Statuses</SelectItem>
+                                {Object.entries(TRUCK_STATUS_LABELS).map(([value, label]) => (
+                                    <SelectItem key={value} value={value}>
+                                        {label}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setExportDialogOpen(true)}
+                            disabled={isExporting}
+                        >
+                            {isExporting ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                                <FileText className="mr-2 h-4 w-4" />
+                            )}
+                            Export Report
+                        </Button>
+                    </div>
                 </div>
 
                 <div className="rounded-md border">
@@ -294,6 +386,15 @@ export function TrucksTable({ trucks, role }: TrucksTableProps) {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+
+            <ExportOptionsDialog
+                open={exportDialogOpen}
+                onOpenChange={setExportDialogOpen}
+                currentPageCount={paginatedTrucks.length}
+                totalCount={filteredTrucks.length}
+                onExport={handleExportConfirm}
+                isLoading={isExporting}
+            />
         </Card>
     );
 }

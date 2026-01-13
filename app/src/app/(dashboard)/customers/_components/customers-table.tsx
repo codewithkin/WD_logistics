@@ -34,9 +34,10 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { PaginationControls } from "@/components/ui/pagination-controls";
 import { usePagination } from "@/hooks/use-pagination";
-import { MoreHorizontal, Eye, Pencil, Trash2, Search } from "lucide-react";
+import { ExportOptionsDialog, type ExportScope } from "@/components/ui/export-options-dialog";
+import { MoreHorizontal, Eye, Pencil, Trash2, Search, FileText, Loader2 } from "lucide-react";
 import { Role } from "@/lib/types";
-import { deleteCustomer } from "../actions";
+import { deleteCustomer, exportCustomersPDF } from "../actions";
 import { toast } from "sonner";
 
 interface Customer {
@@ -62,6 +63,8 @@ export function CustomersTable({ customers, role }: CustomersTableProps) {
     const [search, setSearch] = useState("");
     const [deleteId, setDeleteId] = useState<string | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [exportDialogOpen, setExportDialogOpen] = useState(false);
+    const [isExporting, setIsExporting] = useState(false);
 
     const canEdit = role === "admin" || role === "supervisor";
     const canDelete = role === "admin";
@@ -100,6 +103,45 @@ export function CustomersTable({ customers, role }: CustomersTableProps) {
         }
     };
 
+    const handleExportConfirm = async (scope: ExportScope) => {
+        setIsExporting(true);
+        try {
+            const customerIds = scope === "current-page"
+                ? paginatedCustomers.map((c) => c.id)
+                : filteredCustomers.map((c) => c.id);
+
+            const result = await exportCustomersPDF({
+                customerIds,
+                startDate: new Date(new Date().setMonth(new Date().getMonth() - 1)),
+                endDate: new Date(),
+            });
+
+            if (result.success && result.pdf) {
+                const byteCharacters = atob(result.pdf);
+                const byteNumbers = new Array(byteCharacters.length);
+                for (let i = 0; i < byteCharacters.length; i++) {
+                    byteNumbers[i] = byteCharacters.charCodeAt(i);
+                }
+                const byteArray = new Uint8Array(byteNumbers);
+                const blob = new Blob([byteArray], { type: "application/pdf" });
+
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = result.filename || "customer-report.pdf";
+                a.click();
+                window.URL.revokeObjectURL(url);
+                toast.success("Report exported successfully");
+            } else {
+                toast.error(result.error || "Failed to generate report");
+            }
+        } catch {
+            toast.error("An error occurred while exporting");
+        } finally {
+            setIsExporting(false);
+        }
+    };
+
     return (
         <Card>
             <CardContent className="p-6">
@@ -113,6 +155,19 @@ export function CustomersTable({ customers, role }: CustomersTableProps) {
                             className="pl-9"
                         />
                     </div>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setExportDialogOpen(true)}
+                        disabled={isExporting}
+                    >
+                        {isExporting ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                            <FileText className="mr-2 h-4 w-4" />
+                        )}
+                        Export Report
+                    </Button>
                 </div>
 
                 <div className="rounded-md border">
@@ -236,6 +291,15 @@ export function CustomersTable({ customers, role }: CustomersTableProps) {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+
+            <ExportOptionsDialog
+                open={exportDialogOpen}
+                onOpenChange={setExportDialogOpen}
+                currentPageCount={paginatedCustomers.length}
+                totalCount={filteredCustomers.length}
+                onExport={handleExportConfirm}
+                isLoading={isExporting}
+            />
         </Card>
     );
 }
