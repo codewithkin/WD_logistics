@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, requireRole } from "@/lib/session";
 import { TripStatus } from "@/lib/types";
+import { generateTripReportPDF } from "@/lib/reports/pdf-report-generator";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:3001";
 
@@ -271,5 +272,62 @@ export async function requestEditTrip(tripId: string) {
   } catch (error) {
     console.error("Failed to create edit request:", error);
     return { success: false, error: "Failed to submit edit request" };
+  }
+}
+
+export async function exportTripsPDF() {
+  const session = await requireAuth();
+
+  try {
+    const trips = await prisma.trip.findMany({
+      where: { organizationId: session.organizationId },
+      include: {
+        truck: { select: { registrationNo: true } },
+        driver: { select: { firstName: true, lastName: true } },
+      },
+      orderBy: { scheduledDate: "desc" },
+    });
+
+    const analytics = {
+      totalTrips: trips.length,
+      completedTrips: trips.filter((t) => t.status === "completed").length,
+      totalRevenue: trips.reduce((sum, t) => sum + t.revenue, 0),
+      totalMileage: trips.reduce((sum, t) => sum + (t.actualMileage || t.estimatedMileage), 0),
+    };
+
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const pdfBytes = generateTripReportPDF({
+      trips: trips.map((t) => ({
+        origin: t.originCity,
+        destination: t.destinationCity,
+        truck: t.truck.registrationNo,
+        driver: `${t.driver.firstName} ${t.driver.lastName}`,
+        status: t.status.replace("_", " "),
+        revenue: t.revenue,
+        date: t.scheduledDate,
+      })),
+      analytics,
+      period: {
+        startDate: startOfMonth,
+        endDate: now,
+      },
+    });
+
+    const base64 = Buffer.from(pdfBytes).toString("base64");
+
+    return {
+      success: true,
+      data: base64,
+      filename: `trips-report-${now.toISOString().split("T")[0]}.pdf`,
+      mimeType: "application/pdf",
+    };
+  } catch (error) {
+    console.error("Failed to generate PDF:", error);
+    return {
+      success: false,
+      error: "Failed to generate PDF report",
+    };
   }
 }

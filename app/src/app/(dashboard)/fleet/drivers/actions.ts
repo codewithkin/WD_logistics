@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, requireRole } from "@/lib/session";
 import { DriverStatus } from "@/lib/types";
+import { generateDriverReportPDF } from "@/lib/reports/pdf-report-generator";
 
 export async function createDriver(data: {
   firstName: string;
@@ -291,5 +292,61 @@ export async function requestEditDriver(driverId: string) {
   } catch (error) {
     console.error("Failed to create edit request:", error);
     return { success: false, error: "Failed to submit edit request" };
+  }
+}
+
+export async function exportDriversPDF() {
+  const session = await requireAuth();
+
+  try {
+    const drivers = await prisma.driver.findMany({
+      where: { organizationId: session.organizationId },
+      include: {
+        assignedTruck: { select: { registrationNo: true } },
+        _count: { select: { trips: true } },
+      },
+      orderBy: { lastName: "asc" },
+    });
+
+    const analytics = {
+      totalDrivers: drivers.length,
+      activeDrivers: drivers.filter((d) => d.status === "active").length,
+      driversWithTruck: drivers.filter((d) => d.assignedTruck).length,
+      totalTrips: drivers.reduce((sum, d) => sum + d._count.trips, 0),
+    };
+
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const pdfBytes = generateDriverReportPDF({
+      drivers: drivers.map((d) => ({
+        name: `${d.firstName} ${d.lastName}`,
+        phone: d.phone,
+        licenseNumber: d.licenseNumber,
+        status: d.status.replace("_", " "),
+        assignedTruck: d.assignedTruck?.registrationNo || "Unassigned",
+        trips: d._count.trips,
+      })),
+      analytics,
+      period: {
+        startDate: startOfMonth,
+        endDate: now,
+      },
+    });
+
+    const base64 = Buffer.from(pdfBytes).toString("base64");
+
+    return {
+      success: true,
+      data: base64,
+      filename: `drivers-report-${now.toISOString().split("T")[0]}.pdf`,
+      mimeType: "application/pdf",
+    };
+  } catch (error) {
+    console.error("Failed to generate PDF:", error);
+    return {
+      success: false,
+      error: "Failed to generate PDF report",
+    };
   }
 }

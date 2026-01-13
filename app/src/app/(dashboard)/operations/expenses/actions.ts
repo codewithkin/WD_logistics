@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireRole } from "@/lib/session";
+import { requireAuth, requireRole } from "@/lib/session";
+import { generateOperationsExpenseReportPDF } from "@/lib/reports/pdf-report-generator";
 
 export async function createExpense(data: {
   description?: string;
@@ -159,5 +160,67 @@ export async function deleteExpense(id: string) {
   } catch (error) {
     console.error("Failed to delete expense:", error);
     return { success: false, error: "Failed to delete expense" };
+  }
+}
+
+export async function exportOperationsExpensesPDF() {
+  const session = await requireAuth();
+
+  try {
+    const expenses = await prisma.expense.findMany({
+      where: { organizationId: session.organizationId },
+      include: {
+        category: { select: { name: true } },
+        tripExpenses: {
+          include: {
+            trip: {
+              select: { truck: { select: { registrationNo: true } } },
+            },
+          },
+        },
+      },
+      orderBy: { date: "desc" },
+    });
+
+    const analytics = {
+      totalExpenses: expenses.length,
+      totalAmount: expenses.reduce((sum, e) => sum + e.amount, 0),
+      pendingAmount: 0,
+      paidAmount: expenses.reduce((sum, e) => sum + e.amount, 0),
+    };
+
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const pdfBytes = generateOperationsExpenseReportPDF({
+      expenses: expenses.map((e) => ({
+        description: e.description || "No description",
+        amount: e.amount,
+        date: e.date,
+        status: "Recorded",
+        category: e.category?.name || "Uncategorized",
+        tripTruck: e.tripExpenses[0]?.trip?.truck?.registrationNo || "N/A",
+      })),
+      analytics,
+      period: {
+        startDate: startOfMonth,
+        endDate: now,
+      },
+    });
+
+    const base64 = Buffer.from(pdfBytes).toString("base64");
+
+    return {
+      success: true,
+      data: base64,
+      filename: `operations-expenses-report-${now.toISOString().split("T")[0]}.pdf`,
+      mimeType: "application/pdf",
+    };
+  } catch (error) {
+    console.error("Failed to generate PDF:", error);
+    return {
+      success: false,
+      error: "Failed to generate PDF report",
+    };
   }
 }
