@@ -763,3 +763,201 @@ export function generateCustomerStatementPDF(data: {
   const generator = new PDFReportGenerator(config);
   return generator.generate();
 }
+
+/**
+ * Generate a Driver Report PDF
+ */
+export function generateDriverReportPDF(data: {
+  drivers: Array<{
+    name: string;
+    phone: string;
+    licenseNumber: string;
+    status: string;
+    assignedTruck: string;
+    trips: number;
+  }>;
+  analytics: {
+    totalDrivers: number;
+    activeDrivers: number;
+    driversWithTruck: number;
+    totalTrips: number;
+  };
+  period: { startDate: Date | string; endDate: Date | string };
+}): Uint8Array {
+  const config: ReportConfig = {
+    title: "Driver Report",
+    subtitle: "Fleet Driver Analysis",
+    reportType: "driver-report",
+    period: data.period,
+    summary: [
+      { label: "Total Drivers", value: data.analytics.totalDrivers, format: "number" },
+      { label: "Active Drivers", value: data.analytics.activeDrivers, format: "number" },
+      { label: "With Assigned Truck", value: data.analytics.driversWithTruck, format: "number" },
+      { label: "Total Trips Completed", value: data.analytics.totalTrips, format: "number" },
+    ],
+    sections: [
+      {
+        title: "Driver Details",
+        columns: [
+          { header: "Name", key: "name", align: "left" },
+          { header: "Phone", key: "phone", align: "left" },
+          { header: "License No.", key: "licenseNumber", align: "left" },
+          { header: "Status", key: "status", align: "center" },
+          { header: "Assigned Truck", key: "assignedTruck", align: "left" },
+          { header: "Trips", key: "trips", format: "number", align: "center" },
+        ],
+        data: data.drivers.map((d) => ({
+          name: d.name,
+          phone: d.phone,
+          licenseNumber: d.licenseNumber,
+          status: d.status,
+          assignedTruck: d.assignedTruck || "Unassigned",
+          trips: d.trips,
+        })),
+        showTotal: true,
+        totalLabel: "Total",
+        totalColumns: ["trips"],
+      },
+    ],
+    notes: [
+      "This report contains driver information as of the report date.",
+      "Trip counts reflect completed trips during the reporting period.",
+    ],
+  };
+
+  const generator = new PDFReportGenerator(config);
+  return generator.generate();
+}
+
+/**
+ * Generate a Trip Report PDF (for analytics export)
+ */
+export function generateTripReportPDF(data: {
+  trips: Array<{
+    origin: string;
+    destination: string;
+    truck: string;
+    driver: string;
+    status: string;
+    revenue: number;
+    date: Date | string;
+  }>;
+  analytics: {
+    totalTrips: number;
+    completedTrips: number;
+    totalRevenue: number;
+    totalMileage: number;
+  };
+  period: { startDate: Date | string; endDate: Date | string };
+}): Uint8Array {
+  const config: ReportConfig = {
+    title: "Trip Report",
+    subtitle: "Operational Trip Analysis",
+    reportType: "trip-report",
+    period: data.period,
+    summary: [
+      { label: "Total Trips", value: data.analytics.totalTrips, format: "number" },
+      { label: "Completed Trips", value: data.analytics.completedTrips, format: "number" },
+      { label: "Total Revenue", value: data.analytics.totalRevenue, format: "currency" },
+      { label: "Total Mileage", value: data.analytics.totalMileage, format: "number" },
+    ],
+    sections: [
+      {
+        title: "Trip Details",
+        columns: [
+          { header: "Date", key: "date", format: "date", align: "left" },
+          { header: "Origin", key: "origin", align: "left" },
+          { header: "Destination", key: "destination", align: "left" },
+          { header: "Truck", key: "truck", align: "left" },
+          { header: "Driver", key: "driver", align: "left" },
+          { header: "Status", key: "status", align: "center" },
+          { header: "Revenue", key: "revenue", format: "currency", align: "right" },
+        ],
+        data: data.trips.map((t) => ({
+          date: t.date,
+          origin: t.origin,
+          destination: t.destination,
+          truck: t.truck,
+          driver: t.driver,
+          status: t.status,
+          revenue: t.revenue,
+        })),
+        showTotal: true,
+        totalLabel: "Total",
+        totalColumns: ["revenue"],
+      },
+    ],
+    notes: [
+      "All amounts are in United States Dollars (USD).",
+      "Trip status reflects the current state at the time of report generation.",
+    ],
+  };
+
+  const generator = new PDFReportGenerator(config);
+  return generator.generate();
+}
+
+/**
+ * Generate an Operations Expense Report PDF
+ */
+export function generateOperationsExpenseReportPDF(data: {
+  expenses: Array<{
+    description: string;
+    amount: number;
+    date: Date | string;
+    status: string;
+    category: string;
+    tripTruck: string;
+  }>;
+  analytics: {
+    totalExpenses: number;
+    totalAmount: number;
+    pendingAmount: number;
+    paidAmount: number;
+  };
+  period: { startDate: Date | string; endDate: Date | string };
+}): Uint8Array {
+  const config: ReportConfig = {
+    title: "Operations Expense Report",
+    subtitle: "Trip and Fleet Expenses",
+    reportType: "operations-expense",
+    period: data.period,
+    summary: [
+      { label: "Total Expenses", value: data.analytics.totalExpenses, format: "number" },
+      { label: "Total Amount", value: data.analytics.totalAmount, format: "currency" },
+      { label: "Pending Amount", value: data.analytics.pendingAmount, format: "currency" },
+      { label: "Paid Amount", value: data.analytics.paidAmount, format: "currency" },
+    ],
+    sections: [
+      {
+        title: "Expense Details",
+        columns: [
+          { header: "Date", key: "date", format: "date", align: "left" },
+          { header: "Description", key: "description", align: "left" },
+          { header: "Category", key: "category", align: "left" },
+          { header: "Trip/Truck", key: "tripTruck", align: "left" },
+          { header: "Status", key: "status", align: "center" },
+          { header: "Amount", key: "amount", format: "currency", align: "right" },
+        ],
+        data: data.expenses.map((e) => ({
+          date: e.date,
+          description: e.description,
+          category: e.category,
+          tripTruck: e.tripTruck || "N/A",
+          status: e.status,
+          amount: e.amount,
+        })),
+        showTotal: true,
+        totalLabel: "Total",
+        totalColumns: ["amount"],
+      },
+    ],
+    notes: [
+      "All amounts are in United States Dollars (USD).",
+      "Expenses are linked to their respective trips or fleet units.",
+    ],
+  };
+
+  const generator = new PDFReportGenerator(config);
+  return generator.generate();
+}
