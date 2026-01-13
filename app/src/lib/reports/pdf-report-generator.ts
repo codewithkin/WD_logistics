@@ -1311,3 +1311,113 @@ export function generateEmployeeReportPDF(data: {
   const generator = new PDFReportGenerator(config);
   return generator.generate();
 }
+
+/**
+ * Generate a Dashboard Summary PDF
+ */
+export function generateDashboardSummaryPDF(data: {
+  totalTrucks: number;
+  activeTrucks: number;
+  totalDrivers: number;
+  activeDrivers: number;
+  thisMonthTrips: number;
+  lastMonthTrips: number;
+  completedTrips: number;
+  inProgressTrips: number;
+  thisMonthInvoiceTotal: number;
+  lastMonthInvoiceTotal: number;
+  thisMonthPaymentTotal: number;
+  lastMonthPaymentTotal: number;
+  thisMonthExpenseTotal: number;
+  lastMonthExpenseTotal: number;
+  outstandingInvoices: { invoiceNumber: string; total: number; dueDate: Date; customer: { name: string } }[];
+  topCustomersByRevenue: { name: string; revenue: number }[];
+  expensesWithCategories: { category: string; amount: number }[];
+}) {
+  const config: ReportConfig = {
+    title: "Dashboard Summary Report",
+    subtitle: "Organization Performance Overview",
+    reportType: "dashboard-summary",
+    period: {
+      startDate: new Date(new Date().setMonth(new Date().getMonth() - 1)),
+      endDate: new Date(),
+    },
+    summary: [
+      { label: "Total Trucks", value: data.totalTrucks.toString() },
+      { label: "Active Trucks", value: data.activeTrucks.toString() },
+      { label: "Total Drivers", value: data.totalDrivers.toString() },
+      { label: "Active Drivers", value: data.activeDrivers.toString() },
+    ],
+    sections: [
+      {
+        title: "Fleet Management",
+        rows: [
+          { label: "Total Trucks", value: data.totalTrucks },
+          { label: "Active Trucks", value: data.activeTrucks },
+          { label: "Inactive Trucks", value: data.totalTrucks - data.activeTrucks },
+          { label: "Total Drivers", value: data.totalDrivers },
+          { label: "Active Drivers", value: data.activeDrivers },
+          { label: "Inactive Drivers", value: data.totalDrivers - data.activeDrivers },
+        ],
+        showTotal: false,
+      },
+      {
+        title: "Trip Operations",
+        rows: [
+          { label: "This Month Trips", value: data.thisMonthTrips },
+          { label: "Last Month Trips", value: data.lastMonthTrips },
+          { label: "Completed Trips", value: data.completedTrips },
+          { label: "In Progress Trips", value: data.inProgressTrips },
+        ],
+        showTotal: false,
+      },
+      {
+        title: "Financial Summary",
+        rows: [
+          { label: "This Month Invoices", value: data.thisMonthInvoiceTotal, isCurrency: true },
+          { label: "Last Month Invoices", value: data.lastMonthInvoiceTotal, isCurrency: true },
+          { label: "This Month Payments", value: data.thisMonthPaymentTotal, isCurrency: true },
+          { label: "Last Month Payments", value: data.lastMonthPaymentTotal, isCurrency: true },
+          { label: "This Month Expenses", value: data.thisMonthExpenseTotal, isCurrency: true },
+          { label: "Last Month Expenses", value: data.lastMonthExpenseTotal, isCurrency: true },
+        ],
+        showTotal: false,
+      },
+      {
+        title: "Top Customers by Revenue",
+        rows: data.topCustomersByRevenue.map((customer) => ({
+          label: customer.name,
+          value: customer.revenue,
+          isCurrency: true,
+        })),
+        showTotal: true,
+      },
+      {
+        title: "Expense Breakdown",
+        rows: data.expensesWithCategories.map((expense) => ({
+          label: expense.category,
+          value: expense.amount,
+          isCurrency: true,
+        })),
+        showTotal: true,
+      },
+      {
+        title: "Outstanding Invoices",
+        rows: data.outstandingInvoices.map((invoice) => ({
+          label: `${invoice.customer.name} (Invoice #${invoice.invoiceNumber})`,
+          value: invoice.total,
+          isCurrency: true,
+        })),
+        showTotal: true,
+      },
+    ],
+    notes: [
+      "This dashboard summary provides an overview of key business metrics.",
+      "All figures are current as of the report generation date.",
+      "Financial figures are in the organization's base currency.",
+    ],
+  };
+
+  const generator = new PDFReportGenerator(config);
+  return generator.generate();
+}

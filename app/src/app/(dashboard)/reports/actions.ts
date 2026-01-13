@@ -25,6 +25,7 @@ import {
   generateExpenseReportPDF,
   generateTripSummaryPDF,
   generateCustomerStatementPDF,
+  generateDashboardSummaryPDF,
 } from "@/lib/reports/pdf-report-generator";
 
 // Input validation schema
@@ -336,4 +337,199 @@ export async function deleteReport(reportId: string) {
   });
 
   return { success: true };
+}
+
+/**
+ * Export dashboard summary as PDF
+ */
+export async function exportDashboardPDF() {
+  const session = await requireRole(["admin"]);
+  const { organizationId } = session;
+
+  try {
+    const now = new Date();
+    const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const thisMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+
+    // Fetch fleet data
+    const [totalTrucks, activeTrucks, totalDrivers, activeDrivers] = await Promise.all([
+      prisma.truck.count({ where: { organizationId } }),
+      prisma.truck.count({ where: { organizationId, status: "active" } }),
+      prisma.driver.count({ where: { organizationId } }),
+      prisma.driver.count({ where: { organizationId, status: "active" } }),
+    ]);
+
+    // Fetch trip data
+    const [thisMonthTrips, lastMonthTrips, completedTrips, inProgressTrips] = await Promise.all([
+      prisma.trip.count({
+        where: {
+          organizationId,
+          scheduledDate: { gte: thisMonthStart, lte: thisMonthEnd },
+        },
+      }),
+      prisma.trip.count({
+        where: {
+          organizationId,
+          scheduledDate: { gte: lastMonthStart, lte: lastMonthEnd },
+        },
+      }),
+      prisma.trip.count({
+        where: { organizationId, status: "completed" },
+      }),
+      prisma.trip.count({
+        where: { organizationId, status: "in_progress" },
+      }),
+    ]);
+
+    // Fetch financial data
+    const [
+      thisMonthInvoices,
+      lastMonthInvoices,
+      thisMonthPayments,
+      lastMonthPayments,
+      thisMonthExpenses,
+      lastMonthExpenses,
+    ] = await Promise.all([
+      prisma.invoice.aggregate({
+        where: {
+          organizationId,
+          issueDate: { gte: thisMonthStart, lte: thisMonthEnd },
+        },
+        _sum: { total: true },
+      }),
+      prisma.invoice.aggregate({
+        where: {
+          organizationId,
+          issueDate: { gte: lastMonthStart, lte: lastMonthEnd },
+        },
+        _sum: { total: true },
+      }),
+      prisma.payment.aggregate({
+        where: {
+          invoice: { organizationId },
+          paymentDate: { gte: thisMonthStart, lte: thisMonthEnd },
+        },
+        _sum: { amount: true },
+      }),
+      prisma.payment.aggregate({
+        where: {
+          invoice: { organizationId },
+          paymentDate: { gte: lastMonthStart, lte: lastMonthEnd },
+        },
+        _sum: { amount: true },
+      }),
+      prisma.expense.aggregate({
+        where: {
+          organizationId,
+          date: { gte: thisMonthStart, lte: thisMonthEnd },
+        },
+        _sum: { amount: true },
+      }),
+      prisma.expense.aggregate({
+        where: {
+          organizationId,
+          date: { gte: lastMonthStart, lte: lastMonthEnd },
+        },
+        _sum: { amount: true },
+      }),
+    ]);
+
+    // Fetch outstanding invoices
+    const outstandingInvoices = await prisma.invoice.findMany({
+      where: {
+        organizationId,
+        status: { in: ["draft", "sent"] },
+      },
+      include: {
+        customer: { select: { name: true } },
+      },
+      orderBy: { dueDate: "asc" },
+      take: 5,
+    });
+
+    // Fetch top customers
+    const topCustomers = await prisma.customer.findMany({
+      where: { organizationId },
+      include: {
+        invoices: {
+          where: {
+            issueDate: { gte: thisMonthStart, lte: thisMonthEnd },
+          },
+          select: { total: true },
+        },
+      },
+      take: 10,
+    });
+
+    const topCustomersByRevenue = topCustomers
+      .map((customer) => ({
+        ...customer,
+        revenue: customer.invoices.reduce((sum, inv) => sum + inv.total, 0),
+      }))
+      .filter((c) => c.revenue > 0)
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 5);
+
+    // Fetch expense categories
+    const expensesByCategory = await prisma.expense.groupBy({
+      by: ["categoryId"],
+      where: {
+        organizationId,
+        date: { gte: thisMonthStart, lte: thisMonthEnd },
+      },
+      _sum: { amount: true },
+    });
+
+    const categories = await prisma.expenseCategory.findMany({
+      where: {
+        id: { in: expensesByCategory.map((e) => e.categoryId) },
+      },
+    });
+
+    const expensesWithCategories = expensesByCategory
+      .map((expense) => ({
+        category: categories.find((c) => c.id === expense.categoryId)?.name || "Unknown",
+        amount: expense._sum.amount || 0,
+      }))
+      .sort((a, b) => b.amount - a.amount);
+
+    const pdfBytes = generateDashboardSummaryPDF({
+      totalTrucks,
+      activeTrucks,
+      totalDrivers,
+      activeDrivers,
+      thisMonthTrips,
+      lastMonthTrips,
+      completedTrips,
+      inProgressTrips,
+      thisMonthInvoiceTotal: thisMonthInvoices._sum?.total || 0,
+      lastMonthInvoiceTotal: lastMonthInvoices._sum?.total || 0,
+      thisMonthPaymentTotal: thisMonthPayments._sum?.amount || 0,
+      lastMonthPaymentTotal: lastMonthPayments._sum?.amount || 0,
+      thisMonthExpenseTotal: thisMonthExpenses._sum?.amount || 0,
+      lastMonthExpenseTotal: lastMonthExpenses._sum?.amount || 0,
+      outstandingInvoices: outstandingInvoices.map((inv) => ({
+        invoiceNumber: inv.invoiceNumber,
+        total: inv.total,
+        dueDate: inv.dueDate,
+        customer: { name: inv.customer.name },
+      })),
+      topCustomersByRevenue: topCustomersByRevenue.map((c) => ({
+        name: c.name,
+        revenue: c.revenue,
+      })),
+      expensesWithCategories,
+    });
+
+    return {
+      success: true,
+      pdf: Buffer.from(pdfBytes).toString("base64"),
+      filename: `dashboard-summary-${new Date().toISOString().split("T")[0]}.pdf`,
+    };
+  } catch (error) {
+    console.error("Failed to export dashboard PDF:", error);
+    return { success: false, error: "Failed to generate dashboard PDF report" };
+  }
 }
