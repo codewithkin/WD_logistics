@@ -2,8 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireRole } from "@/lib/session";
+import { requireRole, requireAuth } from "@/lib/session";
 import { PaymentMethod } from "@/lib/types";
+import { generatePaymentReportPDF } from "@/lib/reports/pdf-report-generator";
 
 export async function createPayment(data: {
   invoiceId: string;
@@ -157,5 +158,84 @@ export async function deletePayment(id: string) {
   } catch (error) {
     console.error("Failed to delete payment:", error);
     return { success: false, error: "Failed to delete payment" };
+  }
+}
+
+export async function exportPaymentsPDF(options?: {
+  paymentIds?: string[];
+  startDate?: Date;
+  endDate?: Date;
+}) {
+  const session = await requireAuth();
+
+  try {
+    const startDate = options?.startDate || new Date(new Date().setMonth(new Date().getMonth() - 1));
+    const endDate = options?.endDate || new Date();
+
+    const whereClause: Record<string, unknown> = {
+      invoice: { organizationId: session.organizationId },
+      paymentDate: {
+        gte: startDate,
+        lte: endDate,
+      },
+    };
+
+    if (options?.paymentIds && options.paymentIds.length > 0) {
+      whereClause.id = { in: options.paymentIds };
+    }
+
+    const payments = await prisma.payment.findMany({
+      where: whereClause,
+      include: {
+        invoice: {
+          select: {
+            invoiceNumber: true,
+            customer: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { paymentDate: "desc" },
+    });
+
+    const paymentData = payments.map((pmt) => ({
+      invoiceNumber: pmt.invoice.invoiceNumber,
+      customer: pmt.invoice.customer.name,
+      amount: pmt.amount,
+      paymentDate: pmt.paymentDate,
+      method: pmt.method,
+      reference: pmt.reference || "N/A",
+    }));
+
+    // Count by payment method
+    const methodCounts: { [key: string]: number } = {};
+    payments.forEach((pmt) => {
+      methodCounts[pmt.method] = (methodCounts[pmt.method] || 0) + 1;
+    });
+
+    const analytics = {
+      totalPayments: payments.length,
+      totalAmount: payments.reduce((sum, pmt) => sum + pmt.amount, 0),
+      averageAmount: payments.length > 0 ? payments.reduce((sum, pmt) => sum + pmt.amount, 0) / payments.length : 0,
+      paymentMethods: methodCounts,
+    };
+
+    const pdfBytes = generatePaymentReportPDF({
+      payments: paymentData,
+      analytics,
+      period: { startDate, endDate },
+    });
+
+    return {
+      success: true,
+      pdf: Buffer.from(pdfBytes).toString("base64"),
+      filename: `payments-report-${new Date().toISOString().split("T")[0]}.pdf`,
+    };
+  } catch (error) {
+    console.error("Failed to export payments PDF:", error);
+    return { success: false, error: "Failed to generate PDF report" };
   }
 }

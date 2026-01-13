@@ -2,9 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireRole } from "@/lib/session";
+import { requireRole, requireAuth } from "@/lib/session";
 import { InvoiceStatus } from "@/lib/types";
 import { sendInvoiceEmail } from "@/lib/email";
+import { generateInvoiceReportPDF } from "@/lib/reports/pdf-report-generator";
 
 export async function createInvoice(data: {
   invoiceNumber: string;
@@ -191,4 +192,76 @@ export async function generateInvoiceNumber(organizationId: string): Promise<str
   }
 
   return `${prefix}0001`;
+}
+
+export async function exportInvoicesPDF(options?: {
+  invoiceIds?: string[];
+  startDate?: Date;
+  endDate?: Date;
+}) {
+  const session = await requireAuth();
+
+  try {
+    const startDate = options?.startDate || new Date(new Date().setMonth(new Date().getMonth() - 1));
+    const endDate = options?.endDate || new Date();
+
+    const whereClause: Record<string, unknown> = {
+      organizationId: session.organizationId,
+      issueDate: {
+        gte: startDate,
+        lte: endDate,
+      },
+    };
+
+    if (options?.invoiceIds && options.invoiceIds.length > 0) {
+      whereClause.id = { in: options.invoiceIds };
+    }
+
+    const invoices = await prisma.invoice.findMany({
+      where: whereClause,
+      include: {
+        customer: {
+          select: {
+            name: true,
+          },
+        },
+      },
+      orderBy: { invoiceNumber: "asc" },
+    });
+
+    const invoiceData = invoices.map((inv) => ({
+      invoiceNumber: inv.invoiceNumber,
+      customer: inv.customer.name,
+      issueDate: inv.issueDate,
+      dueDate: inv.dueDate,
+      total: inv.total,
+      amountPaid: inv.amountPaid,
+      balance: inv.balance,
+      status: inv.status,
+    }));
+
+    const analytics = {
+      totalInvoices: invoices.length,
+      totalValue: invoices.reduce((sum, inv) => sum + inv.total, 0),
+      totalPaid: invoices.reduce((sum, inv) => sum + inv.amountPaid, 0),
+      totalBalance: invoices.reduce((sum, inv) => sum + inv.balance, 0),
+      paidCount: invoices.filter((inv) => inv.status === "paid").length,
+      overdueCount: invoices.filter((inv) => inv.status === "overdue").length,
+    };
+
+    const pdfBytes = generateInvoiceReportPDF({
+      invoices: invoiceData,
+      analytics,
+      period: { startDate, endDate },
+    });
+
+    return {
+      success: true,
+      pdf: Buffer.from(pdfBytes).toString("base64"),
+      filename: `invoices-report-${new Date().toISOString().split("T")[0]}.pdf`,
+    };
+  } catch (error) {
+    console.error("Failed to export invoices PDF:", error);
+    return { success: false, error: "Failed to generate PDF report" };
+  }
 }
