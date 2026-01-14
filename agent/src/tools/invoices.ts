@@ -1,5 +1,5 @@
 import { z } from "zod";
-import prisma from "../lib/prisma";
+import { invoicesApi, customersApi } from "../lib/api-client";
 
 /**
  * Tool to list invoices with filtering options
@@ -21,51 +21,28 @@ export const listInvoices = {
     }),
   },
   execute: async (params: { organizationId: string; status?: string; customerId?: string; startDate?: string; endDate?: string; limit?: number }) => {
-    const { organizationId, status, customerId, startDate, endDate, limit = 20 } = params;
+    const { organizationId, status, customerId, startDate, endDate } = params;
 
-    const where = {
-      organizationId,
-      ...(status && { status }),
-      ...(customerId && { customerId }),
-      ...(startDate && { issueDate: { gte: new Date(startDate) } }),
-      ...(endDate && { issueDate: { lte: new Date(endDate) } }),
-    };
-
-    const [invoices, total] = await Promise.all([
-      prisma.invoice.findMany({
-        where,
-        take: limit,
-        include: {
-          customer: { select: { name: true } },
-        },
-        orderBy: { issueDate: "desc" },
-      }),
-      prisma.invoice.count({ where }),
-    ]);
-
-    const now = new Date();
-    const summary = {
-      totalAmount: invoices.reduce((sum: number, inv: any) => sum + inv.total, 0),
-      totalPaid: invoices.reduce((sum: number, inv: any) => sum + inv.amountPaid, 0),
-      totalOutstanding: invoices.reduce((sum: number, inv: any) => sum + inv.balance, 0),
-    };
-
-    return {
-      invoices: invoices.map((invoice: any) => ({
-        id: invoice.id,
-        invoiceNumber: invoice.invoiceNumber,
-        customerName: invoice.customer.name,
-        total: invoice.total,
-        amountPaid: invoice.amountPaid,
-        balance: invoice.balance,
-        status: invoice.status,
-        issueDate: invoice.issueDate.toISOString(),
-        dueDate: invoice.dueDate.toISOString(),
-        isOverdue: invoice.dueDate < now && invoice.balance > 0,
-      })),
-      total,
-      summary,
-    };
+    try {
+      const result = await invoicesApi.list(organizationId, { status, customerId, startDate, endDate });
+      
+      return {
+        invoices: result.invoices.map((invoice) => ({
+          id: invoice.id,
+          invoiceNumber: invoice.invoiceNumber,
+          customerName: invoice.customerName,
+          total: invoice.total,
+          balance: invoice.balance,
+          status: invoice.status,
+          issueDate: invoice.issueDate,
+          dueDate: invoice.dueDate,
+        })),
+        total: result.total,
+      };
+    } catch (error) {
+      console.error("Error listing invoices:", error);
+      return { invoices: [], total: 0, error: "Failed to fetch invoices" };
+    }
   },
 };
 
@@ -83,64 +60,34 @@ export const getInvoiceDetails = {
     }),
   },
   execute: async (params: { invoiceId?: string; invoiceNumber?: string; organizationId: string }) => {
-    const { invoiceId, invoiceNumber, organizationId } = params;
+    const { invoiceId, organizationId } = params;
 
-    if (!invoiceId && !invoiceNumber) {
+    if (!invoiceId) {
       return { invoice: null };
     }
 
-    const invoice = await prisma.invoice.findFirst({
-      where: {
-        organizationId,
-        ...(invoiceId ? { id: invoiceId } : { invoiceNumber }),
-      },
-      include: {
-        customer: true,
-        lineItems: true,
-        payments: {
-          orderBy: { paymentDate: "desc" },
+    try {
+      const invoice = await invoicesApi.details(organizationId, invoiceId);
+      return {
+        invoice: {
+          id: invoice.id,
+          invoiceNumber: invoice.invoiceNumber,
+          customer: invoice.customer,
+          total: invoice.total,
+          amountPaid: invoice.amountPaid,
+          balance: invoice.balance,
+          status: invoice.status,
+          issueDate: invoice.issueDate,
+          dueDate: invoice.dueDate,
+          lineItems: invoice.lineItems,
+          payments: invoice.payments,
+          notes: invoice.notes,
         },
-      },
-    });
-
-    if (!invoice) {
-      return { invoice: null };
+      };
+    } catch (error) {
+      console.error("Error getting invoice details:", error);
+      return { invoice: null, error: "Failed to fetch invoice details" };
     }
-
-    return {
-      invoice: {
-        id: invoice.id,
-        invoiceNumber: invoice.invoiceNumber,
-        customer: {
-          id: invoice.customer.id,
-          name: invoice.customer.name,
-          email: invoice.customer.email,
-          phone: invoice.customer.phone,
-        },
-        subtotal: invoice.subtotal,
-        tax: invoice.tax,
-        total: invoice.total,
-        amountPaid: invoice.amountPaid,
-        balance: invoice.balance,
-        status: invoice.status,
-        issueDate: invoice.issueDate.toISOString(),
-        dueDate: invoice.dueDate.toISOString(),
-        lineItems: invoice.lineItems.map((item: any) => ({
-          description: item.description,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          total: item.total,
-        })),
-        payments: invoice.payments.map((payment: any) => ({
-          id: payment.id,
-          amount: payment.amount,
-          method: payment.method,
-          paymentDate: payment.paymentDate.toISOString(),
-          reference: payment.reference,
-        })),
-        notes: invoice.notes,
-      },
-    };
   },
 };
 
@@ -157,40 +104,24 @@ export const getOverdueInvoices = {
   },
   execute: async (params: { organizationId: string }) => {
     const { organizationId } = params;
-    const now = new Date();
 
-    const invoices = await prisma.invoice.findMany({
-      where: {
-        organizationId,
-        dueDate: { lt: now },
-        balance: { gt: 0 },
-        status: { notIn: ["paid", "cancelled"] },
-      },
-      include: {
-        customer: true,
-      },
-      orderBy: { dueDate: "asc" },
-    });
-
-    return {
-      overdueInvoices: invoices.map((invoice: any) => {
-        const daysOverdue = Math.ceil(
-          (now.getTime() - invoice.dueDate.getTime()) / (1000 * 60 * 60 * 24)
-        );
-        return {
+    try {
+      const result = await invoicesApi.overdue(organizationId);
+      return {
+        overdueInvoices: result.invoices.map((invoice) => ({
           id: invoice.id,
           invoiceNumber: invoice.invoiceNumber,
-          customerName: invoice.customer.name,
-          customerPhone: invoice.customer.phone,
-          total: invoice.total,
+          customerName: invoice.customerName,
           balance: invoice.balance,
-          dueDate: invoice.dueDate.toISOString(),
-          daysOverdue,
-          reminderSent: invoice.reminderSent,
-        };
-      }),
-      totalOverdue: invoices.reduce((sum: number, inv: any) => sum + inv.balance, 0),
-    };
+          dueDate: invoice.dueDate,
+          daysOverdue: invoice.daysOverdue,
+        })),
+        totalOverdue: result.invoices.reduce((sum, inv) => sum + inv.balance, 0),
+      };
+    } catch (error) {
+      console.error("Error getting overdue invoices:", error);
+      return { overdueInvoices: [], totalOverdue: 0, error: "Failed to fetch overdue invoices" };
+    }
   },
 };
 
@@ -208,66 +139,26 @@ export const getCustomerBalance = {
     }),
   },
   execute: async (params: { customerId?: string; customerName?: string; organizationId: string }) => {
-    const { customerId, customerName, organizationId } = params;
+    const { customerId, organizationId } = params;
 
-    if (!customerId && !customerName) {
+    if (!customerId) {
       return { customer: null };
     }
 
-    const customer = await prisma.customer.findFirst({
-      where: {
-        organizationId,
-        ...(customerId
-          ? { id: customerId }
-          : { name: { contains: customerName, mode: "insensitive" } }),
-      },
-      include: {
-        invoices: {
-          orderBy: { issueDate: "desc" },
-          take: 10,
+    try {
+      const result = await customersApi.balance(organizationId, customerId);
+      return {
+        customer: {
+          id: result.customer.id,
+          name: result.customer.name,
+          balance: result.outstanding,
+          recentInvoices: result.invoices,
         },
-        payments: {
-          orderBy: { paymentDate: "desc" },
-          take: 10,
-        },
-      },
-    });
-
-    if (!customer) {
-      return { customer: null };
+      };
+    } catch (error) {
+      console.error("Error getting customer balance:", error);
+      return { customer: null, error: "Failed to fetch customer balance" };
     }
-
-    const totalInvoiced = customer.invoices.reduce((sum: number, inv: any) => sum + inv.total, 0);
-    const totalPaid = customer.payments.reduce((sum: number, p: any) => sum + p.amount, 0);
-
-    return {
-      customer: {
-        id: customer.id,
-        name: customer.name,
-        email: customer.email,
-        phone: customer.phone,
-        balance: customer.balance,
-        creditLimit: customer.creditLimit,
-        paymentTerms: customer.paymentTerms,
-        recentInvoices: customer.invoices.map((invoice: any) => ({
-          id: invoice.id,
-          invoiceNumber: invoice.invoiceNumber,
-          total: invoice.total,
-          balance: invoice.balance,
-          status: invoice.status,
-          issueDate: invoice.issueDate.toISOString(),
-          dueDate: invoice.dueDate.toISOString(),
-        })),
-        recentPayments: customer.payments.map((payment: any) => ({
-          id: payment.id,
-          amount: payment.amount,
-          method: payment.method,
-          paymentDate: payment.paymentDate.toISOString(),
-        })),
-        totalInvoiced,
-        totalPaid,
-      },
-    };
   },
 };
 
@@ -285,85 +176,27 @@ export const getInvoiceStats = {
     }),
   },
   execute: async (params: { organizationId: string; startDate?: string; endDate?: string }) => {
-    const { organizationId, startDate, endDate } = params;
+    const { organizationId } = params;
 
-    const dateFilter: Record<string, unknown> = {
-      ...(startDate && { gte: new Date(startDate) }),
-      ...(endDate && { lte: new Date(endDate) }),
-    };
-
-    const invoices = await prisma.invoice.findMany({
-      where: {
-        organizationId,
-        ...(Object.keys(dateFilter).length > 0 && { issueDate: dateFilter }),
-      },
-      include: {
-        customer: true,
-      },
-    });
-
-    const now = new Date();
-    const stats = {
-      totalInvoices: invoices.length,
-      draft: invoices.filter((i: any) => i.status === "draft").length,
-      sent: invoices.filter((i: any) => i.status === "sent").length,
-      paid: invoices.filter((i: any) => i.status === "paid").length,
-      partial: invoices.filter((i: any) => i.status === "partial").length,
-      overdue: invoices.filter(
-        (i: any) => i.dueDate < now && i.balance > 0 && i.status !== "cancelled"
-      ).length,
-      cancelled: invoices.filter((i: any) => i.status === "cancelled").length,
-      totalInvoiced: invoices.reduce((sum: number, i: any) => sum + i.total, 0),
-      totalCollected: invoices.reduce((sum: number, i: any) => sum + i.amountPaid, 0),
-      totalOutstanding: invoices.reduce((sum: number, i: any) => sum + i.balance, 0),
-      collectionRate: 0,
-    };
-    stats.collectionRate =
-      stats.totalInvoiced > 0
-        ? Math.round((stats.totalCollected / stats.totalInvoiced) * 100)
-        : 0;
-
-    // Calculate top customers
-    const customerMap = new Map<
-      string,
-      {
-        name: string;
-        count: number;
-        invoiced: number;
-        paid: number;
-        balance: number;
-      }
-    >();
-    invoices.forEach((invoice: any) => {
-      const existing = customerMap.get(invoice.customerId) || {
-        name: invoice.customer.name,
-        count: 0,
-        invoiced: 0,
-        paid: 0,
-        balance: 0,
+    try {
+      const result = await invoicesApi.summary(organizationId);
+      return {
+        stats: {
+          totalInvoices: result.total,
+          byStatus: result.byStatus,
+          totalInvoiced: result.totalAmount,
+          totalCollected: result.totalPaid,
+          totalOutstanding: result.totalOutstanding,
+          collectionRate: result.totalAmount > 0 
+            ? Math.round((result.totalPaid / result.totalAmount) * 100) 
+            : 0,
+        },
+        topCustomers: [],
       };
-      customerMap.set(invoice.customerId, {
-        name: invoice.customer.name,
-        count: existing.count + 1,
-        invoiced: existing.invoiced + invoice.total,
-        paid: existing.paid + invoice.amountPaid,
-        balance: existing.balance + invoice.balance,
-      });
-    });
-
-    const topCustomers = Array.from(customerMap.entries())
-      .map(([customerId, data]) => ({
-        customerId,
-        customerName: data.name,
-        invoiceCount: data.count,
-        totalInvoiced: data.invoiced,
-        totalPaid: data.paid,
-        balance: data.balance,
-      }))
-      .sort((a, b) => b.totalInvoiced - a.totalInvoiced)
-      .slice(0, 5);
-
-    return { stats, topCustomers };
+    } catch (error) {
+      console.error("Error getting invoice stats:", error);
+      return { stats: null, topCustomers: [], error: "Failed to fetch invoice stats" };
+    }
   },
 };
 

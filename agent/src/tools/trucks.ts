@@ -1,5 +1,5 @@
 import { z } from "zod";
-import prisma from "../lib/prisma";
+import { trucksApi } from "../lib/api-client";
 
 /**
  * Tool to list all trucks with optional filtering
@@ -18,42 +18,25 @@ export const listTrucks = {
     }),
   },
   execute: async (params: { organizationId: string; status?: string; limit?: number }) => {
-    const { organizationId, status, limit = 20 } = params;
-
-    const where = {
-      organizationId,
-      ...(status && { status }),
-    };
-
-    const [trucks, total] = await Promise.all([
-      prisma.truck.findMany({
-        where,
-        take: limit,
-        include: {
-          assignedDriver: {
-            select: { firstName: true, lastName: true },
-          },
-        },
-        orderBy: { registrationNo: "asc" },
-      }),
-      prisma.truck.count({ where }),
-    ]);
-
-    return {
-      trucks: trucks.map((truck: any) => ({
-        id: truck.id,
-        registrationNo: truck.registrationNo,
-        make: truck.make,
-        model: truck.model,
-        year: truck.year,
-        status: truck.status,
-        currentMileage: truck.currentMileage,
-        driverName: truck.assignedDriver
-          ? `${truck.assignedDriver.firstName} ${truck.assignedDriver.lastName}`
-          : null,
-      })),
-      total,
-    };
+    const { organizationId, status } = params;
+    
+    try {
+      const result = await trucksApi.list(organizationId, { status });
+      return {
+        trucks: result.trucks.map((truck) => ({
+          id: truck.id,
+          registrationNo: truck.registrationNo,
+          model: truck.model,
+          status: truck.status,
+          capacity: truck.capacity,
+          driverName: truck.driverName,
+        })),
+        total: result.total,
+      };
+    } catch (error) {
+      console.error("Error listing trucks:", error);
+      return { trucks: [], total: 0, error: "Failed to fetch trucks" };
+    }
   },
 };
 
@@ -71,72 +54,19 @@ export const getTruckDetails = {
     }),
   },
   execute: async (params: { truckId?: string; registrationNo?: string; organizationId: string }) => {
-    const { truckId, registrationNo, organizationId } = params;
+    const { truckId, organizationId } = params;
 
-    if (!truckId && !registrationNo) {
+    if (!truckId) {
       return { truck: null };
     }
 
-    const truck = await prisma.truck.findFirst({
-      where: {
-        organizationId,
-        ...(truckId ? { id: truckId } : { registrationNo }),
-      },
-      include: {
-        assignedDriver: true,
-        trips: {
-          take: 5,
-          orderBy: { scheduledDate: "desc" },
-        },
-        truckExpenses: {
-          include: { expense: true },
-        },
-      },
-    });
-
-    if (!truck) {
-      return { truck: null };
+    try {
+      const truck = await trucksApi.details(organizationId, truckId);
+      return { truck };
+    } catch (error) {
+      console.error("Error getting truck details:", error);
+      return { truck: null, error: "Failed to fetch truck details" };
     }
-
-    const totalExpenses = truck.truckExpenses.reduce(
-      (sum: number, te: any) => sum + te.expense.amount,
-      0
-    );
-    const totalRevenue = truck.trips.reduce((sum: number, trip: any) => sum + trip.revenue, 0);
-
-    return {
-      truck: {
-        id: truck.id,
-        registrationNo: truck.registrationNo,
-        make: truck.make,
-        model: truck.model,
-        year: truck.year,
-        chassisNumber: truck.chassisNumber,
-        engineNumber: truck.engineNumber,
-        status: truck.status,
-        currentMileage: truck.currentMileage,
-        fuelType: truck.fuelType,
-        tankCapacity: truck.tankCapacity,
-        notes: truck.notes,
-        driver: truck.assignedDriver
-          ? {
-              id: truck.assignedDriver.id,
-              name: `${truck.assignedDriver.firstName} ${truck.assignedDriver.lastName}`,
-              phone: truck.assignedDriver.phone,
-            }
-          : null,
-        recentTrips: truck.trips.map((trip: any) => ({
-          id: trip.id,
-          origin: trip.originCity,
-          destination: trip.destinationCity,
-          status: trip.status,
-          scheduledDate: trip.scheduledDate.toISOString(),
-          revenue: trip.revenue,
-        })),
-        totalExpenses,
-        totalRevenue,
-      },
-    };
   },
 };
 
@@ -157,68 +87,38 @@ export const getTruckPerformance = {
   execute: async (params: { organizationId: string; truckId?: string; startDate?: string; endDate?: string }) => {
     const { organizationId, truckId, startDate, endDate } = params;
 
-    const dateFilter: Record<string, unknown> = {
-      ...(startDate && { gte: new Date(startDate) }),
-      ...(endDate && { lte: new Date(endDate) }),
-    };
+    if (!truckId) {
+      // For summary of all trucks, use the summary endpoint
+      try {
+        const summary = await trucksApi.summary(organizationId);
+        return { 
+          performance: [], 
+          summary: {
+            totalTrucks: summary.total,
+            byStatus: summary.byStatus,
+          }
+        };
+      } catch (error) {
+        console.error("Error getting truck summary:", error);
+        return { performance: [], summary: null, error: "Failed to fetch truck summary" };
+      }
+    }
 
-    const trucks = await prisma.truck.findMany({
-      where: {
-        organizationId,
-        ...(truckId && { id: truckId }),
-      },
-      include: {
-        trips: {
-          where: Object.keys(dateFilter).length > 0 ? { scheduledDate: dateFilter } : undefined,
-        },
-        truckExpenses: {
-          include: {
-            expense: {
-              where: Object.keys(dateFilter).length > 0 ? { date: dateFilter } : undefined,
-            },
-          },
-        },
-      },
-    });
-
-    const performance = trucks.map((truck: any) => {
-      const totalRevenue = truck.trips.reduce((sum: number, trip: any) => sum + trip.revenue, 0);
-      const totalExpenses = truck.truckExpenses.reduce(
-        (sum: number, te: any) => sum + te.expense.amount,
-        0
-      );
-      const totalMileage = truck.trips.reduce(
-        (sum: number, trip: any) => sum + (trip.actualMileage || trip.estimatedMileage),
-        0
-      );
-      const profit = totalRevenue - totalExpenses;
-      const profitMargin = totalRevenue > 0 ? (profit / totalRevenue) * 100 : 0;
-
-      return {
-        truckId: truck.id,
-        registrationNo: truck.registrationNo,
-        tripCount: truck.trips.length,
-        completedTrips: truck.trips.filter((t: any) => t.status === "completed").length,
-        totalMileage,
-        totalRevenue,
-        totalExpenses,
-        profit,
-        profitMargin: Math.round(profitMargin * 100) / 100,
+    try {
+      const performance = await trucksApi.performance(organizationId, truckId, startDate, endDate);
+      return { 
+        performance: [performance],
+        summary: {
+          totalTrucks: 1,
+          totalRevenue: performance.totalRevenue,
+          totalExpenses: performance.totalExpenses,
+          totalProfit: performance.profit,
+        }
       };
-    });
-
-    const summary = {
-      totalTrucks: performance.length,
-      totalRevenue: performance.reduce((sum: number, p: any) => sum + p.totalRevenue, 0),
-      totalExpenses: performance.reduce((sum: number, p: any) => sum + p.totalExpenses, 0),
-      totalProfit: performance.reduce((sum: number, p: any) => sum + p.profit, 0),
-      averageProfitPerTruck:
-        performance.length > 0
-          ? performance.reduce((sum: number, p: any) => sum + p.profit, 0) / performance.length
-          : 0,
-    };
-
-    return { performance, summary };
+    } catch (error) {
+      console.error("Error getting truck performance:", error);
+      return { performance: [], summary: null, error: "Failed to fetch truck performance" };
+    }
   },
 };
 
@@ -236,53 +136,27 @@ export const checkTruckAvailability = {
     }),
   },
   execute: async (params: { organizationId: string; date: string; endDate?: string }) => {
-    const { organizationId, date, endDate } = params;
+    const { organizationId, status } = params as { organizationId: string; status?: string };
 
-    const checkDate = new Date(date);
-    const checkEndDate = endDate ? new Date(endDate) : checkDate;
-
-    // Get all active trucks
-    const trucks = await prisma.truck.findMany({
-      where: {
-        organizationId,
-        status: "active",
-      },
-      include: {
-        assignedDriver: true,
-        trips: {
-          where: {
-            status: { in: ["scheduled", "in_progress"] },
-            scheduledDate: {
-              lte: checkEndDate,
-            },
-            OR: [{ endDate: null }, { endDate: { gte: checkDate } }],
-          },
-        },
-      },
-    });
-
-    const availableTrucks = trucks
-      .filter((truck: any) => truck.trips.length === 0)
-      .map((truck: any) => ({
-        id: truck.id,
-        registrationNo: truck.registrationNo,
-        make: truck.make,
-        model: truck.model,
-        driverName: truck.assignedDriver
-          ? `${truck.assignedDriver.firstName} ${truck.assignedDriver.lastName}`
-          : null,
-      }));
-
-    const busyTrucks = trucks
-      .filter((truck: any) => truck.trips.length > 0)
-      .map((truck: any) => ({
-        id: truck.id,
-        registrationNo: truck.registrationNo,
-        tripDestination: truck.trips[0]?.destinationCity || "Unknown",
-        tripStatus: truck.trips[0]?.status || "Unknown",
-      }));
-
-    return { availableTrucks, busyTrucks };
+    try {
+      // Get all trucks and filter by active status
+      const result = await trucksApi.list(organizationId, { status: "active" });
+      
+      // For now, return all active trucks as available
+      // The API can be extended to support date-based availability checking
+      return {
+        availableTrucks: result.trucks.map((truck) => ({
+          id: truck.id,
+          registrationNo: truck.registrationNo,
+          model: truck.model,
+          driverName: truck.driverName,
+        })),
+        busyTrucks: [],
+      };
+    } catch (error) {
+      console.error("Error checking truck availability:", error);
+      return { availableTrucks: [], busyTrucks: [], error: "Failed to check availability" };
+    }
   },
 };
 

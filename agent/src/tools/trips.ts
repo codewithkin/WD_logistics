@@ -1,5 +1,5 @@
 import { z } from "zod";
-import prisma from "../lib/prisma";
+import { tripsApi } from "../lib/api-client";
 
 /**
  * Tool to list trips with filtering options
@@ -22,46 +22,28 @@ export const listTrips = {
     }),
   },
   execute: async (params: { organizationId: string; status?: string; truckId?: string; driverId?: string; startDate?: string; endDate?: string; limit?: number }) => {
-    const { organizationId, status, truckId, driverId, startDate, endDate, limit = 20 } = params;
+    const { organizationId, status, truckId, driverId, startDate, endDate } = params;
 
-    const where = {
-      organizationId,
-      ...(status && { status }),
-      ...(truckId && { truckId }),
-      ...(driverId && { driverId }),
-      ...(startDate && { scheduledDate: { gte: new Date(startDate) } }),
-      ...(endDate && { scheduledDate: { lte: new Date(endDate) } }),
-    };
-
-    const [trips, total] = await Promise.all([
-      prisma.trip.findMany({
-        where,
-        take: limit,
-        include: {
-          truck: { select: { registrationNo: true } },
-          driver: { select: { firstName: true, lastName: true } },
-          customer: { select: { name: true } },
-        },
-        orderBy: { scheduledDate: "desc" },
-      }),
-      prisma.trip.count({ where }),
-    ]);
-
-    return {
-      trips: trips.map((trip: any) => ({
-        id: trip.id,
-        origin: trip.originCity,
-        destination: trip.destinationCity,
-        truckRegistration: trip.truck.registrationNo,
-        driverName: `${trip.driver.firstName} ${trip.driver.lastName}`,
-        customerName: trip.customer?.name || null,
-        status: trip.status,
-        scheduledDate: trip.scheduledDate.toISOString(),
-        revenue: trip.revenue,
-        estimatedMileage: trip.estimatedMileage,
-      })),
-      total,
-    };
+    try {
+      const result = await tripsApi.list(organizationId, { status, truckId, driverId, startDate, endDate });
+      return {
+        trips: result.trips.map((trip) => ({
+          id: trip.id,
+          origin: trip.originCity,
+          destination: trip.destinationCity,
+          truckRegistration: trip.truck.registrationNo,
+          driverName: trip.driver.name,
+          customerName: trip.customer.name,
+          status: trip.status,
+          scheduledDate: trip.scheduledDate,
+          revenue: trip.revenue,
+        })),
+        total: result.total,
+      };
+    } catch (error) {
+      console.error("Error listing trips:", error);
+      return { trips: [], total: 0, error: "Failed to fetch trips" };
+    }
   },
 };
 
@@ -74,86 +56,43 @@ export const getTripDetails = {
     description: "Get detailed information about a specific trip including expenses and route details.",
     inputSchema: z.object({
       tripId: z.string().describe("The trip ID to get details for"),
+      organizationId: z.string().describe("The organization ID"),
     }),
   },
-  execute: async (params: { tripId: string }) => {
-    const { tripId } = params;
+  execute: async (params: { tripId: string; organizationId: string }) => {
+    const { tripId, organizationId } = params;
 
-    const trip = await prisma.trip.findUnique({
-      where: { id: tripId },
-      include: {
-        truck: true,
-        driver: true,
-        customer: true,
-        tripExpenses: {
-          include: {
-            expense: {
-              include: { category: true },
-            },
+    try {
+      const trip = await tripsApi.details(organizationId, tripId);
+      return {
+        trip: {
+          id: trip.id,
+          origin: {
+            city: trip.originCity,
+            address: trip.originAddress,
           },
+          destination: {
+            city: trip.destinationCity,
+            address: trip.destinationAddress,
+          },
+          truck: trip.truck,
+          driver: trip.driver,
+          customer: trip.customer,
+          revenue: trip.revenue,
+          status: trip.status,
+          scheduledDate: trip.scheduledDate,
+          startDate: trip.startedAt,
+          endDate: trip.completedAt,
+          expenses: trip.expenses,
+          totalExpenses: trip.totalExpenses,
+          profit: trip.profit,
+          notes: trip.notes,
         },
-      },
-    });
-
-    if (!trip) {
-      return { trip: null };
+      };
+    } catch (error) {
+      console.error("Error getting trip details:", error);
+      return { trip: null, error: "Failed to fetch trip details" };
     }
-
-    const totalExpenses = trip.tripExpenses.reduce(
-      (sum: number, te: any) => sum + te.expense.amount,
-      0
-    );
-
-    return {
-      trip: {
-        id: trip.id,
-        origin: {
-          city: trip.originCity,
-          address: trip.originAddress,
-        },
-        destination: {
-          city: trip.destinationCity,
-          address: trip.destinationAddress,
-        },
-        truck: {
-          id: trip.truck.id,
-          registrationNo: trip.truck.registrationNo,
-          make: trip.truck.make,
-          model: trip.truck.model,
-        },
-        driver: {
-          id: trip.driver.id,
-          name: `${trip.driver.firstName} ${trip.driver.lastName}`,
-          phone: trip.driver.phone,
-        },
-        customer: trip.customer
-          ? {
-              id: trip.customer.id,
-              name: trip.customer.name,
-            }
-          : null,
-        loadDescription: trip.loadDescription,
-        loadWeight: trip.loadWeight,
-        loadUnits: trip.loadUnits,
-        estimatedMileage: trip.estimatedMileage,
-        actualMileage: trip.actualMileage,
-        revenue: trip.revenue,
-        status: trip.status,
-        scheduledDate: trip.scheduledDate.toISOString(),
-        startDate: trip.startDate?.toISOString() || null,
-        endDate: trip.endDate?.toISOString() || null,
-        driverNotified: trip.driverNotified,
-        expenses: trip.tripExpenses.map((te: any) => ({
-          id: te.expense.id,
-          category: te.expense.category.name,
-          amount: te.expense.amount,
-          description: te.expense.description,
-        })),
-        totalExpenses,
-        profit: trip.revenue - totalExpenses,
-        notes: trip.notes,
-      },
-    };
   },
 };
 
@@ -173,65 +112,23 @@ export const getTripStats = {
   execute: async (params: { organizationId: string; startDate?: string; endDate?: string }) => {
     const { organizationId, startDate, endDate } = params;
 
-    const dateFilter: Record<string, unknown> = {
-      ...(startDate && { gte: new Date(startDate) }),
-      ...(endDate && { lte: new Date(endDate) }),
-    };
-
-    const trips = await prisma.trip.findMany({
-      where: {
-        organizationId,
-        ...(Object.keys(dateFilter).length > 0 && { scheduledDate: dateFilter }),
-      },
-    });
-
-    const stats = {
-      totalTrips: trips.length,
-      scheduled: trips.filter((t: any) => t.status === "scheduled").length,
-      inProgress: trips.filter((t: any) => t.status === "in_progress").length,
-      completed: trips.filter((t: any) => t.status === "completed").length,
-      cancelled: trips.filter((t: any) => t.status === "cancelled").length,
-      totalRevenue: trips.reduce((sum: number, t: any) => sum + t.revenue, 0),
-      totalMileage: trips.reduce(
-        (sum: number, t: any) => sum + (t.actualMileage || t.estimatedMileage),
-        0
-      ),
-      averageRevenuePerTrip:
-        trips.length > 0
-          ? trips.reduce((sum: number, t: any) => sum + t.revenue, 0) / trips.length
-          : 0,
-      averageMileagePerTrip:
-        trips.length > 0
-          ? trips.reduce((sum: number, t: any) => sum + (t.actualMileage || t.estimatedMileage), 0) /
-            trips.length
-          : 0,
-    };
-
-    // Calculate top routes
-    const routeMap = new Map<string, { count: number; revenue: number }>();
-    trips.forEach((trip: any) => {
-      const key = `${trip.originCity}-${trip.destinationCity}`;
-      const existing = routeMap.get(key) || { count: 0, revenue: 0 };
-      routeMap.set(key, {
-        count: existing.count + 1,
-        revenue: existing.revenue + trip.revenue,
-      });
-    });
-
-    const topRoutes = Array.from(routeMap.entries())
-      .map(([route, data]) => {
-        const [origin, destination] = route.split("-");
-        return {
-          origin,
-          destination,
-          count: data.count,
-          totalRevenue: data.revenue,
-        };
-      })
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 5);
-
-    return { stats, topRoutes };
+    try {
+      const result = await tripsApi.stats(organizationId, startDate, endDate);
+      return {
+        stats: {
+          totalTrips: result.total,
+          byStatus: result.byStatus,
+          totalRevenue: result.totalRevenue,
+          totalMileage: result.totalDistance,
+          averageRevenuePerTrip: result.total > 0 ? result.totalRevenue / result.total : 0,
+          averageMileagePerTrip: result.total > 0 ? result.totalDistance / result.total : 0,
+        },
+        topRoutes: [], // Can be added to the API if needed
+      };
+    } catch (error) {
+      console.error("Error getting trip stats:", error);
+      return { stats: null, topRoutes: [], error: "Failed to fetch trip stats" };
+    }
   },
 };
 
@@ -250,45 +147,65 @@ export const getUpcomingTrips = {
   execute: async (params: { organizationId: string; days?: number }) => {
     const { organizationId, days = 7 } = params;
 
-    const now = new Date();
-    const futureDate = new Date();
-    futureDate.setDate(futureDate.getDate() + days);
+    try {
+      const result = await tripsApi.upcoming(organizationId, days);
+      const now = new Date();
+      
+      return {
+        trips: result.trips.map((trip) => {
+          const tripDate = new Date(trip.scheduledDate);
+          const daysUntil = Math.ceil((tripDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+          return {
+            id: trip.id,
+            origin: trip.originCity,
+            destination: trip.destinationCity,
+            truckRegistration: trip.truck.registrationNo,
+            driverName: trip.driver.name,
+            customerName: trip.customer.name,
+            scheduledDate: trip.scheduledDate,
+            daysUntil,
+          };
+        }),
+      };
+    } catch (error) {
+      console.error("Error getting upcoming trips:", error);
+      return { trips: [], error: "Failed to fetch upcoming trips" };
+    }
+  },
+};
 
-    const trips = await prisma.trip.findMany({
-      where: {
-        organizationId,
-        status: "scheduled",
-        scheduledDate: {
-          gte: now,
-          lte: futureDate,
-        },
-      },
-      include: {
-        truck: { select: { registrationNo: true } },
-        driver: { select: { firstName: true, lastName: true } },
-        customer: { select: { name: true } },
-      },
-      orderBy: { scheduledDate: "asc" },
-    });
+/**
+ * Tool to get today's trips
+ */
+export const getTodaysTrips = {
+  definition: {
+    name: "get_todays_trips",
+    description: "Get all trips scheduled for today.",
+    inputSchema: z.object({
+      organizationId: z.string().describe("The organization ID"),
+    }),
+  },
+  execute: async (params: { organizationId: string }) => {
+    const { organizationId } = params;
 
-    return {
-      trips: trips.map((trip: any) => {
-        const daysUntil = Math.ceil(
-          (trip.scheduledDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
-        );
-        return {
+    try {
+      const result = await tripsApi.today(organizationId);
+      return {
+        trips: result.trips.map((trip) => ({
           id: trip.id,
           origin: trip.originCity,
           destination: trip.destinationCity,
           truckRegistration: trip.truck.registrationNo,
-          driverName: `${trip.driver.firstName} ${trip.driver.lastName}`,
-          customerName: trip.customer?.name || null,
-          scheduledDate: trip.scheduledDate.toISOString(),
-          daysUntil,
-          driverNotified: trip.driverNotified,
-        };
-      }),
-    };
+          driverName: trip.driver.name,
+          customerName: trip.customer.name,
+          status: trip.status,
+          scheduledDate: trip.scheduledDate,
+        })),
+      };
+    } catch (error) {
+      console.error("Error getting today's trips:", error);
+      return { trips: [], error: "Failed to fetch today's trips" };
+    }
   },
 };
 
@@ -298,4 +215,5 @@ export const tripTools = {
   get_trip_details: getTripDetails,
   get_trip_stats: getTripStats,
   get_upcoming_trips: getUpcomingTrips,
+  get_todays_trips: getTodaysTrips,
 };

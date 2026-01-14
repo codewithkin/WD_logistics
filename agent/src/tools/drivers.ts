@@ -1,5 +1,5 @@
 import { z } from "zod";
-import prisma from "../lib/prisma";
+import { driversApi } from "../lib/api-client";
 
 /**
  * Tool to list drivers with optional filtering
@@ -18,40 +18,25 @@ export const listDrivers = {
     }),
   },
   execute: async (params: { organizationId: string; status?: string; limit?: number }) => {
-    const { organizationId, status, limit = 20 } = params;
+    const { organizationId, status } = params;
 
-    const where = {
-      organizationId,
-      ...(status && { status }),
-    };
-
-    const [drivers, total] = await Promise.all([
-      prisma.driver.findMany({
-        where,
-        take: limit,
-        include: {
-          assignedTruck: {
-            select: { registrationNo: true },
-          },
-        },
-        orderBy: { firstName: "asc" },
-      }),
-      prisma.driver.count({ where }),
-    ]);
-
-    return {
-      drivers: drivers.map((driver: any) => ({
-        id: driver.id,
-        name: `${driver.firstName} ${driver.lastName}`,
-        phone: driver.phone,
-        email: driver.email,
-        status: driver.status,
-        licenseNumber: driver.licenseNumber,
-        licenseExpiry: driver.licenseExpiry?.toISOString() || null,
-        assignedTruck: driver.assignedTruck?.registrationNo || null,
-      })),
-      total,
-    };
+    try {
+      const result = await driversApi.list(organizationId, { status });
+      return {
+        drivers: result.drivers.map((driver) => ({
+          id: driver.id,
+          name: `${driver.firstName} ${driver.lastName}`,
+          phone: driver.phone,
+          status: driver.status,
+          licenseNumber: driver.licenseNumber,
+          assignedTruck: driver.assignedTruck,
+        })),
+        total: result.total,
+      };
+    } catch (error) {
+      console.error("Error listing drivers:", error);
+      return { drivers: [], total: 0, error: "Failed to fetch drivers" };
+    }
   },
 };
 
@@ -69,72 +54,19 @@ export const getDriverDetails = {
     }),
   },
   execute: async (params: { driverId?: string; phone?: string; organizationId: string }) => {
-    const { driverId, phone, organizationId } = params;
+    const { driverId, organizationId } = params;
 
-    if (!driverId && !phone) {
+    if (!driverId) {
       return { driver: null };
     }
 
-    const driver = await prisma.driver.findFirst({
-      where: {
-        organizationId,
-        ...(driverId ? { id: driverId } : { phone }),
-      },
-      include: {
-        assignedTruck: true,
-        trips: {
-          orderBy: { scheduledDate: "desc" },
-        },
-      },
-    });
-
-    if (!driver) {
-      return { driver: null };
+    try {
+      const driver = await driversApi.details(organizationId, driverId);
+      return { driver };
+    } catch (error) {
+      console.error("Error getting driver details:", error);
+      return { driver: null, error: "Failed to fetch driver details" };
     }
-
-    const tripStats = {
-      totalTrips: driver.trips.length,
-      completedTrips: driver.trips.filter((t: any) => t.status === "completed").length,
-      totalMileage: driver.trips.reduce(
-        (sum: number, t: any) => sum + (t.actualMileage || t.estimatedMileage),
-        0
-      ),
-      totalRevenue: driver.trips.reduce((sum: number, t: any) => sum + t.revenue, 0),
-    };
-
-    return {
-      driver: {
-        id: driver.id,
-        firstName: driver.firstName,
-        lastName: driver.lastName,
-        email: driver.email,
-        phone: driver.phone,
-        whatsappNumber: driver.whatsappNumber,
-        licenseNumber: driver.licenseNumber,
-        licenseExpiry: driver.licenseExpiry?.toISOString() || null,
-        dateOfBirth: driver.dateOfBirth?.toISOString() || null,
-        address: driver.address,
-        status: driver.status,
-        startDate: driver.startDate.toISOString(),
-        assignedTruck: driver.assignedTruck
-          ? {
-              id: driver.assignedTruck.id,
-              registrationNo: driver.assignedTruck.registrationNo,
-              make: driver.assignedTruck.make,
-              model: driver.assignedTruck.model,
-            }
-          : null,
-        recentTrips: driver.trips.slice(0, 5).map((trip: any) => ({
-          id: trip.id,
-          origin: trip.originCity,
-          destination: trip.destinationCity,
-          status: trip.status,
-          scheduledDate: trip.scheduledDate.toISOString(),
-        })),
-        tripStats,
-        notes: driver.notes,
-      },
-    };
   },
 };
 
@@ -152,57 +84,19 @@ export const checkDriverAvailability = {
     }),
   },
   execute: async (params: { organizationId: string; date: string; endDate?: string }) => {
-    const { organizationId, date, endDate } = params;
+    const { organizationId, date } = params;
 
-    const checkDate = new Date(date);
-    const checkEndDate = endDate ? new Date(endDate) : checkDate;
-
-    // Get all active drivers
-    const drivers = await prisma.driver.findMany({
-      where: {
-        organizationId,
-        status: { in: ["active", "on_leave"] },
-      },
-      include: {
-        assignedTruck: true,
-        trips: {
-          where: {
-            status: { in: ["scheduled", "in_progress"] },
-            scheduledDate: {
-              lte: checkEndDate,
-            },
-            OR: [{ endDate: null }, { endDate: { gte: checkDate } }],
-          },
-        },
-      },
-    });
-
-    const availableDrivers = drivers
-      .filter((driver: any) => driver.status === "active" && driver.trips.length === 0)
-      .map((driver: any) => ({
-        id: driver.id,
-        name: `${driver.firstName} ${driver.lastName}`,
-        phone: driver.phone,
-        assignedTruck: driver.assignedTruck?.registrationNo || null,
-      }));
-
-    const busyDrivers = drivers
-      .filter((driver: any) => driver.status === "active" && driver.trips.length > 0)
-      .map((driver: any) => ({
-        id: driver.id,
-        name: `${driver.firstName} ${driver.lastName}`,
-        tripDestination: driver.trips[0]?.destinationCity || "Unknown",
-        tripStatus: driver.trips[0]?.status || "Unknown",
-      }));
-
-    const onLeaveDrivers = drivers
-      .filter((driver: any) => driver.status === "on_leave")
-      .map((driver: any) => ({
-        id: driver.id,
-        name: `${driver.firstName} ${driver.lastName}`,
-      }));
-
-    return { availableDrivers, busyDrivers, onLeaveDrivers };
+    try {
+      const result = await driversApi.availability(organizationId, date);
+      return {
+        availableDrivers: result.available,
+        busyDrivers: result.busy,
+        onLeaveDrivers: result.onLeave,
+      };
+    } catch (error) {
+      console.error("Error checking driver availability:", error);
+      return { availableDrivers: [], busyDrivers: [], onLeaveDrivers: [], error: "Failed to check availability" };
+    }
   },
 };
 
@@ -221,73 +115,49 @@ export const getDriverPerformance = {
     }),
   },
   execute: async (params: { organizationId: string; driverId?: string; startDate?: string; endDate?: string }) => {
-    const { organizationId, driverId, startDate, endDate } = params;
+    const { organizationId, driverId } = params;
 
-    const dateFilter: Record<string, unknown> = {
-      ...(startDate && { gte: new Date(startDate) }),
-      ...(endDate && { lte: new Date(endDate) }),
-    };
-
-    const drivers = await prisma.driver.findMany({
-      where: {
-        organizationId,
-        ...(driverId && { id: driverId }),
-        status: { not: "terminated" },
-      },
-      include: {
-        trips: {
-          where: Object.keys(dateFilter).length > 0 ? { scheduledDate: dateFilter } : undefined,
-        },
-      },
-    });
-
-    const performance = drivers.map((driver: any) => {
-      const completedTrips = driver.trips.filter((t: any) => t.status === "completed").length;
-      const cancelledTrips = driver.trips.filter((t: any) => t.status === "cancelled").length;
-      const totalMileage = driver.trips.reduce(
-        (sum: number, t: any) => sum + (t.actualMileage || t.estimatedMileage),
-        0
-      );
-      const totalRevenue = driver.trips.reduce((sum: number, t: any) => sum + t.revenue, 0);
-
+    try {
+      if (driverId) {
+        const driver = await driversApi.details(organizationId, driverId);
+        return {
+          performance: [{
+            driverId: driver.id,
+            driverName: `${driver.firstName} ${driver.lastName}`,
+            tripCount: driver.tripStats.total,
+            completedTrips: driver.tripStats.completed,
+            inProgressTrips: driver.tripStats.inProgress,
+          }],
+          summary: {
+            totalDrivers: 1,
+            totalTrips: driver.tripStats.total,
+          },
+        };
+      }
+      
+      // Get summary for all drivers
+      const summary = await driversApi.summary(organizationId);
       return {
-        driverId: driver.id,
-        driverName: `${driver.firstName} ${driver.lastName}`,
-        tripCount: driver.trips.length,
-        completedTrips,
-        cancelledTrips,
-        totalMileage,
-        totalRevenue,
-        averageRevenuePerTrip:
-          driver.trips.length > 0 ? totalRevenue / driver.trips.length : 0,
-        completionRate:
-          driver.trips.length > 0
-            ? Math.round((completedTrips / driver.trips.length) * 100)
-            : 0,
+        performance: [],
+        summary: {
+          totalDrivers: summary.total,
+          byStatus: summary.byStatus,
+        },
       };
-    });
-
-    const summary = {
-      totalDrivers: performance.length,
-      totalTrips: performance.reduce((sum: number, p: any) => sum + p.tripCount, 0),
-      totalRevenue: performance.reduce((sum: number, p: any) => sum + p.totalRevenue, 0),
-      averageTripsPerDriver:
-        performance.length > 0
-          ? performance.reduce((sum: number, p: any) => sum + p.tripCount, 0) / performance.length
-          : 0,
-    };
-
-    return { performance, summary };
+    } catch (error) {
+      console.error("Error getting driver performance:", error);
+      return { performance: [], summary: null, error: "Failed to fetch driver performance" };
+    }
   },
 };
 
 /**
- * Tool to check for expiring driver licenses
+ * Tool to check for expiring driver contracts
  */
 export const getExpiringLicenses = {
   definition: {
     name: "get_expiring_licenses",
-    description: "Get drivers whose licenses are expiring soon.",
+    description: "Get drivers whose contracts are expiring soon.",
     inputSchema: z.object({
       organizationId: z.string().describe("The organization ID"),
       days: z.number().optional().default(30).describe("Number of days to look ahead"),
@@ -296,38 +166,21 @@ export const getExpiringLicenses = {
   execute: async (params: { organizationId: string; days?: number }) => {
     const { organizationId, days = 30 } = params;
 
-    const now = new Date();
-    const futureDate = new Date();
-    futureDate.setDate(futureDate.getDate() + days);
-
-    const drivers = await prisma.driver.findMany({
-      where: {
-        organizationId,
-        status: "active",
-        licenseExpiry: {
-          lte: futureDate,
-        },
-      },
-      orderBy: { licenseExpiry: "asc" },
-    });
-
-    return {
-      expiringLicenses: drivers.map((driver: any) => {
-        const expiryDate = driver.licenseExpiry!;
-        const daysUntilExpiry = Math.ceil(
-          (expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
-        );
-        return {
+    try {
+      const result = await driversApi.expiringLicenses(organizationId, days);
+      return {
+        expiringContracts: result.expiringContracts.map((driver) => ({
           driverId: driver.id,
-          driverName: `${driver.firstName} ${driver.lastName}`,
-          phone: driver.phone,
-          licenseNumber: driver.licenseNumber,
-          expiryDate: expiryDate.toISOString(),
-          daysUntilExpiry,
-          isExpired: daysUntilExpiry < 0,
-        };
-      }),
-    };
+          driverName: driver.name,
+          endDate: driver.endDate,
+          daysUntilExpiry: driver.daysUntilExpiry,
+          isExpired: driver.daysUntilExpiry < 0,
+        })),
+      };
+    } catch (error) {
+      console.error("Error getting expiring contracts:", error);
+      return { expiringContracts: [], error: "Failed to fetch expiring contracts" };
+    }
   },
 };
 
