@@ -6,6 +6,7 @@ import { requireRole } from "@/lib/session";
 import { Role } from "@/lib/types";
 import { generateRandomPassword, sendSupervisorCredentials } from "@/lib/email";
 import { auth } from "@/lib/auth";
+import { notifyUserInvited, notifySupervisorCreated, notifyUserRoleChanged, notifyUserRemoved } from "@/lib/notifications";
 
 export async function updateMemberRole(memberId: string, role: Role) {
   const session = await requireRole(["admin"]);
@@ -13,6 +14,7 @@ export async function updateMemberRole(memberId: string, role: Role) {
   try {
     const member = await prisma.member.findFirst({
       where: { id: memberId, organizationId: session.organizationId },
+      include: { user: true },
     });
 
     if (!member) {
@@ -24,10 +26,24 @@ export async function updateMemberRole(memberId: string, role: Role) {
       return { success: false, error: "Cannot change your own role" };
     }
 
+    const oldRole = member.role;
+
     const updatedMember = await prisma.member.update({
       where: { id: memberId },
       data: { role },
     });
+
+    // Send admin notification
+    notifyUserRoleChanged(
+      {
+        userName: member.user.name || "Unknown",
+        userEmail: member.user.email,
+        oldRole,
+        newRole: role,
+      },
+      session.organizationId,
+      { name: session.user.name, email: session.user.email, role: session.role }
+    ).catch((err) => console.error("Failed to send admin notification:", err));
 
     revalidatePath("/users");
     return { success: true, member: updatedMember };
@@ -43,6 +59,7 @@ export async function removeMember(memberId: string) {
   try {
     const member = await prisma.member.findFirst({
       where: { id: memberId, organizationId: session.organizationId },
+      include: { user: true },
     });
 
     if (!member) {
@@ -55,6 +72,17 @@ export async function removeMember(memberId: string) {
     }
 
     await prisma.member.delete({ where: { id: memberId } });
+
+    // Send admin notification
+    notifyUserRemoved(
+      {
+        userName: member.user.name || "Unknown",
+        userEmail: member.user.email,
+        role: member.role,
+      },
+      session.organizationId,
+      { name: session.user.name, email: session.user.email, role: session.role }
+    ).catch((err) => console.error("Failed to send admin notification:", err));
 
     revalidatePath("/users");
     return { success: true };
@@ -104,6 +132,13 @@ export async function inviteUser(data: {
         role: data.role,
       },
     });
+
+    // Send admin notification
+    notifyUserInvited(
+      { email: data.email, role: data.role },
+      session.organizationId,
+      { name: session.user.name, email: session.user.email, role: session.role }
+    ).catch((err) => console.error("Failed to send admin notification:", err));
 
     revalidatePath("/users");
     return { success: true, member };
@@ -163,6 +198,13 @@ export async function createSupervisor(data: { email: string; name: string }) {
 
     // Send credentials via email
     const emailResult = await sendSupervisorCredentials(data.email, password);
+    
+    // Send admin notification
+    notifySupervisorCreated(
+      { email: data.email, name: data.name },
+      session.organizationId,
+      { name: session.user.name, email: session.user.email, role: session.role }
+    ).catch((err) => console.error("Failed to send admin notification:", err));
     
     if (!emailResult.success) {
       console.warn("User created but email failed to send");
