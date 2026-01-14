@@ -28,25 +28,25 @@ export function SettingsLayout({ children }: SettingsLayoutProps) {
                 <TabsList className="w-full justify-start border-b bg-transparent h-auto p-0 rounded-none">
                     <TabsTrigger
                         value="general"
-                        className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 pb-3 pt-2"
+                        className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:hover:bg-transparent px-4 pb-3 pt-2"
                     >
                         General
                     </TabsTrigger>
                     <TabsTrigger
                         value="notifications"
-                        className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 pb-3 pt-2"
+                        className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:hover:bg-transparent px-4 pb-3 pt-2"
                     >
                         Notifications
                     </TabsTrigger>
                     <TabsTrigger
                         value="organisation"
-                        className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 pb-3 pt-2"
+                        className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:hover:bg-transparent px-4 pb-3 pt-2"
                     >
                         Organisation
                     </TabsTrigger>
                     <TabsTrigger
                         value="members"
-                        className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 pb-3 pt-2"
+                        className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:hover:bg-transparent px-4 pb-3 pt-2"
                     >
                         Members
                     </TabsTrigger>
