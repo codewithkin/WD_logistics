@@ -163,14 +163,23 @@ export async function deleteExpense(id: string) {
   }
 }
 
-export async function exportOperationsExpensesPDF() {
+export async function exportOperationsExpensesPDF(options?: { categoryId?: string }) {
   const session = await requireAuth();
 
   try {
+    // Build where clause with optional category filter
+    const whereClause: Record<string, unknown> = { 
+      organizationId: session.organizationId 
+    };
+    
+    if (options?.categoryId) {
+      whereClause.categoryId = options.categoryId;
+    }
+
     const expenses = await prisma.expense.findMany({
-      where: { organizationId: session.organizationId },
+      where: whereClause,
       include: {
-        category: { select: { name: true } },
+        category: { select: { id: true, name: true } },
         tripExpenses: {
           include: {
             trip: {
@@ -181,6 +190,18 @@ export async function exportOperationsExpensesPDF() {
       },
       orderBy: { date: "desc" },
     });
+
+    // Get category name if filtering by category
+    let categoryName = "All Categories";
+    if (options?.categoryId) {
+      const category = await prisma.expenseCategory.findUnique({
+        where: { id: options.categoryId },
+        select: { name: true },
+      });
+      if (category) {
+        categoryName = category.name;
+      }
+    }
 
     const analytics = {
       totalExpenses: expenses.length,
@@ -206,14 +227,19 @@ export async function exportOperationsExpensesPDF() {
         startDate: startOfMonth,
         endDate: now,
       },
+      categoryName: options?.categoryId ? categoryName : undefined,
     });
 
     const base64 = Buffer.from(pdfBytes).toString("base64");
+    
+    const filename = options?.categoryId 
+      ? `expenses-${categoryName.toLowerCase().replace(/\s+/g, "-")}-report-${now.toISOString().split("T")[0]}.pdf`
+      : `operations-expenses-report-${now.toISOString().split("T")[0]}.pdf`;
 
     return {
       success: true,
       data: base64,
-      filename: `operations-expenses-report-${now.toISOString().split("T")[0]}.pdf`,
+      filename,
       mimeType: "application/pdf",
     };
   } catch (error) {

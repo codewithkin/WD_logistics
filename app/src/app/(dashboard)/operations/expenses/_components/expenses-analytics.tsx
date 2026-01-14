@@ -51,6 +51,8 @@ interface ExpensesAnalyticsProps {
     };
     expenses: Expense[];
     canExport: boolean;
+    categoryId?: string;
+    categoryName?: string;
 }
 
 const STATUS_COLORS = {
@@ -65,7 +67,7 @@ const CATEGORY_COLORS = [
     "#ec4899", "#14b8a6", "#f97316", "#6366f1", "#84cc16"
 ];
 
-export function ExpensesAnalytics({ analytics, expenses, canExport }: ExpensesAnalyticsProps) {
+export function ExpensesAnalytics({ analytics, expenses, canExport, categoryId, categoryName }: ExpensesAnalyticsProps) {
     const [isExporting, setIsExporting] = useState(false);
 
     const statusData = [
@@ -104,7 +106,10 @@ export function ExpensesAnalytics({ analytics, expenses, canExport }: ExpensesAn
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = `expenses-export-${format(new Date(), "yyyy-MM-dd")}.csv`;
+        const filename = categoryName && categoryName !== "All Categories" 
+            ? `expenses-${categoryName.toLowerCase().replace(/\s+/g, "-")}-${format(new Date(), "yyyy-MM-dd")}.csv`
+            : `expenses-export-${format(new Date(), "yyyy-MM-dd")}.csv`;
+        a.download = filename;
         a.click();
         URL.revokeObjectURL(url);
     };
@@ -112,7 +117,7 @@ export function ExpensesAnalytics({ analytics, expenses, canExport }: ExpensesAn
     const handleExportPDF = async () => {
         setIsExporting(true);
         try {
-            const result = await exportOperationsExpensesPDF();
+            const result = await exportOperationsExpensesPDF({ categoryId });
             if (result.success && result.data) {
                 const byteCharacters = atob(result.data);
                 const byteNumbers = new Array(byteCharacters.length);

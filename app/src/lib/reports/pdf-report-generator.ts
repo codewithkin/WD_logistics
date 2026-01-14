@@ -916,10 +916,11 @@ export function generateOperationsExpenseReportPDF(data: {
     paidAmount: number;
   };
   period: { startDate: Date | string; endDate: Date | string };
+  categoryName?: string;
 }): Uint8Array {
   const config: ReportConfig = {
-    title: "Operations Expense Report",
-    subtitle: "Trip and Fleet Expenses",
+    title: data.categoryName ? `${data.categoryName} Expenses Report` : "Operations Expense Report",
+    subtitle: data.categoryName ? `Expenses for ${data.categoryName} Category` : "Trip and Fleet Expenses",
     reportType: "operations-expense",
     period: data.period,
     summary: [

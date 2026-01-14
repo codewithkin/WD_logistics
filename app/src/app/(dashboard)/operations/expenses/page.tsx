@@ -1,12 +1,11 @@
 import { requireAuth } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/layout/page-header";
-import { ExpensesTable } from "./_components/expenses-table";
-import { ExpensesAnalytics } from "./_components/expenses-analytics";
+import { ExpensesClient } from "./_components/expenses-client";
 import { Plus } from "lucide-react";
 
 interface ExpensesPageProps {
-    searchParams: Promise<{ tripId?: string }>;
+    searchParams: Promise<{ tripId?: string; categoryId?: string }>;
 }
 
 export default async function ExpensesPage({ searchParams }: ExpensesPageProps) {
@@ -22,6 +21,12 @@ export default async function ExpensesPage({ searchParams }: ExpensesPageProps) 
             some: { tripId: params.tripId }
         };
     }
+
+    // Fetch expense categories for tabs
+    const categories = await prisma.expenseCategory.findMany({
+        where: { organizationId },
+        orderBy: { name: "asc" },
+    });
 
     const expenses = await prisma.expense.findMany({
         where: whereClause,
@@ -44,12 +49,13 @@ export default async function ExpensesPage({ searchParams }: ExpensesPageProps) 
     // Calculate analytics
     const totalExpenses = expenses.length;
     const totalAmount = expenses.reduce((sum, e) => sum + e.amount, 0);
-    const pendingExpenses = expenses.filter(e => e.status === "pending").length;
-    const approvedExpenses = expenses.filter(e => e.status === "approved").length;
-    const rejectedExpenses = expenses.filter(e => e.status === "rejected").length;
-    const paidExpenses = expenses.filter(e => e.status === "paid").length;
-    const pendingAmount = expenses.filter(e => e.status === "pending").reduce((sum, e) => sum + e.amount, 0);
-    const paidAmount = expenses.filter(e => e.status === "paid").reduce((sum, e) => sum + e.amount, 0);
+    // Note: Expense model doesn't have status field, so we set these to defaults
+    const pendingExpenses = 0;
+    const approvedExpenses = 0;
+    const rejectedExpenses = 0;
+    const paidExpenses = totalExpenses; // Assume all are paid
+    const pendingAmount = 0;
+    const paidAmount = totalAmount;
 
     // Get category breakdown
     const categoryBreakdown = expenses.reduce((acc, e) => {
@@ -92,8 +98,13 @@ export default async function ExpensesPage({ searchParams }: ExpensesPageProps) 
                         : undefined
                 }
             />
-            <ExpensesAnalytics analytics={analytics} expenses={expenses} canExport={canExport} />
-            <ExpensesTable expenses={expenses} role={role} />
+            <ExpensesClient 
+                expenses={expenses} 
+                categories={categories}
+                analytics={analytics} 
+                role={role}
+                canExport={canExport}
+            />
         </div>
     );
 }
