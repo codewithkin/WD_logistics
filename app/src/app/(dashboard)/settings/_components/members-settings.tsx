@@ -65,6 +65,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 
 const inviteSchema = z.object({
+    name: z.string().min(1, "Name is required"),
     email: z.string().email("Please enter a valid email"),
     role: z.enum(["admin", "supervisor", "staff"]),
 });
@@ -116,6 +117,7 @@ export function MembersSettings({
     const form = useForm<InviteData>({
         resolver: zodResolver(inviteSchema),
         defaultValues: {
+            name: "",
             email: "",
             role: "staff",
         },
@@ -126,7 +128,7 @@ export function MembersSettings({
         try {
             const result = await inviteMember(data);
             if (result.success) {
-                toast.success("Invitation sent successfully");
+                toast.success(result.message || "Member added successfully");
                 form.reset();
                 setIsInviteOpen(false);
                 router.refresh();
@@ -218,7 +220,7 @@ export function MembersSettings({
                             <DialogHeader>
                                 <DialogTitle>Invite Team Member</DialogTitle>
                                 <DialogDescription>
-                                    Send an invitation to join your organisation.
+                                    Create an account for a new team member. They will receive their login credentials via email.
                                 </DialogDescription>
                             </DialogHeader>
                             <Form {...form}>
@@ -226,6 +228,22 @@ export function MembersSettings({
                                     onSubmit={form.handleSubmit(onInvite)}
                                     className="space-y-4"
                                 >
+                                    <FormField
+                                        control={form.control}
+                                        name="name"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Name</FormLabel>
+                                                <FormControl>
+                                                    <Input
+                                                        placeholder="John Doe"
+                                                        {...field}
+                                                    />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
                                     <FormField
                                         control={form.control}
                                         name="email"
@@ -281,7 +299,7 @@ export function MembersSettings({
                                             {isLoading && (
                                                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                             )}
-                                            Send Invitation
+                                            Create & Send Credentials
                                         </Button>
                                     </DialogFooter>
                                 </form>

@@ -1,8 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { hashPassword } from "better-auth/crypto";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
+import { sendEmail, generateRandomPassword } from "@/lib/email";
 
 export async function updateOrganizationSettings(data: {
   name: string;
@@ -121,7 +123,7 @@ export async function getOrganizationMembers() {
   }
 }
 
-export async function inviteMember(data: { email: string; role: string }) {
+export async function inviteMember(data: { email: string; role: string; name?: string }) {
   const session = await requireRole(["admin"]);
 
   try {
@@ -144,36 +146,126 @@ export async function inviteMember(data: { email: string; role: string }) {
       if (existingMember) {
         return { success: false, error: "User is already a member" };
       }
+
+      // User exists but not a member - add them to the organization
+      await prisma.member.create({
+        data: {
+          organizationId: session.organizationId,
+          userId: existingUser.id,
+          role: data.role,
+        },
+      });
+
+      revalidatePath("/settings");
+      return { success: true, message: "Existing user added to organization" };
     }
 
-    // Check if there's already a pending invitation
-    const existingInvitation = await prisma.invitation.findFirst({
-      where: {
-        organizationId: session.organizationId,
-        email: data.email,
-        status: "pending",
-      },
-    });
+    // Generate a random password for the new user
+    const password = generateRandomPassword(12);
+    const hashedPassword = await hashPassword(password);
 
-    if (existingInvitation) {
-      return { success: false, error: "An invitation is already pending for this email" };
-    }
-
-    // Create invitation
-    const invitation = await prisma.invitation.create({
+    // Create new user with account and member record in a transaction
+    const newUser = await prisma.user.create({
       data: {
-        organizationId: session.organizationId,
+        name: data.name || data.email.split("@")[0],
         email: data.email,
-        role: data.role,
-        inviterId: session.user.id,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+        emailVerified: true, // Skip email verification for invited users
+        accounts: {
+          create: {
+            accountId: data.email,
+            providerId: "credential",
+            password: hashedPassword,
+          },
+        },
+        members: {
+          create: {
+            organizationId: session.organizationId,
+            role: data.role,
+          },
+        },
       },
     });
 
-    // TODO: Send invitation email using sendEmail
+    // Get organization name for the email
+    const organization = await prisma.organization.findUnique({
+      where: { id: session.organizationId },
+      select: { name: true },
+    });
+
+    // Send credentials email
+    const appUrl = process.env.BETTER_AUTH_URL || "http://localhost:3000";
+    const roleLabel = {
+      admin: "Administrator",
+      supervisor: "Supervisor",
+      staff: "Staff Member",
+    }[data.role] || "Team Member";
+
+    await sendEmail({
+      to: data.email,
+      subject: `Welcome to ${organization?.name || "WD Logistics"} - Your Account Credentials`,
+      text: `
+Welcome to ${organization?.name || "WD Logistics"}!
+
+You have been invited as a ${roleLabel}. Here are your login credentials:
+
+Email: ${data.email}
+Password: ${password}
+
+Please login at: ${appUrl}/sign-in
+
+For security, please change your password after your first login.
+
+Best regards,
+${organization?.name || "WD Logistics"} Team
+      `.trim(),
+      html: `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background: #1a1a2e; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+    .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px; }
+    .credentials { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #1a1a2e; }
+    .credentials p { margin: 8px 0; }
+    .credentials strong { color: #1a1a2e; }
+    .button { display: inline-block; background: #1a1a2e; color: white !important; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-top: 20px; }
+    .warning { color: #666; font-size: 14px; margin-top: 20px; padding: 15px; background: #fff3cd; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Welcome to ${organization?.name || "WD Logistics"}</h1>
+    </div>
+    <div class="content">
+      <p>Hello,</p>
+      <p>You have been invited as a <strong>${roleLabel}</strong> to the ${organization?.name || "WD Logistics"} platform.</p>
+      
+      <div class="credentials">
+        <h3>Your Login Credentials</h3>
+        <p><strong>Email:</strong> ${data.email}</p>
+        <p><strong>Password:</strong> ${password}</p>
+      </div>
+      
+      <a href="${appUrl}/sign-in" class="button">Login Now</a>
+      
+      <div class="warning">
+        <strong>Security Notice:</strong> For your security, please change your password after your first login.
+      </div>
+      
+      <p style="margin-top: 30px;">Best regards,<br>${organization?.name || "WD Logistics"} Team</p>
+    </div>
+  </div>
+</body>
+</html>
+      `.trim(),
+    });
 
     revalidatePath("/settings");
-    return { success: true, invitation };
+    return { success: true, message: "User created and invitation sent" };
   } catch (error) {
     console.error("Failed to invite member:", error);
     return { success: false, error: "Failed to invite member" };
