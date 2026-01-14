@@ -5,7 +5,8 @@
  * It reuses the shared WhatsApp service from the Next.js app.
  */
 
-import { Client, LocalAuth } from "whatsapp-web.js";
+import pkg from "whatsapp-web.js";
+const { Client, LocalAuth } = pkg;
 import { EventEmitter } from "events";
 
 export interface WhatsAppMessage {
