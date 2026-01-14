@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, requireRole } from "@/lib/session";
 import { TruckStatus } from "@/lib/types";
 import { generateTruckReportPDF } from "@/lib/reports/pdf-report-generator";
+import { notifyTruckCreated, notifyTruckUpdated, notifyTruckDeleted } from "@/lib/notifications";
 
 export async function createTruck(data: {
   registrationNo: string;
@@ -47,6 +48,20 @@ export async function createTruck(data: {
         notes: data.notes,
       },
     });
+
+    // Send admin notification
+    notifyTruckCreated(
+      {
+        id: truck.id,
+        registrationNo: truck.registrationNo,
+        make: truck.make,
+        model: truck.model,
+        year: truck.year,
+        status: truck.status,
+      },
+      session.organizationId,
+      { name: session.user.name, email: session.user.email, role: session.role }
+    ).catch((err) => console.error("Failed to send admin notification:", err));
 
     revalidatePath("/fleet/trucks");
     return { success: true, truck };
@@ -100,6 +115,20 @@ export async function updateTruck(
       where: { id },
       data,
     });
+
+    // Send admin notification
+    notifyTruckUpdated(
+      {
+        id: updatedTruck.id,
+        registrationNo: updatedTruck.registrationNo,
+        make: updatedTruck.make,
+        model: updatedTruck.model,
+        year: updatedTruck.year,
+        status: updatedTruck.status,
+      },
+      session.organizationId,
+      { name: session.user.name, email: session.user.email, role: session.role }
+    ).catch((err) => console.error("Failed to send admin notification:", err));
 
     revalidatePath("/fleet/trucks");
     revalidatePath(`/fleet/trucks/${id}`);
@@ -208,6 +237,13 @@ export async function deleteTruck(id: string) {
     }
 
     await prisma.truck.delete({ where: { id } });
+
+    // Send admin notification
+    notifyTruckDeleted(
+      truck.registrationNo,
+      session.organizationId,
+      { name: session.user.name, email: session.user.email, role: session.role }
+    ).catch((err) => console.error("Failed to send admin notification:", err));
 
     revalidatePath("/fleet/trucks");
     return { success: true };
