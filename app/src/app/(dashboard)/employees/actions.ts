@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireRole, requireAuth } from "@/lib/session";
 import { EmployeeStatus } from "@/lib/types";
 import { generateEmployeeReportPDF } from "@/lib/reports/pdf-report-generator";
+import { notifyEmployeeCreated, notifyEmployeeUpdated, notifyEmployeeDeleted } from "@/lib/notifications";
 
 export async function createEmployee(data: {
   firstName: string;
@@ -37,6 +38,21 @@ export async function createEmployee(data: {
         organizationId: session.organizationId,
       },
     });
+
+    // Send admin notification
+    notifyEmployeeCreated(
+      {
+        id: employee.id,
+        firstName: employee.firstName,
+        lastName: employee.lastName,
+        position: employee.position,
+        department: employee.department,
+        status: employee.status,
+        salary: employee.salary,
+      },
+      session.organizationId,
+      { name: session.user.name, email: session.user.email, role: session.role }
+    ).catch((err) => console.error("Failed to send admin notification:", err));
 
     revalidatePath("/employees");
     return { success: true, employee };
@@ -93,6 +109,21 @@ export async function updateEmployee(
       data,
     });
 
+    // Send admin notification
+    notifyEmployeeUpdated(
+      {
+        id: updatedEmployee.id,
+        firstName: updatedEmployee.firstName,
+        lastName: updatedEmployee.lastName,
+        position: updatedEmployee.position,
+        department: updatedEmployee.department,
+        status: updatedEmployee.status,
+        salary: updatedEmployee.salary,
+      },
+      session.organizationId,
+      { name: session.user.name, email: session.user.email, role: session.role }
+    ).catch((err) => console.error("Failed to send admin notification:", err));
+
     revalidatePath("/employees");
     revalidatePath(`/employees/${id}`);
     return { success: true, employee: updatedEmployee };
@@ -115,6 +146,14 @@ export async function deleteEmployee(id: string) {
     }
 
     await prisma.employee.delete({ where: { id } });
+
+    // Send admin notification
+    notifyEmployeeDeleted(
+      employee.firstName,
+      employee.lastName,
+      session.organizationId,
+      { name: session.user.name, email: session.user.email, role: session.role }
+    ).catch((err) => console.error("Failed to send admin notification:", err));
 
     revalidatePath("/employees");
     return { success: true };
