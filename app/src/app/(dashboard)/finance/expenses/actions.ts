@@ -5,6 +5,7 @@ import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { generateExpenseReportPDF } from "@/lib/reports/pdf-report-generator";
+import { notifyExpenseCreated, notifyExpenseUpdated, notifyExpenseDeleted } from "@/lib/notifications";
 
 export interface ExpenseFormData {
   categoryId: string;
@@ -18,6 +19,12 @@ export interface ExpenseFormData {
 
 export async function createExpense(data: ExpenseFormData) {
   const user = await requireRole(["admin", "supervisor", "staff"]);
+
+  // Get category name for notification
+  const category = await prisma.expenseCategory.findUnique({
+    where: { id: data.categoryId },
+    select: { name: true },
+  });
 
   const expense = await prisma.expense.create({
     data: {
@@ -44,6 +51,19 @@ export async function createExpense(data: ExpenseFormData) {
     },
   });
 
+  // Send admin notification
+  notifyExpenseCreated(
+    {
+      id: expense.id,
+      description: data.notes || category?.name || "Expense",
+      category: category?.name || "Unknown",
+      amount: data.amount,
+      date: data.date,
+    },
+    user.organizationId,
+    { name: user.user.name, email: user.user.email, role: user.role }
+  ).catch((err) => console.error("Failed to send admin notification:", err));
+
   revalidatePath("/finance/expenses");
   redirect("/finance/expenses");
 }
@@ -60,6 +80,12 @@ export async function updateExpense(id: string, data: ExpenseFormData) {
   if (!existing || existing.organizationId !== user.organizationId) {
     throw new Error("Expense not found");
   }
+
+  // Get category name for notification
+  const category = await prisma.expenseCategory.findUnique({
+    where: { id: data.categoryId },
+    select: { name: true },
+  });
 
   await prisma.$transaction(async (tx) => {
     // Update the expense
@@ -104,6 +130,19 @@ export async function updateExpense(id: string, data: ExpenseFormData) {
     }
   });
 
+  // Send admin notification
+  notifyExpenseUpdated(
+    {
+      id,
+      description: data.notes || category?.name || "Expense",
+      category: category?.name || "Unknown",
+      amount: data.amount,
+      date: data.date,
+    },
+    user.organizationId,
+    { name: user.user.name, email: user.user.email, role: user.role }
+  ).catch((err) => console.error("Failed to send admin notification:", err));
+
   revalidatePath("/finance/expenses");
   revalidatePath(`/finance/expenses/${id}`);
   redirect("/finance/expenses");
@@ -112,10 +151,14 @@ export async function updateExpense(id: string, data: ExpenseFormData) {
 export async function deleteExpense(id: string) {
   const user = await requireRole(["admin", "supervisor"]);
 
-  // Verify ownership
+  // Verify ownership and get details for notification
   const existing = await prisma.expense.findUnique({
     where: { id },
-    select: { organizationId: true },
+    select: { 
+      organizationId: true,
+      notes: true,
+      category: { select: { name: true } },
+    },
   });
 
   if (!existing || existing.organizationId !== user.organizationId) {
@@ -125,6 +168,13 @@ export async function deleteExpense(id: string) {
   await prisma.expense.delete({
     where: { id },
   });
+
+  // Send admin notification
+  notifyExpenseDeleted(
+    existing.notes || existing.category.name || "Expense",
+    user.organizationId,
+    { name: user.user.name, email: user.user.email, role: user.role }
+  ).catch((err) => console.error("Failed to send admin notification:", err));
 
   revalidatePath("/finance/expenses");
 }

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, requireRole } from "@/lib/session";
 import { generateOperationsExpenseReportPDF } from "@/lib/reports/pdf-report-generator";
+import { notifyExpenseCreated, notifyExpenseUpdated, notifyExpenseDeleted } from "@/lib/notifications";
 
 export async function createExpense(data: {
   description?: string;
@@ -57,6 +58,19 @@ export async function createExpense(data: {
       },
     });
 
+    // Send admin notification
+    notifyExpenseCreated(
+      {
+        id: expense.id,
+        description: data.description || category.name || "Expense",
+        category: category.name,
+        amount: data.amount,
+        date: data.date,
+      },
+      session.organizationId,
+      { name: session.user.name, email: session.user.email, role: session.role }
+    ).catch((err) => console.error("Failed to send admin notification:", err));
+
     revalidatePath("/operations/expenses");
     if (data.tripId) {
       revalidatePath(`/operations/trips/${data.tripId}`);
@@ -87,7 +101,10 @@ export async function updateExpense(
   try {
     const expense = await prisma.expense.findFirst({
       where: { id, organizationId: session.organizationId },
-      include: { tripExpenses: true },
+      include: { 
+        tripExpenses: true,
+        category: { select: { name: true } },
+      },
     });
 
     if (!expense) {
@@ -107,6 +124,7 @@ export async function updateExpense(
         receiptUrl: data.receiptUrl,
         notes: data.notes,
       },
+      include: { category: { select: { name: true } } },
     });
 
     // Handle trip link changes
@@ -128,6 +146,19 @@ export async function updateExpense(
       }
     }
 
+    // Send admin notification
+    notifyExpenseUpdated(
+      {
+        id: updatedExpense.id,
+        description: updatedExpense.description || updatedExpense.category.name || "Expense",
+        category: updatedExpense.category.name,
+        amount: updatedExpense.amount,
+        date: updatedExpense.date,
+      },
+      session.organizationId,
+      { name: session.user.name, email: session.user.email, role: session.role }
+    ).catch((err) => console.error("Failed to send admin notification:", err));
+
     revalidatePath("/operations/expenses");
     return { success: true, expense: updatedExpense };
   } catch (error) {
@@ -142,7 +173,10 @@ export async function deleteExpense(id: string) {
   try {
     const expense = await prisma.expense.findFirst({
       where: { id, organizationId: session.organizationId },
-      include: { tripExpenses: true },
+      include: { 
+        tripExpenses: true,
+        category: { select: { name: true } },
+      },
     });
 
     if (!expense) {
@@ -151,6 +185,13 @@ export async function deleteExpense(id: string) {
 
     // Cascade delete will handle tripExpenses
     await prisma.expense.delete({ where: { id } });
+
+    // Send admin notification
+    notifyExpenseDeleted(
+      expense.description || expense.category.name || "Expense",
+      session.organizationId,
+      { name: session.user.name, email: session.user.email, role: session.role }
+    ).catch((err) => console.error("Failed to send admin notification:", err));
 
     revalidatePath("/operations/expenses");
     for (const te of expense.tripExpenses) {
