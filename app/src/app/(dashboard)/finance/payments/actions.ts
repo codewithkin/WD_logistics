@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireRole, requireAuth } from "@/lib/session";
 import { PaymentMethod } from "@/lib/types";
 import { generatePaymentReportPDF } from "@/lib/reports/pdf-report-generator";
+import { notifyPaymentCreated, notifyPaymentUpdated, notifyPaymentDeleted } from "@/lib/notifications";
 
 export async function createPayment(data: {
   invoiceId: string;
@@ -20,6 +21,7 @@ export async function createPayment(data: {
   try {
     const invoice = await prisma.invoice.findFirst({
       where: { id: data.invoiceId, organizationId: session.organizationId },
+      include: { customer: { select: { name: true } } },
     });
 
     if (!invoice) {
@@ -66,6 +68,19 @@ export async function createPayment(data: {
       },
     });
 
+    // Send admin notification
+    notifyPaymentCreated(
+      {
+        id: payment.id,
+        paymentNumber: `PMT-${payment.id.slice(-8).toUpperCase()}`,
+        customerName: invoice.customer.name,
+        amount: data.amount,
+        method: data.method,
+      },
+      session.organizationId,
+      { name: session.user.name, email: session.user.email, role: session.role }
+    ).catch((err) => console.error("Failed to send admin notification:", err));
+
     revalidatePath("/finance/payments");
     revalidatePath(`/finance/invoices/${data.invoiceId}`);
     return { success: true, payment };
@@ -91,7 +106,10 @@ export async function updatePayment(
     // Get payment via invoice to verify organization access
     const payment = await prisma.payment.findFirst({
       where: { id },
-      include: { invoice: true },
+      include: { 
+        invoice: true,
+        customer: { select: { name: true } },
+      },
     });
 
     if (!payment || payment.invoice.organizationId !== session.organizationId) {
@@ -122,6 +140,19 @@ export async function updatePayment(
       });
     }
 
+    // Send admin notification
+    notifyPaymentUpdated(
+      {
+        id: updatedPayment.id,
+        paymentNumber: `PMT-${updatedPayment.id.slice(-8).toUpperCase()}`,
+        customerName: payment.customer.name,
+        amount: updatedPayment.amount,
+        method: updatedPayment.method,
+      },
+      session.organizationId,
+      { name: session.user.name, email: session.user.email, role: session.role }
+    ).catch((err) => console.error("Failed to send admin notification:", err));
+
     revalidatePath("/finance/payments");
     revalidatePath(`/finance/invoices/${payment.invoiceId}`);
     return { success: true, payment: updatedPayment };
@@ -138,7 +169,10 @@ export async function deletePayment(id: string) {
     // Get payment via invoice to verify organization access
     const payment = await prisma.payment.findFirst({
       where: { id },
-      include: { invoice: true },
+      include: { 
+        invoice: true,
+        customer: { select: { name: true } },
+      },
     });
 
     if (!payment || payment.invoice.organizationId !== session.organizationId) {
@@ -161,6 +195,14 @@ export async function deletePayment(id: string) {
         status: newStatus,
       },
     });
+
+    // Send admin notification
+    notifyPaymentDeleted(
+      `PMT-${payment.id.slice(-8).toUpperCase()}`,
+      payment.customer.name,
+      session.organizationId,
+      { name: session.user.name, email: session.user.email, role: session.role }
+    ).catch((err) => console.error("Failed to send admin notification:", err));
 
     revalidatePath("/finance/payments");
     revalidatePath(`/finance/invoices/${payment.invoiceId}`);
