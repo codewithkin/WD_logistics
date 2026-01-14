@@ -21,6 +21,7 @@ export type NotificationEntityType =
   | "truck"
   | "driver"
   | "customer"
+  | "supplier"
   | "employee"
   | "edit_request";
 
@@ -168,6 +169,8 @@ function getEntityTypeDisplay(entityType: NotificationEntityType): string {
       return "Driver";
     case "customer":
       return "Customer";
+    case "supplier":
+      return "Supplier";
     case "employee":
       return "Employee";
     case "edit_request":
@@ -194,6 +197,8 @@ function getEntityIcon(entityType: NotificationEntityType): string {
       return "👤";
     case "customer":
       return "🏢";
+    case "supplier":
+      return "📦";
     case "employee":
       return "👥";
     case "edit_request":
@@ -1151,6 +1156,78 @@ export async function notifyUserRemoved(
       email: data.userEmail,
       role: data.role,
       action: "Removed from organization",
+    },
+  });
+}
+
+// Supplier notifications
+export interface SupplierNotificationData {
+  id: string;
+  name: string;
+  contactPerson?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  status: string;
+}
+
+export async function notifySupplierCreated(
+  data: SupplierNotificationData,
+  organizationId: string,
+  performedBy: { name: string; email: string; role: string }
+) {
+  return sendAdminNotification({
+    entityType: "supplier",
+    eventType: "created",
+    entityId: data.id,
+    entityName: data.name,
+    organizationId,
+    performedBy,
+    details: {
+      name: data.name,
+      contactPerson: data.contactPerson,
+      email: data.email,
+      phone: data.phone,
+      status: data.status,
+    },
+  });
+}
+
+export async function notifySupplierUpdated(
+  data: SupplierNotificationData,
+  organizationId: string,
+  performedBy: { name: string; email: string; role: string }
+) {
+  return sendAdminNotification({
+    entityType: "supplier",
+    eventType: "updated",
+    entityId: data.id,
+    entityName: data.name,
+    organizationId,
+    performedBy,
+    details: {
+      name: data.name,
+      contactPerson: data.contactPerson,
+      email: data.email,
+      phone: data.phone,
+      status: data.status,
+    },
+  });
+}
+
+export async function notifySupplierDeleted(
+  name: string,
+  organizationId: string,
+  performedBy: { name: string; email: string; role: string }
+) {
+  return sendAdminNotification({
+    entityType: "supplier",
+    eventType: "deleted",
+    entityId: "",
+    entityName: name,
+    organizationId,
+    performedBy,
+    details: {
+      name,
     },
   });
 }
