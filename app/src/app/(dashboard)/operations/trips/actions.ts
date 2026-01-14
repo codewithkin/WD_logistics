@@ -51,7 +51,7 @@ export async function createTrip(data: {
   endDate?: Date | null;
   truckId: string;
   driverId: string;
-  customerId: string;
+  customerId?: string | null;
   notes?: string;
 }) {
   const session = await requireRole(["admin", "supervisor"]);
@@ -68,7 +68,7 @@ export async function createTrip(data: {
     const [truck, driver, customer] = await Promise.all([
       prisma.truck.findUnique({ where: { id: data.truckId }, select: { registrationNo: true } }),
       prisma.driver.findUnique({ where: { id: data.driverId }, select: { firstName: true, lastName: true } }),
-      prisma.customer.findUnique({ where: { id: data.customerId }, select: { name: true } }),
+      data.customerId ? prisma.customer.findUnique({ where: { id: data.customerId }, select: { name: true } }) : null,
     ]);
 
     const trip = await prisma.trip.create({

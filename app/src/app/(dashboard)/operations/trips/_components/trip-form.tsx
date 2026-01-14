@@ -58,7 +58,7 @@ const tripSchema = z.object({
     endDate: z.date().optional().nullable(),
     truckId: z.string().min(1, "Truck is required"),
     driverId: z.string().min(1, "Driver is required"),
-    customerId: z.string().min(1, "Customer is required"),
+    customerId: z.string().optional(),
     notes: z.string().optional(),
 });
 
@@ -85,7 +85,7 @@ interface TripFormProps {
         endDate: Date | null;
         truckId: string;
         driverId: string;
-        customerId: string;
+        customerId: string | null;
         notes: string | null;
     };
     trucks: Array<{ id: string; registrationNo: string }>;
@@ -120,7 +120,7 @@ export function TripForm({ trip, trucks, drivers, customers }: TripFormProps) {
             endDate: trip?.endDate ?? null,
             truckId: trip?.truckId ?? "",
             driverId: trip?.driverId ?? "",
-            customerId: trip?.customerId ?? "",
+            customerId: trip?.customerId ?? undefined,
             notes: trip?.notes ?? "",
         },
     });
@@ -131,7 +131,7 @@ export function TripForm({ trip, trucks, drivers, customers }: TripFormProps) {
             const result = isEditing
                 ? await updateTrip(trip.id, {
                     ...data,
-                    customerId: data.customerId,
+                    customerId: data.customerId || null,
                 })
                 : await createTrip({
                     originCity: data.originCity,
@@ -151,7 +151,7 @@ export function TripForm({ trip, trucks, drivers, customers }: TripFormProps) {
                     endDate: data.endDate,
                     truckId: data.truckId,
                     driverId: data.driverId,
-                    customerId: data.customerId,
+                    customerId: data.customerId || null,
                     notes: data.notes,
                 });
 
@@ -295,8 +295,8 @@ export function TripForm({ trip, trucks, drivers, customers }: TripFormProps) {
                             <FormItem>
                                 <FormLabel>Customer (Optional)</FormLabel>
                                 <Select
-                                    onValueChange={(value) => field.onChange(value === "none" ? null : value)}
-                                    defaultValue={field.value ?? "none"}
+                                    onValueChange={(value) => field.onChange(value === "none" ? undefined : value)}
+                                    value={field.value ?? "none"}
                                 >
                                     <FormControl>
                                         <SelectTrigger>
