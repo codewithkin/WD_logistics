@@ -69,12 +69,13 @@ WORKDIR /app
 # Create non-root user for security
 RUN groupadd -r appuser && useradd -r -g appuser appuser
 
-# Copy package files and install production dependencies only
+# Copy package files and install ALL dependencies (including dev for tsx)
 COPY package.json ./
-RUN npm install --omit=dev
+RUN npm install
 
-# Copy built files from builder
-COPY --from=builder /app/dist ./dist
+# Copy source files directly
+COPY --from=builder /app/src ./src
+COPY --from=builder /app/tsconfig.json ./tsconfig.json
 
 # Create directory for WhatsApp session data
 RUN mkdir -p /app/.wwebjs_auth && chown -R appuser:appuser /app
@@ -89,5 +90,5 @@ EXPOSE 3001
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD node -e "fetch('http://localhost:3001/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"
 
-# Start the application
-CMD ["node", "dist/index.js"]
+# Start the application with dev command
+CMD ["npx", "tsx", "src/index.ts"]
