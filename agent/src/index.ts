@@ -122,10 +122,8 @@ const initWhatsApp = async () => {
   }
 };
 
-// Try to initialize WhatsApp if configured
-if (process.env.INITIALIZE_WHATSAPP === "true") {
-  initWhatsApp();
-}
+// Try to initialize WhatsApp on startup
+initWhatsApp();
 
 serve({
   fetch: app.fetch,
