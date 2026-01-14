@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireRole, requireAuth } from "@/lib/session";
+import { notifyEditRequestCreated, notifyEditRequestApproved, notifyEditRequestRejected } from "@/lib/notifications";
 
 export async function createEditRequest(data: {
   entityType: string;
@@ -25,6 +26,18 @@ export async function createEditRequest(data: {
         status: "pending",
       },
     });
+
+    // Send admin notification
+    notifyEditRequestCreated(
+      {
+        id: editRequest.id,
+        entityType: data.entityType,
+        entityId: data.entityId,
+        reason: data.reason,
+      },
+      session.organizationId,
+      { name: session.user.name, email: session.user.email, role: session.role }
+    ).catch((err) => console.error("Failed to send admin notification:", err));
 
     revalidatePath("/edit-requests");
     return { success: true, editRequest };
@@ -163,11 +176,14 @@ async function applyEditToEntity(entityType: string, entityId: string, proposedD
 }
 
 export async function approveEditRequest(id: string, reviewNotes?: string) {
-  await requireRole(["admin", "supervisor"]);
+  const session = await requireRole(["admin", "supervisor"]);
 
   try {
     const editRequest = await prisma.editRequest.findFirst({
       where: { id },
+      include: {
+        requestedBy: true,
+      },
     });
 
     if (!editRequest) {
@@ -177,8 +193,6 @@ export async function approveEditRequest(id: string, reviewNotes?: string) {
     if (editRequest.status !== "pending") {
       return { success: false, error: "Edit request has already been reviewed" };
     }
-
-    const session = await requireAuth();
     
     // Apply the edit to the actual entity
     await applyEditToEntity(
@@ -197,6 +211,18 @@ export async function approveEditRequest(id: string, reviewNotes?: string) {
       },
     });
 
+    // Send admin notification
+    notifyEditRequestApproved(
+      {
+        id: editRequest.id,
+        entityType: editRequest.entityType,
+        entityId: editRequest.entityId,
+        requestedBy: editRequest.requestedBy?.name || "Unknown",
+      },
+      session.organizationId,
+      { name: session.user.name, email: session.user.email, role: session.role }
+    ).catch((err) => console.error("Failed to send admin notification:", err));
+
     revalidatePath("/edit-requests");
     return { success: true, editRequest: updatedRequest };
   } catch (error) {
@@ -206,11 +232,14 @@ export async function approveEditRequest(id: string, reviewNotes?: string) {
 }
 
 export async function rejectEditRequest(id: string, rejectionReason?: string) {
-  await requireRole(["admin", "supervisor"]);
+  const session = await requireRole(["admin", "supervisor"]);
 
   try {
     const editRequest = await prisma.editRequest.findFirst({
       where: { id },
+      include: {
+        requestedBy: true,
+      },
     });
 
     if (!editRequest) {
@@ -221,7 +250,6 @@ export async function rejectEditRequest(id: string, rejectionReason?: string) {
       return { success: false, error: "Edit request has already been reviewed" };
     }
 
-    const session = await requireAuth();
     const updatedRequest = await prisma.editRequest.update({
       where: { id },
       data: {
@@ -231,6 +259,19 @@ export async function rejectEditRequest(id: string, rejectionReason?: string) {
         rejectionReason,
       },
     });
+
+    // Send admin notification
+    notifyEditRequestRejected(
+      {
+        id: editRequest.id,
+        entityType: editRequest.entityType,
+        entityId: editRequest.entityId,
+        requestedBy: editRequest.requestedBy?.name || "Unknown",
+        rejectionReason: rejectionReason,
+      },
+      session.organizationId,
+      { name: session.user.name, email: session.user.email, role: session.role }
+    ).catch((err) => console.error("Failed to send admin notification:", err));
 
     revalidatePath("/edit-requests");
     return { success: true, editRequest: updatedRequest };
