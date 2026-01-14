@@ -14,6 +14,8 @@ import {
   Bot,
   LucideIcon,
   Tags,
+  Handshake,
+  PackageOpen,
 } from "lucide-react";
 import { Role } from "@/lib/types";
 
@@ -92,12 +94,6 @@ export const navigationSections: NavSection[] = [
     label: "Business",
     items: [
       {
-        title: "Customers",
-        href: "/customers",
-        icon: Building2,
-        roles: ["admin", "supervisor", "staff"],
-      },
-      {
         title: "Finance",
         href: "/finance",
         icon: DollarSign,
@@ -122,6 +118,23 @@ export const navigationSections: NavSection[] = [
             roles: ["admin", "supervisor"],
           },
         ],
+      },
+    ],
+  },
+  {
+    label: "Relations",
+    items: [
+      {
+        title: "Customers",
+        href: "/customers",
+        icon: Building2,
+        roles: ["admin", "supervisor", "staff"],
+      },
+      {
+        title: "Suppliers",
+        href: "/suppliers",
+        icon: PackageOpen,
+        roles: ["admin", "supervisor", "staff"],
       },
     ],
   },
