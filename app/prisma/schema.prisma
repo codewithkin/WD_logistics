@@ -101,6 +101,7 @@ model Organization {
   drivers           Driver[]
   employees         Employee[]
   customers         Customer[]
+  suppliers         Supplier[]
   trips             Trip[]
   expenses          Expense[]
   expenseCategories ExpenseCategory[]
@@ -297,6 +298,32 @@ model Customer {
 }
 
 // =============================================================================
+// SUPPLIER MANAGEMENT
+// =============================================================================
+
+model Supplier {
+  id             String    @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  contactPerson  String?
+  email          String?
+  phone          String?
+  address        String?
+  taxId          String?
+  paymentTerms   Int       @default(30)
+  balance        Float     @default(0)  // Amount owed to supplier (positive = we owe them)
+  notes          String?
+  status         String    @default("active") // active, inactive, suspended
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  expenses       Expense[] // Business expenses from this supplier
+
+  @@map("supplier")
+}
+
+// =============================================================================
 // TRIP MANAGEMENT
 // =============================================================================
 
@@ -405,20 +432,25 @@ model ExpenseCategory {
 }
 
 model Expense {
-  id             String   @id @default(cuid())
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  categoryId     String
-  category       ExpenseCategory @relation(fields: [categoryId], references: [id])
-  amount         Float
-  description    String?
-  date           DateTime @default(now())
-  receiptUrl     String?
-  vendor         String?
-  reference      String?
-  notes          String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id               String   @id @default(cuid())
+  organizationId   String
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  categoryId       String
+  category         ExpenseCategory @relation(fields: [categoryId], references: [id])
+  amount           Float
+  description      String?
+  date             DateTime @default(now())
+  receiptUrl       String?
+  vendor           String?
+  reference        String?
+  notes            String?
+  isBusinessExpense Boolean @default(false)  // True if business expense (not tied to trip/truck)
+  supplierId       String?                   // Supplier for business expenses
+  supplier         Supplier? @relation(fields: [supplierId], references: [id])
+  isPaid           Boolean  @default(false)  // Whether the expense has been paid
+  paidDate         DateTime?                 // When the expense was paid
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   truckExpenses  TruckExpense[]
   tripExpenses   TripExpense[]
@@ -426,6 +458,7 @@ model Expense {
 
   @@index([organizationId, date])
   @@index([categoryId])
+  @@index([supplierId])
   @@map("expense")
 }
 
@@ -493,18 +526,19 @@ model InvoiceLineItem {
 }
 
 model Payment {
-  id          String   @id @default(cuid())
-  invoiceId   String
-  invoice     Invoice  @relation(fields: [invoiceId], references: [id])
-  customerId  String
-  customer    Customer @relation(fields: [customerId], references: [id])
-  amount      Float
-  paymentDate DateTime @default(now())
-  method      String   // cash, bank_transfer, check, mobile_money, other
-  reference   String?
-  notes       String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           String   @id @default(cuid())
+  invoiceId    String
+  invoice      Invoice  @relation(fields: [invoiceId], references: [id])
+  customerId   String
+  customer     Customer @relation(fields: [customerId], references: [id])
+  amount       Float
+  paymentDate  DateTime @default(now())
+  method       String   // cash, bank_transfer, check, mobile_money, other
+  customMethod String?  // Custom payment method name when method is "other"
+  reference    String?
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   @@index([customerId])
   @@index([paymentDate])
