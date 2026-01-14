@@ -188,7 +188,7 @@ async function getAlerts(organizationId: string) {
         invoiceNumber: inv.invoiceNumber,
         customerName: inv.customer.name,
         balance: inv.balance,
-        daysOverdue: Math.ceil((now.getTime() - inv.dueDate.getTime()) / (1000 * 60 * 60 * 24)),
+        daysOverdue: inv.dueDate ? Math.ceil((now.getTime() - inv.dueDate.getTime()) / (1000 * 60 * 60 * 24)) : 0,
       })),
       expiringContracts: expiringContracts.map((driver) => ({
         id: driver.id,

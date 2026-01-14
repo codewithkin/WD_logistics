@@ -434,3 +434,176 @@ ${orgName}
     `.trim(),
   });
 }
+
+/**
+ * Send credit invoice reminder email with trip details
+ */
+export interface CreditInvoiceReminderEmailData {
+  customerName: string;
+  customerEmail: string;
+  invoiceNumber: string;
+  issueDate: Date;
+  dueDate: Date;
+  total: number;
+  tripDetails?: {
+    origin: string;
+    destination: string;
+    scheduledDate: Date;
+    loadDescription?: string | null;
+    truckRegistration: string;
+    driverName: string;
+  };
+  organizationName?: string;
+  notes?: string;
+}
+
+export async function sendCreditInvoiceReminderEmail(data: CreditInvoiceReminderEmailData) {
+  const orgName = data.organizationName || "WD Logistics";
+  const formatCurrency = (amount: number) =>
+    new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(amount);
+  const formatDate = (date: Date) =>
+    new Intl.DateTimeFormat("en-US", { year: "numeric", month: "long", day: "numeric" }).format(date);
+
+  const tripHtml = data.tripDetails
+    ? `
+      <div style="background: #f0fdf4; border: 1px solid #86efac; border-radius: 8px; padding: 20px; margin: 20px 0;">
+        <h3 style="margin: 0 0 15px 0; color: #166534; font-size: 16px;">📦 Trip Details</h3>
+        <table style="width: 100%; border-collapse: collapse;">
+          <tr>
+            <td style="padding: 8px 0; color: #666; width: 40%;">Route:</td>
+            <td style="padding: 8px 0; font-weight: 600;">${data.tripDetails.origin} → ${data.tripDetails.destination}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #666;">Scheduled Date:</td>
+            <td style="padding: 8px 0; font-weight: 600;">${formatDate(data.tripDetails.scheduledDate)}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #666;">Truck:</td>
+            <td style="padding: 8px 0; font-weight: 600;">${data.tripDetails.truckRegistration}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #666;">Driver:</td>
+            <td style="padding: 8px 0; font-weight: 600;">${data.tripDetails.driverName}</td>
+          </tr>
+          ${data.tripDetails.loadDescription ? `
+          <tr>
+            <td style="padding: 8px 0; color: #666;">Load:</td>
+            <td style="padding: 8px 0; font-weight: 600;">${data.tripDetails.loadDescription}</td>
+          </tr>
+          ` : ''}
+        </table>
+      </div>
+    `
+    : '';
+
+  const tripText = data.tripDetails
+    ? `
+Trip Details:
+- Route: ${data.tripDetails.origin} → ${data.tripDetails.destination}
+- Scheduled Date: ${formatDate(data.tripDetails.scheduledDate)}
+- Truck: ${data.tripDetails.truckRegistration}
+- Driver: ${data.tripDetails.driverName}
+${data.tripDetails.loadDescription ? `- Load: ${data.tripDetails.loadDescription}` : ''}
+`
+    : '';
+
+  return sendEmail({
+    to: data.customerEmail,
+    subject: `Credit Invoice ${data.invoiceNumber} - Payment Reminder from ${orgName}`,
+    text: `
+Dear ${data.customerName},
+
+This is a reminder for your credit invoice.
+
+Invoice Number: ${data.invoiceNumber}
+Issue Date: ${formatDate(data.issueDate)}
+Due Date: ${formatDate(data.dueDate)}
+Total Amount: ${formatCurrency(data.total)}
+
+${tripText}
+${data.notes ? `Notes: ${data.notes}` : ''}
+
+Please arrange payment by the due date to keep your account in good standing.
+
+Thank you for your business.
+
+Best regards,
+${orgName}
+    `.trim(),
+    html: `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); color: white; padding: 30px; text-align: center; }
+    .header h1 { margin: 0; font-size: 24px; }
+    .header p { margin: 5px 0 0; opacity: 0.9; }
+    .badge { display: inline-block; background: #fef3c7; color: #92400e; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; margin-top: 10px; }
+    .content { padding: 30px; background: #fff; }
+    .invoice-details { background: #f9fafb; padding: 20px; border-radius: 8px; margin: 20px 0; }
+    .invoice-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #e5e7eb; }
+    .invoice-row:last-child { border-bottom: none; }
+    .invoice-label { color: #666; }
+    .invoice-value { font-weight: 600; }
+    .total-row { background: #1e40af; color: white; padding: 15px; border-radius: 8px; margin-top: 20px; display: flex; justify-content: space-between; align-items: center; }
+    .total-row .label { font-size: 14px; }
+    .total-row .value { font-size: 24px; font-weight: bold; }
+    .notes { background: #fef3c7; padding: 15px; border-radius: 8px; margin-top: 20px; border-left: 4px solid #f59e0b; }
+    .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; border-top: 1px solid #e5e7eb; margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>${orgName}</h1>
+      <p>Credit Invoice Reminder</p>
+      <span class="badge">CREDIT TERMS</span>
+    </div>
+    <div class="content">
+      <p>Dear ${data.customerName},</p>
+      <p>This is a friendly reminder regarding your credit invoice. Please find the details below:</p>
+      
+      <div class="invoice-details">
+        <div class="invoice-row">
+          <span class="invoice-label">Invoice Number:</span>
+          <span class="invoice-value">${data.invoiceNumber}</span>
+        </div>
+        <div class="invoice-row">
+          <span class="invoice-label">Issue Date:</span>
+          <span class="invoice-value">${formatDate(data.issueDate)}</span>
+        </div>
+        <div class="invoice-row">
+          <span class="invoice-label">Due Date:</span>
+          <span class="invoice-value" style="color: #dc2626; font-weight: bold;">${formatDate(data.dueDate)}</span>
+        </div>
+      </div>
+
+      ${tripHtml}
+
+      <div class="total-row">
+        <span class="label">Amount Due:</span>
+        <span class="value">${formatCurrency(data.total)}</span>
+      </div>
+
+      ${data.notes ? `
+        <div class="notes">
+          <strong>Notes:</strong> ${data.notes}
+        </div>
+      ` : ''}
+
+      <p style="margin-top: 30px;">Please arrange payment by the due date to keep your account in good standing.</p>
+      <p>If you have any questions regarding this invoice, please don't hesitate to contact us.</p>
+      <p>Best regards,<br><strong>${orgName}</strong></p>
+    </div>
+    <div class="footer">
+      <p>This is an automated reminder from ${orgName}.</p>
+    </div>
+  </div>
+</body>
+</html>
+    `.trim(),
+  });
+}

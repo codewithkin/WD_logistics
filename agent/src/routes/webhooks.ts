@@ -13,7 +13,7 @@ import {
   sendInvoiceReminderById,
 } from "../workflows";
 import { getAgentWhatsAppClient } from "../lib/whatsapp";
-import prisma from "../lib/prisma";
+import { api } from "../lib/api-client";
 
 const webhooks = new Hono();
 
@@ -60,20 +60,13 @@ webhooks.post(
             
             await client.sendMessage(phone, message);
             
-            // Update notification status to sent
-            await prisma.notification.updateMany({
-              where: {
-                metadata: {
-                  path: ["tripId"],
-                  equals: tripId,
-                },
-                status: "pending",
-              },
-              data: {
-                status: "sent",
-                sentAt: new Date(),
-              },
-            });
+            // Update notification status to sent via API
+            await api.workflows.updateNotificationStatus(
+              organizationId,
+              phone,
+              tripId,
+              "sent"
+            );
 
             return c.json({
               ...result,
@@ -137,20 +130,13 @@ webhooks.post(
             
             await client.sendMessage(phone, message);
             
-            // Update notification status to sent
-            await prisma.notification.updateMany({
-              where: {
-                metadata: {
-                  path: ["invoiceId"],
-                  equals: invoiceId,
-                },
-                status: "pending",
-              },
-              data: {
-                status: "sent",
-                sentAt: new Date(),
-              },
-            });
+            // Update notification status to sent via API
+            await api.workflows.updateNotificationStatus(
+              organizationId,
+              phone,
+              invoiceId,
+              "sent"
+            );
 
             return c.json({
               ...result,

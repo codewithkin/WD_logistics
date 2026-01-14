@@ -8,9 +8,11 @@ import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import {
     Form,
     FormControl,
+    FormDescription,
     FormField,
     FormItem,
     FormLabel,
@@ -25,7 +27,7 @@ import {
 } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, Loader2 } from "lucide-react";
+import { CalendarIcon, Loader2, CreditCard } from "lucide-react";
 import { format, addDays } from "date-fns";
 import { cn } from "@/lib/utils";
 import { InvoiceStatus, INVOICE_STATUS_LABELS } from "@/lib/types";
@@ -34,10 +36,21 @@ import { toast } from "sonner";
 
 const invoiceSchema = z.object({
     customerId: z.string().min(1, "Customer is required"),
-    dueDate: z.date({ message: "Due date is required" }),
+    isCredit: z.boolean().default(false),
+    dueDate: z.date().optional().nullable(),
     amount: z.coerce.number().min(0.01, "Amount must be greater than 0"),
     status: z.enum(["draft", "sent", "paid", "partial", "overdue", "cancelled"]),
     notes: z.string().optional(),
+    tripId: z.string().optional().nullable(),
+}).refine((data) => {
+    // If it's a credit invoice, due date is required
+    if (data.isCredit && !data.dueDate) {
+        return false;
+    }
+    return true;
+}, {
+    message: "Due date is required for credit invoices",
+    path: ["dueDate"],
 });
 
 type InvoiceFormData = z.infer<typeof invoiceSchema>;
@@ -48,7 +61,7 @@ interface InvoiceFormProps {
         invoiceNumber: string;
         customerId: string;
         issueDate: Date;
-        dueDate: Date;
+        dueDate: Date | null;
         subtotal: number;
         tax: number;
         total: number;
@@ -56,10 +69,13 @@ interface InvoiceFormProps {
         balance: number;
         status: string;
         notes: string | null;
+        isCredit?: boolean;
+        tripId?: string | null;
     };
     customers: Array<{ id: string; name: string }>;
     prefilledCustomerId?: string;
     prefilledAmount?: number;
+    prefilledTripId?: string;
 }
 
 export function InvoiceForm({
@@ -67,6 +83,7 @@ export function InvoiceForm({
     customers,
     prefilledCustomerId,
     prefilledAmount,
+    prefilledTripId,
 }: InvoiceFormProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
@@ -77,7 +94,9 @@ export function InvoiceForm({
         resolver: zodResolver(invoiceSchema) as any,
         defaultValues: {
             customerId: invoice?.customerId ?? prefilledCustomerId ?? "",
+            isCredit: invoice?.isCredit ?? false,
             dueDate: invoice?.dueDate ?? addDays(new Date(), 30),
+            tripId: invoice?.tripId ?? prefilledTripId ?? null,
             amount: invoice?.subtotal ?? prefilledAmount ?? 0,
             status: (invoice?.status as InvoiceFormData["status"]) ?? "draft",
             notes: invoice?.notes ?? "",
@@ -85,6 +104,7 @@ export function InvoiceForm({
     });
 
     const amount = form.watch("amount");
+    const isCredit = form.watch("isCredit");
     const amountPaid = invoice?.amountPaid ?? 0;
     const balance = amount - amountPaid;
 
@@ -94,7 +114,9 @@ export function InvoiceForm({
             const result = isEditing
                 ? await updateInvoice(invoice.id, {
                     customerId: data.customerId,
-                    dueDate: data.dueDate,
+                    isCredit: data.isCredit,
+                    dueDate: data.isCredit ? data.dueDate : null,
+                    tripId: data.tripId,
                     subtotal: data.amount,
                     tax: 0,
                     total: data.amount,
@@ -104,7 +126,9 @@ export function InvoiceForm({
                 })
                 : await createInvoice({
                     customerId: data.customerId,
-                    dueDate: data.dueDate,
+                    isCredit: data.isCredit,
+                    dueDate: data.isCredit ? data.dueDate : null,
+                    tripId: data.tripId,
                     amount: data.amount,
                     status: data.status,
                     notes: data.notes,
@@ -179,41 +203,69 @@ export function InvoiceForm({
                     )}
                 </div>
 
+                {/* Credit Invoice Toggle */}
+                <FormField
+                    control={form.control}
+                    name="isCredit"
+                    render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                            <div className="space-y-0.5">
+                                <FormLabel className="text-base flex items-center gap-2">
+                                    <CreditCard className="h-4 w-4" />
+                                    Credit Invoice
+                                </FormLabel>
+                                <FormDescription>
+                                    Enable this if the customer will pay later (payment on credit terms)
+                                </FormDescription>
+                            </div>
+                            <FormControl>
+                                <Switch
+                                    checked={field.value}
+                                    onCheckedChange={field.onChange}
+                                />
+                            </FormControl>
+                        </FormItem>
+                    )}
+                />
+
                 <div className="grid gap-4 sm:grid-cols-2">
-                    <FormField
-                        control={form.control}
-                        name="dueDate"
-                        render={({ field }) => (
-                            <FormItem className="flex flex-col">
-                                <FormLabel>Due Date</FormLabel>
-                                <Popover>
-                                    <PopoverTrigger asChild>
-                                        <FormControl>
-                                            <Button
-                                                variant="outline"
-                                                className={cn(
-                                                    "w-full pl-3 text-left font-normal",
-                                                    !field.value && "text-muted-foreground"
-                                                )}
-                                            >
-                                                {field.value ? format(field.value, "PPP") : "Pick a date"}
-                                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                            </Button>
-                                        </FormControl>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0" align="start">
-                                        <Calendar
-                                            mode="single"
-                                            selected={field.value}
-                                            onSelect={field.onChange}
-                                            initialFocus
-                                        />
-                                    </PopoverContent>
-                                </Popover>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
+                    {/* Only show Due Date if it's a credit invoice */}
+                    {isCredit && (
+                        <FormField
+                            control={form.control}
+                            name="dueDate"
+                            render={({ field }) => (
+                                <FormItem className="flex flex-col">
+                                    <FormLabel>Due Date</FormLabel>
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                            <FormControl>
+                                                <Button
+                                                    variant="outline"
+                                                    className={cn(
+                                                        "w-full pl-3 text-left font-normal",
+                                                        !field.value && "text-muted-foreground"
+                                                    )}
+                                                >
+                                                    {field.value ? format(field.value, "PPP") : "Pick a date"}
+                                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                                </Button>
+                                            </FormControl>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0" align="start">
+                                            <Calendar
+                                                mode="single"
+                                                selected={field.value ?? undefined}
+                                                onSelect={field.onChange}
+                                                initialFocus
+                                            />
+                                        </PopoverContent>
+                                    </Popover>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                    )}
                     <FormField
                         control={form.control}
                         name="amount"

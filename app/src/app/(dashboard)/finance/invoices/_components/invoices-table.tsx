@@ -52,7 +52,7 @@ interface Invoice {
     id: string;
     invoiceNumber: string;
     issueDate: Date;
-    dueDate: Date;
+    dueDate: Date | null;
     total: number;
     amountPaid: number;
     balance: number;
@@ -220,6 +220,7 @@ export function InvoicesTable({ invoices, role }: InvoicesTableProps) {
                                     const isOverdue =
                                         invoice.status !== "paid" &&
                                         invoice.status !== "cancelled" &&
+                                        invoice.dueDate !== null &&
                                         new Date(invoice.dueDate) < new Date();
 
                                     return (
@@ -236,7 +237,7 @@ export function InvoicesTable({ invoices, role }: InvoicesTableProps) {
                                             <TableCell>{format(invoice.issueDate, "MMM d, yyyy")}</TableCell>
                                             <TableCell>
                                                 <span className={isOverdue ? "text-destructive font-medium" : ""}>
-                                                    {format(invoice.dueDate, "MMM d, yyyy")}
+                                                    {invoice.dueDate ? format(invoice.dueDate, "MMM d, yyyy") : "N/A"}
                                                 </span>
                                             </TableCell>
                                             <TableCell>

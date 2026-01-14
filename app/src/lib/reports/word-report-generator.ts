@@ -38,7 +38,7 @@ interface CustomerReportData {
     id: string;
     invoiceNumber: string;
     issueDate: Date | string;
-    dueDate: Date | string;
+    dueDate: Date | string | null;
     total: number;
     amountPaid: number;
     balance: number;

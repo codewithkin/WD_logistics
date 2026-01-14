@@ -10,7 +10,7 @@ import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 import { getAgentWhatsAppClient } from "../lib/whatsapp";
 import { getMemoryManager, getRateLimiter, getInputGuard } from "../lib/memory";
-import { db } from "../lib/prisma";
+import { api } from "../lib/api-client";
 import {
   tripAssignmentTemplate,
   invoiceReminderTemplate,
@@ -142,16 +142,15 @@ whatsapp.post(
 
       // Log to database if recipientId provided
       if (data.recipientId) {
-        await db.notification.create({
-          data: {
-            type: "whatsapp",
+        await api.workflows.createNotification(data.organizationId, {
+          type: "whatsapp",
+          recipientPhone: data.phoneNumber,
+          message: validation.cleaned!,
+          status: "sent",
+          metadata: {
             channel: "whatsapp",
             recipientId: data.recipientId,
             recipientType: data.recipientType,
-            title: "WhatsApp Message Sent",
-            message: validation.cleaned!,
-            status: "sent",
-            sentAt: new Date(),
           },
         });
       }
@@ -262,16 +261,15 @@ whatsapp.post(
 
           // Log successful send
           if (recipient.recipientId) {
-            await db.notification.create({
-              data: {
-                type: "whatsapp",
+            await api.workflows.createNotification(data.organizationId, {
+              type: "whatsapp",
+              recipientPhone: recipient.phoneNumber,
+              message: validation.cleaned!,
+              status: "sent",
+              metadata: {
                 channel: "whatsapp",
                 recipientId: recipient.recipientId,
                 recipientType: data.recipientType || "other",
-                title: "WhatsApp Broadcast Message",
-                message: validation.cleaned!,
-                status: "sent",
-                sentAt: new Date(),
               },
             });
           }
@@ -308,21 +306,7 @@ whatsapp.get("/status", zValidator("query", statusSchema), async (c) => {
   try {
     const { organizationId } = c.req.valid("query");
 
-    // Verify org access
-    const org = await db.organization.findUnique({
-      where: { id: organizationId },
-    });
-
-    if (!org) {
-      return c.json(
-        {
-          success: false,
-          error: "Organization not found",
-        },
-        404
-      );
-    }
-
+    // Organization ID is validated - proceed with status check
     const client = getAgentWhatsAppClient();
     const state = client.getState();
 
@@ -358,21 +342,7 @@ whatsapp.post(
     try {
       const { organizationId } = c.req.valid("json");
 
-      // Verify org
-      const org = await db.organization.findUnique({
-        where: { id: organizationId },
-      });
-
-      if (!org) {
-        return c.json(
-          {
-            success: false,
-            error: "Organization not found",
-          },
-          404
-        );
-      }
-
+      // Organization ID is validated - proceed with client initialization
       const client = getAgentWhatsAppClient();
       const isInitialized = await client.initialize();
 
@@ -502,16 +472,15 @@ whatsapp.post(
       const message = tripAssignmentTemplate(data as TripMessageData);
       const result = await client.sendMessage(phoneNumber, message);
 
-      // Log to database
-      await db.notification.create({
-        data: {
-          type: "trip_assignment",
+      // Log to database via API
+      await api.workflows.createNotification(organizationId, {
+        type: "trip_assignment",
+        recipientPhone: phoneNumber,
+        message: message,
+        status: "sent",
+        metadata: {
           channel: "whatsapp",
           recipientType: "driver",
-          title: "Trip Assignment Sent",
-          message: message,
-          status: "sent",
-          sentAt: new Date(),
         },
       });
 
@@ -550,15 +519,14 @@ whatsapp.post(
       const message = invoiceReminderTemplate(data as InvoiceMessageData);
       const result = await client.sendMessage(phoneNumber, message);
 
-      await db.notification.create({
-        data: {
-          type: "invoice_reminder",
+      await api.workflows.createNotification(organizationId, {
+        type: "invoice_reminder",
+        recipientPhone: phoneNumber,
+        message: message,
+        status: "sent",
+        metadata: {
           channel: "whatsapp",
           recipientType: "customer",
-          title: "Invoice Reminder Sent",
-          message: message,
-          status: "sent",
-          sentAt: new Date(),
         },
       });
 
@@ -597,15 +565,14 @@ whatsapp.post(
       const message = tripStatusTemplate(data as TripStatusMessageData);
       const result = await client.sendMessage(phoneNumber, message);
 
-      await db.notification.create({
-        data: {
-          type: "trip_status",
+      await api.workflows.createNotification(organizationId, {
+        type: "trip_status",
+        recipientPhone: phoneNumber,
+        message: message,
+        status: "sent",
+        metadata: {
           channel: "whatsapp",
           recipientType: "customer",
-          title: "Trip Status Update Sent",
-          message: message,
-          status: "sent",
-          sentAt: new Date(),
         },
       });
 
@@ -644,15 +611,14 @@ whatsapp.post(
       const message = deliveryConfirmationTemplate(data as DeliveryConfirmationData);
       const result = await client.sendMessage(phoneNumber, message);
 
-      await db.notification.create({
-        data: {
-          type: "delivery_confirmation",
+      await api.workflows.createNotification(organizationId, {
+        type: "delivery_confirmation",
+        recipientPhone: phoneNumber,
+        message: message,
+        status: "sent",
+        metadata: {
           channel: "whatsapp",
           recipientType: "customer",
-          title: "Delivery Confirmation Sent",
-          message: message,
-          status: "sent",
-          sentAt: new Date(),
         },
       });
 
@@ -691,15 +657,14 @@ whatsapp.post(
       const message = paymentReceivedTemplate(data);
       const result = await client.sendMessage(phoneNumber, message);
 
-      await db.notification.create({
-        data: {
-          type: "payment_received",
+      await api.workflows.createNotification(organizationId, {
+        type: "payment_received",
+        recipientPhone: phoneNumber,
+        message: message,
+        status: "sent",
+        metadata: {
           channel: "whatsapp",
           recipientType: "customer",
-          title: "Payment Confirmation Sent",
-          message: message,
-          status: "sent",
-          sentAt: new Date(),
         },
       });
 

@@ -1,24 +1,23 @@
 import { z } from "zod";
+import { createTool } from "@mastra/core/tools";
 import { trucksApi } from "../lib/api-client";
 
 /**
  * Tool to list all trucks with optional filtering
  */
-export const listTrucks = {
-  definition: {
-    name: "list_trucks",
-    description: "List all trucks in the fleet with optional status filter. Use this to get an overview of available trucks.",
-    inputSchema: z.object({
-      organizationId: z.string().describe("The organization ID to filter trucks"),
-      status: z
-        .enum(["active", "in_service", "in_repair", "inactive", "decommissioned"])
-        .optional()
-        .describe("Filter by truck status"),
-      limit: z.number().optional().default(20).describe("Maximum number of trucks to return"),
-    }),
-  },
-  execute: async (params: { organizationId: string; status?: string; limit?: number }) => {
-    const { organizationId, status } = params;
+export const listTrucks = createTool({
+  id: "list_trucks",
+  description: "List all trucks in the fleet with optional status filter. Use this to get an overview of available trucks.",
+  inputSchema: z.object({
+    organizationId: z.string().describe("The organization ID to filter trucks"),
+    status: z
+      .enum(["active", "in_service", "in_repair", "inactive", "decommissioned"])
+      .optional()
+      .describe("Filter by truck status"),
+    limit: z.number().optional().default(20).describe("Maximum number of trucks to return"),
+  }),
+  execute: async ({ context }) => {
+    const { organizationId, status } = context;
     
     try {
       const result = await trucksApi.list(organizationId, { status });
@@ -38,23 +37,21 @@ export const listTrucks = {
       return { trucks: [], total: 0, error: "Failed to fetch trucks" };
     }
   },
-};
+});
 
 /**
  * Tool to get detailed information about a specific truck
  */
-export const getTruckDetails = {
-  definition: {
-    name: "get_truck_details",
-    description: "Get detailed information about a specific truck including its driver, recent trips, and expenses.",
-    inputSchema: z.object({
-      truckId: z.string().optional().describe("The truck ID"),
-      registrationNo: z.string().optional().describe("The truck registration number"),
-      organizationId: z.string().describe("The organization ID"),
-    }),
-  },
-  execute: async (params: { truckId?: string; registrationNo?: string; organizationId: string }) => {
-    const { truckId, organizationId } = params;
+export const getTruckDetails = createTool({
+  id: "get_truck_details",
+  description: "Get detailed information about a specific truck including its driver, recent trips, and expenses.",
+  inputSchema: z.object({
+    truckId: z.string().optional().describe("The truck ID"),
+    registrationNo: z.string().optional().describe("The truck registration number"),
+    organizationId: z.string().describe("The organization ID"),
+  }),
+  execute: async ({ context }) => {
+    const { truckId, organizationId } = context;
 
     if (!truckId) {
       return { truck: null };
@@ -68,24 +65,22 @@ export const getTruckDetails = {
       return { truck: null, error: "Failed to fetch truck details" };
     }
   },
-};
+});
 
 /**
  * Tool to get truck performance metrics
  */
-export const getTruckPerformance = {
-  definition: {
-    name: "get_truck_performance",
-    description: "Get performance metrics for trucks including revenue, expenses, trip count, and profitability.",
-    inputSchema: z.object({
-      organizationId: z.string().describe("The organization ID"),
-      truckId: z.string().optional().describe("Optional: specific truck ID to analyze"),
-      startDate: z.string().optional().describe("Start date for analysis (ISO format)"),
-      endDate: z.string().optional().describe("End date for analysis (ISO format)"),
-    }),
-  },
-  execute: async (params: { organizationId: string; truckId?: string; startDate?: string; endDate?: string }) => {
-    const { organizationId, truckId, startDate, endDate } = params;
+export const getTruckPerformance = createTool({
+  id: "get_truck_performance",
+  description: "Get performance metrics for trucks including revenue, expenses, trip count, and profitability.",
+  inputSchema: z.object({
+    organizationId: z.string().describe("The organization ID"),
+    truckId: z.string().optional().describe("Optional: specific truck ID to analyze"),
+    startDate: z.string().optional().describe("Start date for analysis (ISO format)"),
+    endDate: z.string().optional().describe("End date for analysis (ISO format)"),
+  }),
+  execute: async ({ context }) => {
+    const { organizationId, truckId, startDate, endDate } = context;
 
     if (!truckId) {
       // For summary of all trucks, use the summary endpoint
@@ -120,23 +115,21 @@ export const getTruckPerformance = {
       return { performance: [], summary: null, error: "Failed to fetch truck performance" };
     }
   },
-};
+});
 
 /**
  * Tool to check truck availability
  */
-export const checkTruckAvailability = {
-  definition: {
-    name: "check_truck_availability",
-    description: "Check which trucks are available for trips on a specific date or date range.",
-    inputSchema: z.object({
-      organizationId: z.string().describe("The organization ID"),
-      date: z.string().describe("The date to check availability (ISO format)"),
-      endDate: z.string().optional().describe("Optional end date for range check"),
-    }),
-  },
-  execute: async (params: { organizationId: string; date: string; endDate?: string }) => {
-    const { organizationId, status } = params as { organizationId: string; status?: string };
+export const checkTruckAvailability = createTool({
+  id: "check_truck_availability",
+  description: "Check which trucks are available for trips on a specific date or date range.",
+  inputSchema: z.object({
+    organizationId: z.string().describe("The organization ID"),
+    date: z.string().describe("The date to check availability (ISO format)"),
+    endDate: z.string().optional().describe("Optional end date for range check"),
+  }),
+  execute: async ({ context }) => {
+    const { organizationId } = context;
 
     try {
       // Get all trucks and filter by active status
@@ -158,7 +151,7 @@ export const checkTruckAvailability = {
       return { availableTrucks: [], busyTrucks: [], error: "Failed to check availability" };
     }
   },
-};
+});
 
 // Export all truck tools
 export const truckTools = {

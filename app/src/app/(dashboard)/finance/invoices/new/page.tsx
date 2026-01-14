@@ -7,6 +7,7 @@ interface NewInvoicePageProps {
     searchParams: Promise<{
         customerId?: string;
         amount?: string;
+        tripId?: string;
     }>;
 }
 
@@ -23,6 +24,7 @@ export default async function NewInvoicePage({ searchParams }: NewInvoicePagePro
     // Parse prefilled values from search params
     const prefilledCustomerId = params.customerId || undefined;
     const prefilledAmount = params.amount ? parseFloat(params.amount) : undefined;
+    const prefilledTripId = params.tripId || undefined;
 
     return (
         <div>
@@ -35,6 +37,7 @@ export default async function NewInvoicePage({ searchParams }: NewInvoicePagePro
                 customers={customers}
                 prefilledCustomerId={prefilledCustomerId}
                 prefilledAmount={prefilledAmount}
+                prefilledTripId={prefilledTripId}
             />
         </div>
     );

@@ -83,8 +83,8 @@ async function listInvoices(organizationId: string, params: {
       balance: invoice.balance,
       status: invoice.status,
       issueDate: invoice.issueDate.toISOString(),
-      dueDate: invoice.dueDate.toISOString(),
-      isOverdue: invoice.dueDate < now && invoice.balance > 0,
+      dueDate: invoice.dueDate?.toISOString() ?? null,
+      isOverdue: invoice.dueDate !== null && invoice.dueDate < now && invoice.balance > 0,
     })),
     total,
     summary,
@@ -133,7 +133,7 @@ async function getInvoiceDetails(organizationId: string, params: { invoiceId?: s
       balance: invoice.balance,
       status: invoice.status,
       issueDate: invoice.issueDate.toISOString(),
-      dueDate: invoice.dueDate.toISOString(),
+      dueDate: invoice.dueDate?.toISOString() ?? null,
       lineItems: invoice.lineItems.map((item) => ({
         description: item.description,
         quantity: item.quantity,
@@ -170,9 +170,9 @@ async function getOverdueInvoices(organizationId: string) {
 
   return agentJsonResponse({
     overdueInvoices: invoices.map((invoice) => {
-      const daysOverdue = Math.ceil(
-        (now.getTime() - invoice.dueDate.getTime()) / (1000 * 60 * 60 * 24)
-      );
+      const daysOverdue = invoice.dueDate
+        ? Math.ceil((now.getTime() - invoice.dueDate.getTime()) / (1000 * 60 * 60 * 24))
+        : 0;
       return {
         id: invoice.id,
         invoiceNumber: invoice.invoiceNumber,
@@ -180,7 +180,7 @@ async function getOverdueInvoices(organizationId: string) {
         customerPhone: invoice.customer.phone,
         total: invoice.total,
         balance: invoice.balance,
-        dueDate: invoice.dueDate.toISOString(),
+        dueDate: invoice.dueDate?.toISOString() ?? null,
         daysOverdue,
         reminderSent: invoice.reminderSent,
       };
@@ -217,7 +217,7 @@ async function getCustomerBalance(organizationId: string, params: { customerId?:
   const totalPaid = customer.invoices.reduce((sum, inv) => sum + inv.amountPaid, 0);
   const totalBalance = customer.invoices.reduce((sum, inv) => sum + inv.balance, 0);
   const overdueInvoices = customer.invoices.filter(
-    (inv) => inv.dueDate < new Date() && inv.balance > 0
+    (inv) => inv.dueDate !== null && inv.dueDate < new Date() && inv.balance > 0
   );
 
   return agentJsonResponse({
@@ -239,7 +239,7 @@ async function getCustomerBalance(organizationId: string, params: { customerId?:
         total: inv.total,
         balance: inv.balance,
         status: inv.status,
-        dueDate: inv.dueDate.toISOString(),
+        dueDate: inv.dueDate?.toISOString() ?? null,
       })),
     },
   });

@@ -8,7 +8,7 @@ interface Invoice {
     invoiceNumber: string;
     total: number;
     balance: number;
-    dueDate: Date;
+    dueDate: Date | null;
     customer: { name: string };
 }
 
@@ -57,7 +57,7 @@ export function OverdueInvoices({ invoices }: OverdueInvoicesProps) {
                                     ${invoice.balance.toLocaleString()}
                                 </p>
                                 <p className="text-xs text-muted-foreground">
-                                    Due: {new Date(invoice.dueDate).toLocaleDateString()}
+                                    Due: {invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString() : "N/A"}
                                 </p>
                             </div>
                         </div>

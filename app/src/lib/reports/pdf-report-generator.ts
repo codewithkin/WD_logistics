@@ -1116,7 +1116,7 @@ export function generateInvoiceReportPDF(data: {
     invoiceNumber: string;
     customer: string;
     issueDate: Date | string;
-    dueDate: Date | string;
+    dueDate: Date | string | null;
     total: number;
     amountPaid: number;
     balance: number;
@@ -1331,7 +1331,7 @@ export function generateDashboardSummaryPDF(data: {
   lastMonthPaymentTotal: number;
   thisMonthExpenseTotal: number;
   lastMonthExpenseTotal: number;
-  outstandingInvoices: { invoiceNumber: string; total: number; dueDate: Date; customer: { name: string } }[];
+  outstandingInvoices: { invoiceNumber: string; total: number; dueDate: Date | null; customer: { name: string } }[];
   topCustomersByRevenue: { name: string; revenue: number }[];
   expensesWithCategories: { category: string; amount: number }[];
 }) {

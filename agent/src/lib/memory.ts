@@ -8,7 +8,7 @@
  * - Rate limiting and usage tracking
  */
 
-import prisma from "./prisma";
+import { api } from "./api-client";
 
 export interface ConversationMessage {
   id: string;
@@ -316,13 +316,12 @@ export class InputGuard {
     organizationId: string
   ): Promise<boolean> {
     try {
-      const member = await prisma.member.findFirst({
-        where: {
-          userId,
-          organizationId,
-        },
-      });
-      return !!member;
+      const result = await api.workflows.validateMemberAccess(
+        organizationId,
+        userId,
+        organizationId
+      );
+      return result.hasAccess;
     } catch {
       return false;
     }

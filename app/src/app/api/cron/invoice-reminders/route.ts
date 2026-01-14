@@ -86,8 +86,8 @@ export async function GET(request: NextRequest) {
     };
 
     for (const invoice of invoices) {
-      const isOverdue = invoice.dueDate < today;
-      const daysOverdue = isOverdue
+      const isOverdue = invoice.dueDate !== null && invoice.dueDate < today;
+      const daysOverdue = isOverdue && invoice.dueDate
         ? Math.ceil((now.getTime() - invoice.dueDate.getTime()) / (1000 * 60 * 60 * 24))
         : 0;
 
@@ -98,7 +98,7 @@ export async function GET(request: NextRequest) {
             customerName: invoice.customer.name,
             customerEmail: invoice.customer.email,
             invoiceNumber: invoice.invoiceNumber,
-            dueDate: invoice.dueDate,
+            dueDate: invoice.dueDate ?? new Date(),
             total: invoice.total,
             balance: invoice.balance,
             isOverdue,

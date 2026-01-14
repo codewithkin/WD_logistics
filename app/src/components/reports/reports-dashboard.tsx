@@ -28,7 +28,7 @@ interface OutstandingInvoice {
   id: string;
   invoiceNumber: string;
   total: number;
-  dueDate: Date;
+  dueDate: Date | null;
   customer: { name: string };
   payments: { amount: number }[];
 }
@@ -396,7 +396,7 @@ export function ReportsDashboard({ data, onGeneratePDF, onGenerateCSV, onExportD
                 {outstandingInvoices.map((invoice) => {
                   const paid = invoice.payments.reduce((p, pay) => p + pay.amount, 0);
                   const balance = invoice.total - paid;
-                  const isOverdue = invoice.dueDate < now;
+                  const isOverdue = invoice.dueDate !== null && invoice.dueDate < now;
 
                   return (
                     <div
@@ -416,7 +416,7 @@ export function ReportsDashboard({ data, onGeneratePDF, onGenerateCSV, onExportD
                             }`}
                         >
                           {isOverdue ? "Overdue: " : "Due: "}
-                          {format(invoice.dueDate, "MMM d, yyyy")}
+                          {invoice.dueDate ? format(invoice.dueDate, "MMM d, yyyy") : "N/A"}
                         </p>
                       </div>
                     </div>

@@ -1,4 +1,4 @@
-import prisma from "../lib/prisma";
+import { api } from "../lib/api-client";
 import { logisticsAgent } from "../agents/logistics-agent";
 import { tripAssignmentTemplate, invoiceReminderTemplate, type TripMessageData, type InvoiceMessageData } from "../lib/message-templates";
 
@@ -16,34 +16,9 @@ export async function notifyDriversAboutUpcomingTrips(
   organizationId: string,
   daysAhead: number = 1
 ): Promise<WorkflowResult> {
-  const now = new Date();
-  const targetDate = new Date();
-  targetDate.setDate(targetDate.getDate() + daysAhead);
-
-  // Set to start of day for targetDate and end of day
-  const startOfDay = new Date(targetDate);
-  startOfDay.setHours(0, 0, 0, 0);
-  const endOfDay = new Date(targetDate);
-  endOfDay.setHours(23, 59, 59, 999);
-
   try {
-    // Find trips scheduled for the target date that haven't been notified
-    const trips = await prisma.trip.findMany({
-      where: {
-        organizationId,
-        scheduledDate: {
-          gte: startOfDay,
-          lte: endOfDay,
-        },
-        driverNotified: false,
-        status: "scheduled",
-      },
-      include: {
-        driver: true,
-        truck: true,
-        customer: true,
-      },
-    });
+    // Get trips from API
+    const { trips } = await api.workflows.getUpcomingTrips(organizationId, daysAhead);
 
     if (trips.length === 0) {
       return {
@@ -62,7 +37,8 @@ export async function notifyDriversAboutUpcomingTrips(
     }> = [];
 
     for (const trip of trips) {
-      const message = `Hi ${trip.driver.firstName}, you have a trip scheduled for ${trip.scheduledDate.toLocaleDateString()}.
+      const scheduledDate = new Date(trip.scheduledDate);
+      const message = `Hi ${trip.driver.firstName}, you have a trip scheduled for ${scheduledDate.toLocaleDateString()}.
 Route: ${trip.originCity} → ${trip.destinationCity}
 Truck: ${trip.truck.registrationNo}
 ${trip.customer ? `Customer: ${trip.customer.name}` : ""}
@@ -73,33 +49,25 @@ Please confirm your availability.`;
         tripId: trip.id,
         driverId: trip.driver.id,
         driverName: `${trip.driver.firstName} ${trip.driver.lastName}`,
-        phone: trip.driver.whatsappNumber || trip.driver.phone,
+        phone: trip.driver.phone,
         message,
       });
 
-      // Create notification record
-      await prisma.notification.create({
-        data: {
-          type: "trip_assignment",
-          recipientPhone: trip.driver.whatsappNumber || trip.driver.phone,
-          message,
-          status: "pending",
-          metadata: {
-            tripId: trip.id,
-            driverId: trip.driver.id,
-            organizationId,
-          },
+      // Create notification record via API
+      await api.workflows.createNotification(organizationId, {
+        type: "trip_assignment",
+        recipientPhone: trip.driver.phone,
+        message,
+        status: "pending",
+        metadata: {
+          tripId: trip.id,
+          driverId: trip.driver.id,
+          organizationId,
         },
       });
 
-      // Mark trip as notified
-      await prisma.trip.update({
-        where: { id: trip.id },
-        data: {
-          driverNotified: true,
-          notifiedAt: now,
-        },
-      });
+      // Mark trip as notified via API
+      await api.workflows.markTripNotified(organizationId, trip.id);
     }
 
     return {
@@ -128,38 +96,10 @@ export async function sendInvoiceReminders(
   minDaysOverdue: number = 1
 ): Promise<WorkflowResult> {
   const now = new Date();
-  const overdueDate = new Date();
-  overdueDate.setDate(overdueDate.getDate() - minDaysOverdue);
 
   try {
-    // Find overdue invoices that haven't had a recent reminder
-    const invoices = await prisma.invoice.findMany({
-      where: {
-        organizationId,
-        dueDate: { lt: overdueDate },
-        balance: { gt: 0 },
-        status: { notIn: ["paid", "cancelled"] },
-        AND: [
-          {
-            OR: [
-              { reminderSent: false },
-              {
-                reminderSentAt: {
-                  lt: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000), // Last reminder > 7 days ago
-                },
-              },
-            ],
-          },
-          // Don't send if past max reminder date
-          {
-            OR: [{ maxReminderDate: null }, { maxReminderDate: { gt: now } }],
-          },
-        ],
-      },
-      include: {
-        customer: true,
-      },
-    });
+    // Get overdue invoices from API
+    const { invoices } = await api.workflows.getOverdueInvoices(organizationId, minDaysOverdue);
 
     if (invoices.length === 0) {
       return {
@@ -178,8 +118,9 @@ export async function sendInvoiceReminders(
     }> = [];
 
     for (const invoice of invoices) {
+      const dueDate = invoice.dueDate ? new Date(invoice.dueDate) : now;
       const daysOverdue = Math.ceil(
-        (now.getTime() - invoice.dueDate.getTime()) / (1000 * 60 * 60 * 24)
+        (now.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24)
       );
 
       const message = `Dear ${invoice.customer.name},
@@ -187,38 +128,29 @@ export async function sendInvoiceReminders(
 This is a friendly reminder that Invoice #${invoice.invoiceNumber} is ${daysOverdue} days overdue.
 
 Amount Due: $${invoice.balance.toFixed(2)}
-Original Due Date: ${invoice.dueDate.toLocaleDateString()}
+Original Due Date: ${dueDate.toLocaleDateString()}
 
 Please arrange payment at your earliest convenience. If you have already made payment, please disregard this message.
 
 Thank you for your business.`;
 
       if (invoice.customer.phone) {
-        await prisma.notification.create({
-          data: {
-            type: "invoice_reminder",
-            recipientPhone: invoice.customer.phone,
-            message,
-            status: "pending",
-            metadata: {
-              invoiceId: invoice.id,
-              customerId: invoice.customer.id,
-              balance: invoice.balance,
-              daysOverdue,
-            },
+        await api.workflows.createNotification(organizationId, {
+          type: "invoice_reminder",
+          recipientPhone: invoice.customer.phone,
+          message,
+          status: "pending",
+          metadata: {
+            invoiceId: invoice.id,
+            customerId: invoice.customer.id,
+            balance: invoice.balance,
+            daysOverdue,
           },
         });
       }
 
-      // Update invoice reminder status
-      await prisma.invoice.update({
-        where: { id: invoice.id },
-        data: {
-          reminderSent: true,
-          reminderSentAt: now,
-          status: invoice.status === "sent" ? "overdue" : invoice.status,
-        },
-      });
+      // Mark invoice reminder sent via API
+      await api.workflows.markInvoiceReminderSent(organizationId, invoice.id);
 
       reminders.push({
         invoiceId: invoice.id,
@@ -256,66 +188,23 @@ export async function generateDailySummary(
   try {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
 
-    // Get today's data
-    const [
-      todaysTrips,
-      completedTrips,
-      overdueInvoices,
-      newPayments,
-      expiringLicenses,
-    ] = await Promise.all([
-      prisma.trip.count({
-        where: {
-          organizationId,
-          scheduledDate: { gte: today, lt: tomorrow },
-        },
-      }),
-      prisma.trip.count({
-        where: {
-          organizationId,
-          status: "completed",
-          endDate: { gte: today, lt: tomorrow },
-        },
-      }),
-      prisma.invoice.count({
-        where: {
-          organizationId,
-          dueDate: { lt: today },
-          balance: { gt: 0 },
-          status: { notIn: ["paid", "cancelled"] },
-        },
-      }),
-      prisma.payment.aggregate({
-        where: {
-          paymentDate: { gte: today, lt: tomorrow },
-          invoice: { organizationId },
-        },
-        _sum: { amount: true },
-        _count: true,
-      }),
-      prisma.driver.count({
-        where: {
-          organizationId,
-          status: "active",
-          licenseExpiry: {
-            lte: new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000),
-          },
-        },
-      }),
-    ]);
+    // Get summary data from API
+    const { summary } = await api.workflows.getDailySummary(organizationId);
+
+    // Get expiring licenses
+    const { drivers: expiringDrivers } = await api.workflows.getDriversExpiringDocs(organizationId, 30);
 
     // Generate AI summary
     const summaryPrompt = `Generate a brief daily summary for the logistics operations:
 
 Today's Statistics:
-- Trips scheduled today: ${todaysTrips}
-- Trips completed today: ${completedTrips}
-- Overdue invoices: ${overdueInvoices}
-- Payments received today: ${newPayments._count} (Total: $${(newPayments._sum.amount || 0).toFixed(2)})
-- Drivers with expiring licenses (next 30 days): ${expiringLicenses}
+- Trips scheduled today: ${summary.tripsToday}
+- Trips in progress: ${summary.tripsInProgress}
+- Overdue invoices: ${summary.overdueInvoices}
+- Payments received today: $${summary.paymentsToday.toFixed(2)}
+- Active drivers: ${summary.activeDrivers}
+- Drivers with expiring documents (next 30 days): ${expiringDrivers.length}
 
 Please provide:
 1. A brief 2-3 sentence summary of the day
@@ -335,12 +224,12 @@ Please provide:
       data: {
         date: today.toISOString().split("T")[0],
         stats: {
-          tripsScheduled: todaysTrips,
-          tripsCompleted: completedTrips,
-          overdueInvoices,
-          paymentsReceived: newPayments._count,
-          paymentsTotal: newPayments._sum.amount || 0,
-          expiringLicenses,
+          tripsToday: summary.tripsToday,
+          tripsInProgress: summary.tripsInProgress,
+          overdueInvoices: summary.overdueInvoices,
+          paymentsToday: summary.paymentsToday,
+          activeDrivers: summary.activeDrivers,
+          expiringDocuments: expiringDrivers.length,
         },
         summary: response.text,
       },
@@ -362,22 +251,8 @@ export async function checkLicenseExpiries(
   organizationId: string,
   daysAhead: number = 30
 ): Promise<WorkflowResult> {
-  const now = new Date();
-  const futureDate = new Date();
-  futureDate.setDate(futureDate.getDate() + daysAhead);
-
   try {
-    const drivers = await prisma.driver.findMany({
-      where: {
-        organizationId,
-        status: "active",
-        licenseExpiry: {
-          lte: futureDate,
-          gte: now, // Not already expired
-        },
-      },
-      orderBy: { licenseExpiry: "asc" },
-    });
+    const { drivers } = await api.workflows.getDriversExpiringDocs(organizationId, daysAhead);
 
     if (drivers.length === 0) {
       return {
@@ -387,21 +262,11 @@ export async function checkLicenseExpiries(
       };
     }
 
-    const alerts = drivers.map((driver) => {
-      const daysUntilExpiry = Math.ceil(
-        (driver.licenseExpiry!.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
-      );
-      return {
-        driverId: driver.id,
-        driverName: `${driver.firstName} ${driver.lastName}`,
-        phone: driver.phone,
-        licenseNumber: driver.licenseNumber,
-        expiryDate: driver.licenseExpiry!.toISOString(),
-        daysUntilExpiry,
-        urgency:
-          daysUntilExpiry <= 7 ? "critical" : daysUntilExpiry <= 14 ? "high" : "medium",
-      };
-    });
+    const alerts = drivers.map((driver) => ({
+      driverId: driver.id,
+      driverName: `${driver.firstName} ${driver.lastName}`,
+      phone: driver.phone,
+    }));
 
     return {
       success: true,
@@ -429,14 +294,7 @@ export async function notifyTripAssignment(
   organizationId: string
 ): Promise<WorkflowResult> {
   try {
-    const trip = await prisma.trip.findUnique({
-      where: { id: tripId },
-      include: {
-        driver: true,
-        truck: true,
-        customer: true,
-      },
-    });
+    const { trip } = await api.workflows.getTripForMessage(organizationId, tripId);
 
     if (!trip) {
       return {
@@ -445,14 +303,7 @@ export async function notifyTripAssignment(
       };
     }
 
-    if (trip.organizationId !== organizationId) {
-      return {
-        success: false,
-        message: "Trip does not belong to this organization",
-      };
-    }
-
-    const driverPhone = trip.driver.whatsappNumber || trip.driver.phone;
+    const driverPhone = trip.driver.phone;
     if (!driverPhone) {
       return {
         success: false,
@@ -464,43 +315,30 @@ export async function notifyTripAssignment(
     const templateData: TripMessageData = {
       driverName: trip.driver.firstName,
       originCity: trip.originCity,
-      originAddress: trip.originAddress || undefined,
       destinationCity: trip.destinationCity,
-      destinationAddress: trip.destinationAddress || undefined,
-      scheduledDate: trip.scheduledDate,
+      scheduledDate: new Date(trip.scheduledDate),
       loadDescription: trip.loadDescription || undefined,
-      loadWeight: trip.loadWeight || undefined,
-      loadUnits: trip.loadUnits || undefined,
       truckRegistration: trip.truck.registrationNo,
       customerName: trip.customer?.name || "Not specified",
-      notes: trip.notes || undefined,
     };
 
     const message = tripAssignmentTemplate(templateData);
 
     // Create notification record
-    await prisma.notification.create({
-      data: {
-        type: "trip_assignment",
-        recipientPhone: driverPhone,
-        message,
-        status: "pending",
-        metadata: {
-          tripId: trip.id,
-          driverId: trip.driver.id,
-          organizationId,
-        },
+    await api.workflows.createNotification(organizationId, {
+      type: "trip_assignment",
+      recipientPhone: driverPhone,
+      message,
+      status: "pending",
+      metadata: {
+        tripId: trip.id,
+        driverId: trip.driver.id,
+        organizationId,
       },
     });
 
     // Mark trip as notified
-    await prisma.trip.update({
-      where: { id: trip.id },
-      data: {
-        driverNotified: true,
-        notifiedAt: new Date(),
-      },
-    });
+    await api.workflows.markTripNotified(organizationId, trip.id);
 
     return {
       success: true,
@@ -531,25 +369,13 @@ export async function sendInvoiceReminderById(
   organizationId: string
 ): Promise<WorkflowResult> {
   try {
-    const invoice = await prisma.invoice.findUnique({
-      where: { id: invoiceId },
-      include: {
-        customer: true,
-        organization: true,
-      },
-    });
+    // Get invoice details from the invoices API
+    const invoice = await api.invoices.details(organizationId, invoiceId);
 
     if (!invoice) {
       return {
         success: false,
         message: "Invoice not found",
-      };
-    }
-
-    if (invoice.organizationId !== organizationId) {
-      return {
-        success: false,
-        message: "Invoice does not belong to this organization",
       };
     }
 
@@ -576,9 +402,10 @@ export async function sendInvoiceReminderById(
     }
 
     const now = new Date();
-    const isOverdue = invoice.dueDate < now;
+    const dueDate = invoice.dueDate ? new Date(invoice.dueDate) : now;
+    const isOverdue = dueDate < now;
     const daysOverdue = isOverdue
-      ? Math.ceil((now.getTime() - invoice.dueDate.getTime()) / (1000 * 60 * 60 * 24))
+      ? Math.ceil((now.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24))
       : 0;
 
     // Use the pre-defined message template
@@ -586,39 +413,30 @@ export async function sendInvoiceReminderById(
       customerName: invoice.customer.name,
       invoiceNumber: invoice.invoiceNumber,
       total: invoice.total,
-      dueDate: invoice.dueDate,
+      dueDate: dueDate,
       balance: invoice.balance,
-      organizationName: invoice.organization?.name || "WD Logistics",
+      organizationName: "WD Logistics",
     };
 
     const message = invoiceReminderTemplate(templateData);
 
     // Create notification record
-    await prisma.notification.create({
-      data: {
-        type: "invoice_reminder",
-        recipientPhone: customerPhone,
-        message,
-        status: "pending",
-        metadata: {
-          invoiceId: invoice.id,
-          customerId: invoice.customer.id,
-          balance: invoice.balance,
-          daysOverdue: isOverdue ? daysOverdue : 0,
-          organizationId,
-        },
+    await api.workflows.createNotification(organizationId, {
+      type: "invoice_reminder",
+      recipientPhone: customerPhone,
+      message,
+      status: "pending",
+      metadata: {
+        invoiceId: invoice.id,
+        customerId: invoice.customer.id,
+        balance: invoice.balance,
+        daysOverdue: isOverdue ? daysOverdue : 0,
+        organizationId,
       },
     });
 
-    // Update invoice reminder status
-    await prisma.invoice.update({
-      where: { id: invoice.id },
-      data: {
-        reminderSent: true,
-        reminderSentAt: now,
-        status: isOverdue && invoice.status === "sent" ? "overdue" : invoice.status,
-      },
-    });
+    // Mark invoice reminder sent
+    await api.workflows.markInvoiceReminderSent(organizationId, invoice.id);
 
     return {
       success: true,

@@ -48,6 +48,7 @@ export default async function InvoiceDetailPage({ params }: InvoiceDetailPagePro
     const isOverdue =
         invoice.status !== "paid" &&
         invoice.status !== "cancelled" &&
+        invoice.dueDate !== null &&
         new Date(invoice.dueDate) < new Date();
 
     return (
@@ -88,7 +89,7 @@ export default async function InvoiceDetailPage({ params }: InvoiceDetailPagePro
                         <div className="flex items-center justify-between">
                             <span className="text-muted-foreground">Due Date</span>
                             <span className={`font-medium ${isOverdue ? "text-destructive" : ""}`}>
-                                {format(invoice.dueDate, "PPP")}
+                                {invoice.dueDate ? format(invoice.dueDate, "PPP") : "N/A"}
                                 {isOverdue && " (Overdue)"}
                             </span>
                         </div>

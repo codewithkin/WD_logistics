@@ -350,6 +350,7 @@ model Trip {
   updatedAt          DateTime  @updatedAt
 
   tripExpenses       TripExpense[]
+  invoices           Invoice[]
 
   @@index([organizationId, status])
   @@index([organizationId, scheduledDate])
@@ -438,6 +439,8 @@ model Invoice {
   organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   customerId      String
   customer        Customer  @relation(fields: [customerId], references: [id])
+  tripId          String?
+  trip            Trip?     @relation(fields: [tripId], references: [id])
   invoiceNumber   String
 
   // Financial
@@ -447,9 +450,12 @@ model Invoice {
   amountPaid      Float     @default(0)
   balance         Float
 
+  // Credit Invoice (payment on credit terms)
+  isCredit        Boolean   @default(false)
+
   // Dates
   issueDate       DateTime  @default(now())
-  dueDate         DateTime
+  dueDate         DateTime?
   maxReminderDate DateTime?
 
   // Status
@@ -469,6 +475,7 @@ model Invoice {
   @@unique([organizationId, invoiceNumber])
   @@index([organizationId, status])
   @@index([customerId, status])
+  @@index([tripId])
   @@index([dueDate])
   @@map("invoice")
 }

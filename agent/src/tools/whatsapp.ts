@@ -7,7 +7,7 @@
 
 import { z } from "zod";
 import { getAgentWhatsAppClient } from "../lib/whatsapp";
-import prisma from "../lib/prisma";
+import { api } from "../lib/api-client";
 
 /**
  * Send WhatsApp message tool
@@ -19,6 +19,7 @@ export const sendWhatsAppMessage = {
     description:
       "Send a WhatsApp message to a driver, customer, or contact. Use this to notify drivers of trips, remind customers of payments, or send operational updates.",
     inputSchema: z.object({
+      organizationId: z.string().describe("The organization ID for logging purposes"),
       phoneNumber: z.string().describe("The phone number to send the message to (e.g., +1234567890)"),
       message: z
         .string()
@@ -32,6 +33,7 @@ export const sendWhatsAppMessage = {
     }),
   },
   execute: async (params: {
+    organizationId: string;
     phoneNumber: string;
     message: string;
     recipientType: "driver" | "customer" | "employee" | "other";
@@ -51,25 +53,22 @@ export const sendWhatsAppMessage = {
       // Send the message
       const result = await client.sendMessage(params.phoneNumber, params.message);
 
-      // Log the message in database if recipientId provided
-      if (params.recipientId) {
-        try {
-          await prisma.notification.create({
-            data: {
-              type: "whatsapp",
-              channel: "whatsapp",
-              recipientId: params.recipientId,
-              recipientType: params.recipientType,
-              title: "WhatsApp Message Sent",
-              message: params.message,
-              status: "sent",
-              sentAt: new Date(),
-            },
-          });
-        } catch (error) {
-          console.warn("Failed to log notification to database:", error);
-          // Continue - logging failure shouldn't block the operation
-        }
+      // Log the message in database
+      try {
+        await api.workflows.createNotification(params.organizationId, {
+          type: "whatsapp",
+          recipientPhone: params.phoneNumber,
+          message: params.message,
+          status: "sent",
+          metadata: {
+            channel: "whatsapp",
+            recipientType: params.recipientType,
+            recipientId: params.recipientId,
+          },
+        });
+      } catch (error) {
+        console.warn("Failed to log notification to database:", error);
+        // Continue - logging failure shouldn't block the operation
       }
 
       return {
@@ -149,9 +148,9 @@ export const sendBulkWhatsAppMessages = {
       const failures: Array<{ to: string; error: string }> = [];
 
       for (const result of results) {
-        if ("error" in result) {
+        if (result.error) {
           failureCount++;
-          failures.push(result);
+          failures.push({ to: result.to, error: result.error });
         } else {
           successCount++;
         }

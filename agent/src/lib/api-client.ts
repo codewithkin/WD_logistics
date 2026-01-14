@@ -9,6 +9,7 @@ interface ApiRequestOptions {
   organizationId: string;
   action: string;
   params?: Record<string, unknown>;
+  [key: string]: unknown; // Allow additional properties
 }
 
 interface ApiResponse<T> {
@@ -315,13 +316,13 @@ export interface InvoiceListItem {
 export interface InvoiceDetails {
   id: string;
   invoiceNumber: string;
-  customer: { id: string; name: string; email: string | null };
+  customer: { id: string; name: string; email: string | null; phone: string | null };
   total: number;
   amountPaid: number;
   balance: number;
   status: string;
   issueDate: string;
-  dueDate: string;
+  dueDate: string | null;
   notes: string | null;
   lineItems: Array<{
     id: string;
@@ -567,6 +568,159 @@ export const customersApi = {
     }),
 };
 
+// ==================== WORKFLOWS ====================
+
+export interface WorkflowTrip {
+  id: string;
+  scheduledDate: string;
+  originCity: string;
+  destinationCity: string;
+  loadDescription: string | null;
+  driver: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    phone: string;
+  };
+  truck: { registrationNo: string };
+  customer: { name: string } | null;
+}
+
+export interface WorkflowInvoice {
+  id: string;
+  invoiceNumber: string;
+  dueDate: string | null;
+  balance: number;
+  total: number;
+  customer: {
+    id: string;
+    name: string;
+    phone: string | null;
+  };
+}
+
+export interface DailySummary {
+  tripsToday: number;
+  tripsInProgress: number;
+  overdueInvoices: number;
+  paymentsToday: number;
+  activeDrivers: number;
+}
+
+export interface NotificationData {
+  type: string;
+  recipientPhone: string;
+  message: string;
+  status: string;
+  metadata: Record<string, unknown>;
+}
+
+export const workflowsApi = {
+  getUpcomingTrips: (organizationId: string, daysAhead?: number) =>
+    makeRequest<{ trips: WorkflowTrip[] }>("workflows", {
+      organizationId,
+      action: "get_upcoming_trips",
+      daysAhead,
+    }),
+
+  markTripNotified: (organizationId: string, tripId: string) =>
+    makeRequest<{ success: boolean }>("workflows", {
+      organizationId,
+      action: "mark_trip_notified",
+      tripId,
+    }),
+
+  getOverdueInvoices: (organizationId: string, minDaysOverdue?: number) =>
+    makeRequest<{ invoices: WorkflowInvoice[] }>("workflows", {
+      organizationId,
+      action: "get_overdue_invoices",
+      minDaysOverdue,
+    }),
+
+  markInvoiceReminderSent: (organizationId: string, invoiceId: string) =>
+    makeRequest<{ success: boolean }>("workflows", {
+      organizationId,
+      action: "mark_invoice_reminder_sent",
+      invoiceId,
+    }),
+
+  createNotification: (organizationId: string, notification: NotificationData) =>
+    makeRequest<{ success: boolean }>("workflows", {
+      organizationId,
+      action: "create_notification",
+      notification,
+    }),
+
+  updateNotificationStatus: (
+    organizationId: string,
+    recipientPhone: string,
+    tripId: string,
+    status: string,
+    responseData?: string
+  ) =>
+    makeRequest<{ success: boolean }>("workflows", {
+      organizationId,
+      action: "update_notification_status",
+      recipientPhone,
+      tripId,
+      status,
+      responseData,
+    }),
+
+  getDailySummary: (organizationId: string) =>
+    makeRequest<{ summary: DailySummary }>("workflows", {
+      organizationId,
+      action: "get_daily_summary",
+    }),
+
+  getDriversExpiringDocs: (organizationId: string, daysAhead?: number) =>
+    makeRequest<{
+      drivers: Array<{
+        id: string;
+        firstName: string;
+        lastName: string;
+        phone: string;
+      }>;
+    }>("workflows", {
+      organizationId,
+      action: "get_drivers_expiring_docs",
+      daysAhead,
+    }),
+
+  getTripForMessage: (organizationId: string, tripId: string) =>
+    makeRequest<{ trip: WorkflowTrip | null }>("workflows", {
+      organizationId,
+      action: "get_trip_for_message",
+      tripId,
+    }),
+
+  updateTripStatus: (
+    organizationId: string,
+    tripId: string,
+    status: string,
+    additionalData?: Record<string, unknown>
+  ) =>
+    makeRequest<{ success: boolean }>("workflows", {
+      organizationId,
+      action: "update_trip_status",
+      tripId,
+      status,
+      additionalData,
+    }),
+
+  validateMemberAccess: (
+    organizationId: string,
+    userId: string,
+    checkOrganizationId: string
+  ) =>
+    makeRequest<{ hasAccess: boolean }>("workflows", {
+      organizationId,
+      action: "validate_member_access",
+      userId,
+      checkOrganizationId,
+    }),
+};
+
 // Export all APIs
 export const api = {
   trucks: trucksApi,
@@ -575,6 +729,7 @@ export const api = {
   invoices: invoicesApi,
   dashboard: dashboardApi,
   customers: customersApi,
+  workflows: workflowsApi,
 };
 
 export default api;

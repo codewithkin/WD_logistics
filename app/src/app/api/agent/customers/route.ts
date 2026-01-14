@@ -166,7 +166,7 @@ async function getCustomerDetails(organizationId: string, params: { customerId: 
       total: inv.total,
       balance: inv.balance,
       status: inv.status,
-      dueDate: inv.dueDate.toISOString(),
+      dueDate: inv.dueDate?.toISOString() ?? null,
     })),
   });
 }
@@ -203,7 +203,7 @@ async function getCustomerBalance(organizationId: string, params: { customerId: 
 
   const now = new Date();
   const overdueInvoices = invoices.filter(
-    (inv) => inv.balance > 0 && new Date(inv.dueDate) < now && inv.status !== "cancelled"
+    (inv) => inv.balance > 0 && inv.dueDate !== null && new Date(inv.dueDate) < now && inv.status !== "cancelled"
   );
 
   const totals = invoices.reduce(
@@ -233,8 +233,8 @@ async function getCustomerBalance(organizationId: string, params: { customerId: 
       total: inv.total,
       balance: inv.balance,
       status: inv.status,
-      dueDate: inv.dueDate.toISOString(),
-      isOverdue: inv.balance > 0 && new Date(inv.dueDate) < now && inv.status !== "cancelled",
+      dueDate: inv.dueDate?.toISOString() ?? null,
+      isOverdue: inv.balance > 0 && inv.dueDate !== null && new Date(inv.dueDate) < now && inv.status !== "cancelled",
     })),
   });
 }

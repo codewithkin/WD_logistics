@@ -4,12 +4,14 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireRole, requireAuth } from "@/lib/session";
 import { InvoiceStatus } from "@/lib/types";
-import { sendInvoiceEmail } from "@/lib/email";
+import { sendInvoiceEmail, sendCreditInvoiceReminderEmail } from "@/lib/email";
 import { generateInvoiceReportPDF } from "@/lib/reports/pdf-report-generator";
 
 export async function createInvoice(data: {
   customerId: string;
-  dueDate: Date;
+  isCredit?: boolean;
+  dueDate?: Date | null;
+  tripId?: string | null;
   amount: number;
   status: InvoiceStatus;
   notes?: string;
@@ -45,11 +47,28 @@ export async function createInvoice(data: {
       select: { name: true },
     });
 
+    // Fetch trip details if tripId is provided
+    const trip = data.tripId
+      ? await prisma.trip.findUnique({
+          where: { id: data.tripId },
+          select: {
+            originCity: true,
+            destinationCity: true,
+            scheduledDate: true,
+            loadDescription: true,
+            truck: { select: { registrationNo: true } },
+            driver: { select: { firstName: true, lastName: true } },
+          },
+        })
+      : null;
+
     const invoice = await prisma.invoice.create({
       data: {
         organizationId: session.organizationId,
         invoiceNumber,
         customerId: data.customerId,
+        tripId: data.tripId,
+        isCredit: data.isCredit ?? false,
         issueDate: new Date(), // Auto-set to now
         dueDate: data.dueDate,
         subtotal: data.amount, // Amount maps to subtotal in DB
@@ -73,25 +92,55 @@ export async function createInvoice(data: {
       },
     });
 
-    // Send invoice email to customer (async, don't block)
+    // Send appropriate email to customer (async, don't block)
     if (customer?.email) {
-      sendInvoiceEmail({
-        customerName: customer.name,
-        customerEmail: customer.email,
-        invoiceNumber,
-        issueDate: new Date(),
-        dueDate: data.dueDate,
-        subtotal: data.amount,
-        tax: 0,
-        total: data.amount,
-        organizationName: organization?.name,
-        notes: data.notes,
-      }).catch((err) => {
-        console.error("Failed to send invoice email:", err);
-      });
+      if (data.isCredit && data.dueDate) {
+        // Send credit invoice reminder email with trip details
+        sendCreditInvoiceReminderEmail({
+          customerName: customer.name,
+          customerEmail: customer.email,
+          invoiceNumber,
+          issueDate: new Date(),
+          dueDate: data.dueDate,
+          total: data.amount,
+          tripDetails: trip
+            ? {
+                origin: trip.originCity,
+                destination: trip.destinationCity,
+                scheduledDate: trip.scheduledDate,
+                loadDescription: trip.loadDescription,
+                truckRegistration: trip.truck.registrationNo,
+                driverName: `${trip.driver.firstName} ${trip.driver.lastName}`,
+              }
+            : undefined,
+          organizationName: organization?.name,
+          notes: data.notes,
+        }).catch((err) => {
+          console.error("Failed to send credit invoice reminder email:", err);
+        });
+      } else {
+        // Send regular invoice email
+        sendInvoiceEmail({
+          customerName: customer.name,
+          customerEmail: customer.email,
+          invoiceNumber,
+          issueDate: new Date(),
+          dueDate: data.dueDate || new Date(),
+          subtotal: data.amount,
+          tax: 0,
+          total: data.amount,
+          organizationName: organization?.name,
+          notes: data.notes,
+        }).catch((err) => {
+          console.error("Failed to send invoice email:", err);
+        });
+      }
     }
 
     revalidatePath("/finance/invoices");
+    if (data.tripId) {
+      revalidatePath(`/operations/trips/${data.tripId}`);
+    }
     return { success: true, invoice };
   } catch (error) {
     console.error("Failed to create invoice:", error);
@@ -105,7 +154,9 @@ export async function updateInvoice(
     invoiceNumber?: string;
     customerId?: string;
     issueDate?: Date;
-    dueDate?: Date;
+    isCredit?: boolean;
+    dueDate?: Date | null;
+    tripId?: string | null;
     subtotal?: number;
     tax?: number;
     total?: number;
@@ -141,7 +192,19 @@ export async function updateInvoice(
 
     const updatedInvoice = await prisma.invoice.update({
       where: { id },
-      data,
+      data: {
+        ...(data.invoiceNumber !== undefined && { invoiceNumber: data.invoiceNumber }),
+        ...(data.issueDate !== undefined && { issueDate: data.issueDate }),
+        ...(data.isCredit !== undefined && { isCredit: data.isCredit }),
+        ...(data.dueDate !== undefined && { dueDate: data.dueDate }),
+        ...(data.tripId !== undefined && { tripId: data.tripId }),
+        ...(data.subtotal !== undefined && { subtotal: data.subtotal }),
+        ...(data.tax !== undefined && { tax: data.tax }),
+        ...(data.total !== undefined && { total: data.total }),
+        ...(data.balance !== undefined && { balance: data.balance }),
+        ...(data.status !== undefined && { status: data.status }),
+        ...(data.notes !== undefined && { notes: data.notes }),
+      },
     });
 
     revalidatePath("/finance/invoices");
