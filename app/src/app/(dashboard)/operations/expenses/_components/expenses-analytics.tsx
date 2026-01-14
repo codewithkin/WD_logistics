@@ -106,7 +106,7 @@ export function ExpensesAnalytics({ analytics, expenses, canExport, categoryId, 
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        const filename = categoryName && categoryName !== "All Categories" 
+        const filename = categoryName && categoryName !== "All Categories"
             ? `expenses-${categoryName.toLowerCase().replace(/\s+/g, "-")}-${format(new Date(), "yyyy-MM-dd")}.csv`
             : `expenses-export-${format(new Date(), "yyyy-MM-dd")}.csv`;
         a.download = filename;

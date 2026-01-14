@@ -112,8 +112,8 @@ export function ExpensesClient({ expenses, categories, analytics, role, canExpor
     }, [filteredExpenses]);
 
     // Get current category name for report
-    const currentCategoryName = selectedCategory === "all" 
-        ? "All Categories" 
+    const currentCategoryName = selectedCategory === "all"
+        ? "All Categories"
         : categories.find(c => c.id === selectedCategory)?.name || "Unknown";
 
     // Transform expenses for ExpensesAnalytics (add default status)
@@ -134,8 +134,8 @@ export function ExpensesClient({ expenses, categories, analytics, role, canExpor
                     {categories.map((category) => {
                         const count = expenses.filter(e => e.category?.id === category.id).length;
                         return (
-                            <TabsTrigger 
-                                key={category.id} 
+                            <TabsTrigger
+                                key={category.id}
                                 value={category.id}
                                 className="px-4"
                             >
@@ -146,9 +146,9 @@ export function ExpensesClient({ expenses, categories, analytics, role, canExpor
                 </TabsList>
 
                 <TabsContent value={selectedCategory} className="mt-6 space-y-6">
-                    <ExpensesAnalytics 
-                        analytics={filteredAnalytics} 
-                        expenses={analyticsExpenses} 
+                    <ExpensesAnalytics
+                        analytics={filteredAnalytics}
+                        expenses={analyticsExpenses}
                         canExport={canExport}
                         categoryId={selectedCategory === "all" ? undefined : selectedCategory}
                         categoryName={currentCategoryName}

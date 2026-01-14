@@ -98,10 +98,10 @@ export default async function ExpensesPage({ searchParams }: ExpensesPageProps) 
                         : undefined
                 }
             />
-            <ExpensesClient 
-                expenses={expenses} 
+            <ExpensesClient
+                expenses={expenses}
                 categories={categories}
-                analytics={analytics} 
+                analytics={analytics}
                 role={role}
                 canExport={canExport}
             />
