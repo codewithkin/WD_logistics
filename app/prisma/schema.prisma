@@ -32,6 +32,7 @@ model User {
   invitations   Invitation[]
   editRequestsCreated EditRequest[] @relation("RequestedBy")
   editRequestsApproved EditRequest[] @relation("ApprovedBy")
+  notifications UserNotification[]
 
   @@map("user")
 }
@@ -108,6 +109,7 @@ model Organization {
   invoices          Invoice[]
   inventoryItems    InventoryItem[]
   reports           Report[]
+  notifications     UserNotification[]
 
   @@map("organization")
 }
@@ -622,4 +624,31 @@ model Notification {
   createdAt      DateTime  @default(now())
 
   @@map("notification")
+}
+
+model UserNotification {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  type           String   // trip, invoice, maintenance, driver, general, customer, payment, expense, supplier, employee
+  title          String
+  message        String
+  entityType     String?  // Trip, Invoice, Truck, Driver, etc.
+  entityId       String?  // ID of the related entity
+  link           String?  // URL to navigate to
+  
+  isRead         Boolean  @default(false)
+  isDismissed    Boolean  @default(false)
+  readAt         DateTime?
+  dismissedAt    DateTime?
+  
+  metadata       Json?    // Additional data if needed
+  createdAt      DateTime @default(now())
+
+  @@index([userId, isRead, isDismissed])
+  @@index([organizationId, createdAt])
+  @@map("user_notification")
 }

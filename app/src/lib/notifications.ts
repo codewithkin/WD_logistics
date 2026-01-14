@@ -207,6 +207,36 @@ function getEntityIcon(entityType: NotificationEntityType): string {
 }
 
 /**
+ * Get link for entity
+ */
+function getEntityLink(entityType: NotificationEntityType, entityId: string): string {
+  switch (entityType) {
+    case "invoice":
+      return `/finance/invoices/${entityId}`;
+    case "payment":
+      return `/finance/payments`;
+    case "expense":
+      return `/finance/expenses/${entityId}`;
+    case "trip":
+      return `/operations/trips/${entityId}`;
+    case "truck":
+      return `/fleet/trucks/${entityId}`;
+    case "driver":
+      return `/fleet/drivers/${entityId}`;
+    case "customer":
+      return `/customers/${entityId}`;
+    case "supplier":
+      return `/suppliers/${entityId}`;
+    case "employee":
+      return `/employees/${entityId}`;
+    case "edit_request":
+      return `/edit-requests`;
+    default:
+      return `/dashboard`;
+  }
+}
+
+/**
  * Get color for event type
  */
 function getEventColor(eventType: NotificationEventType): string {
@@ -243,6 +273,37 @@ export async function sendAdminNotification(data: NotificationData): Promise<voi
     const actionVerb = getActionVerb(data.eventType);
     const icon = getEntityIcon(data.entityType);
     const eventColor = getEventColor(data.eventType);
+
+    // Create in-app notifications for all recipients
+    const inAppNotificationPromises = recipients.map(async (recipient) => {
+      // Don't send notification to the user who performed the action
+      if (recipient.email === data.performedBy.email) {
+        return;
+      }
+
+      const title = `${entityTypeDisplay} ${actionVerb}`;
+      const message = `${data.entityName} was ${actionVerb} by ${data.performedBy.name}`;
+      const link = getEntityLink(data.entityType, data.entityId);
+
+      await prisma.userNotification.create({
+        data: {
+          userId: recipient.userId,
+          organizationId: data.organizationId,
+          type: data.entityType,
+          title,
+          message,
+          entityType: data.entityType,
+          entityId: data.entityId,
+          link,
+          metadata: {
+            performedBy: data.performedBy.name,
+            eventType: data.eventType,
+          },
+        },
+      });
+    });
+
+    await Promise.all(inAppNotificationPromises);
 
     // Send emails to each recipient
     const emailPromises = recipients.map((recipient) => {

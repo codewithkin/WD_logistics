@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Bell, LogOut, User, Truck, Receipt, AlertTriangle, Users, CheckCircle2, Clock, X } from "lucide-react";
+import { getUserNotifications, markNotificationAsRead, markAllNotificationsAsRead, dismissNotification as dismissNotificationAction } from "@/app/(dashboard)/notifications/actions";
 import { Button } from "@/components/ui/button";
 import {
     DropdownMenu,
@@ -27,98 +28,98 @@ import { formatDistanceToNow } from "date-fns";
 
 interface NotificationItem {
     id: string;
-    type: "trip" | "invoice" | "maintenance" | "driver" | "general";
+    type: string;
     title: string;
     message: string;
     isRead: boolean;
     createdAt: Date;
     link?: string;
+    entityType?: string;
+    entityId?: string;
 }
 
-const typeIcons = {
+const typeIcons: Record<string, any> = {
     trip: Truck,
     invoice: Receipt,
     maintenance: AlertTriangle,
     driver: Users,
+    customer: Users,
+    payment: Receipt,
+    expense: Receipt,
+    supplier: Users,
+    employee: Users,
     general: Bell,
 };
 
-const typeColors = {
+const typeColors: Record<string, string> = {
     trip: "text-blue-500",
     invoice: "text-green-500",
     maintenance: "text-orange-500",
     driver: "text-purple-500",
+    customer: "text-cyan-500",
+    payment: "text-emerald-500",
+    expense: "text-red-500",
+    supplier: "text-indigo-500",
+    employee: "text-violet-500",
     general: "text-gray-500",
 };
 
-// Sample notifications for now - can be replaced with actual API data
-const getSampleNotifications = (): NotificationItem[] => [
-    {
-        id: "1",
-        type: "trip",
-        title: "Trip completed",
-        message: "Trip #TRP-001 has been completed successfully.",
-        isRead: false,
-        createdAt: new Date(Date.now() - 1000 * 60 * 30), // 30 min ago
-        link: "/operations/trips",
-    },
-    {
-        id: "2",
-        type: "invoice",
-        title: "Invoice overdue",
-        message: "Invoice #INV-00023 is 7 days overdue.",
-        isRead: false,
-        createdAt: new Date(Date.now() - 1000 * 60 * 60 * 2), // 2 hours ago
-        link: "/finance/invoices",
-    },
-    {
-        id: "3",
-        type: "maintenance",
-        title: "Maintenance due",
-        message: "Truck KAA 123A is due for scheduled maintenance.",
-        isRead: true,
-        createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24), // 1 day ago
-        link: "/fleet/trucks",
-    },
-    {
-        id: "4",
-        type: "driver",
-        title: "License expiring",
-        message: "Driver John Doe's license expires in 30 days.",
-        isRead: true,
-        createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2), // 2 days ago
-        link: "/employees/drivers",
-    },
-];
+
 
 export function Header() {
     const { user, role } = useSession();
     const router = useRouter();
     const [notificationsOpen, setNotificationsOpen] = useState(false);
     const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+
+    const loadNotifications = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            const result = await getUserNotifications();
+            if (result.success) {
+                setNotifications(result.notifications.map((n: any) => ({
+                    ...n,
+                    createdAt: new Date(n.createdAt)
+                })));
+            }
+        } catch (error) {
+            console.error("Failed to load notifications:", error);
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
 
     useEffect(() => {
-        // Load sample notifications on mount
-        setNotifications(getSampleNotifications());
-    }, []);
+        loadNotifications();
+    }, [loadNotifications]);
 
     const handleSignOut = async () => {
         await signOut();
         router.push("/sign-in");
     };
 
-    const markAsRead = useCallback((id: string) => {
+    const markAsRead = useCallback(async (id: string) => {
+        // Optimistically update UI
         setNotifications((prev) =>
             prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
         );
+        // Update in database
+        await markNotificationAsRead(id);
     }, []);
 
-    const markAllAsRead = useCallback(() => {
+    const markAllAsRead = useCallback(async () => {
+        // Optimistically update UI
         setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+        // Update in database
+        await markAllNotificationsAsRead();
     }, []);
 
-    const dismissNotification = useCallback((id: string) => {
+    const dismissNotification = useCallback(async (id: string) => {
+        // Optimistically update UI
         setNotifications((prev) => prev.filter((n) => n.id !== id));
+        // Update in database
+        await dismissNotificationAction(id);
     }, []);
 
     const handleNotificationClick = (notification: NotificationItem) => {
@@ -194,7 +195,8 @@ export function Header() {
                             <ScrollArea className="h-80">
                                 <div className="divide-y">
                                     {notifications.map((notification) => {
-                                        const Icon = typeIcons[notification.type];
+                                        const Icon = typeIcons[notification.type] || Bell;
+                                        const colorClass = typeColors[notification.type] || "text-gray-500";
                                         return (
                                             <div
                                                 key={notification.id}
@@ -207,7 +209,7 @@ export function Header() {
                                                 <div
                                                     className={cn(
                                                         "flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted",
-                                                        typeColors[notification.type]
+                                                        colorClass
                                                     )}
                                                 >
                                                     <Icon className="h-4 w-4" />
