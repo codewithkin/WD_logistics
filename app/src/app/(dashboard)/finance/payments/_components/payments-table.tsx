@@ -47,6 +47,7 @@ interface Payment {
     amount: number;
     paymentDate: Date;
     method: string;
+    customMethod: string | null;
     reference: string | null;
     invoice: {
         id: string;
@@ -219,7 +220,13 @@ export function PaymentsTable({ payments, role }: PaymentsTableProps) {
                                             </Link>
                                         </TableCell>
                                         <TableCell>
-                                            <StatusBadge status={payment.method} type="paymentMethod" />
+                                            {payment.method === "other" && payment.customMethod ? (
+                                                <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
+                                                    {payment.customMethod}
+                                                </span>
+                                            ) : (
+                                                <StatusBadge status={payment.method} type="paymentMethod" />
+                                            )}
                                         </TableCell>
                                         <TableCell>
                                             {payment.reference || <span className="text-muted-foreground">—</span>}

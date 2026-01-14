@@ -212,7 +212,9 @@ export default async function InvoiceDetailPage({ params }: InvoiceDetailPagePro
                                         <p className="font-medium">${payment.amount.toLocaleString()}</p>
                                         <p className="text-sm text-muted-foreground">
                                             {format(payment.paymentDate, "PPP")} •{" "}
-                                            {PAYMENT_METHOD_LABELS[payment.method as PaymentMethod]}
+                                            {payment.method === "other" && payment.customMethod
+                                                ? payment.customMethod
+                                                : PAYMENT_METHOD_LABELS[payment.method as PaymentMethod]}
                                         </p>
                                     </div>
                                     {payment.reference && (
