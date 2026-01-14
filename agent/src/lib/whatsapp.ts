@@ -64,18 +64,30 @@ export class AgentWhatsAppClient extends EventEmitter {
       this.state.status = "connecting";
       this.emit("status", this.state);
 
+      // Configure Puppeteer args based on environment
+      const puppeteerConfig: any = {
+        headless: true,
+        args: [
+          "--no-sandbox",
+          "--disable-setuid-sandbox",
+          "--disable-dev-shm-usage",
+          "--disable-accelerated-2d-canvas",
+          "--no-first-run",
+          "--no-zygote",
+          "--disable-gpu",
+        ],
+      };
+
+      // In Docker/production, use system Chromium
+      if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+        puppeteerConfig.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+      }
+
       this.client = new Client({
         authStrategy: new LocalAuth({
           clientId: "agent-whatsapp",
         }),
-        puppeteer: {
-          headless: true,
-          args: [
-            "--no-sandbox",
-            "--disable-setuid-sandbox",
-            "--disable-dev-shm-usage",
-          ],
-        },
+        puppeteer: puppeteerConfig,
       });
 
       // Setup event handlers
