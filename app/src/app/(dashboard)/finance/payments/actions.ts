@@ -13,6 +13,7 @@ export async function createPayment(data: {
   amount: number;
   paymentDate: Date;
   method: PaymentMethod;
+  customMethod?: string;
   reference?: string;
   notes?: string;
 }) {
@@ -39,6 +40,7 @@ export async function createPayment(data: {
         amount: data.amount,
         paymentDate: data.paymentDate,
         method: data.method,
+        customMethod: data.method === "other" ? data.customMethod : null,
         reference: data.reference,
         notes: data.notes,
       },
@@ -96,6 +98,7 @@ export async function updatePayment(
     amount?: number;
     paymentDate?: Date;
     method?: PaymentMethod;
+    customMethod?: string;
     reference?: string;
     notes?: string;
   }
@@ -120,7 +123,10 @@ export async function updatePayment(
 
     const updatedPayment = await prisma.payment.update({
       where: { id },
-      data,
+      data: {
+        ...data,
+        customMethod: data.method === "other" ? data.customMethod : null,
+      },
     });
 
     // Recalculate invoice if amount changed
