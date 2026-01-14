@@ -231,7 +231,7 @@ export function ExpenseForm({ categories, trucks, trips, drivers, expense, prefi
     return (
         <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
                     <FormField
                         control={form.control}
                         name="categoryId"
@@ -269,28 +269,6 @@ export function ExpenseForm({ categories, trucks, trips, drivers, expense, prefi
                                         step="0.01"
                                         placeholder="0.00"
                                         {...field}
-                                    />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-
-                    <FormField
-                        control={form.control}
-                        name="date"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Date *</FormLabel>
-                                <FormControl>
-                                    <Input
-                                        type="date"
-                                        {...field}
-                                        value={
-                                            field.value instanceof Date
-                                                ? field.value.toISOString().split("T")[0]
-                                                : field.value
-                                        }
                                     />
                                 </FormControl>
                                 <FormMessage />
