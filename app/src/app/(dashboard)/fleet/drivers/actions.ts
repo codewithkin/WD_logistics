@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, requireRole } from "@/lib/session";
 import { DriverStatus } from "@/lib/types";
 import { generateDriverReportPDF } from "@/lib/reports/pdf-report-generator";
+import { notifyDriverCreated, notifyDriverUpdated, notifyDriverDeleted } from "@/lib/notifications";
 
 export async function createDriver(data: {
   firstName: string;
@@ -47,6 +48,20 @@ export async function createDriver(data: {
         organizationId: session.organizationId,
       },
     });
+
+    // Send admin notification
+    notifyDriverCreated(
+      {
+        id: driver.id,
+        firstName: driver.firstName,
+        lastName: driver.lastName,
+        phone: driver.phone,
+        licenseNumber: driver.licenseNumber,
+        status: driver.status,
+      },
+      session.organizationId,
+      { name: session.user.name, email: session.user.email, role: session.role }
+    ).catch((err) => console.error("Failed to send admin notification:", err));
 
     revalidatePath("/fleet/drivers");
     return { success: true, driver };
@@ -129,6 +144,20 @@ export async function updateDriver(
       },
     });
 
+    // Send admin notification
+    notifyDriverUpdated(
+      {
+        id: updatedDriver.id,
+        firstName: updatedDriver.firstName,
+        lastName: updatedDriver.lastName,
+        phone: updatedDriver.phone,
+        licenseNumber: updatedDriver.licenseNumber,
+        status: updatedDriver.status,
+      },
+      session.organizationId,
+      { name: session.user.name, email: session.user.email, role: session.role }
+    ).catch((err) => console.error("Failed to send admin notification:", err));
+
     revalidatePath("/fleet/drivers");
     revalidatePath(`/fleet/drivers/${id}`);
     revalidatePath("/fleet/trucks");
@@ -169,6 +198,14 @@ export async function deleteDriver(id: string) {
     }
 
     await prisma.driver.delete({ where: { id } });
+
+    // Send admin notification
+    notifyDriverDeleted(
+      driver.firstName,
+      driver.lastName,
+      session.organizationId,
+      { name: session.user.name, email: session.user.email, role: session.role }
+    ).catch((err) => console.error("Failed to send admin notification:", err));
 
     revalidatePath("/fleet/drivers");
     revalidatePath("/fleet/trucks");
