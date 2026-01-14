@@ -40,13 +40,13 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
-import { MoreHorizontal, Eye, Pencil, Trash2, Search, CreditCard, FileText, Loader2 } from "lucide-react";
+import { MoreHorizontal, Eye, Pencil, Trash2, Search, CreditCard, FileText, Loader2, Mail } from "lucide-react";
 import { PaginationControls } from "@/components/ui/pagination-controls";
 import { usePagination } from "@/hooks/use-pagination";
 import { ExportOptionsDialog, type ExportScope } from "@/components/ui/export-options-dialog";
 import { format } from "date-fns";
 import { Role, INVOICE_STATUS_LABELS } from "@/lib/types";
-import { deleteInvoice, exportInvoicesPDF } from "../actions";
+import { deleteInvoice, exportInvoicesPDF, sendInvoiceToCustomer } from "../actions";
 import { toast } from "sonner";
 
 interface Invoice {
@@ -78,6 +78,7 @@ export function InvoicesTable({ invoices, role }: InvoicesTableProps) {
     const [isDeleting, setIsDeleting] = useState(false);
     const [exportDialogOpen, setExportDialogOpen] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
+    const [sendingInvoiceId, setSendingInvoiceId] = useState<string | null>(null);
 
     const canEdit = role === "admin" || role === "supervisor";
     const canDelete = role === "admin";
@@ -119,6 +120,22 @@ export function InvoicesTable({ invoices, role }: InvoicesTableProps) {
         } finally {
             setIsDeleting(false);
             setDeleteId(null);
+        }
+    };
+
+    const handleSendInvoice = async (invoiceId: string) => {
+        setSendingInvoiceId(invoiceId);
+        try {
+            const result = await sendInvoiceToCustomer(invoiceId);
+            if (result.success) {
+                toast.success(result.message || "Invoice sent successfully");
+            } else {
+                toast.error(result.error || "Failed to send invoice");
+            }
+        } catch {
+            toast.error("An error occurred while sending invoice");
+        } finally {
+            setSendingInvoiceId(null);
         }
     };
 
@@ -310,6 +327,17 @@ export function InvoicesTable({ invoices, role }: InvoicesTableProps) {
                                                                         <CreditCard className="mr-2 h-4 w-4" />
                                                                         Record Payment
                                                                     </Link>
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem
+                                                                    onClick={() => handleSendInvoice(invoice.id)}
+                                                                    disabled={sendingInvoiceId === invoice.id}
+                                                                >
+                                                                    {sendingInvoiceId === invoice.id ? (
+                                                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                                    ) : (
+                                                                        <Mail className="mr-2 h-4 w-4" />
+                                                                    )}
+                                                                    Send Invoice
                                                                 </DropdownMenuItem>
                                                             </>
                                                         )}

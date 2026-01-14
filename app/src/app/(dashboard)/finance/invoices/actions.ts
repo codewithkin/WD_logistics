@@ -379,3 +379,92 @@ export async function exportInvoicesPDF(options?: {
     return { success: false, error: "Failed to generate PDF report" };
   }
 }
+
+export async function sendInvoiceToCustomer(invoiceId: string) {
+  const session = await requireRole(["admin", "supervisor"]);
+
+  try {
+    // Fetch invoice with all necessary details
+    const invoice = await prisma.invoice.findUnique({
+      where: { id: invoiceId, organizationId: session.organizationId },
+      include: {
+        customer: {
+          select: {
+            name: true,
+            email: true,
+          },
+        },
+        trip: {
+          select: {
+            originCity: true,
+            destinationCity: true,
+            scheduledDate: true,
+            loadDescription: true,
+            truck: { select: { registrationNo: true } },
+            driver: { select: { firstName: true, lastName: true } },
+          },
+        },
+      },
+    });
+
+    if (!invoice) {
+      return { success: false, error: "Invoice not found" };
+    }
+
+    if (!invoice.customer.email) {
+      return { success: false, error: "Customer does not have an email address" };
+    }
+
+    // Get organization name
+    const organization = await prisma.organization.findUnique({
+      where: { id: session.organizationId },
+      select: { name: true },
+    });
+
+    // Build items array for invoice email
+    const items: Array<{
+      description: string;
+      quantity: number;
+      unitPrice: number;
+      total: number;
+    }> = [];
+
+    if (invoice.trip) {
+      items.push({
+        description: `Freight: ${invoice.trip.originCity} → ${invoice.trip.destinationCity}${
+          invoice.trip.loadDescription ? ` (${invoice.trip.loadDescription})` : ""
+        }`,
+        quantity: 1,
+        unitPrice: invoice.total,
+        total: invoice.total,
+      });
+    } else {
+      items.push({
+        description: "Services Rendered",
+        quantity: 1,
+        unitPrice: invoice.total,
+        total: invoice.total,
+      });
+    }
+
+    // Send invoice email
+    await sendInvoiceEmail({
+      customerName: invoice.customer.name,
+      customerEmail: invoice.customer.email,
+      invoiceNumber: invoice.invoiceNumber,
+      issueDate: invoice.issueDate,
+      dueDate: invoice.dueDate || new Date(),
+      subtotal: invoice.subtotal,
+      tax: invoice.tax,
+      total: invoice.total,
+      items,
+      organizationName: organization?.name,
+      notes: invoice.notes || undefined,
+    });
+
+    return { success: true, message: "Invoice sent successfully" };
+  } catch (error) {
+    console.error("Failed to send invoice email:", error);
+    return { success: false, error: "Failed to send invoice email" };
+  }
+}
