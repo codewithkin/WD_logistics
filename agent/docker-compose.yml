@@ -1,0 +1,51 @@
+# Docker Compose for WD Logistics AI Agent
+# 
+# ENVIRONMENT VARIABLES:
+#   Option 1: Create a .env file (copy from .env.example) - NOT committed to git
+#   Option 2: Pass env vars directly: docker-compose run -e OPENAI_API_KEY=xxx agent
+#   Option 3: Use Docker secrets for production
+#
+# Usage:
+#   Development: docker-compose up
+#   Production:  docker-compose -f docker-compose.yml up -d
+
+version: '3.8'
+
+services:
+  agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: wd-logistics-agent
+    ports:
+      - "3001:3001"
+    # Load environment variables from .env file (create from .env.example)
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+      # These can override .env file values
+      - PORT=${PORT:-3001}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - WEB_APP_URL=${WEB_APP_URL:-http://localhost:3000}
+      - AGENT_API_KEY=${AGENT_API_KEY}
+      - MASTRA_LOG_LEVEL=${MASTRA_LOG_LEVEL:-info}
+    volumes:
+      # Persist WhatsApp session data
+      - whatsapp_auth:/app/.wwebjs_auth
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3001/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    # Required for Puppeteer/Chromium
+    cap_add:
+      - SYS_ADMIN
+    security_opt:
+      - seccomp=unconfined
+
+volumes:
+  whatsapp_auth:
+    driver: local

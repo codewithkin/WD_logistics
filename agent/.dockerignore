@@ -1,0 +1,43 @@
+# Dependencies
+node_modules
+
+# Build output (we rebuild in Docker)
+dist
+
+# Environment files (should be passed at runtime)
+.env
+.env.local
+.env.*.local
+
+# WhatsApp session data
+.wwebjs_auth
+.wwebjs_cache
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Test
+coverage
+.nyc_output
+
+# Git
+.git
+.gitignore
+
+# Documentation
+README.md
+docs
+
+# TypeScript build info
+*.tsbuildinfo
