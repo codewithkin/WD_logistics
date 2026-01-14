@@ -7,6 +7,7 @@ import {
     Table,
     TableBody,
     TableCell,
+    TableFooter,
     TableHead,
     TableHeader,
     TableRow,
@@ -264,6 +265,19 @@ export function PaymentsTable({ payments, role }: PaymentsTableProps) {
                                 ))
                             )}
                         </TableBody>
+                        {filteredPayments.length > 0 && (
+                            <TableFooter>
+                                <TableRow className="bg-muted/50 font-semibold">
+                                    <TableCell colSpan={5} className="text-right">
+                                        Total ({filteredPayments.length} payments)
+                                    </TableCell>
+                                    <TableCell className="text-right text-green-600">
+                                        ${totalPayments.toLocaleString()}
+                                    </TableCell>
+                                    <TableCell></TableCell>
+                                </TableRow>
+                            </TableFooter>
+                        )}
                     </Table>
                 </div>
                 <div className="mt-4">

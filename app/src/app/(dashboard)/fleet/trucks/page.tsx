@@ -12,6 +12,16 @@ export default async function TrucksPage() {
         where: { organizationId },
         include: {
             assignedDriver: true,
+            truckExpenses: {
+                include: {
+                    expense: true,
+                },
+            },
+            trips: {
+                select: {
+                    revenue: true,
+                },
+            },
             _count: {
                 select: {
                     trips: true,
@@ -20,6 +30,13 @@ export default async function TrucksPage() {
         },
         orderBy: { registrationNo: "asc" },
     });
+
+    // Transform data to include calculated totals
+    const trucksWithTotals = trucks.map((truck) => ({
+        ...truck,
+        totalExpenses: truck.truckExpenses.reduce((sum, te) => sum + te.expense.amount, 0),
+        totalRevenue: truck.trips.reduce((sum, t) => sum + t.revenue, 0),
+    }));
 
     const canCreate = role === "admin" || role === "supervisor";
 
@@ -38,7 +55,7 @@ export default async function TrucksPage() {
                         : undefined
                 }
             />
-            <TrucksTable trucks={trucks} role={role} />
+            <TrucksTable trucks={trucksWithTotals} role={role} />
         </div>
     );
 }

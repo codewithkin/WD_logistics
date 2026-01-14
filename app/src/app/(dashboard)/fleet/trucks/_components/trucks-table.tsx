@@ -7,6 +7,7 @@ import {
     Table,
     TableBody,
     TableCell,
+    TableFooter,
     TableHead,
     TableHeader,
     TableRow,
@@ -64,6 +65,8 @@ interface Truck {
     _count: {
         trips: number;
     };
+    totalExpenses: number;
+    totalRevenue: number;
 }
 
 interface TrucksTableProps {
@@ -92,6 +95,18 @@ export function TrucksTable({ trucks, role }: TrucksTableProps) {
         const matchesStatus = statusFilter === "all" || truck.status === statusFilter;
         return matchesSearch && matchesStatus;
     });
+
+    // Calculate totals for filtered trucks
+    const totals = filteredTrucks.reduce(
+        (acc, truck) => ({
+            mileage: acc.mileage + truck.currentMileage,
+            trips: acc.trips + truck._count.trips,
+            revenue: acc.revenue + truck.totalRevenue,
+            expenses: acc.expenses + truck.totalExpenses,
+            profitLoss: acc.profitLoss + (truck.totalRevenue - truck.totalExpenses),
+        }),
+        { mileage: 0, trips: 0, revenue: 0, expenses: 0, profitLoss: 0 }
+    );
 
     const pagination = usePagination({
         defaultPageSize: 10,
@@ -260,89 +275,126 @@ export function TrucksTable({ trucks, role }: TrucksTableProps) {
                                 <TableHead>Mileage</TableHead>
                                 <TableHead>Assigned Driver</TableHead>
                                 <TableHead>Trips</TableHead>
+                                <TableHead className="text-right">Revenue</TableHead>
+                                <TableHead className="text-right">Expenses</TableHead>
+                                <TableHead className="text-right">Profit/Loss</TableHead>
                                 <TableHead className="w-[70px]"></TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {paginatedTrucks.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={8} className="text-center h-24 text-muted-foreground">
+                                    <TableCell colSpan={11} className="text-center h-24 text-muted-foreground">
                                         No trucks found
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                paginatedTrucks.map((truck) => (
-                                    <TableRow key={truck.id}>
-                                        <TableCell className="font-medium">{truck.registrationNo}</TableCell>
-                                        <TableCell>
-                                            {truck.make} {truck.model}
-                                        </TableCell>
-                                        <TableCell>{truck.year}</TableCell>
-                                        <TableCell>
-                                            <StatusBadge status={truck.status} type="truck" />
-                                        </TableCell>
-                                        <TableCell>{truck.currentMileage.toLocaleString()} km</TableCell>
-                                        <TableCell>
-                                            {truck.assignedDriver ? (
-                                                <Link
-                                                    href={`/fleet/drivers/${truck.assignedDriver.id}`}
-                                                    className="text-primary hover:underline"
-                                                >
-                                                    {truck.assignedDriver.firstName} {truck.assignedDriver.lastName}
-                                                </Link>
-                                            ) : (
-                                                <span className="text-muted-foreground">Unassigned</span>
-                                            )}
-                                        </TableCell>
-                                        <TableCell>{truck._count.trips}</TableCell>
-                                        <TableCell>
-                                            <DropdownMenu>
-                                                <DropdownMenuTrigger asChild>
-                                                    <Button variant="ghost" size="icon">
-                                                        <MoreHorizontal className="h-4 w-4" />
-                                                        <span className="sr-only">Open menu</span>
-                                                    </Button>
-                                                </DropdownMenuTrigger>
-                                                <DropdownMenuContent align="end">
-                                                    <DropdownMenuItem asChild>
-                                                        <Link href={`/fleet/trucks/${truck.id}`}>
-                                                            <Eye className="mr-2 h-4 w-4" />
-                                                            View Details
-                                                        </Link>
-                                                    </DropdownMenuItem>
-                                                    {canEdit && (
+                                paginatedTrucks.map((truck) => {
+                                    const profitLoss = truck.totalRevenue - truck.totalExpenses;
+                                    return (
+                                        <TableRow key={truck.id}>
+                                            <TableCell className="font-medium">{truck.registrationNo}</TableCell>
+                                            <TableCell>
+                                                {truck.make} {truck.model}
+                                            </TableCell>
+                                            <TableCell>{truck.year}</TableCell>
+                                            <TableCell>
+                                                <StatusBadge status={truck.status} type="truck" />
+                                            </TableCell>
+                                            <TableCell>{truck.currentMileage.toLocaleString()} km</TableCell>
+                                            <TableCell>
+                                                {truck.assignedDriver ? (
+                                                    <Link
+                                                        href={`/fleet/drivers/${truck.assignedDriver.id}`}
+                                                        className="text-primary hover:underline"
+                                                    >
+                                                        {truck.assignedDriver.firstName} {truck.assignedDriver.lastName}
+                                                    </Link>
+                                                ) : (
+                                                    <span className="text-muted-foreground">Unassigned</span>
+                                                )}
+                                            </TableCell>
+                                            <TableCell>{truck._count.trips}</TableCell>
+                                            <TableCell className="text-right text-green-600">
+                                                ${truck.totalRevenue.toLocaleString()}
+                                            </TableCell>
+                                            <TableCell className="text-right text-red-600">
+                                                ${truck.totalExpenses.toLocaleString()}
+                                            </TableCell>
+                                            <TableCell className={`text-right font-medium ${profitLoss >= 0 ? "text-green-600" : "text-red-600"}`}>
+                                                {profitLoss >= 0 ? "+" : ""}${profitLoss.toLocaleString()}
+                                            </TableCell>
+                                            <TableCell>
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <Button variant="ghost" size="icon">
+                                                            <MoreHorizontal className="h-4 w-4" />
+                                                            <span className="sr-only">Open menu</span>
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent align="end">
                                                         <DropdownMenuItem asChild>
-                                                            <Link href={`/fleet/trucks/${truck.id}/edit`}>
-                                                                <Pencil className="mr-2 h-4 w-4" />
-                                                                Edit
+                                                            <Link href={`/fleet/trucks/${truck.id}`}>
+                                                                <Eye className="mr-2 h-4 w-4" />
+                                                                View Details
                                                             </Link>
                                                         </DropdownMenuItem>
-                                                    )}
-                                                    {isStaff && (
-                                                        <DropdownMenuItem onClick={() => handleRequestEdit(truck.id)}>
-                                                            <FileEdit className="mr-2 h-4 w-4" />
-                                                            Request Edit
-                                                        </DropdownMenuItem>
-                                                    )}
-                                                    {canDelete && (
-                                                        <>
-                                                            <DropdownMenuSeparator />
-                                                            <DropdownMenuItem
-                                                                className="text-destructive focus:text-destructive"
-                                                                onClick={() => setDeleteId(truck.id)}
-                                                            >
-                                                                <Trash2 className="mr-2 h-4 w-4" />
-                                                                Delete
+                                                        {canEdit && (
+                                                            <DropdownMenuItem asChild>
+                                                                <Link href={`/fleet/trucks/${truck.id}/edit`}>
+                                                                    <Pencil className="mr-2 h-4 w-4" />
+                                                                    Edit
+                                                                </Link>
                                                             </DropdownMenuItem>
-                                                        </>
-                                                    )}
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
-                                        </TableCell>
-                                    </TableRow>
-                                ))
+                                                        )}
+                                                        {isStaff && (
+                                                            <DropdownMenuItem onClick={() => handleRequestEdit(truck.id)}>
+                                                                <FileEdit className="mr-2 h-4 w-4" />
+                                                                Request Edit
+                                                            </DropdownMenuItem>
+                                                        )}
+                                                        {canDelete && (
+                                                            <>
+                                                                <DropdownMenuSeparator />
+                                                                <DropdownMenuItem
+                                                                    className="text-destructive focus:text-destructive"
+                                                                    onClick={() => setDeleteId(truck.id)}
+                                                                >
+                                                                    <Trash2 className="mr-2 h-4 w-4" />
+                                                                    Delete
+                                                                </DropdownMenuItem>
+                                                            </>
+                                                        )}
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
+                                            </TableCell>
+                                        </TableRow>
+                                    );
+                                })
                             )}
                         </TableBody>
+                        {filteredTrucks.length > 0 && (
+                            <TableFooter>
+                                <TableRow className="bg-muted/50 font-semibold">
+                                    <TableCell colSpan={4} className="text-right">
+                                        Totals ({filteredTrucks.length} trucks)
+                                    </TableCell>
+                                    <TableCell>{totals.mileage.toLocaleString()} km</TableCell>
+                                    <TableCell></TableCell>
+                                    <TableCell>{totals.trips}</TableCell>
+                                    <TableCell className="text-right text-green-600">
+                                        ${totals.revenue.toLocaleString()}
+                                    </TableCell>
+                                    <TableCell className="text-right text-red-600">
+                                        ${totals.expenses.toLocaleString()}
+                                    </TableCell>
+                                    <TableCell className={`text-right font-medium ${totals.profitLoss >= 0 ? "text-green-600" : "text-red-600"}`}>
+                                        {totals.profitLoss >= 0 ? "+" : ""}${totals.profitLoss.toLocaleString()}
+                                    </TableCell>
+                                    <TableCell></TableCell>
+                                </TableRow>
+                            </TableFooter>
+                        )}
                     </Table>
                 </div>
 

@@ -5,9 +5,10 @@ import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Pencil, User, Gauge, FileText } from "lucide-react";
+import { Pencil, User, Gauge, FileText, DollarSign, TrendingUp, TrendingDown } from "lucide-react";
 import { format } from "date-fns";
 import { AssignDriver } from "./_components/assign-driver";
 
@@ -31,12 +32,30 @@ export default async function TruckDetailPage({ params }: TruckDetailPageProps) 
                     driver: true,
                 },
             },
+            truckExpenses: {
+                include: {
+                    expense: {
+                        include: {
+                            category: true,
+                        },
+                    },
+                },
+            },
         },
     });
 
     if (!truck) {
         notFound();
     }
+
+    // Calculate financials
+    const allTrips = await prisma.trip.findMany({
+        where: { truckId: id },
+        select: { revenue: true },
+    });
+    const totalRevenue = allTrips.reduce((sum, t) => sum + t.revenue, 0);
+    const totalExpenses = truck.truckExpenses.reduce((sum, te) => sum + te.expense.amount, 0);
+    const profitLoss = totalRevenue - totalExpenses;
 
     const canEdit = role === "admin" || role === "supervisor";
 
@@ -164,6 +183,47 @@ export default async function TruckDetailPage({ params }: TruckDetailPageProps) 
                         </CardContent>
                     </Card>
                 )}
+            </div>
+
+            {/* Financial Summary */}
+            <div className="grid gap-6 md:grid-cols-3 mt-6">
+                <Card>
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                            <TrendingUp className="h-4 w-4 text-green-600" /> Total Revenue
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-2xl font-bold text-green-600">${totalRevenue.toLocaleString()}</p>
+                        <p className="text-xs text-muted-foreground">{allTrips.length} trips</p>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                            <TrendingDown className="h-4 w-4 text-red-600" /> Total Expenses
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-2xl font-bold text-red-600">${totalExpenses.toLocaleString()}</p>
+                        <p className="text-xs text-muted-foreground">{truck.truckExpenses.length} expenses</p>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                            <DollarSign className={`h-4 w-4 ${profitLoss >= 0 ? "text-green-600" : "text-red-600"}`} /> Profit/Loss
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className={`text-2xl font-bold ${profitLoss >= 0 ? "text-green-600" : "text-red-600"}`}>
+                            {profitLoss >= 0 ? "+" : ""}${profitLoss.toLocaleString()}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                            {totalRevenue > 0 ? ((profitLoss / totalRevenue) * 100).toFixed(1) : 0}% margin
+                        </p>
+                    </CardContent>
+                </Card>
             </div>
 
             <Card className="mt-6">
