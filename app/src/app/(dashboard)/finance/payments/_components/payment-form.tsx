@@ -39,8 +39,18 @@ const paymentSchema = z.object({
     amount: z.coerce.number().min(0.01, "Amount must be greater than 0"),
     paymentDate: z.date({ message: "Payment date is required" }),
     method: z.enum(["cash", "check", "bank_transfer", "mobile_money", "other"]),
+    customMethod: z.string().optional(),
     reference: z.string().optional(),
     notes: z.string().optional(),
+}).refine((data) => {
+    // If method is "other", customMethod is required
+    if (data.method === "other" && (!data.customMethod || data.customMethod.trim() === "")) {
+        return false;
+    }
+    return true;
+}, {
+    message: "Please specify the payment method",
+    path: ["customMethod"],
 });
 
 type PaymentFormData = z.infer<typeof paymentSchema>;
@@ -53,6 +63,7 @@ interface PaymentFormProps {
         amount: number;
         paymentDate: Date;
         method: string;
+        customMethod: string | null;
         reference: string | null;
         notes: string | null;
     };
@@ -87,12 +98,14 @@ export function PaymentForm({ payment, invoices, defaultInvoiceId }: PaymentForm
             amount: payment?.amount ?? 0,
             paymentDate: payment?.paymentDate ?? new Date(),
             method: (payment?.method as PaymentFormData["method"]) ?? "bank_transfer",
+            customMethod: payment?.customMethod ?? "",
             reference: payment?.reference ?? "",
             notes: payment?.notes ?? "",
         },
     });
 
     const selectedInvoiceId = form.watch("invoiceId");
+    const selectedMethod = form.watch("method");
     const selectedInvoice = invoices.find((i) => i.id === selectedInvoiceId);
 
     // Update customerId when invoice changes
@@ -107,8 +120,14 @@ export function PaymentForm({ payment, invoices, defaultInvoiceId }: PaymentForm
         setIsLoading(true);
         try {
             const result = isEditing
-                ? await updatePayment(payment.id, data)
-                : await createPayment(data);
+                ? await updatePayment(payment.id, {
+                    ...data,
+                    customMethod: data.method === "other" ? data.customMethod : undefined,
+                })
+                : await createPayment({
+                    ...data,
+                    customMethod: data.method === "other" ? data.customMethod : undefined,
+                });
 
             if (result.success) {
                 toast.success(isEditing ? "Payment updated successfully" : "Payment recorded successfully");
@@ -272,6 +291,22 @@ export function PaymentForm({ payment, invoices, defaultInvoiceId }: PaymentForm
                                 )}
                             />
                         </div>
+
+                        {selectedMethod === "other" && (
+                            <FormField
+                                control={form.control}
+                                name="customMethod"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Custom Payment Method</FormLabel>
+                                        <FormControl>
+                                            <Input placeholder="e.g., Swupe, PayPal, Crypto..." {...field} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        )}
 
                         <FormField
                             control={form.control}
