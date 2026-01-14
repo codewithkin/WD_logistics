@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, requireRole } from "@/lib/session";
 import { TripStatus } from "@/lib/types";
 import { generateTripReportPDF } from "@/lib/reports/pdf-report-generator";
+import { notifyTripCreated, notifyTripUpdated, notifyTripDeleted } from "@/lib/notifications";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:3001";
 
@@ -63,6 +64,13 @@ export async function createTrip(data: {
   const status: TripStatus = scheduledDay <= today ? "in_progress" : "scheduled";
 
   try {
+    // Get truck, driver, and customer for notification
+    const [truck, driver, customer] = await Promise.all([
+      prisma.truck.findUnique({ where: { id: data.truckId }, select: { registrationNo: true } }),
+      prisma.driver.findUnique({ where: { id: data.driverId }, select: { firstName: true, lastName: true } }),
+      prisma.customer.findUnique({ where: { id: data.customerId }, select: { name: true } }),
+    ]);
+
     const trip = await prisma.trip.create({
       data: {
         originCity: data.originCity,
@@ -108,6 +116,23 @@ export async function createTrip(data: {
     // Notify driver via WhatsApp (async, don't block)
     notifyDriverOfTrip(trip.id, session.organizationId);
 
+    // Send admin notification
+    notifyTripCreated(
+      {
+        id: trip.id,
+        origin: data.originCity,
+        destination: data.destinationCity,
+        scheduledDate: data.scheduledDate,
+        truckRegistration: truck?.registrationNo || "Unknown",
+        driverName: driver ? `${driver.firstName} ${driver.lastName}` : "Unknown",
+        customerName: customer?.name,
+        revenue: data.revenue,
+        status,
+      },
+      session.organizationId,
+      { name: session.user.name, email: session.user.email, role: session.role }
+    ).catch((err) => console.error("Failed to send admin notification:", err));
+
     revalidatePath("/operations/trips");
     revalidatePath("/fleet/trucks");
     revalidatePath("/fleet/drivers");
@@ -152,6 +177,11 @@ export async function updateTrip(
   try {
     const trip = await prisma.trip.findFirst({
       where: { id, organizationId: session.organizationId },
+      include: {
+        truck: { select: { registrationNo: true } },
+        driver: { select: { firstName: true, lastName: true } },
+        customer: { select: { name: true } },
+      },
     });
 
     if (!trip) {
@@ -161,6 +191,11 @@ export async function updateTrip(
     const updatedTrip = await prisma.trip.update({
       where: { id },
       data,
+      include: {
+        truck: { select: { registrationNo: true } },
+        driver: { select: { firstName: true, lastName: true } },
+        customer: { select: { name: true } },
+      },
     });
 
     // Handle status changes
@@ -185,6 +220,23 @@ export async function updateTrip(
         });
       }
     }
+
+    // Send admin notification
+    notifyTripUpdated(
+      {
+        id: updatedTrip.id,
+        origin: updatedTrip.originCity,
+        destination: updatedTrip.destinationCity,
+        scheduledDate: updatedTrip.scheduledDate,
+        truckRegistration: updatedTrip.truck.registrationNo,
+        driverName: `${updatedTrip.driver.firstName} ${updatedTrip.driver.lastName}`,
+        customerName: updatedTrip.customer?.name,
+        revenue: updatedTrip.revenue,
+        status: updatedTrip.status,
+      },
+      session.organizationId,
+      { name: session.user.name, email: session.user.email, role: session.role }
+    ).catch((err) => console.error("Failed to send admin notification:", err));
 
     revalidatePath("/operations/trips");
     revalidatePath(`/operations/trips/${id}`);
@@ -222,6 +274,14 @@ export async function deleteTrip(id: string) {
     }
 
     await prisma.trip.delete({ where: { id } });
+
+    // Send admin notification
+    notifyTripDeleted(
+      trip.originCity,
+      trip.destinationCity,
+      session.organizationId,
+      { name: session.user.name, email: session.user.email, role: session.role }
+    ).catch((err) => console.error("Failed to send admin notification:", err));
 
     revalidatePath("/operations/trips");
     return { success: true };
