@@ -7,6 +7,7 @@ import {
     Table,
     TableBody,
     TableCell,
+    TableFooter,
     TableHead,
     TableHeader,
     TableRow,
@@ -91,6 +92,16 @@ export function InvoicesTable({ invoices, role }: InvoicesTableProps) {
 
     const pagination = usePagination({ defaultPageSize: 10, totalItems: filteredInvoices.length });
     const paginatedInvoices = filteredInvoices.slice(pagination.startIndex, pagination.endIndex);
+
+    // Calculate totals for filtered invoices
+    const totals = filteredInvoices.reduce(
+        (acc, invoice) => ({
+            amount: acc.amount + invoice.total,
+            paid: acc.paid + invoice.amountPaid,
+            outstanding: acc.outstanding + invoice.balance,
+        }),
+        { amount: 0, paid: 0, outstanding: 0 }
+    );
 
     const handleDelete = async () => {
         if (!deleteId) return;
@@ -322,6 +333,25 @@ export function InvoicesTable({ invoices, role }: InvoicesTableProps) {
                                 })
                             )}
                         </TableBody>
+                        {filteredInvoices.length > 0 && (
+                            <TableFooter>
+                                <TableRow className="bg-muted/50 font-semibold">
+                                    <TableCell colSpan={5} className="text-right">
+                                        Totals ({filteredInvoices.length} invoices)
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                        ${totals.amount.toLocaleString()}
+                                    </TableCell>
+                                    <TableCell className="text-right text-green-600">
+                                        ${totals.paid.toLocaleString()}
+                                    </TableCell>
+                                    <TableCell className="text-right text-red-600">
+                                        ${totals.outstanding.toLocaleString()}
+                                    </TableCell>
+                                    <TableCell></TableCell>
+                                </TableRow>
+                            </TableFooter>
+                        )}
                     </Table>
                 </div>
                 <div className="mt-4">

@@ -977,6 +977,9 @@ export function generateTruckReportPDF(data: {
     fuelType: string;
     assignedDriver: string;
     trips: number;
+    revenue?: number;
+    expenses?: number;
+    profitLoss?: number;
   }>;
   analytics: {
     totalTrucks: number;
@@ -984,34 +987,60 @@ export function generateTruckReportPDF(data: {
     trucksWithDriver: number;
     totalMileage: number;
     totalTrips: number;
+    totalRevenue?: number;
+    totalExpenses?: number;
+    totalProfitLoss?: number;
   };
   period: { startDate: Date | string; endDate: Date | string };
 }): Uint8Array {
+  const hasFinancials = data.trucks.length > 0 && data.trucks[0].revenue !== undefined;
+  
+  const summaryItems: SummaryItem[] = [
+    { label: "Total Trucks", value: data.analytics.totalTrucks, format: "number" },
+    { label: "Active Trucks", value: data.analytics.activeTrucks, format: "number" },
+    { label: "With Assigned Driver", value: data.analytics.trucksWithDriver, format: "number" },
+    { label: "Total Mileage", value: data.analytics.totalMileage, format: "number" },
+    { label: "Total Trips", value: data.analytics.totalTrips, format: "number" },
+  ];
+  
+  if (hasFinancials && data.analytics.totalRevenue !== undefined) {
+    summaryItems.push(
+      { label: "Total Revenue", value: data.analytics.totalRevenue, format: "currency" },
+      { label: "Total Expenses", value: data.analytics.totalExpenses || 0, format: "currency" },
+      { label: "Total Profit/Loss", value: data.analytics.totalProfitLoss || 0, format: "currency" }
+    );
+  }
+
+  const columns: ReportColumn[] = [
+    { header: "Reg. No.", key: "registrationNo", align: "left" },
+    { header: "Make/Model", key: "makeModel", align: "left" },
+    { header: "Status", key: "status", align: "center" },
+    { header: "Mileage", key: "currentMileage", format: "number", align: "right" },
+    { header: "Driver", key: "assignedDriver", align: "left" },
+    { header: "Trips", key: "trips", format: "number", align: "center" },
+  ];
+  
+  const totalColumns = ["currentMileage", "trips"];
+  
+  if (hasFinancials) {
+    columns.push(
+      { header: "Revenue", key: "revenue", format: "currency", align: "right" },
+      { header: "Expenses", key: "expenses", format: "currency", align: "right" },
+      { header: "Profit/Loss", key: "profitLoss", format: "currency", align: "right" }
+    );
+    totalColumns.push("revenue", "expenses", "profitLoss");
+  }
+
   const config: ReportConfig = {
     title: "Fleet Truck Report",
-    subtitle: "Vehicle Inventory & Status",
+    subtitle: "Vehicle Inventory, Status & Financials",
     reportType: "truck-report",
     period: data.period,
-    summary: [
-      { label: "Total Trucks", value: data.analytics.totalTrucks, format: "number" },
-      { label: "Active Trucks", value: data.analytics.activeTrucks, format: "number" },
-      { label: "With Assigned Driver", value: data.analytics.trucksWithDriver, format: "number" },
-      { label: "Total Mileage", value: data.analytics.totalMileage, format: "number" },
-      { label: "Total Trips", value: data.analytics.totalTrips, format: "number" },
-    ],
+    summary: summaryItems,
     sections: [
       {
         title: "Truck Details",
-        columns: [
-          { header: "Reg. No.", key: "registrationNo", align: "left" },
-          { header: "Make/Model", key: "makeModel", align: "left" },
-          { header: "Year", key: "year", format: "number", align: "center" },
-          { header: "Status", key: "status", align: "center" },
-          { header: "Mileage", key: "currentMileage", format: "number", align: "right" },
-          { header: "Fuel Type", key: "fuelType", align: "center" },
-          { header: "Driver", key: "assignedDriver", align: "left" },
-          { header: "Trips", key: "trips", format: "number", align: "center" },
-        ],
+        columns,
         data: data.trucks.map((t) => ({
           registrationNo: t.registrationNo,
           makeModel: `${t.make} ${t.model}`,
@@ -1021,15 +1050,19 @@ export function generateTruckReportPDF(data: {
           fuelType: t.fuelType || "N/A",
           assignedDriver: t.assignedDriver || "Unassigned",
           trips: t.trips,
+          revenue: t.revenue || 0,
+          expenses: t.expenses || 0,
+          profitLoss: t.profitLoss || 0,
         })),
         showTotal: true,
         totalLabel: "Totals",
-        totalColumns: ["currentMileage", "trips"],
+        totalColumns,
       },
     ],
     notes: [
       "Mileage figures reflect odometer readings at the time of report generation.",
-      "Trip counts include all trips during the reporting period.",
+      "Trip counts and financials include all data during the reporting period.",
+      "Profit/Loss = Revenue - Expenses for each truck.",
     ],
   };
 

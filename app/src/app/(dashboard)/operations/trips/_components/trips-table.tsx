@@ -7,6 +7,7 @@ import {
     Table,
     TableBody,
     TableCell,
+    TableFooter,
     TableHead,
     TableHeader,
     TableRow,
@@ -105,6 +106,9 @@ export function TripsTable({ trips, role }: TripsTableProps) {
     });
 
     const paginatedTrips = filteredTrips.slice(pagination.startIndex, pagination.endIndex);
+
+    // Calculate total revenue for filtered trips
+    const totalRevenue = filteredTrips.reduce((sum, trip) => sum + trip.revenue, 0);
 
     const handleDelete = async () => {
         if (!deleteId) return;
@@ -289,6 +293,19 @@ export function TripsTable({ trips, role }: TripsTableProps) {
                                 ))
                             )}
                         </TableBody>
+                        {filteredTrips.length > 0 && (
+                            <TableFooter>
+                                <TableRow className="bg-muted/50 font-semibold">
+                                    <TableCell colSpan={6} className="text-right">
+                                        Total Revenue ({filteredTrips.length} trips)
+                                    </TableCell>
+                                    <TableCell className="text-right text-green-600">
+                                        ${totalRevenue.toLocaleString()}
+                                    </TableCell>
+                                    <TableCell></TableCell>
+                                </TableRow>
+                            </TableFooter>
+                        )}
                     </Table>
                 </div>
 
