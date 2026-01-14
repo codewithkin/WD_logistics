@@ -1,10 +1,12 @@
 import { requireRole } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
-import { PageHeader } from "@/components/layout/page-header";
-import { SettingsForm } from "./_components/settings-form";
-import { WhatsAppStatus } from "@/components/settings/whatsapp-status";
 import { SettingsLayout } from "./_components/settings-layout";
+import { GeneralSettings } from "./_components/general-settings";
+import { NotificationsSettings } from "./_components/notifications-settings";
+import { OrganisationSettings } from "./_components/organisation-settings";
+import { MembersSettings } from "./_components/members-settings";
+import { getOrganizationMembers, getPendingInvitations } from "./actions";
 
 export default async function SettingsPage() {
     // Guard: Only admins can access settings
@@ -28,30 +30,56 @@ export default async function SettingsPage() {
         }
     }
 
+    // Fetch members and invitations
+    const [membersResult, invitationsResult] = await Promise.all([
+        getOrganizationMembers(),
+        getPendingInvitations(),
+    ]);
+
+    const organisationData = {
+        id: organization.id,
+        name: organization.name,
+        slug: organization.slug,
+        logo: organization.logo,
+        email: metadata.email || "",
+        phone: metadata.phone || "",
+        address: metadata.address || "",
+    };
+
+    const generalSettings = {
+        currency: metadata.currency || "USD",
+        timezone: metadata.timezone || "UTC",
+    };
+
+    const defaultNotificationPreferences = {
+        emailNotifications: true,
+        tripUpdates: true,
+        invoiceReminders: true,
+        maintenanceAlerts: true,
+        driverLicenseExpiry: true,
+    };
+
     return (
-        <div className="space-y-6">
-            <PageHeader
-                title="Settings"
-                description="Manage organization settings and preferences"
-            />
-            <SettingsLayout>
-                <div className="space-y-6">
-                    <SettingsForm
-                        organization={{
-                            id: organization.id,
-                            name: organization.name,
-                            slug: organization.slug,
-                            logo: organization.logo,
-                            address: metadata.address || "",
-                            phone: metadata.phone || "",
-                            email: metadata.email || "",
-                            currency: metadata.currency || "USD",
-                            timezone: metadata.timezone || "UTC",
-                        }}
+        <SettingsLayout
+            children={{
+                general: (
+                    <GeneralSettings
+                        settings={generalSettings}
+                        organizationName={organization.name}
                     />
-                    <WhatsAppStatus />
-                </div>
-            </SettingsLayout>
-        </div>
+                ),
+                notifications: (
+                    <NotificationsSettings preferences={defaultNotificationPreferences} />
+                ),
+                organisation: <OrganisationSettings organisation={organisationData} />,
+                members: (
+                    <MembersSettings
+                        members={membersResult.members || []}
+                        invitations={invitationsResult.invitations || []}
+                        currentUserId={session.user.id}
+                    />
+                ),
+            }}
+        />
     );
 }
