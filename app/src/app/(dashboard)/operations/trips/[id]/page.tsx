@@ -24,6 +24,7 @@ import {
 import { format } from "date-fns";
 import { NotifyDriverButton } from "./_components/notify-driver-button";
 import { TripProfitLossTable } from "./_components/trip-profit-loss-table";
+import { TripRevenueExpenseChart } from "./_components/trip-revenue-expense-chart";
 
 interface TripDetailPageProps {
     params: Promise<{ id: string }>;
@@ -326,6 +327,12 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
             </div>
 
             <div className="grid gap-6 mt-6 md:grid-cols-2">
+                {/* Revenue vs Expenses Pie Chart */}
+                <TripRevenueExpenseChart
+                    revenue={trip.revenue}
+                    expenses={totalExpenses}
+                />
+
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between">
                         <CardTitle className="text-lg flex items-center gap-2">
