@@ -6,6 +6,7 @@ import { requireRole, requireAuth } from "@/lib/session";
 import { InvoiceStatus } from "@/lib/types";
 import { sendInvoiceEmail, sendCreditInvoiceReminderEmail } from "@/lib/email";
 import { generateInvoiceReportPDF } from "@/lib/reports/pdf-report-generator";
+import { notifyInvoiceCreated, notifyInvoiceUpdated, notifyInvoiceDeleted } from "@/lib/notifications";
 
 export async function createInvoice(data: {
   customerId: string;
@@ -137,6 +138,21 @@ export async function createInvoice(data: {
       }
     }
 
+    // Send admin notification
+    notifyInvoiceCreated(
+      {
+        id: invoice.id,
+        invoiceNumber,
+        customerName: customer?.name || "Unknown Customer",
+        amount: data.amount,
+        status: data.status,
+        isCredit: data.isCredit,
+        dueDate: data.dueDate,
+      },
+      session.organizationId,
+      { name: session.user.name, email: session.user.email, role: session.role }
+    ).catch((err) => console.error("Failed to send admin notification:", err));
+
     revalidatePath("/finance/invoices");
     if (data.tripId) {
       revalidatePath(`/operations/trips/${data.tripId}`);
@@ -205,7 +221,23 @@ export async function updateInvoice(
         ...(data.status !== undefined && { status: data.status }),
         ...(data.notes !== undefined && { notes: data.notes }),
       },
+      include: {
+        customer: { select: { name: true } },
+      },
     });
+
+    // Send admin notification
+    notifyInvoiceUpdated(
+      {
+        id: updatedInvoice.id,
+        invoiceNumber: updatedInvoice.invoiceNumber,
+        customerName: updatedInvoice.customer.name,
+        amount: updatedInvoice.total,
+        status: updatedInvoice.status,
+      },
+      session.organizationId,
+      { name: session.user.name, email: session.user.email, role: session.role }
+    ).catch((err) => console.error("Failed to send admin notification:", err));
 
     revalidatePath("/finance/invoices");
     revalidatePath(`/finance/invoices/${id}`);
@@ -223,6 +255,7 @@ export async function deleteInvoice(id: string) {
     const invoice = await prisma.invoice.findFirst({
       where: { id, organizationId: session.organizationId },
       include: {
+        customer: { select: { name: true } },
         _count: {
           select: { payments: true },
         },
@@ -238,6 +271,14 @@ export async function deleteInvoice(id: string) {
     }
 
     await prisma.invoice.delete({ where: { id } });
+
+    // Send admin notification
+    notifyInvoiceDeleted(
+      invoice.invoiceNumber,
+      invoice.customer.name,
+      session.organizationId,
+      { name: session.user.name, email: session.user.email, role: session.role }
+    ).catch((err) => console.error("Failed to send admin notification:", err));
 
     revalidatePath("/finance/invoices");
     return { success: true };
