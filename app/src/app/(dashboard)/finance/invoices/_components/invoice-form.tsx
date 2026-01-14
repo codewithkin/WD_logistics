@@ -33,12 +33,9 @@ import { createInvoice, updateInvoice } from "../actions";
 import { toast } from "sonner";
 
 const invoiceSchema = z.object({
-    invoiceNumber: z.string().min(1, "Invoice number is required"),
     customerId: z.string().min(1, "Customer is required"),
-    issueDate: z.date({ message: "Issue date is required" }),
     dueDate: z.date({ message: "Due date is required" }),
-    subtotal: z.coerce.number().min(0),
-    tax: z.coerce.number().min(0),
+    amount: z.coerce.number().min(0.01, "Amount must be greater than 0"),
     status: z.enum(["draft", "sent", "paid", "partial", "overdue", "cancelled"]),
     notes: z.string().optional(),
 });
@@ -61,17 +58,15 @@ interface InvoiceFormProps {
         notes: string | null;
     };
     customers: Array<{ id: string; name: string }>;
-    defaultInvoiceNumber: string;
     prefilledCustomerId?: string;
-    prefilledSubtotal?: number;
+    prefilledAmount?: number;
 }
 
 export function InvoiceForm({
     invoice,
     customers,
-    defaultInvoiceNumber,
     prefilledCustomerId,
-    prefilledSubtotal,
+    prefilledAmount,
 }: InvoiceFormProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
@@ -81,37 +76,38 @@ export function InvoiceForm({
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         resolver: zodResolver(invoiceSchema) as any,
         defaultValues: {
-            invoiceNumber: invoice?.invoiceNumber ?? defaultInvoiceNumber,
             customerId: invoice?.customerId ?? prefilledCustomerId ?? "",
-            issueDate: invoice?.issueDate ?? new Date(),
             dueDate: invoice?.dueDate ?? addDays(new Date(), 30),
-            subtotal: invoice?.subtotal ?? prefilledSubtotal ?? 0,
-            tax: invoice?.tax ?? 0,
+            amount: invoice?.subtotal ?? prefilledAmount ?? 0,
             status: (invoice?.status as InvoiceFormData["status"]) ?? "draft",
             notes: invoice?.notes ?? "",
         },
     });
 
-    const subtotal = form.watch("subtotal");
-    const tax = form.watch("tax");
-    const total = subtotal + tax;
+    const amount = form.watch("amount");
     const amountPaid = invoice?.amountPaid ?? 0;
-    const balance = total - amountPaid;
+    const balance = amount - amountPaid;
 
     const onSubmit = async (data: InvoiceFormData) => {
         setIsLoading(true);
         try {
             const result = isEditing
                 ? await updateInvoice(invoice.id, {
-                    ...data,
-                    total,
-                    balance,
+                    customerId: data.customerId,
+                    dueDate: data.dueDate,
+                    subtotal: data.amount,
+                    tax: 0,
+                    total: data.amount,
+                    balance: data.amount - amountPaid,
+                    status: data.status,
+                    notes: data.notes,
                 })
                 : await createInvoice({
-                    ...data,
-                    total,
-                    balance: total,
-                    amountPaid: 0,
+                    customerId: data.customerId,
+                    dueDate: data.dueDate,
+                    amount: data.amount,
+                    status: data.status,
+                    notes: data.notes,
                 });
 
             if (result.success) {
@@ -130,20 +126,7 @@ export function InvoiceForm({
     return (
         <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    <FormField
-                        control={form.control}
-                        name="invoiceNumber"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Invoice Number</FormLabel>
-                                <FormControl>
-                                    <Input {...field} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
+                <div className="grid gap-4 sm:grid-cols-2">
                     <FormField
                         control={form.control}
                         name="customerId"
@@ -199,40 +182,6 @@ export function InvoiceForm({
                 <div className="grid gap-4 sm:grid-cols-2">
                     <FormField
                         control={form.control}
-                        name="issueDate"
-                        render={({ field }) => (
-                            <FormItem className="flex flex-col">
-                                <FormLabel>Issue Date</FormLabel>
-                                <Popover>
-                                    <PopoverTrigger asChild>
-                                        <FormControl>
-                                            <Button
-                                                variant="outline"
-                                                className={cn(
-                                                    "w-full pl-3 text-left font-normal",
-                                                    !field.value && "text-muted-foreground"
-                                                )}
-                                            >
-                                                {field.value ? format(field.value, "PPP") : "Pick a date"}
-                                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                            </Button>
-                                        </FormControl>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0" align="start">
-                                        <Calendar
-                                            mode="single"
-                                            selected={field.value}
-                                            onSelect={field.onChange}
-                                            initialFocus
-                                        />
-                                    </PopoverContent>
-                                </Popover>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                    <FormField
-                        control={form.control}
                         name="dueDate"
                         render={({ field }) => (
                             <FormItem className="flex flex-col">
@@ -265,47 +214,32 @@ export function InvoiceForm({
                             </FormItem>
                         )}
                     />
+                    <FormField
+                        control={form.control}
+                        name="amount"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Amount ($)</FormLabel>
+                                <FormControl>
+                                    <Input type="number" step="0.01" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
                 </div>
 
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    <FormField
-                        control={form.control}
-                        name="subtotal"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Subtotal ($)</FormLabel>
-                                <FormControl>
-                                    <Input type="number" step="0.01" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                    <FormField
-                        control={form.control}
-                        name="tax"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Tax ($)</FormLabel>
-                                <FormControl>
-                                    <Input type="number" step="0.01" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                    <div className="flex flex-col justify-end">
-                        <div className="rounded-md border p-3">
-                            <p className="text-sm text-muted-foreground">Total</p>
-                            <p className="text-2xl font-bold">${total.toLocaleString()}</p>
-                            {isEditing && amountPaid > 0 && (
-                                <div className="mt-2 text-sm">
-                                    <p className="text-muted-foreground">Paid: ${amountPaid.toLocaleString()}</p>
-                                    <p className="text-muted-foreground">Balance: ${balance.toLocaleString()}</p>
-                                </div>
-                            )}
-                        </div>
+                <div className="rounded-md border p-4 bg-muted/50">
+                    <div className="flex items-center justify-between">
+                        <p className="text-sm text-muted-foreground">Total Amount</p>
+                        <p className="text-2xl font-bold">${amount.toLocaleString()}</p>
                     </div>
+                    {isEditing && amountPaid > 0 && (
+                        <div className="mt-2 flex gap-4 text-sm">
+                            <p className="text-muted-foreground">Paid: ${amountPaid.toLocaleString()}</p>
+                            <p className="text-muted-foreground">Balance: ${balance.toLocaleString()}</p>
+                        </div>
+                    )}
                 </div>
 
                 <FormField

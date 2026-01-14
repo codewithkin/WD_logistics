@@ -8,31 +8,30 @@ import { sendInvoiceEmail } from "@/lib/email";
 import { generateInvoiceReportPDF } from "@/lib/reports/pdf-report-generator";
 
 export async function createInvoice(data: {
-  invoiceNumber: string;
   customerId: string;
-  issueDate: Date;
   dueDate: Date;
-  subtotal: number;
-  tax: number;
-  total: number;
-  amountPaid: number;
-  balance: number;
+  amount: number;
   status: InvoiceStatus;
   notes?: string;
 }) {
   const session = await requireRole(["admin", "supervisor"]);
 
   try {
-    const existingInvoice = await prisma.invoice.findFirst({
-      where: {
-        invoiceNumber: data.invoiceNumber,
-        organizationId: session.organizationId,
-      },
+    // Auto-generate invoice number
+    const lastInvoice = await prisma.invoice.findFirst({
+      where: { organizationId: session.organizationId },
+      orderBy: { createdAt: "desc" },
+      select: { invoiceNumber: true },
     });
 
-    if (existingInvoice) {
-      return { success: false, error: "An invoice with this number already exists" };
+    let nextNumber = 1;
+    if (lastInvoice?.invoiceNumber) {
+      const match = lastInvoice.invoiceNumber.match(/INV-(\d+)/);
+      if (match) {
+        nextNumber = parseInt(match[1], 10) + 1;
+      }
     }
+    const invoiceNumber = `INV-${String(nextNumber).padStart(5, "0")}`;
 
     // Fetch customer details for email
     const customer = await prisma.customer.findUnique({
@@ -49,15 +48,15 @@ export async function createInvoice(data: {
     const invoice = await prisma.invoice.create({
       data: {
         organizationId: session.organizationId,
-        invoiceNumber: data.invoiceNumber,
+        invoiceNumber,
         customerId: data.customerId,
-        issueDate: data.issueDate,
+        issueDate: new Date(), // Auto-set to now
         dueDate: data.dueDate,
-        subtotal: data.subtotal,
-        tax: data.tax,
-        total: data.total,
-        amountPaid: data.amountPaid,
-        balance: data.balance,
+        subtotal: data.amount, // Amount maps to subtotal in DB
+        tax: 0, // No tax
+        total: data.amount,
+        amountPaid: 0,
+        balance: data.amount,
         status: data.status,
         notes: data.notes,
       },
@@ -69,7 +68,7 @@ export async function createInvoice(data: {
       where: { id: data.customerId },
       data: {
         balance: {
-          decrement: data.total,
+          decrement: data.amount,
         },
       },
     });
@@ -79,12 +78,12 @@ export async function createInvoice(data: {
       sendInvoiceEmail({
         customerName: customer.name,
         customerEmail: customer.email,
-        invoiceNumber: data.invoiceNumber,
-        issueDate: data.issueDate,
+        invoiceNumber,
+        issueDate: new Date(),
         dueDate: data.dueDate,
-        subtotal: data.subtotal,
-        tax: data.tax,
-        total: data.total,
+        subtotal: data.amount,
+        tax: 0,
+        total: data.amount,
         organizationName: organization?.name,
         notes: data.notes,
       }).catch((err) => {

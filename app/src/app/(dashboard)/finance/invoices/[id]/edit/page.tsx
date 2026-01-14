@@ -36,7 +36,6 @@ export default async function EditInvoicePage({ params }: EditInvoicePageProps) 
             <InvoiceForm
                 invoice={invoice}
                 customers={customers}
-                defaultInvoiceNumber={invoice.invoiceNumber}
             />
         </div>
     );
