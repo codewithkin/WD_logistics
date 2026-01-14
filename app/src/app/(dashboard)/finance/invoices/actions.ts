@@ -63,6 +63,17 @@ export async function createInvoice(data: {
       },
     });
 
+    // Update customer balance - subtract the invoice total from their balance
+    // Negative balance = customer owes us, Positive balance = customer has credit
+    await prisma.customer.update({
+      where: { id: data.customerId },
+      data: {
+        balance: {
+          decrement: data.total,
+        },
+      },
+    });
+
     // Send invoice email to customer (async, don't block)
     if (customer?.email) {
       sendInvoiceEmail({

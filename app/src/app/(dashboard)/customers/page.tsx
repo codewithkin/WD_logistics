@@ -10,7 +10,14 @@ export default async function CustomersPage() {
 
     const customers = await prisma.customer.findMany({
         where: { organizationId },
-        include: {
+        select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+            address: true,
+            status: true,
+            balance: true,
             _count: {
                 select: {
                     trips: true,

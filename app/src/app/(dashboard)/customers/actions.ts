@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, requireRole } from "@/lib/session";
 import { generateCustomerReportPDF } from "@/lib/reports/pdf-report-generator";
+import { generateCustomerDetailReportWord } from "@/lib/reports/word-report-generator";
 
 export async function createCustomer(data: {
   name: string;
@@ -189,5 +190,127 @@ export async function exportCustomersPDF(options?: {
   } catch (error) {
     console.error("Failed to export customers PDF:", error);
     return { success: false, error: "Failed to generate PDF report" };
+  }
+}
+
+export async function exportCustomerDetailWord(customerId: string) {
+  const session = await requireAuth();
+
+  try {
+    // Fetch customer with all related data
+    const customer = await prisma.customer.findFirst({
+      where: { 
+        id: customerId, 
+        organizationId: session.organizationId,
+      },
+      include: {
+        trips: {
+          orderBy: { scheduledDate: "desc" },
+          select: {
+            id: true,
+            originCity: true,
+            destinationCity: true,
+            status: true,
+            scheduledDate: true,
+            endDate: true,
+            revenue: true,
+          },
+        },
+        invoices: {
+          orderBy: { issueDate: "desc" },
+          select: {
+            id: true,
+            invoiceNumber: true,
+            issueDate: true,
+            dueDate: true,
+            total: true,
+            amountPaid: true,
+            balance: true,
+            status: true,
+          },
+        },
+        payments: {
+          orderBy: { paymentDate: "desc" },
+          select: {
+            id: true,
+            amount: true,
+            paymentDate: true,
+            method: true,
+            reference: true,
+            invoice: {
+              select: {
+                invoiceNumber: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!customer) {
+      return { success: false, error: "Customer not found" };
+    }
+
+    // Get organization name
+    const organization = await prisma.organization.findUnique({
+      where: { id: session.organizationId },
+      select: { name: true },
+    });
+
+    // Calculate summary
+    const totalTrips = customer.trips.length;
+    const totalInvoiced = customer.invoices.reduce((sum: number, inv) => sum + inv.total, 0);
+    const totalPaid = customer.payments.reduce((sum: number, pay) => sum + pay.amount, 0);
+    const totalOwed = Math.abs(Math.min(customer.balance, 0));
+
+    const reportData = {
+      customer: {
+        name: customer.name,
+        email: customer.email,
+        phone: customer.phone,
+        address: customer.address,
+        status: customer.status,
+        balance: customer.balance,
+      },
+      trips: customer.trips.map((t, index) => ({
+        id: t.id,
+        tripNumber: `TRP-${String(index + 1).padStart(4, "0")}`,
+        origin: t.originCity,
+        destination: t.destinationCity,
+        status: t.status,
+        startDate: t.scheduledDate,
+        endDate: t.endDate,
+        fare: t.revenue,
+      })),
+      invoices: customer.invoices,
+      payments: customer.payments.map((p) => ({
+        id: p.id,
+        amount: p.amount,
+        paymentDate: p.paymentDate,
+        method: p.method,
+        reference: p.reference,
+        invoiceNumber: p.invoice.invoiceNumber,
+      })),
+      summary: {
+        totalTrips,
+        totalInvoiced,
+        totalPaid,
+        totalOwed,
+      },
+      generatedAt: new Date(),
+      organizationName: organization?.name || "WD Logistics",
+    };
+
+    const docBytes = await generateCustomerDetailReportWord(reportData);
+    const sanitizedName = customer.name.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
+    
+    return {
+      success: true,
+      doc: Buffer.from(docBytes).toString("base64"),
+      filename: `customer-report-${sanitizedName}-${new Date().toISOString().split("T")[0]}.docx`,
+    };
+  } catch (error) {
+    console.error("Failed to export customer Word report:", error);
+    return { success: false, error: "Failed to generate Word report" };
   }
 }

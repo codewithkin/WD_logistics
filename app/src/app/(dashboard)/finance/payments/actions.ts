@@ -56,6 +56,16 @@ export async function createPayment(data: {
       },
     });
 
+    // Update customer balance - add the payment amount (reduces debt)
+    await prisma.customer.update({
+      where: { id: data.customerId },
+      data: {
+        balance: {
+          increment: data.amount,
+        },
+      },
+    });
+
     revalidatePath("/finance/payments");
     revalidatePath(`/finance/invoices/${data.invoiceId}`);
     return { success: true, payment };

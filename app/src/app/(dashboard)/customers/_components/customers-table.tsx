@@ -35,9 +35,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { PaginationControls } from "@/components/ui/pagination-controls";
 import { usePagination } from "@/hooks/use-pagination";
 import { ExportOptionsDialog, type ExportScope } from "@/components/ui/export-options-dialog";
-import { MoreHorizontal, Eye, Pencil, Trash2, Search, FileText, Loader2 } from "lucide-react";
+import { MoreHorizontal, Eye, Pencil, Trash2, Search, FileText, Loader2, FileSpreadsheet } from "lucide-react";
 import { Role } from "@/lib/types";
-import { deleteCustomer, exportCustomersPDF } from "../actions";
+import { deleteCustomer, exportCustomersPDF, exportCustomerDetailWord } from "../actions";
 import { toast } from "sonner";
 
 interface Customer {
@@ -47,6 +47,7 @@ interface Customer {
     phone: string | null;
     address: string | null;
     status: string;
+    balance: number;
     _count: {
         trips: number;
         invoices: number;
@@ -65,6 +66,7 @@ export function CustomersTable({ customers, role }: CustomersTableProps) {
     const [isDeleting, setIsDeleting] = useState(false);
     const [exportDialogOpen, setExportDialogOpen] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
+    const [exportingCustomerId, setExportingCustomerId] = useState<string | null>(null);
 
     const canEdit = role === "admin" || role === "supervisor";
     const canDelete = role === "admin";
@@ -142,6 +144,37 @@ export function CustomersTable({ customers, role }: CustomersTableProps) {
         }
     };
 
+    const handleExportCustomerWord = async (customerId: string) => {
+        setExportingCustomerId(customerId);
+        try {
+            const result = await exportCustomerDetailWord(customerId);
+
+            if (result.success && result.doc) {
+                const byteCharacters = atob(result.doc);
+                const byteNumbers = new Array(byteCharacters.length);
+                for (let i = 0; i < byteCharacters.length; i++) {
+                    byteNumbers[i] = byteCharacters.charCodeAt(i);
+                }
+                const byteArray = new Uint8Array(byteNumbers);
+                const blob = new Blob([byteArray], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = result.filename || "customer-report.docx";
+                a.click();
+                window.URL.revokeObjectURL(url);
+                toast.success("Customer report exported successfully");
+            } else {
+                toast.error(result.error || "Failed to generate report");
+            }
+        } catch {
+            toast.error("An error occurred while exporting");
+        } finally {
+            setExportingCustomerId(null);
+        }
+    };
+
     return (
         <Card>
             <CardContent className="p-6">
@@ -177,6 +210,7 @@ export function CustomersTable({ customers, role }: CustomersTableProps) {
                                 <TableHead>Name</TableHead>
                                 <TableHead>Contact</TableHead>
                                 <TableHead>Status</TableHead>
+                                <TableHead>Balance</TableHead>
                                 <TableHead>Trips</TableHead>
                                 <TableHead>Invoices</TableHead>
                                 <TableHead className="w-[70px]"></TableHead>
@@ -185,7 +219,7 @@ export function CustomersTable({ customers, role }: CustomersTableProps) {
                         <TableBody>
                             {paginatedCustomers.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={6} className="text-center h-24 text-muted-foreground">
+                                    <TableCell colSpan={7} className="text-center h-24 text-muted-foreground">
                                         No customers found
                                     </TableCell>
                                 </TableRow>
@@ -203,6 +237,12 @@ export function CustomersTable({ customers, role }: CustomersTableProps) {
                                         </TableCell>
                                         <TableCell>
                                             <StatusBadge status={customer.status} type="customer" />
+                                        </TableCell>
+                                        <TableCell>
+                                            <span className={customer.balance > 0 ? "text-green-600 font-medium" : customer.balance < 0 ? "text-red-600 font-medium" : ""}>
+                                                ${Math.abs(customer.balance).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                {customer.balance > 0 ? " (Credit)" : customer.balance < 0 ? " (Owed)" : ""}
+                                            </span>
                                         </TableCell>
                                         <TableCell>{customer._count.trips}</TableCell>
                                         <TableCell>{customer._count.invoices}</TableCell>
@@ -229,6 +269,17 @@ export function CustomersTable({ customers, role }: CustomersTableProps) {
                                                             </Link>
                                                         </DropdownMenuItem>
                                                     )}
+                                                    <DropdownMenuItem
+                                                        onClick={() => handleExportCustomerWord(customer.id)}
+                                                        disabled={exportingCustomerId === customer.id}
+                                                    >
+                                                        {exportingCustomerId === customer.id ? (
+                                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                        ) : (
+                                                            <FileSpreadsheet className="mr-2 h-4 w-4" />
+                                                        )}
+                                                        Generate Report
+                                                    </DropdownMenuItem>
                                                     {canDelete && (
                                                         <>
                                                             <DropdownMenuSeparator />
