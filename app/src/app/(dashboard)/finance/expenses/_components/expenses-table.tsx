@@ -30,8 +30,20 @@ export async function ExpensesTable() {
                 include: {
                     trip: {
                         select: {
+                            id: true,
                             originCity: true,
                             destinationCity: true,
+                        },
+                    },
+                },
+            },
+            driverExpenses: {
+                include: {
+                    driver: {
+                        select: {
+                            id: true,
+                            firstName: true,
+                            lastName: true,
                         },
                     },
                 },

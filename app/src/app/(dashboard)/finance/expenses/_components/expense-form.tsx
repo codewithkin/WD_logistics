@@ -120,9 +120,12 @@ interface ExpenseFormProps {
         tripExpenses: Array<{ tripId: string }>;
         driverExpenses: Array<{ driverId: string }>;
     };
+    prefilledTripId?: string;
+    prefilledTruckId?: string;
+    prefilledDriverId?: string;
 }
 
-export function ExpenseForm({ categories, trucks, trips, drivers, expense }: ExpenseFormProps) {
+export function ExpenseForm({ categories, trucks, trips, drivers, expense, prefilledTripId, prefilledTruckId, prefilledDriverId }: ExpenseFormProps) {
     const router = useRouter();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [truckSearchOpen, setTruckSearchOpen] = useState(false);
@@ -139,9 +142,9 @@ export function ExpenseForm({ categories, trucks, trips, drivers, expense }: Exp
             amount: expense?.amount || 0,
             date: expense?.date || new Date(),
             notes: expense?.notes || "",
-            truckIds: expense?.truckExpenses.map(te => te.truckId) || [],
-            tripIds: expense?.tripExpenses.map(te => te.tripId) || [],
-            driverIds: expense?.driverExpenses?.map(de => de.driverId) || [],
+            truckIds: expense?.truckExpenses.map(te => te.truckId) || (prefilledTruckId ? [prefilledTruckId] : []),
+            tripIds: expense?.tripExpenses.map(te => te.tripId) || (prefilledTripId ? [prefilledTripId] : []),
+            driverIds: expense?.driverExpenses?.map(de => de.driverId) || (prefilledDriverId ? [prefilledDriverId] : []),
         },
     });
 

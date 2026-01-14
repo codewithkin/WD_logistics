@@ -43,6 +43,7 @@ export default async function ExpensesPage() {
                 include: {
                     trip: {
                         select: {
+                            id: true,
                             originCity: true,
                             destinationCity: true,
                         },
@@ -53,6 +54,7 @@ export default async function ExpensesPage() {
                 include: {
                     driver: {
                         select: {
+                            id: true,
                             firstName: true,
                             lastName: true,
                         },

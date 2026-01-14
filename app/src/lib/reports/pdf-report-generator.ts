@@ -1422,3 +1422,164 @@ export function generateDashboardSummaryPDF(data: {
   const generator = new PDFReportGenerator(config);
   return generator.generate();
 }
+
+/**
+ * Generate a Trip Profit/Loss PDF for a single trip
+ */
+export function generateTripProfitLossPDF(data: {
+  trip: {
+    tripNumber?: string;
+    origin: string;
+    destination: string;
+    startDate: Date | string;
+    endDate?: Date | string | null;
+    status: string;
+    truck?: string | null;
+    driver?: string | null;
+  };
+  expenses: Array<{
+    description: string | null;
+    category: string | null;
+    date: Date | string;
+    amount: number;
+  }>;
+  invoice?: {
+    invoiceNumber: string;
+    total: number;
+    amountPaid: number;
+    balance: number;
+    status: string;
+    isCredit: boolean;
+  } | null;
+  revenue: number;
+}): Uint8Array {
+  const totalExpenses = data.expenses.reduce((sum, e) => sum + e.amount, 0);
+  const grossProfit = data.revenue - totalExpenses;
+  const isInvoicePaid = data.invoice?.status === "paid";
+  const netProfit = isInvoicePaid ? grossProfit : 0;
+  const pendingAmount = data.invoice ? data.invoice.balance : data.revenue;
+
+  const tripTitle = data.trip.tripNumber
+    ? `Trip #${data.trip.tripNumber} Profit/Loss Report`
+    : "Trip Profit/Loss Report";
+  const routeSubtitle = `${data.trip.origin} → ${data.trip.destination}`;
+
+  const config: ReportConfig = {
+    title: tripTitle,
+    subtitle: routeSubtitle,
+    reportType: "trip-profit-loss",
+    period: {
+      startDate: data.trip.startDate,
+      endDate: data.trip.endDate || data.trip.startDate,
+    },
+    summary: [
+      { label: "Trip Status", value: data.trip.status, format: "text" },
+      { label: "Truck", value: data.trip.truck || "Not Assigned", format: "text" },
+      { label: "Driver", value: data.trip.driver || "Not Assigned", format: "text" },
+      { label: "Total Revenue", value: data.revenue, format: "currency" },
+      { label: "Total Expenses", value: totalExpenses, format: "currency" },
+      { label: "Gross Profit", value: grossProfit, format: "currency" },
+      ...(data.invoice
+        ? [
+            { label: "Invoice Number", value: data.invoice.invoiceNumber, format: "text" as const },
+            { label: "Invoice Status", value: data.invoice.status, format: "text" as const },
+            { label: "Amount Paid", value: data.invoice.amountPaid, format: "currency" as const },
+            { label: "Balance Due", value: data.invoice.balance, format: "currency" as const },
+          ]
+        : []),
+    ],
+    sections: [
+      // Revenue Section
+      {
+        title: "Revenue",
+        columns: [
+          { header: "Description", key: "description", align: "left" },
+          { header: "Type", key: "type", align: "left" },
+          { header: "Amount", key: "amount", format: "currency", align: "right" },
+        ],
+        data: [
+          {
+            description: data.invoice
+              ? `Invoice ${data.invoice.invoiceNumber}`
+              : "Trip Revenue",
+            type: data.invoice
+              ? data.invoice.isCredit
+                ? "Credit Invoice"
+                : isInvoicePaid
+                ? "Paid Invoice"
+                : "Pending Invoice"
+              : "Revenue",
+            amount: data.revenue,
+          },
+        ],
+        showTotal: true,
+        totalLabel: "Total Revenue",
+        totalColumns: ["amount"],
+      },
+      // Expenses Section
+      {
+        title: "Expenses",
+        columns: [
+          { header: "Description", key: "description", align: "left" },
+          { header: "Category", key: "category", align: "left" },
+          { header: "Date", key: "date", format: "date", align: "left" },
+          { header: "Amount", key: "amount", format: "currency", align: "right" },
+        ],
+        data:
+          data.expenses.length > 0
+            ? data.expenses.map((e) => ({
+                description: e.description || "Expense",
+                category: e.category || "Uncategorized",
+                date: e.date,
+                amount: e.amount,
+              }))
+            : [
+                {
+                  description: "No expenses recorded",
+                  category: "-",
+                  date: "-",
+                  amount: 0,
+                },
+              ],
+        showTotal: true,
+        totalLabel: "Total Expenses",
+        totalColumns: ["amount"],
+      },
+      // Profit/Loss Summary Section
+      {
+        title: "Profit/Loss Summary",
+        columns: [
+          { header: "Description", key: "description", align: "left" },
+          { header: "Amount", key: "amount", format: "currency", align: "right" },
+        ],
+        data: [
+          { description: "Total Revenue", amount: data.revenue },
+          { description: "Less: Total Expenses", amount: -totalExpenses },
+          { description: "Gross Profit/(Loss)", amount: grossProfit },
+          ...(data.invoice
+            ? [
+                {
+                  description: isInvoicePaid
+                    ? "Net Profit (Collected)"
+                    : `Pending Collection`,
+                  amount: isInvoicePaid ? netProfit : pendingAmount,
+                },
+              ]
+            : []),
+        ],
+      },
+    ],
+    notes: [
+      "All amounts are in United States Dollars (USD).",
+      "Gross Profit is calculated as Revenue minus Expenses.",
+      data.invoice
+        ? isInvoicePaid
+          ? "Invoice has been fully paid."
+          : `Outstanding balance of ${formatCurrency(pendingAmount)} remains to be collected.`
+        : "No invoice has been generated for this trip.",
+    ],
+  };
+
+  const generator = new PDFReportGenerator(config);
+  return generator.generate();
+}

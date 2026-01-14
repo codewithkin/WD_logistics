@@ -3,8 +3,17 @@ import { ExpenseForm } from "../_components/expense-form";
 import { requireRole } from "@/lib/session";
 import prisma from "@/lib/prisma";
 
-export default async function NewExpensePage() {
+interface NewExpensePageProps {
+    searchParams: Promise<{
+        tripId?: string;
+        truckId?: string;
+        driverId?: string;
+    }>;
+}
+
+export default async function NewExpensePage({ searchParams }: NewExpensePageProps) {
     const user = await requireRole(["admin", "supervisor", "staff"]);
+    const params = await searchParams;
 
     const [categories, trucks, trips, drivers] = await Promise.all([
         prisma.expenseCategory.findMany({
@@ -84,6 +93,11 @@ export default async function NewExpensePage() {
         }),
     ]);
 
+    // Parse prefilled values from search params
+    const prefilledTripId = params.tripId || undefined;
+    const prefilledTruckId = params.truckId || undefined;
+    const prefilledDriverId = params.driverId || undefined;
+
     return (
         <div className="flex flex-col gap-6">
             <PageHeader
@@ -96,6 +110,9 @@ export default async function NewExpensePage() {
                     trucks={trucks}
                     trips={trips}
                     drivers={drivers}
+                    prefilledTripId={prefilledTripId}
+                    prefilledTruckId={prefilledTruckId}
+                    prefilledDriverId={prefilledDriverId}
                 />
             </div>
         </div>

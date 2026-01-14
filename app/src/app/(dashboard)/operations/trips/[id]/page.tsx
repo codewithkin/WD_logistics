@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { NotifyDriverButton } from "./_components/notify-driver-button";
+import { TripProfitLossTable } from "./_components/trip-profit-loss-table";
 
 interface TripDetailPageProps {
     params: Promise<{ id: string }>;
@@ -271,10 +272,10 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
                             </span>
                             <span
                                 className={`font-bold ${isInvoicePaid
-                                        ? netProfit >= 0
-                                            ? "text-green-600"
-                                            : "text-red-600"
-                                        : "text-muted-foreground"
+                                    ? netProfit >= 0
+                                        ? "text-green-600"
+                                        : "text-red-600"
+                                    : "text-muted-foreground"
                                     }`}
                             >
                                 {isInvoicePaid ? `$${netProfit.toLocaleString()}` : "Awaiting Payment"}
@@ -421,6 +422,23 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
                     </Card>
                 )}
             </div>
+
+            {/* Profit & Loss Table */}
+            <TripProfitLossTable
+                tripId={trip.id}
+                tripName={`${trip.originCity} → ${trip.destinationCity}`}
+                revenue={trip.revenue}
+                expenses={trip.tripExpenses}
+                invoice={tripInvoice ? {
+                    id: tripInvoice.id,
+                    invoiceNumber: tripInvoice.invoiceNumber,
+                    total: tripInvoice.total,
+                    amountPaid: tripInvoice.amountPaid,
+                    balance: tripInvoice.balance,
+                    status: tripInvoice.status,
+                    isCredit: tripInvoice.isCredit,
+                } : null}
+            />
         </div>
     );
 }

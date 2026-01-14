@@ -5,9 +5,10 @@ import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
+    DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Truck, UserPlus, Users, ChevronDown } from "lucide-react";
+import { Truck, UserPlus, Users, ChevronDown, Receipt } from "lucide-react";
 import Link from "next/link";
 import { CreateSupervisorDialog } from "../../users/_components/create-supervisor-dialog";
 
@@ -48,6 +49,13 @@ export function QuickActions({ role }: QuickActionsProps) {
                         <Link href="/employees/new" className="flex items-center cursor-pointer">
                             <UserPlus className="h-4 w-4 mr-2" />
                             New Employee
+                        </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                        <Link href="/finance/expenses/new" className="flex items-center cursor-pointer">
+                            <Receipt className="h-4 w-4 mr-2" />
+                            Record Expense
                         </Link>
                     </DropdownMenuItem>
                 </DropdownMenuContent>

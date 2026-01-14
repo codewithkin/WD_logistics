@@ -45,12 +45,14 @@ interface Expense {
     }>;
     tripExpenses: Array<{
         trip: {
+            id: string;
             originCity: string;
             destinationCity: string;
         };
     }>;
     driverExpenses?: Array<{
         driver: {
+            id: string;
             firstName: string;
             lastName: string;
         };

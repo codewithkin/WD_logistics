@@ -28,7 +28,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { MoreHorizontal, Pencil, Trash2, Receipt as ReceiptIcon, Search, Filter, X, Truck, MapPin, Plus, Loader2 } from "lucide-react";
+import { MoreHorizontal, Pencil, Trash2, Receipt as ReceiptIcon, Search, Filter, X, Truck, MapPin, Plus, Loader2, User } from "lucide-react";
 import Link from "next/link";
 import { deleteExpense, exportExpensesPDF } from "../actions";
 import { useRouter } from "next/navigation";
@@ -51,12 +51,14 @@ interface Expense {
     }>;
     tripExpenses: Array<{
         trip: {
+            id: string;
             originCity: string;
             destinationCity: string;
         };
     }>;
-    driverExpenses?: Array<{
+    driverExpenses: Array<{
         driver: {
+            id: string;
             firstName: string;
             lastName: string;
         };
@@ -513,14 +515,28 @@ export function ExpensesTableClient({ expenses }: ExpensesTableProps) {
                                             {expense.tripExpenses.length > 0 && (
                                                 <div className="flex flex-wrap gap-1">
                                                     {expense.tripExpenses.map((te, idx) => (
-                                                        <Badge key={idx} variant="secondary" className="text-xs font-normal">
-                                                            <MapPin className="mr-1 h-3 w-3" />
-                                                            {te.trip.originCity} → {te.trip.destinationCity}
-                                                        </Badge>
+                                                        <Link key={idx} href={`/operations/trips/${te.trip.id}`}>
+                                                            <Badge variant="secondary" className="text-xs font-normal hover:bg-secondary/80 cursor-pointer">
+                                                                <MapPin className="mr-1 h-3 w-3" />
+                                                                {te.trip.originCity} → {te.trip.destinationCity}
+                                                            </Badge>
+                                                        </Link>
                                                     ))}
                                                 </div>
                                             )}
-                                            {expense.truckExpenses.length === 0 && expense.tripExpenses.length === 0 && (
+                                            {expense.driverExpenses.length > 0 && (
+                                                <div className="flex flex-wrap gap-1">
+                                                    {expense.driverExpenses.map((de, idx) => (
+                                                        <Link key={idx} href={`/employees/drivers/${de.driver.id}`}>
+                                                            <Badge variant="secondary" className="text-xs font-normal hover:bg-secondary/80 cursor-pointer">
+                                                                <User className="mr-1 h-3 w-3" />
+                                                                {de.driver.firstName} {de.driver.lastName}
+                                                            </Badge>
+                                                        </Link>
+                                                    ))}
+                                                </div>
+                                            )}
+                                            {expense.truckExpenses.length === 0 && expense.tripExpenses.length === 0 && expense.driverExpenses.length === 0 && (
                                                 <span className="text-xs text-muted-foreground">—</span>
                                             )}
                                         </div>
