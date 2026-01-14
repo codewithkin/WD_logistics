@@ -84,17 +84,6 @@ bun start      # Run production build
      wd-logistics-agent
    ```
 
-   Or use an env file:
-   ```bash
-   docker run -d \
-     --name wd-logistics-agent \
-     -p 3001:3001 \
-     --env-file .env \
-     -v whatsapp_auth:/app/.wwebjs_auth \
-     --cap-add=SYS_ADMIN \
-     wd-logistics-agent
-   ```
-
 ### Environment Variables
 
 | Variable | Required | Description |
@@ -105,10 +94,23 @@ bun start      # Run production build
 | `PORT` | No | Server port (default: 3001) |
 | `MASTRA_LOG_LEVEL` | No | Log level: debug, info, warn, error |
 
+### Render Deployment
+
+1. Create a new **Web Service** on Render
+2. Connect your GitHub repository
+3. Set the **Root Directory** to `agent`
+4. Set **Build Command** to: (leave default or use Docker)
+5. Add environment variables in the Render dashboard:
+   - `OPENAI_API_KEY`
+   - `WEB_APP_URL`
+   - `AGENT_API_KEY`
+6. Deploy!
+
+> **Note:** Environment variables are set in Render's dashboard, not via .env file.
+
 ### Production Notes
 
-- The WhatsApp session is persisted in a Docker volume (`whatsapp_auth`)
-- First run requires QR code scan for WhatsApp authentication
-- `--cap-add=SYS_ADMIN` is required for Puppeteer/Chromium
+- WhatsApp client initializes automatically on server startup
+- First run requires QR code scan for WhatsApp authentication (check logs)
 - Health check available at `GET /health`
 

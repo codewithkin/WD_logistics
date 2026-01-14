@@ -1,13 +1,11 @@
 # Docker Compose for WD Logistics AI Agent
 # 
 # ENVIRONMENT VARIABLES:
-#   Option 1: Create a .env file (copy from .env.example) - NOT committed to git
-#   Option 2: Pass env vars directly: docker-compose run -e OPENAI_API_KEY=xxx agent
-#   Option 3: Use Docker secrets for production
+#   For Render/production: Set env vars in the dashboard
+#   For local dev with Docker: Create .env file or pass vars directly
 #
 # Usage:
-#   Development: docker-compose up
-#   Production:  docker-compose -f docker-compose.yml up -d
+#   docker-compose up -d
 
 version: '3.8'
 
@@ -19,12 +17,8 @@ services:
     container_name: wd-logistics-agent
     ports:
       - "3001:3001"
-    # Load environment variables from .env file (create from .env.example)
-    env_file:
-      - .env
     environment:
       - NODE_ENV=production
-      # These can override .env file values
       - PORT=${PORT:-3001}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - WEB_APP_URL=${WEB_APP_URL:-http://localhost:3000}
