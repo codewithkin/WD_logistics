@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, requireRole } from "@/lib/session";
 import { generateCustomerReportPDF } from "@/lib/reports/pdf-report-generator";
 import { generateCustomerDetailReportWord } from "@/lib/reports/word-report-generator";
+import { notifyCustomerCreated, notifyCustomerUpdated, notifyCustomerDeleted } from "@/lib/notifications";
 
 export async function createCustomer(data: {
   name: string;
@@ -25,6 +26,20 @@ export async function createCustomer(data: {
         organizationId: session.organizationId,
       },
     });
+
+    // Send admin notification
+    notifyCustomerCreated(
+      {
+        id: customer.id,
+        name: customer.name,
+        contactPerson: customer.contactPerson,
+        email: customer.email,
+        phone: customer.phone,
+        status: customer.status,
+      },
+      session.organizationId,
+      { name: session.user.name, email: session.user.email, role: session.role }
+    ).catch((err) => console.error("Failed to send admin notification:", err));
 
     revalidatePath("/customers");
     return { success: true, customer };
@@ -62,6 +77,20 @@ export async function updateCustomer(
       data,
     });
 
+    // Send admin notification
+    notifyCustomerUpdated(
+      {
+        id: updatedCustomer.id,
+        name: updatedCustomer.name,
+        contactPerson: updatedCustomer.contactPerson,
+        email: updatedCustomer.email,
+        phone: updatedCustomer.phone,
+        status: updatedCustomer.status,
+      },
+      session.organizationId,
+      { name: session.user.name, email: session.user.email, role: session.role }
+    ).catch((err) => console.error("Failed to send admin notification:", err));
+
     revalidatePath("/customers");
     revalidatePath(`/customers/${id}`);
     return { success: true, customer: updatedCustomer };
@@ -96,6 +125,13 @@ export async function deleteCustomer(id: string) {
     }
 
     await prisma.customer.delete({ where: { id } });
+
+    // Send admin notification
+    notifyCustomerDeleted(
+      customer.name,
+      session.organizationId,
+      { name: session.user.name, email: session.user.email, role: session.role }
+    ).catch((err) => console.error("Failed to send admin notification:", err));
 
     revalidatePath("/customers");
     return { success: true };
