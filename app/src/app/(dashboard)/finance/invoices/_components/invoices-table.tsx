@@ -204,13 +204,14 @@ export function InvoicesTable({ invoices, role }: InvoicesTableProps) {
                                 <TableHead>Status</TableHead>
                                 <TableHead className="text-right">Amount</TableHead>
                                 <TableHead className="text-right">Paid</TableHead>
+                                <TableHead className="text-right">Outstanding</TableHead>
                                 <TableHead className="w-[70px]"></TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {filteredInvoices.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={8} className="text-center h-24 text-muted-foreground">
+                                    <TableCell colSpan={9} className="text-center h-24 text-muted-foreground">
                                         No invoices found
                                     </TableCell>
                                 </TableRow>
@@ -257,6 +258,17 @@ export function InvoicesTable({ invoices, role }: InvoicesTableProps) {
                                                     }
                                                 >
                                                     ${invoice.amountPaid.toLocaleString()}
+                                                </span>
+                                            </TableCell>
+                                            <TableCell className="text-right">
+                                                <span
+                                                    className={
+                                                        invoice.balance <= 0
+                                                            ? "text-green-600"
+                                                            : "text-red-600 font-medium"
+                                                    }
+                                                >
+                                                    ${invoice.balance.toLocaleString()}
                                                 </span>
                                             </TableCell>
                                             <TableCell>
