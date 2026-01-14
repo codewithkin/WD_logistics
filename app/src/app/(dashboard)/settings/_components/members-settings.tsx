@@ -54,7 +54,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Loader2, MoreHorizontal, Plus, UserPlus, X, Clock, Mail } from "lucide-react";
+import { Loader2, MoreHorizontal, Plus, UserPlus, X, Clock, Mail, Copy, Check } from "lucide-react";
 import {
     inviteMember,
     updateMemberRole,
@@ -113,6 +113,8 @@ export function MembersSettings({
     const [isInviteOpen, setIsInviteOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [updatingMember, setUpdatingMember] = useState<string | null>(null);
+    const [generatedPassword, setGeneratedPassword] = useState<string | null>(null);
+    const [showPasswordDialog, setShowPasswordDialog] = useState(false);
 
     const form = useForm<InviteData>({
         resolver: zodResolver(inviteSchema),
@@ -131,6 +133,10 @@ export function MembersSettings({
                 toast.success(result.message || "Member added successfully");
                 form.reset();
                 setIsInviteOpen(false);
+                if (result.password) {
+                    setGeneratedPassword(result.password);
+                    setShowPasswordDialog(true);
+                }
                 router.refresh();
             } else {
                 toast.error(result.error || "Failed to send invitation");
@@ -156,6 +162,13 @@ export function MembersSettings({
             toast.error("An error occurred");
         } finally {
             setUpdatingMember(null);
+        }
+    };
+
+    const handleCopyPassword = async () => {
+        if (generatedPassword) {
+            await navigator.clipboard.writeText(generatedPassword);
+            toast.success("Password copied to clipboard");
         }
     };
 
@@ -463,6 +476,51 @@ export function MembersSettings({
                     </CardContent>
                 </Card>
             )}
+
+            {/* Password Dialog */}
+            <Dialog open={showPasswordDialog} onOpenChange={setShowPasswordDialog}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>User Created Successfully</DialogTitle>
+                        <DialogDescription>
+                            The user account has been created and credentials have been sent via email.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                        <div className="rounded-lg border bg-muted/50 p-4">
+                            <p className="text-sm text-muted-foreground mb-2">
+                                Generated Password:
+                            </p>
+                            <div className="flex items-center justify-between gap-2">
+                                <code className="text-sm font-mono bg-background px-3 py-2 rounded border flex-1">
+                                    {generatedPassword}
+                                </code>
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={handleCopyPassword}
+                                >
+                                    <Copy className="h-4 w-4 mr-2" />
+                                    Copy Password
+                                </Button>
+                            </div>
+                        </div>
+                        <div className="text-sm text-muted-foreground bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900 rounded-lg p-3">
+                            <p className="font-medium text-amber-900 dark:text-amber-200">
+                                Important: Save this password now
+                            </p>
+                            <p className="text-amber-800 dark:text-amber-300 mt-1">
+                                For security reasons, this password won&apos;t be shown again. The user will receive it via email.
+                            </p>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button onClick={() => setShowPasswordDialog(false)}>
+                            Done
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

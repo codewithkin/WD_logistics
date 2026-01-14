@@ -265,7 +265,7 @@ ${organization?.name || "WD Logistics"} Team
     });
 
     revalidatePath("/settings");
-    return { success: true, message: "User created and invitation sent" };
+    return { success: true, message: "User created and invitation sent", password };
   } catch (error) {
     console.error("Failed to invite member:", error);
     return { success: false, error: "Failed to invite member" };
