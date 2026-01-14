@@ -8,6 +8,8 @@ interface NewExpensePageProps {
         tripId?: string;
         truckId?: string;
         driverId?: string;
+        supplier?: string;
+        business?: string;
     }>;
 }
 
@@ -15,7 +17,7 @@ export default async function NewExpensePage({ searchParams }: NewExpensePagePro
     const user = await requireRole(["admin", "supervisor", "staff"]);
     const params = await searchParams;
 
-    const [categories, trucks, trips, drivers] = await Promise.all([
+    const [categories, trucks, trips, drivers, suppliers] = await Promise.all([
         prisma.expenseCategory.findMany({
             where: {
                 organizationId: user.organizationId,
@@ -91,12 +93,27 @@ export default async function NewExpensePage({ searchParams }: NewExpensePagePro
                 firstName: "asc",
             },
         }),
+        prisma.supplier.findMany({
+            where: {
+                organizationId: user.organizationId,
+                status: "active",
+            },
+            select: {
+                id: true,
+                name: true,
+            },
+            orderBy: {
+                name: "asc",
+            },
+        }),
     ]);
 
     // Parse prefilled values from search params
     const prefilledTripId = params.tripId || undefined;
     const prefilledTruckId = params.truckId || undefined;
     const prefilledDriverId = params.driverId || undefined;
+    const prefilledSupplierId = params.supplier || undefined;
+    const prefilledIsBusinessExpense = params.business === "true";
 
     return (
         <div className="flex flex-col gap-6">
@@ -110,9 +127,12 @@ export default async function NewExpensePage({ searchParams }: NewExpensePagePro
                     trucks={trucks}
                     trips={trips}
                     drivers={drivers}
+                    suppliers={suppliers}
                     prefilledTripId={prefilledTripId}
                     prefilledTruckId={prefilledTruckId}
                     prefilledDriverId={prefilledDriverId}
+                    prefilledSupplierId={prefilledSupplierId}
+                    prefilledIsBusinessExpense={prefilledIsBusinessExpense}
                 />
             </div>
         </div>

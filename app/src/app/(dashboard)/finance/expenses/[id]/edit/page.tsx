@@ -12,7 +12,7 @@ export default async function EditExpensePage({ params }: EditExpensePageProps) 
     const { id } = await params;
     const user = await requireRole(["admin", "supervisor", "staff"]);
 
-    const [expense, categories, trucks, trips, drivers] = await Promise.all([
+    const [expense, categories, trucks, trips, drivers, suppliers] = await Promise.all([
         prisma.expense.findUnique({
             where: {
                 id,
@@ -111,6 +111,19 @@ export default async function EditExpensePage({ params }: EditExpensePageProps) 
                 firstName: "asc",
             },
         }),
+        prisma.supplier.findMany({
+            where: {
+                organizationId: user.organizationId,
+                status: "active",
+            },
+            select: {
+                id: true,
+                name: true,
+            },
+            orderBy: {
+                name: "asc",
+            },
+        }),
     ]);
 
     if (!expense) {
@@ -129,6 +142,7 @@ export default async function EditExpensePage({ params }: EditExpensePageProps) 
                     trucks={trucks}
                     trips={trips}
                     drivers={drivers}
+                    suppliers={suppliers}
                     expense={expense}
                 />
             </div>
