@@ -298,25 +298,43 @@ export async function exportTrucksPDF(options?: {
           },
           select: {
             id: true,
+            revenue: true,
+          },
+        },
+        truckExpenses: {
+          include: {
+            expense: {
+              select: {
+                amount: true,
+                date: true,
+              },
+            },
           },
         },
       },
       orderBy: { registrationNo: "asc" },
     });
 
-    const truckData = trucks.map((truck) => ({
-      registrationNo: truck.registrationNo,
-      make: truck.make,
-      model: truck.model,
-      year: truck.year,
-      status: truck.status,
-      currentMileage: truck.currentMileage,
-      fuelType: truck.fuelType || "N/A",
-      assignedDriver: truck.assignedDriver
-        ? `${truck.assignedDriver.firstName} ${truck.assignedDriver.lastName}`
-        : "Unassigned",
-      trips: truck.trips.length,
-    }));
+    const truckData = trucks.map((truck) => {
+      const totalRevenue = truck.trips.reduce((sum, t) => sum + t.revenue, 0);
+      const totalExpenses = truck.truckExpenses.reduce((sum, te) => sum + te.expense.amount, 0);
+      return {
+        registrationNo: truck.registrationNo,
+        make: truck.make,
+        model: truck.model,
+        year: truck.year,
+        status: truck.status,
+        currentMileage: truck.currentMileage,
+        fuelType: truck.fuelType || "N/A",
+        assignedDriver: truck.assignedDriver
+          ? `${truck.assignedDriver.firstName} ${truck.assignedDriver.lastName}`
+          : "Unassigned",
+        trips: truck.trips.length,
+        revenue: totalRevenue,
+        expenses: totalExpenses,
+        profitLoss: totalRevenue - totalExpenses,
+      };
+    });
 
     const analytics = {
       totalTrucks: trucks.length,
@@ -324,6 +342,9 @@ export async function exportTrucksPDF(options?: {
       trucksWithDriver: trucks.filter((t) => t.assignedDriver).length,
       totalMileage: trucks.reduce((sum, t) => sum + t.currentMileage, 0),
       totalTrips: trucks.reduce((sum, t) => sum + t.trips.length, 0),
+      totalRevenue: truckData.reduce((sum, t) => sum + t.revenue, 0),
+      totalExpenses: truckData.reduce((sum, t) => sum + t.expenses, 0),
+      totalProfitLoss: truckData.reduce((sum, t) => sum + t.profitLoss, 0),
     };
 
     const pdfBytes = generateTruckReportPDF({
