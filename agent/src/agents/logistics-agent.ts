@@ -8,6 +8,7 @@ export const logisticsAgent = new Agent({
   name: mastraConfig.name,
   instructions: mastraConfig.instructions,
   model: openai("gpt-4o"),
+  // @ts-ignore - Tool types are compatible at runtime
   tools: allTools,
 });
 

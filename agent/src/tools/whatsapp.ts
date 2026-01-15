@@ -151,19 +151,6 @@ export const sendBulkWhatsAppMessages = createTool({
       };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : "Unknown error";
-      return {
-        success: false,
-        error: `Failed to send bulk messages: ${errorMsg}`,
-      };
-    }
-  },
-};
-
-/**
- * Check WhatsApp connection status
- */
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : "Unknown error";
       console.error("Bulk WhatsApp send error:", error);
 
       return {
