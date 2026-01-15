@@ -65,9 +65,31 @@ export class AgentWhatsAppClient extends EventEmitter {
       this.state.status = "connecting";
       this.emit("status", this.state);
 
-      // Simple puppeteer config - let whatsapp-web.js handle defaults
+      // Simple puppeteer config with Linux server support
+      const puppeteerConfig: {
+        headless: boolean;
+        args: string[];
+        executablePath?: string;
+      } = {
+        headless: true,
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-accelerated-2d-canvas',
+          '--no-first-run',
+          '--no-zygote',
+          '--disable-gpu',
+        ],
+      };
+
+      // Use system Chromium on Linux servers (like Render)
+      if (process.platform === 'linux') {
+        puppeteerConfig.executablePath = '/usr/bin/chromium-browser';
+      }
+
       this.client = new Client({
-        puppeteer: { headless: true },
+        puppeteer: puppeteerConfig,
         authStrategy: new LocalAuth({
           clientId: "agent-whatsapp",
         }),
