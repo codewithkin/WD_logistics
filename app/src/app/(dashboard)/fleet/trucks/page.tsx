@@ -5,6 +5,8 @@ import { TrucksTable } from "./_components/trucks-table";
 import { Plus } from "lucide-react";
 import { getDateRangeFromParams } from "@/lib/period-utils";
 import { PagePeriodSelector } from "@/components/ui/page-period-selector";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
 interface TrucksPageProps {
     searchParams: Promise<{ period?: string; from?: string; to?: string }>;
@@ -66,22 +68,23 @@ export default async function TrucksPage({ searchParams }: TrucksPageProps) {
     const canCreate = role === "admin" || role === "supervisor";
 
     return (
-        <div>
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <PageHeader
                     title="Trucks"
                     description={`Manage your fleet of trucks - ${dateRange.label}`}
-                    action={
-                        canCreate
-                            ? {
-                                label: "Add Truck",
-                                href: "/fleet/trucks/new",
-                                icon: Plus,
-                            }
-                            : undefined
-                    }
                 />
-                <PagePeriodSelector defaultPreset="3m" />
+                <div className="flex items-center gap-2">
+                    <PagePeriodSelector defaultPreset="3m" />
+                    {canCreate && (
+                        <Link href="/fleet/trucks/new">
+                            <Button>
+                                <Plus className="h-4 w-4 mr-2" />
+                                Add Truck
+                            </Button>
+                        </Link>
+                    )}
+                </div>
             </div>
             <TrucksTable trucks={trucksWithTotals} role={role} periodLabel={dateRange.label} />
         </div>

@@ -5,6 +5,8 @@ import { ExpensesClient } from "./_components/expenses-client";
 import { Plus } from "lucide-react";
 import { getDateRangeFromParams } from "@/lib/period-utils";
 import { PagePeriodSelector } from "@/components/ui/page-period-selector";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
 interface ExpensesPageProps {
     searchParams: Promise<{ tripId?: string; categoryId?: string; period?: string; from?: string; to?: string }>;
@@ -100,17 +102,18 @@ export default async function ExpensesPage({ searchParams }: ExpensesPageProps) 
                 <PageHeader
                     title="Expenses"
                     description={`Track and manage expenses - ${dateRange.label}`}
-                    action={
-                        canCreate
-                            ? {
-                                label: "Add Expense",
-                                href: "/operations/expenses/new",
-                                icon: Plus,
-                            }
-                            : undefined
-                    }
                 />
-                <PagePeriodSelector defaultPreset="1m" />
+                <div className="flex items-center gap-2">
+                    <PagePeriodSelector defaultPreset="1m" />
+                    {canCreate && (
+                        <Link href="/operations/expenses/new">
+                            <Button>
+                                <Plus className="h-4 w-4 mr-2" />
+                                Add Expense
+                            </Button>
+                        </Link>
+                    )}
+                </div>
             </div>
             <ExpensesClient
                 expenses={expenses}

@@ -17,7 +17,7 @@ export interface PageHeaderProps {
 
 export function PageHeader({ title, description, backHref, action, children }: PageHeaderProps) {
     return (
-        <div className="flex items-center justify-between pb-6 animate-in fade-in slide-in-from-top-2 duration-500">
+        <div className="flex items-center justify-between animate-in fade-in slide-in-from-top-2 duration-500">
             <div className="flex items-center gap-4">
                 {backHref && (
                     <Link href={backHref}>

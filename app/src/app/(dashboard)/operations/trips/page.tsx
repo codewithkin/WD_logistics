@@ -6,6 +6,8 @@ import { TripsAnalytics } from "./_components/trips-analytics";
 import { Plus } from "lucide-react";
 import { getDateRangeFromParams } from "@/lib/period-utils";
 import { PagePeriodSelector } from "@/components/ui/page-period-selector";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
 interface TripsPageProps {
     searchParams: Promise<{ truckId?: string; driverId?: string; customerId?: string; period?: string; from?: string; to?: string }>;
@@ -77,17 +79,18 @@ export default async function TripsPage({ searchParams }: TripsPageProps) {
                 <PageHeader
                     title="Trips"
                     description={`Manage and track trips - ${dateRange.label}`}
-                    action={
-                        canCreate
-                            ? {
-                                label: "Create Trip",
-                                href: "/operations/trips/new",
-                                icon: Plus,
-                            }
-                            : undefined
-                    }
                 />
-                <PagePeriodSelector defaultPreset="1m" />
+                <div className="flex items-center gap-2">
+                    <PagePeriodSelector defaultPreset="1m" />
+                    {canCreate && (
+                        <Link href="/operations/trips/new">
+                            <Button>
+                                <Plus className="h-4 w-4 mr-2" />
+                                Create Trip
+                            </Button>
+                        </Link>
+                    )}
+                </div>
             </div>
             <TripsAnalytics analytics={analytics} trips={trips} canExport={canExport} periodLabel={dateRange.label} />
             <TripsTable trips={trips} role={role} />

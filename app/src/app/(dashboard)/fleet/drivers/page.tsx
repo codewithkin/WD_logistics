@@ -6,6 +6,8 @@ import { DriversAnalytics } from "./_components/drivers-analytics";
 import { Plus } from "lucide-react";
 import { getDateRangeFromParams } from "@/lib/period-utils";
 import { PagePeriodSelector } from "@/components/ui/page-period-selector";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
 interface DriversPageProps {
     searchParams: Promise<{ period?: string; from?: string; to?: string }>;
@@ -86,17 +88,18 @@ export default async function DriversPage({ searchParams }: DriversPageProps) {
                 <PageHeader
                     title="Drivers"
                     description={`Manage your fleet drivers - ${dateRange.label}`}
-                    action={
-                        canCreate
-                            ? {
-                                label: "Add Driver",
-                                href: "/fleet/drivers/new",
-                                icon: Plus,
-                            }
-                            : undefined
-                    }
                 />
-                <PagePeriodSelector defaultPreset="3m" />
+                <div className="flex items-center gap-2">
+                    <PagePeriodSelector defaultPreset="3m" />
+                    {canCreate && (
+                        <Link href="/fleet/drivers/new">
+                            <Button>
+                                <Plus className="h-4 w-4 mr-2" />
+                                Add Driver
+                            </Button>
+                        </Link>
+                    )}
+                </div>
             </div>
             <DriversAnalytics analytics={analytics} drivers={drivers as any} canExport={canExport} periodLabel={dateRange.label} />
             <DriversTable drivers={drivers as any} role={role} />
