@@ -91,8 +91,50 @@ bun start      # Run production build
 | `OPENAI_API_KEY` | Yes | OpenAI API key for Mastra.ai |
 | `WEB_APP_URL` | Yes | URL of the Next.js web app |
 | `AGENT_API_KEY` | Yes | Shared API key for agent authentication |
+| `ENABLE_WHATSAPP` | No | Set to `true` to enable WhatsApp integration (default: false) |
+| `NO_ADMIN_ANSWER` | No | Set to `true` to disable non-admin responses (default: false) |
 | `PORT` | No | Server port (default: 3001) |
 | `MASTRA_LOG_LEVEL` | No | Log level: debug, info, warn, error |
+
+### WhatsApp Integration
+
+The agent supports WhatsApp integration for receiving and responding to messages.
+
+**⚠️ Important:** WhatsApp is **disabled by default** in production environments.
+
+#### Enabling WhatsApp
+
+1. Set environment variable:
+   ```bash
+   ENABLE_WHATSAPP=true
+   ```
+
+2. **First Run:** Check logs for QR code to scan with WhatsApp mobile app
+3. **Authentication:** Scan QR code (Settings → Linked Devices → Link a Device)
+4. **Session Persistence:** Session is saved to `.wwebjs_auth` directory
+
+#### Access Levels
+
+1. **Admin Users** (Full Access):
+   - `+263789859332`
+   - `+263772958986`
+   - Can query all data and perform admin operations
+
+2. **Bot Self-Messages**:
+   - Messages from bot's own number containing "WD_LOGISTICS"
+   - Full admin access
+
+3. **Non-Admin Users** (Business Info Only):
+   - Can ask about services, hours, location
+   - No access to system data
+   - Disabled if `NO_ADMIN_ANSWER=true`
+
+#### Production Considerations
+
+- WhatsApp requires Chrome/Chromium browser (included in Dockerfile)
+- May not work on all hosting platforms (Render, Heroku require specific setup)
+- Recommended for development or self-hosted production
+- For production, consider dedicated WhatsApp Business API instead
 
 ### Render Deployment
 
@@ -104,13 +146,14 @@ bun start      # Run production build
    - `OPENAI_API_KEY`
    - `WEB_APP_URL`
    - `AGENT_API_KEY`
+   - `ENABLE_WHATSAPP=false` (recommended for Render)
 6. Deploy!
 
 > **Note:** Environment variables are set in Render's dashboard, not via .env file.
 
 ### Production Notes
 
-- WhatsApp client initializes automatically on server startup
-- First run requires QR code scan for WhatsApp authentication (check logs)
+- WhatsApp is disabled by default (set `ENABLE_WHATSAPP=true` to enable)
+- If WhatsApp enabled, first run requires QR code scan (check logs)
 - Health check available at `GET /health`
 
