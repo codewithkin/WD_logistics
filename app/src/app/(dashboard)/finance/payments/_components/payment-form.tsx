@@ -34,7 +34,7 @@ import { createPayment, updatePayment } from "../actions";
 import { toast } from "sonner";
 
 const paymentSchema = z.object({
-    invoiceId: z.string().min(1, "Invoice is required"),
+    invoiceId: z.string().optional(),
     customerId: z.string().min(1, "Customer is required"),
     amount: z.coerce.number().min(0.01, "Amount must be greater than 0"),
     paymentDate: z.date({ message: "Payment date is required" }),
@@ -57,7 +57,7 @@ type PaymentFormData = z.infer<typeof paymentSchema>;
 interface PaymentFormProps {
     payment?: {
         id: string;
-        invoiceId: string;
+        invoiceId: string | null;
         customerId: string;
         amount: number;
         paymentDate: Date;
@@ -73,10 +73,14 @@ interface PaymentFormProps {
         customerId: string;
         customer: { name: string };
     }>;
+    customers: Array<{
+        id: string;
+        name: string;
+    }>;
     defaultInvoiceId?: string;
 }
 
-export function PaymentForm({ payment, invoices, defaultInvoiceId }: PaymentFormProps) {
+export function PaymentForm({ payment, invoices, customers, defaultInvoiceId }: PaymentFormProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
     const isEditing = !!payment;
@@ -107,6 +111,10 @@ export function PaymentForm({ payment, invoices, defaultInvoiceId }: PaymentForm
 
     // Update customerId when invoice changes
     const handleInvoiceChange = (invoiceId: string) => {
+        if (invoiceId === "__none__") {
+            form.setValue("invoiceId", "");
+            return;
+        }
         const invoice = invoices.find((i) => i.id === invoiceId);
         if (invoice) {
             form.setValue("customerId", invoice.customerId);
@@ -149,21 +157,22 @@ export function PaymentForm({ payment, invoices, defaultInvoiceId }: PaymentForm
                             name="invoiceId"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Invoice</FormLabel>
+                                    <FormLabel>Invoice (Optional)</FormLabel>
                                     <Select
                                         onValueChange={(value) => {
-                                            field.onChange(value);
+                                            field.onChange(value === "__none__" ? "" : value);
                                             handleInvoiceChange(value);
                                         }}
-                                        defaultValue={field.value}
+                                        defaultValue={field.value || "__none__"}
                                         disabled={isEditing}
                                     >
                                         <FormControl>
                                             <SelectTrigger>
-                                                <SelectValue placeholder="Select an invoice" />
+                                                <SelectValue placeholder="Select an invoice (optional)" />
                                             </SelectTrigger>
                                         </FormControl>
                                         <SelectContent>
+                                            <SelectItem value="__none__">No Invoice (Direct Payment)</SelectItem>
                                             {invoices.map((invoice) => (
                                                 <SelectItem key={invoice.id} value={invoice.id}>
                                                     {invoice.invoiceNumber} - {invoice.customer.name} (Balance: $
@@ -176,6 +185,37 @@ export function PaymentForm({ payment, invoices, defaultInvoiceId }: PaymentForm
                                 </FormItem>
                             )}
                         />
+
+                        {!selectedInvoiceId && (
+                            <FormField
+                                control={form.control}
+                                name="customerId"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Customer</FormLabel>
+                                        <Select
+                                            onValueChange={field.onChange}
+                                            defaultValue={field.value}
+                                            disabled={isEditing}
+                                        >
+                                            <FormControl>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select a customer" />
+                                                </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                {customers.map((customer) => (
+                                                    <SelectItem key={customer.id} value={customer.id}>
+                                                        {customer.name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        )}
 
                         {selectedInvoice && (
                             <div className="rounded-md border p-4 bg-muted/50">

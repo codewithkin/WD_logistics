@@ -554,8 +554,8 @@ model InvoiceLineItem {
 
 model Payment {
   id           String   @id @default(cuid())
-  invoiceId    String
-  invoice      Invoice  @relation(fields: [invoiceId], references: [id])
+  invoiceId    String?
+  invoice      Invoice?  @relation(fields: [invoiceId], references: [id])
   customerId   String
   customer     Customer @relation(fields: [customerId], references: [id])
   amount       Float

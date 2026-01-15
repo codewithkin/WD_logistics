@@ -12,10 +12,11 @@ export default async function EditPaymentPage({ params }: EditPaymentPageProps) 
     const { id } = await params;
     const session = await requireRole(["admin", "supervisor"]);
 
+    // Get payment with optional invoice (payments can now be without invoices)
     const payment = await prisma.payment.findFirst({
         where: {
             id,
-            invoice: { organizationId: session.organizationId }
+            customer: { organizationId: session.organizationId }
         },
         include: {
             invoice: {
@@ -24,6 +25,7 @@ export default async function EditPaymentPage({ params }: EditPaymentPageProps) 
                     payments: { select: { amount: true } },
                 },
             },
+            customer: { select: { id: true, name: true } },
         },
     });
 
@@ -31,18 +33,20 @@ export default async function EditPaymentPage({ params }: EditPaymentPageProps) 
         notFound();
     }
 
-    const totalPaid = payment.invoice.payments.reduce((sum: number, p: { amount: number }) => sum + p.amount, 0);
-
-    const invoices = [
+    // Build invoices array - include the linked invoice if exists
+    const invoices = payment.invoice ? [
         {
             id: payment.invoice.id,
             invoiceNumber: payment.invoice.invoiceNumber,
             total: payment.invoice.total,
-            balance: payment.invoice.total - totalPaid + payment.amount, // Add back current payment
+            balance: payment.invoice.total - payment.invoice.payments.reduce((sum, p) => sum + p.amount, 0) + payment.amount,
             customerId: payment.invoice.customerId,
             customer: payment.invoice.customer,
         },
-    ];
+    ] : [];
+
+    // Get customer for the form (in case editing needs it)
+    const customers = [payment.customer];
 
     return (
         <div>
@@ -51,7 +55,7 @@ export default async function EditPaymentPage({ params }: EditPaymentPageProps) 
                 description="Update payment details"
                 backHref="/finance/payments"
             />
-            <PaymentForm payment={payment} invoices={invoices} />
+            <PaymentForm payment={payment} invoices={invoices} customers={customers} />
         </div>
     );
 }

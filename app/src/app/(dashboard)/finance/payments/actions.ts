@@ -8,7 +8,7 @@ import { generatePaymentReportPDF } from "@/lib/reports/pdf-report-generator";
 import { notifyPaymentCreated, notifyPaymentUpdated, notifyPaymentDeleted } from "@/lib/notifications";
 
 export async function createPayment(data: {
-  invoiceId: string;
+  invoiceId?: string;
   customerId: string;
   amount: number;
   paymentDate: Date;
@@ -19,22 +19,37 @@ export async function createPayment(data: {
   const session = await requireRole(["admin", "supervisor"]);
 
   try {
-    const invoice = await prisma.invoice.findFirst({
-      where: { id: data.invoiceId, organizationId: session.organizationId },
-      include: { customer: { select: { name: true } } },
+    // Verify customer belongs to organization
+    const customer = await prisma.customer.findFirst({
+      where: { id: data.customerId, organizationId: session.organizationId },
+      select: { id: true, name: true },
     });
 
-    if (!invoice) {
-      return { success: false, error: "Invoice not found" };
+    if (!customer) {
+      return { success: false, error: "Customer not found" };
     }
 
-    if (data.amount > invoice.balance) {
-      return { success: false, error: `Payment amount exceeds balance of $${invoice.balance}` };
+    let invoice = null;
+
+    // If invoice is provided, validate it
+    if (data.invoiceId) {
+      invoice = await prisma.invoice.findFirst({
+        where: { id: data.invoiceId, organizationId: session.organizationId },
+        include: { customer: { select: { name: true } } },
+      });
+
+      if (!invoice) {
+        return { success: false, error: "Invoice not found" };
+      }
+
+      if (data.amount > invoice.balance) {
+        return { success: false, error: `Payment amount exceeds balance of $${invoice.balance}` };
+      }
     }
 
     const payment = await prisma.payment.create({
       data: {
-        invoiceId: data.invoiceId,
+        invoiceId: data.invoiceId || null,
         customerId: data.customerId,
         amount: data.amount,
         paymentDate: data.paymentDate,
@@ -44,19 +59,21 @@ export async function createPayment(data: {
       },
     });
 
-    // Update invoice amountPaid and balance
-    const newAmountPaid = invoice.amountPaid + data.amount;
-    const newBalance = invoice.total - newAmountPaid;
-    const newStatus = newBalance <= 0 ? "paid" : newAmountPaid > 0 ? "partial" : invoice.status;
+    // Update invoice amountPaid and balance if invoice was provided
+    if (invoice) {
+      const newAmountPaid = invoice.amountPaid + data.amount;
+      const newBalance = invoice.total - newAmountPaid;
+      const newStatus = newBalance <= 0 ? "paid" : newAmountPaid > 0 ? "partial" : invoice.status;
 
-    await prisma.invoice.update({
-      where: { id: data.invoiceId },
-      data: { 
-        amountPaid: newAmountPaid, 
-        balance: newBalance,
-        status: newStatus,
-      },
-    });
+      await prisma.invoice.update({
+        where: { id: data.invoiceId },
+        data: { 
+          amountPaid: newAmountPaid, 
+          balance: newBalance,
+          status: newStatus,
+        },
+      });
+    }
 
     // Update customer balance - add the payment amount (reduces debt)
     await prisma.customer.update({
@@ -73,7 +90,7 @@ export async function createPayment(data: {
       {
         id: payment.id,
         paymentNumber: `PMT-${payment.id.slice(-8).toUpperCase()}`,
-        customerName: invoice.customer.name,
+        customerName: customer.name,
         amount: data.amount,
         method: data.method,
       },
@@ -82,7 +99,9 @@ export async function createPayment(data: {
     ).catch((err) => console.error("Failed to send admin notification:", err));
 
     revalidatePath("/finance/payments");
-    revalidatePath(`/finance/invoices/${data.invoiceId}`);
+    if (data.invoiceId) {
+      revalidatePath(`/finance/invoices/${data.invoiceId}`);
+    }
     return { success: true, payment };
   } catch (error) {
     console.error("Failed to create payment:", error);
@@ -103,16 +122,23 @@ export async function updatePayment(
   const session = await requireRole(["admin", "supervisor"]);
 
   try {
-    // Get payment via invoice to verify organization access
+    // Get payment with optional invoice to verify organization access
     const payment = await prisma.payment.findFirst({
       where: { id },
       include: { 
         invoice: true,
-        customer: { select: { name: true } },
+        customer: { 
+          select: { 
+            name: true,
+            organizationId: true,
+          } 
+        },
       },
     });
 
-    if (!payment || payment.invoice.organizationId !== session.organizationId) {
+    // Verify organization access via invoice or customer
+    const orgId = payment?.invoice?.organizationId || payment?.customer?.organizationId;
+    if (!payment || orgId !== session.organizationId) {
       return { success: false, error: "Payment not found" };
     }
 
@@ -126,8 +152,8 @@ export async function updatePayment(
       },
     });
 
-    // Recalculate invoice if amount changed
-    if (amountDiff !== 0) {
+    // Recalculate invoice if amount changed and payment has an invoice
+    if (amountDiff !== 0 && payment.invoice) {
       const invoice = payment.invoice;
       const newAmountPaid = invoice.amountPaid + amountDiff;
       const newBalance = invoice.total - newAmountPaid;
@@ -157,7 +183,9 @@ export async function updatePayment(
     ).catch((err) => console.error("Failed to send admin notification:", err));
 
     revalidatePath("/finance/payments");
-    revalidatePath(`/finance/invoices/${payment.invoiceId}`);
+    if (payment.invoiceId) {
+      revalidatePath(`/finance/invoices/${payment.invoiceId}`);
+    }
     return { success: true, payment: updatedPayment };
   } catch (error) {
     console.error("Failed to update payment:", error);
@@ -169,35 +197,44 @@ export async function deletePayment(id: string) {
   const session = await requireRole(["admin"]);
 
   try {
-    // Get payment via invoice to verify organization access
+    // Get payment with optional invoice to verify organization access
     const payment = await prisma.payment.findFirst({
       where: { id },
       include: { 
         invoice: true,
-        customer: { select: { name: true } },
+        customer: { 
+          select: { 
+            name: true,
+            organizationId: true,
+          } 
+        },
       },
     });
 
-    if (!payment || payment.invoice.organizationId !== session.organizationId) {
+    // Verify organization access via invoice or customer
+    const orgId = payment?.invoice?.organizationId || payment?.customer?.organizationId;
+    if (!payment || orgId !== session.organizationId) {
       return { success: false, error: "Payment not found" };
     }
 
     await prisma.payment.delete({ where: { id } });
 
-    // Update invoice amountPaid and balance
-    const invoice = payment.invoice;
-    const newAmountPaid = invoice.amountPaid - payment.amount;
-    const newBalance = invoice.total - newAmountPaid;
-    const newStatus = newBalance <= 0 ? "paid" : newAmountPaid > 0 ? "partial" : "sent";
+    // Update invoice amountPaid and balance if payment had an invoice
+    if (payment.invoice) {
+      const invoice = payment.invoice;
+      const newAmountPaid = invoice.amountPaid - payment.amount;
+      const newBalance = invoice.total - newAmountPaid;
+      const newStatus = newBalance <= 0 ? "paid" : newAmountPaid > 0 ? "partial" : "sent";
 
-    await prisma.invoice.update({
-      where: { id: invoice.id },
-      data: { 
-        amountPaid: newAmountPaid, 
-        balance: newBalance,
-        status: newStatus,
-      },
-    });
+      await prisma.invoice.update({
+        where: { id: invoice.id },
+        data: { 
+          amountPaid: newAmountPaid, 
+          balance: newBalance,
+          status: newStatus,
+        },
+      });
+    }
 
     // Send admin notification
     notifyPaymentDeleted(
@@ -208,7 +245,9 @@ export async function deletePayment(id: string) {
     ).catch((err) => console.error("Failed to send admin notification:", err));
 
     revalidatePath("/finance/payments");
-    revalidatePath(`/finance/invoices/${payment.invoiceId}`);
+    if (payment.invoiceId) {
+      revalidatePath(`/finance/invoices/${payment.invoiceId}`);
+    }
     return { success: true };
   } catch (error) {
     console.error("Failed to delete payment:", error);

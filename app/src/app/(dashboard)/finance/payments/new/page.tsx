@@ -11,18 +11,28 @@ export default async function NewPaymentPage({ searchParams }: NewPaymentPagePro
     const params = await searchParams;
     const session = await requireRole(["admin", "supervisor"]);
 
-    const invoices = await prisma.invoice.findMany({
-        where: {
-            organizationId: session.organizationId,
-            status: { notIn: ["paid", "cancelled"] },
-        },
-        include: {
-            customer: {
-                select: { name: true },
+    const [invoices, customers] = await Promise.all([
+        prisma.invoice.findMany({
+            where: {
+                organizationId: session.organizationId,
+                status: { notIn: ["paid", "cancelled"] },
             },
-        },
-        orderBy: { issueDate: "desc" },
-    });
+            include: {
+                customer: {
+                    select: { name: true },
+                },
+            },
+            orderBy: { issueDate: "desc" },
+        }),
+        prisma.customer.findMany({
+            where: {
+                organizationId: session.organizationId,
+                status: "active",
+            },
+            select: { id: true, name: true },
+            orderBy: { name: "asc" },
+        }),
+    ]);
 
     const formattedInvoices = invoices.map((invoice) => ({
         id: invoice.id,
@@ -40,7 +50,11 @@ export default async function NewPaymentPage({ searchParams }: NewPaymentPagePro
                 description="Record a new payment"
                 backHref="/finance/payments"
             />
-            <PaymentForm invoices={formattedInvoices} defaultInvoiceId={params.invoiceId} />
+            <PaymentForm 
+                invoices={formattedInvoices} 
+                customers={customers}
+                defaultInvoiceId={params.invoiceId} 
+            />
         </div>
     );
 }
