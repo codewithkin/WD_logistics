@@ -103,6 +103,7 @@ model Organization {
   employees         Employee[]
   customers         Customer[]
   suppliers         Supplier[]
+  supplierPayments  SupplierPayment[]
   trips             Trip[]
   expenses          Expense[]
   expenseCategories ExpenseCategory[]
@@ -323,8 +324,30 @@ model Supplier {
   updatedAt      DateTime  @updatedAt
 
   expenses       Expense[] // Business expenses from this supplier
+  payments       SupplierPayment[] // Payments made to this supplier
 
   @@map("supplier")
+}
+
+model SupplierPayment {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  supplierId     String
+  supplier       Supplier @relation(fields: [supplierId], references: [id])
+  amount         Float
+  paymentDate    DateTime @default(now())
+  method         String   // cash, bank_transfer, check, mobile_money, other
+  customMethod   String?  // Custom payment method name when method is "other"
+  reference      String?  // Check number, transfer reference, etc.
+  description    String?  // What the payment was for
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([organizationId, paymentDate])
+  @@index([supplierId])
+  @@map("supplier_payment")
 }
 
 // =============================================================================

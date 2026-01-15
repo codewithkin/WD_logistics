@@ -27,7 +27,7 @@ export default async function ExpensesPage({ searchParams }: ExpensesPageProps) 
         orderBy: { name: "asc" },
     });
 
-    // Fetch expenses within the selected period
+    // Fetch expenses within the selected period (excluding supplier-specific expenses)
     const expenses = await prisma.expense.findMany({
         where: {
             organizationId: user.organizationId,
@@ -35,6 +35,11 @@ export default async function ExpensesPage({ searchParams }: ExpensesPageProps) 
                 gte: dateRange.from,
                 lte: dateRange.to,
             },
+            // Exclude pure supplier expenses - those are tracked in supplier payments
+            OR: [
+                { supplierId: null },
+                { isBusinessExpense: false },
+            ],
         },
         include: {
             category: {

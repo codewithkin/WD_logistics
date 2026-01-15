@@ -16,6 +16,7 @@ import {
   Tags,
   Handshake,
   PackageOpen,
+  CreditCard,
 } from "lucide-react";
 import { Role } from "@/lib/types";
 
@@ -106,9 +107,15 @@ export const navigationSections: NavSection[] = [
             roles: ["admin", "supervisor", "staff"],
           },
           {
-            title: "Payments",
+            title: "Customer Payments",
             href: "/finance/payments",
             icon: DollarSign,
+            roles: ["admin", "supervisor", "staff"],
+          },
+          {
+            title: "Supplier Payments",
+            href: "/finance/supplier-payments",
+            icon: CreditCard,
             roles: ["admin", "supervisor", "staff"],
           },
           {
