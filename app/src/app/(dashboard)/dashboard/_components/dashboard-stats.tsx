@@ -14,16 +14,16 @@ interface DashboardStatsProps {
 }
 
 export function DashboardStats({ stats, role }: DashboardStatsProps) {
-    const cards = [
+    const cardStyles = [
         {
             title: "Active Trucks",
             value: `${stats.activeTrucks}/${stats.totalTrucks}`,
             icon: Truck,
             description: "trucks in operation",
             roles: ["admin", "supervisor", "staff"] as Role[],
-            gradient: "from-blue-500 to-cyan-500",
-            bgGradient: "from-blue-500/10 to-cyan-500/10",
-            iconColor: "text-blue-600 dark:text-blue-400",
+            bgGradient: "linear-gradient(to bottom right, rgba(59, 130, 246, 0.1), rgba(34, 211, 238, 0.1))",
+            iconGradient: "linear-gradient(to bottom right, #3b82f6, #06b6d4)",
+            textColor: "#2563eb",
         },
         {
             title: "Trips This Month",
@@ -31,9 +31,9 @@ export function DashboardStats({ stats, role }: DashboardStatsProps) {
             icon: Route,
             description: "scheduled & completed",
             roles: ["admin", "supervisor", "staff"] as Role[],
-            gradient: "from-purple-500 to-pink-500",
-            bgGradient: "from-purple-500/10 to-pink-500/10",
-            iconColor: "text-purple-600 dark:text-purple-400",
+            bgGradient: "linear-gradient(to bottom right, rgba(168, 85, 247, 0.1), rgba(236, 72, 153, 0.1))",
+            iconGradient: "linear-gradient(to bottom right, #a855f7, #ec4899)",
+            textColor: "#9333ea",
         },
         {
             title: "Revenue This Month",
@@ -41,9 +41,9 @@ export function DashboardStats({ stats, role }: DashboardStatsProps) {
             icon: DollarSign,
             description: "from completed trips",
             roles: ["admin", "supervisor"] as Role[],
-            gradient: "from-green-500 to-emerald-500",
-            bgGradient: "from-green-500/10 to-emerald-500/10",
-            iconColor: "text-green-600 dark:text-green-400",
+            bgGradient: "linear-gradient(to bottom right, rgba(34, 197, 94, 0.1), rgba(16, 185, 129, 0.1))",
+            iconGradient: "linear-gradient(to bottom right, #22c55e, #10b981)",
+            textColor: "#16a34a",
         },
         {
             title: "Overdue Invoices",
@@ -51,14 +51,17 @@ export function DashboardStats({ stats, role }: DashboardStatsProps) {
             icon: AlertTriangle,
             description: "require attention",
             roles: ["admin"] as Role[],
-            variant: stats.overdueInvoicesCount > 0 ? "destructive" : "default",
-            gradient: stats.overdueInvoicesCount > 0 ? "from-red-500 to-orange-500" : "from-gray-500 to-slate-500",
-            bgGradient: stats.overdueInvoicesCount > 0 ? "from-red-500/10 to-orange-500/10" : "from-gray-500/10 to-slate-500/10",
-            iconColor: stats.overdueInvoicesCount > 0 ? "text-red-600 dark:text-red-400" : "text-gray-600 dark:text-gray-400",
+            bgGradient: stats.overdueInvoicesCount > 0
+                ? "linear-gradient(to bottom right, rgba(239, 68, 68, 0.1), rgba(249, 115, 22, 0.1))"
+                : "linear-gradient(to bottom right, rgba(107, 114, 128, 0.1), rgba(100, 116, 139, 0.1))",
+            iconGradient: stats.overdueInvoicesCount > 0
+                ? "linear-gradient(to bottom right, #ef4444, #f97316)"
+                : "linear-gradient(to bottom right, #6b7280, #64748b)",
+            textColor: stats.overdueInvoicesCount > 0 ? "#dc2626" : "#4b5563",
         },
     ];
 
-    const visibleCards = cards.filter((card) => card.roles.includes(role));
+    const visibleCards = cardStyles.filter((card) => card.roles.includes(role));
 
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -71,16 +74,25 @@ export function DashboardStats({ stats, role }: DashboardStatsProps) {
                         style={{ animationDelay: `${index * 100}ms` }}
                     >
                         {/* Background gradient */}
-                        <div className={`absolute inset-0 bg-gradient-to-br ${card.bgGradient} opacity-50 group-hover:opacity-70 transition-opacity duration-300`} />
+                        <div
+                            className="absolute inset-0 opacity-50 group-hover:opacity-70 transition-opacity duration-300"
+                            style={{ background: card.bgGradient }}
+                        />
 
                         <CardHeader className="relative flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="text-sm font-medium">{card.title}</CardTitle>
-                            <div className={`p-2 rounded-lg bg-gradient-to-br ${card.gradient} shadow-lg transition-transform duration-300 group-hover:scale-110`}>
+                            <div
+                                className="p-2 rounded-lg shadow-lg transition-transform duration-300 group-hover:scale-110"
+                                style={{ background: card.iconGradient }}
+                            >
                                 <Icon className="h-4 w-4 text-white" />
                             </div>
                         </CardHeader>
                         <CardContent className="relative">
-                            <div className={`text-2xl font-bold ${card.iconColor} transition-transform duration-300 group-hover:scale-105`}>
+                            <div
+                                className="text-2xl font-bold transition-transform duration-300 group-hover:scale-105"
+                                style={{ color: card.textColor }}
+                            >
                                 {card.value}
                             </div>
                             <p className="text-xs text-muted-foreground mt-1">{card.description}</p>
