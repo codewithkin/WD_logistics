@@ -18,7 +18,6 @@ import {
 import {
     Form,
     FormControl,
-    FormDescription,
     FormField,
     FormItem,
     FormLabel,
@@ -34,9 +33,6 @@ const supplierSchema = z.object({
     phone: z.string().optional(),
     address: z.string().optional(),
     contactPerson: z.string().optional(),
-    taxId: z.string().optional(),
-    paymentTerms: z.number().min(0).optional(),
-    notes: z.string().optional(),
     status: z.enum(["active", "inactive", "suspended"]),
 });
 
@@ -50,9 +46,6 @@ interface SupplierFormProps {
         phone: string | null;
         address: string | null;
         contactPerson: string | null;
-        taxId: string | null;
-        paymentTerms: number;
-        notes: string | null;
         status: string;
     };
 }
@@ -70,9 +63,6 @@ export function SupplierForm({ supplier }: SupplierFormProps) {
             phone: supplier?.phone ?? "",
             address: supplier?.address ?? "",
             contactPerson: supplier?.contactPerson ?? "",
-            taxId: supplier?.taxId ?? "",
-            paymentTerms: supplier?.paymentTerms ?? 30,
-            notes: supplier?.notes ?? "",
             status: (supplier?.status as "active" | "inactive" | "suspended") ?? "active",
         },
     });
@@ -166,44 +156,6 @@ export function SupplierForm({ supplier }: SupplierFormProps) {
                     />
                 </div>
 
-                <div className="grid gap-4 sm:grid-cols-2">
-                    <FormField
-                        control={form.control}
-                        name="taxId"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Tax ID / VAT Number</FormLabel>
-                                <FormControl>
-                                    <Input placeholder="XX-XXXXXXX" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                    <FormField
-                        control={form.control}
-                        name="paymentTerms"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Payment Terms (days)</FormLabel>
-                                <FormControl>
-                                    <Input
-                                        type="number"
-                                        placeholder="30"
-                                        {...field}
-                                        value={field.value ?? ""}
-                                        onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value, 10) : undefined)}
-                                    />
-                                </FormControl>
-                                <FormDescription>
-                                    Number of days for payment
-                                </FormDescription>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                </div>
-
                 <FormField
                     control={form.control}
                     name="address"
@@ -214,24 +166,6 @@ export function SupplierForm({ supplier }: SupplierFormProps) {
                                 <Textarea
                                     placeholder="123 Business St, City, State, ZIP"
                                     className="min-h-20"
-                                    {...field}
-                                />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-
-                <FormField
-                    control={form.control}
-                    name="notes"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Notes</FormLabel>
-                            <FormControl>
-                                <Textarea
-                                    placeholder="Additional notes about this supplier..."
-                                    className="min-h-25"
                                     {...field}
                                 />
                             </FormControl>
