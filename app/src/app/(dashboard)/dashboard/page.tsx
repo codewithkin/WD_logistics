@@ -13,6 +13,8 @@ import { QuickActions } from "./_components/quick-actions";
 import { DashboardPeriodSelector } from "./_components/dashboard-period-selector";
 import { getDateRangeFromParams } from "@/lib/period-utils";
 
+export const dynamic = "force-dynamic";
+
 interface DashboardPageProps {
     searchParams: Promise<{ period?: string; from?: string; to?: string }>;
 }
