@@ -25,8 +25,8 @@ export default async function EmployeesPage() {
                     description="Manage employee records"
                 />
                 {canCreate && (
-                    <Link href="/employees/new">
-                        <Button>
+                    <Link href="/employees/new" className="w-full sm:w-auto">
+                        <Button className="w-full sm:w-auto">
                             <Plus className="h-4 w-4 mr-2" />
                             Add Employee
                         </Button>

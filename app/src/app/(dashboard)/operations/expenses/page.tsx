@@ -103,11 +103,11 @@ export default async function ExpensesPage({ searchParams }: ExpensesPageProps) 
                     title="Expenses"
                     description={`Track and manage expenses - ${dateRange.label}`}
                 />
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 w-full sm:w-auto">
                     <PagePeriodSelector defaultPreset="1m" />
                     {canCreate && (
-                        <Link href="/operations/expenses/new">
-                            <Button>
+                        <Link href="/operations/expenses/new" className="w-full sm:w-auto">
+                            <Button className="w-full sm:w-auto">
                                 <Plus className="h-4 w-4 mr-2" />
                                 Add Expense
                             </Button>

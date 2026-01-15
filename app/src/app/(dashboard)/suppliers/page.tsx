@@ -82,11 +82,11 @@ export default async function SuppliersPage({ searchParams }: SuppliersPageProps
                     title="Suppliers"
                     description={`Manage your suppliers and track amounts owed - ${dateRange.label}`}
                 />
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 w-full sm:w-auto">
                     <PagePeriodSelector defaultPreset="1m" />
                     {canCreate && (
-                        <Link href="/suppliers/new">
-                            <Button>
+                        <Link href="/suppliers/new" className="w-full sm:w-auto">
+                            <Button className="w-full sm:w-auto">
                                 <Plus className="h-4 w-4 mr-2" />
                                 Add Supplier
                             </Button>

@@ -74,11 +74,11 @@ export default async function TrucksPage({ searchParams }: TrucksPageProps) {
                     title="Trucks"
                     description={`Manage your fleet of trucks - ${dateRange.label}`}
                 />
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 w-full sm:w-auto">
                     <PagePeriodSelector defaultPreset="3m" />
                     {canCreate && (
-                        <Link href="/fleet/trucks/new">
-                            <Button>
+                        <Link href="/fleet/trucks/new" className="w-full sm:w-auto">
+                            <Button className="w-full sm:w-auto">
                                 <Plus className="h-4 w-4 mr-2" />
                                 Add Truck
                             </Button>

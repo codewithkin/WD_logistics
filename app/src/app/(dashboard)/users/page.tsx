@@ -33,8 +33,8 @@ export default async function UsersPage() {
                     title="Users"
                     description="Manage users in your organization"
                 />
-                <Link href="/users/invite">
-                    <Button>
+                <Link href="/users/invite" className="w-full sm:w-auto">
+                    <Button className="w-full sm:w-auto">
                         <Plus className="h-4 w-4 mr-2" />
                         Invite User
                     </Button>

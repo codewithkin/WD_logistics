@@ -89,11 +89,11 @@ export default async function DriversPage({ searchParams }: DriversPageProps) {
                     title="Drivers"
                     description={`Manage your fleet drivers - ${dateRange.label}`}
                 />
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 w-full sm:w-auto">
                     <PagePeriodSelector defaultPreset="3m" />
                     {canCreate && (
-                        <Link href="/fleet/drivers/new">
-                            <Button>
+                        <Link href="/fleet/drivers/new" className="w-full sm:w-auto">
+                            <Button className="w-full sm:w-auto">
                                 <Plus className="h-4 w-4 mr-2" />
                                 Add Driver
                             </Button>
