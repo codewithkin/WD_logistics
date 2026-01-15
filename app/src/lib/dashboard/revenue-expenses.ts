@@ -1,13 +1,13 @@
 /**
  * Revenue vs Expenses API Route
  * 
- * Fetches monthly revenue and expenses data for the past 12 months
+ * Fetches monthly revenue and expenses data for the specified period
  * for visualization in the dashboard chart.
  */
 
 import { requireRole } from "@/lib/session";
 import prisma from "@/lib/prisma";
-import { startOfMonth, endOfMonth, subMonths, format } from "date-fns";
+import { startOfMonth, endOfMonth, subMonths, format, differenceInMonths, eachMonthOfInterval } from "date-fns";
 
 export interface MonthlyRevenueExpense {
   month: string;
@@ -17,21 +17,33 @@ export interface MonthlyRevenueExpense {
 }
 
 /**
- * Get revenue vs expenses for the past 12 months
+ * Get revenue vs expenses for the specified period
+ * @param fromDate Start of the period (defaults to 12 months ago)
+ * @param toDate End of the period (defaults to now)
  */
-export async function getRevenueExpensesData(): Promise<MonthlyRevenueExpense[]> {
+export async function getRevenueExpensesData(
+  fromDate?: Date,
+  toDate?: Date
+): Promise<MonthlyRevenueExpense[]> {
   const user = await requireRole(["admin", "supervisor"]);
   const organization = user.organizationId;
 
-  // Get data for past 12 months
-  const months: MonthlyRevenueExpense[] = [];
   const now = new Date();
+  const endDate = toDate || now;
+  const startDate = fromDate || subMonths(now, 11);
 
-  for (let i = 11; i >= 0; i--) {
-    const monthStart = startOfMonth(subMonths(now, i));
+  // Get all months in the range
+  const monthIntervals = eachMonthOfInterval({
+    start: startOfMonth(startDate),
+    end: endOfMonth(endDate),
+  });
+
+  const months: MonthlyRevenueExpense[] = [];
+
+  for (const monthStart of monthIntervals) {
     const monthEnd = endOfMonth(monthStart);
 
-    // Get revenue from invoices for this month
+    // Get revenue from payments for this month
     const payments = await prisma.payment.findMany({
       where: {
         invoice: {

@@ -23,11 +23,20 @@ export interface DriverPerformanceMetric {
 }
 
 /**
- * Get driver performance metrics
+ * Get driver performance metrics for the specified period
+ * @param fromDate Start of the period (defaults to 3 months ago)
+ * @param toDate End of the period (defaults to now)
  */
-export async function getDriverPerformanceData(): Promise<DriverPerformanceMetric[]> {
+export async function getDriverPerformanceData(
+  fromDate?: Date,
+  toDate?: Date
+): Promise<DriverPerformanceMetric[]> {
   const user = await requireRole(["admin", "supervisor"]);
   const organization = user.organizationId;
+
+  const now = new Date();
+  const endDate = toDate || now;
+  const startDate = fromDate || subMonths(now, 3);
 
   // Get all drivers
   const drivers = await prisma.driver.findMany({
@@ -42,16 +51,16 @@ export async function getDriverPerformanceData(): Promise<DriverPerformanceMetri
 
   // Get metrics for each driver
   const metrics: DriverPerformanceMetric[] = [];
-  const threeMonthsAgo = subMonths(new Date(), 3);
 
   for (const driver of drivers) {
-    // Get trips in last 3 months
+    // Get trips in the specified period
     const trips = await prisma.trip.findMany({
       where: {
         driverId: driver.id,
         organizationId: organization,
         scheduledDate: {
-          gte: threeMonthsAgo,
+          gte: startDate,
+          lte: endDate,
         },
       },
       select: {

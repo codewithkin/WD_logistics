@@ -9,7 +9,7 @@
 
 import { requireRole } from "@/lib/session";
 import prisma from "@/lib/prisma";
-import { startOfMonth, endOfMonth, subMonths, format } from "date-fns";
+import { startOfMonth, endOfMonth, subMonths, format, eachMonthOfInterval } from "date-fns";
 
 export interface MonthlyPerformanceTrend {
   month: string;
@@ -20,17 +20,30 @@ export interface MonthlyPerformanceTrend {
 }
 
 /**
- * Get performance trend for past 12 months
+ * Get performance trend for the specified period
+ * @param fromDate Start of the period (defaults to 12 months ago)
+ * @param toDate End of the period (defaults to now)
  */
-export async function getPerformanceTrendData(): Promise<MonthlyPerformanceTrend[]> {
+export async function getPerformanceTrendData(
+  fromDate?: Date,
+  toDate?: Date
+): Promise<MonthlyPerformanceTrend[]> {
   const user = await requireRole(["admin", "supervisor"]);
   const organization = user.organizationId;
 
-  const months: MonthlyPerformanceTrend[] = [];
   const now = new Date();
+  const endDate = toDate || now;
+  const startDate = fromDate || subMonths(now, 11);
 
-  for (let i = 11; i >= 0; i--) {
-    const monthStart = startOfMonth(subMonths(now, i));
+  // Get all months in the range
+  const monthIntervals = eachMonthOfInterval({
+    start: startOfMonth(startDate),
+    end: endOfMonth(endDate),
+  });
+
+  const months: MonthlyPerformanceTrend[] = [];
+
+  for (const monthStart of monthIntervals) {
     const monthEnd = endOfMonth(monthStart);
 
     // Get revenue from completed trips
