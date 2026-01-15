@@ -16,7 +16,7 @@ interface DashboardStatsProps {
 
 export function DashboardStats({ stats, role }: DashboardStatsProps) {
     const periodLabel = stats.periodLabel || "This Period";
-    
+
     const cardStyles = [
         {
             title: "Active Trucks",
