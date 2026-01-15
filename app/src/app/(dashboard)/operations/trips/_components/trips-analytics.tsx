@@ -47,6 +47,7 @@ interface TripsAnalyticsProps {
     };
     trips: Trip[];
     canExport: boolean;
+    periodLabel?: string;
 }
 
 const STATUS_COLORS = {
@@ -56,7 +57,7 @@ const STATUS_COLORS = {
     cancelled: "#ef4444",
 };
 
-export function TripsAnalytics({ analytics, trips, canExport }: TripsAnalyticsProps) {
+export function TripsAnalytics({ analytics, trips, canExport, periodLabel }: TripsAnalyticsProps) {
     const [isExporting, setIsExporting] = useState(false);
 
     const statusData = [
@@ -169,7 +170,7 @@ export function TripsAnalytics({ analytics, trips, canExport }: TripsAnalyticsPr
                             ${analytics.totalRevenue.toLocaleString()}
                         </div>
                         <p className="text-xs text-muted-foreground">
-                            From all trips
+                            {periodLabel ? `Data for ${periodLabel}` : "From all trips"}
                         </p>
                     </CardContent>
                 </Card>
@@ -183,7 +184,7 @@ export function TripsAnalytics({ analytics, trips, canExport }: TripsAnalyticsPr
                             {analytics.totalMileage.toLocaleString()} km
                         </div>
                         <p className="text-xs text-muted-foreground">
-                            Across all trips
+                            {periodLabel ? `For ${periodLabel}` : "Across all trips"}
                         </p>
                     </CardContent>
                 </Card>

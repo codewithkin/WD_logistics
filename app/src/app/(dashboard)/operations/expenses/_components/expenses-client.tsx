@@ -62,9 +62,10 @@ interface ExpensesClientProps {
     analytics: Analytics;
     role: Role;
     canExport: boolean;
+    periodLabel?: string;
 }
 
-export function ExpensesClient({ expenses, categories, analytics, role, canExport }: ExpensesClientProps) {
+export function ExpensesClient({ expenses, categories, analytics, role, canExport, periodLabel }: ExpensesClientProps) {
     const [selectedCategory, setSelectedCategory] = useState<string>("all");
 
     // Filter expenses based on selected category
@@ -152,6 +153,7 @@ export function ExpensesClient({ expenses, categories, analytics, role, canExpor
                         canExport={canExport}
                         categoryId={selectedCategory === "all" ? undefined : selectedCategory}
                         categoryName={currentCategoryName}
+                        periodLabel={periodLabel}
                     />
                     <ExpensesTable expenses={filteredExpenses} role={role} />
                 </TabsContent>

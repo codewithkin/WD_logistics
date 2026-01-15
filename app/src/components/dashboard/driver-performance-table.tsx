@@ -15,6 +15,7 @@ import { Star } from "lucide-react";
 
 interface DriverPerformanceTableProps {
     data: DriverPerformanceMetric[];
+    periodLabel?: string;
 }
 
 /**
@@ -52,7 +53,7 @@ function getEfficiencyColor(efficiency: number): {
     }
 }
 
-export function DriverPerformanceTable({ data }: DriverPerformanceTableProps) {
+export function DriverPerformanceTable({ data, periodLabel }: DriverPerformanceTableProps) {
     const topDrivers = data.slice(0, 10);
     const totalRevenue = data.reduce((sum, d) => sum + d.revenue, 0);
     const avgEfficiency =
@@ -64,7 +65,7 @@ export function DriverPerformanceTable({ data }: DriverPerformanceTableProps) {
         <Card>
             <CardHeader>
                 <CardTitle>Driver Performance Metrics</CardTitle>
-                <CardDescription>Top 10 drivers by revenue (last 3 months)</CardDescription>
+                <CardDescription>Top 10 drivers by revenue {periodLabel ? `(${periodLabel})` : ""}</CardDescription>
             </CardHeader>
             <CardContent>
                 <div className="grid grid-cols-3 gap-4 mb-6">
@@ -127,8 +128,8 @@ export function DriverPerformanceTable({ data }: DriverPerformanceTableProps) {
                                                     <Star
                                                         key={i}
                                                         className={`w-4 h-4 ${i < Math.floor(driver.rating)
-                                                                ? "fill-yellow-400 text-yellow-400"
-                                                                : "text-gray-300 dark:text-gray-600"
+                                                            ? "fill-yellow-400 text-yellow-400"
+                                                            : "text-gray-300 dark:text-gray-600"
                                                             }`}
                                                     />
                                                 ))}

@@ -129,7 +129,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
             {/* Driver Performance Table - Full Width */}
             <div className="mt-6">
-                <DriverPerformanceTable data={driverPerformanceData} />
+                <DriverPerformanceTable data={driverPerformanceData} periodLabel={dateRange.label} />
             </div>
 
             {/* Admin Only: Overdue Invoices */}

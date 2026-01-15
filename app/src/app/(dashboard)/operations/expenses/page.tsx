@@ -118,6 +118,7 @@ export default async function ExpensesPage({ searchParams }: ExpensesPageProps) 
                 analytics={analytics}
                 role={role}
                 canExport={canExport}
+                periodLabel={dateRange.label}
             />
         </div>
     );

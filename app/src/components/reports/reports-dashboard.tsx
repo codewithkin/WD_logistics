@@ -175,7 +175,7 @@ export function ReportsDashboard({ data, periodLabel = "This Month", onGenerateP
                   {invoiceChange >= 0 ? "+" : ""}
                   {invoiceChange}%
                 </span>
-                <span className="ml-1">vs last month</span>
+                <span className="ml-1">vs previous period</span>
               </div>
             </CardContent>
           </Card>
@@ -199,7 +199,7 @@ export function ReportsDashboard({ data, periodLabel = "This Month", onGenerateP
                   {paymentChange >= 0 ? "+" : ""}
                   {paymentChange}%
                 </span>
-                <span className="ml-1">vs last month</span>
+                <span className="ml-1">vs previous period</span>
               </div>
             </CardContent>
           </Card>
@@ -223,7 +223,7 @@ export function ReportsDashboard({ data, periodLabel = "This Month", onGenerateP
                   {expenseChange >= 0 ? "+" : ""}
                   {expenseChange}%
                 </span>
-                <span className="ml-1">vs last month</span>
+                <span className="ml-1">vs previous period</span>
               </div>
             </CardContent>
           </Card>
@@ -245,7 +245,7 @@ export function ReportsDashboard({ data, periodLabel = "This Month", onGenerateP
                   {tripChange >= 0 ? "+" : ""}
                   {tripChange}%
                 </span>
-                <span className="ml-1">vs last month</span>
+                <span className="ml-1">vs previous period</span>
               </div>
             </CardContent>
           </Card>

@@ -89,7 +89,7 @@ export default async function TripsPage({ searchParams }: TripsPageProps) {
                 />
                 <PagePeriodSelector defaultPreset="1m" />
             </div>
-            <TripsAnalytics analytics={analytics} trips={trips} canExport={canExport} />
+            <TripsAnalytics analytics={analytics} trips={trips} canExport={canExport} periodLabel={dateRange.label} />
             <TripsTable trips={trips} role={role} />
         </div>
     );

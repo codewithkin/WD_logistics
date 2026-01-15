@@ -53,6 +53,7 @@ interface ExpensesAnalyticsProps {
     canExport: boolean;
     categoryId?: string;
     categoryName?: string;
+    periodLabel?: string;
 }
 
 const STATUS_COLORS = {
@@ -67,7 +68,7 @@ const CATEGORY_COLORS = [
     "#ec4899", "#14b8a6", "#f97316", "#6366f1", "#84cc16"
 ];
 
-export function ExpensesAnalytics({ analytics, expenses, canExport, categoryId, categoryName }: ExpensesAnalyticsProps) {
+export function ExpensesAnalytics({ analytics, expenses, canExport, categoryId, categoryName, periodLabel }: ExpensesAnalyticsProps) {
     const [isExporting, setIsExporting] = useState(false);
 
     const statusData = [
@@ -271,7 +272,7 @@ export function ExpensesAnalytics({ analytics, expenses, canExport, categoryId, 
                 <Card>
                     <CardHeader>
                         <CardTitle>Expenses by Category</CardTitle>
-                        <CardDescription>Breakdown by expense category</CardDescription>
+                        <CardDescription>{periodLabel ? `Breakdown for ${periodLabel}` : "Breakdown by expense category"}</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <div className="h-64">
