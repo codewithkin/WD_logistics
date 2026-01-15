@@ -93,8 +93,8 @@ export function Sidebar({ pendingEditRequests = 0 }: SidebarProps) {
                         <Button
                             variant="ghost"
                             className={cn(
-                                "w-full justify-between px-3 py-2 h-10 transition-colors",
-                                isParentActive && "bg-green-500 text-white hover:bg-green-600 hover:text-white"
+                                "w-full justify-between px-3 py-2 h-10 transition-all duration-300 hover:scale-[1.02]",
+                                isParentActive && "bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700 hover:text-white shadow-lg shadow-green-500/25"
                             )}
                         >
                             <span className="flex items-center gap-3">
@@ -117,8 +117,8 @@ export function Sidebar({ pendingEditRequests = 0 }: SidebarProps) {
                                     <Button
                                         variant="ghost"
                                         className={cn(
-                                            "w-full justify-start px-3 py-2 h-9 transition-colors",
-                                            childIsActive && "bg-gray-200 dark:bg-gray-700 font-medium"
+                                            "w-full justify-start px-3 py-2 h-9 transition-all duration-300 hover:scale-[1.02] hover:translate-x-1",
+                                            childIsActive && "bg-gradient-to-r from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-600 font-medium shadow-sm"
                                         )}
                                     >
                                         <ChildIcon className="h-4 w-4 mr-3" />
@@ -137,8 +137,8 @@ export function Sidebar({ pendingEditRequests = 0 }: SidebarProps) {
                 <Button
                     variant="ghost"
                     className={cn(
-                        "w-full justify-start px-3 py-2 h-10 transition-colors",
-                        itemActive && "bg-green-500 text-white hover:bg-green-600 hover:text-white font-medium"
+                        "w-full justify-start px-3 py-2 h-10 transition-all duration-300 hover:scale-[1.02]",
+                        itemActive && "bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700 hover:text-white font-medium shadow-lg shadow-green-500/25"
                     )}
                 >
                     <Icon className="h-4 w-4 mr-3" />
@@ -176,11 +176,11 @@ export function Sidebar({ pendingEditRequests = 0 }: SidebarProps) {
         <aside className="w-64 border-r bg-card h-screen sticky top-0 flex flex-col">
             {/* Logo */}
             <div className="p-4 border-b">
-                <Link href="/dashboard" className="flex items-center gap-2">
-                    <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center">
+                <Link href="/dashboard" className="flex items-center gap-2 group">
+                    <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg flex items-center justify-center shadow-lg shadow-green-500/25 transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3">
                         <span className="text-white font-bold text-sm">WD</span>
                     </div>
-                    <span className="font-bold text-lg">WD Logistics</span>
+                    <span className="font-bold text-lg group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors duration-300">WD Logistics</span>
                 </Link>
             </div>
 
