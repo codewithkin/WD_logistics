@@ -15,9 +15,10 @@ import { MonthlyPerformanceTrend } from "@/lib/dashboard/performance-trend";
 
 interface PerformanceTrendChartProps {
     data: MonthlyPerformanceTrend[];
+    periodLabel?: string;
 }
 
-export function PerformanceTrendChart({ data }: PerformanceTrendChartProps) {
+export function PerformanceTrendChart({ data, periodLabel }: PerformanceTrendChartProps) {
     // Calculate totals
     const totalRevenue = data.reduce((sum, item) => sum + item.revenue, 0);
     const totalTrips = data.reduce((sum, item) => sum + item.tripCount, 0);
@@ -28,7 +29,7 @@ export function PerformanceTrendChart({ data }: PerformanceTrendChartProps) {
         <Card>
             <CardHeader>
                 <CardTitle>Performance Trend</CardTitle>
-                <CardDescription>Monthly metrics over 12 months</CardDescription>
+                <CardDescription>{periodLabel ? `Metrics for ${periodLabel}` : "Monthly metrics"}</CardDescription>
             </CardHeader>
             <CardContent>
                 <div className="grid grid-cols-4 gap-4 mb-6">

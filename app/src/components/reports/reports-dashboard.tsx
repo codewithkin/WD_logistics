@@ -65,13 +65,14 @@ interface ReportsDashboardProps {
     topCustomersByRevenue: CustomerRevenue[];
     expensesWithCategories: ExpenseCategory[];
   };
+  periodLabel?: string;
   onGeneratePDF?: () => void;
   onGenerateCSV?: () => void;
   onExportDashboard?: () => void;
   isGenerating?: boolean;
 }
 
-export function ReportsDashboard({ data, onGeneratePDF, onGenerateCSV, onExportDashboard, isGenerating = false }: ReportsDashboardProps) {
+export function ReportsDashboard({ data, periodLabel = "This Month", onGeneratePDF, onGenerateCSV, onExportDashboard, isGenerating = false }: ReportsDashboardProps) {
   const {
     totalTrucks,
     activeTrucks,
@@ -258,7 +259,7 @@ export function ReportsDashboard({ data, onGeneratePDF, onGenerateCSV, onExportD
             <CardContent>
               {topCustomersByRevenue.length === 0 ? (
                 <p className="text-muted-foreground text-sm text-center py-4">
-                  No revenue this month
+                  No revenue for {periodLabel.toLowerCase()}
                 </p>
               ) : (
                 <div className="space-y-4">
@@ -288,7 +289,7 @@ export function ReportsDashboard({ data, onGeneratePDF, onGenerateCSV, onExportD
             <CardContent>
               {expensesWithCategories.length === 0 ? (
                 <p className="text-muted-foreground text-sm text-center py-4">
-                  No expenses this month
+                  No expenses for {periodLabel.toLowerCase()}
                 </p>
               ) : (
                 <div className="space-y-4">
@@ -322,7 +323,7 @@ export function ReportsDashboard({ data, onGeneratePDF, onGenerateCSV, onExportD
                 ${(thisMonthPaymentTotal - thisMonthExpenseTotal).toLocaleString()}
               </div>
               <p className="text-xs text-muted-foreground">
-                This month
+                {periodLabel}
               </p>
             </CardContent>
           </Card>
@@ -376,7 +377,7 @@ export function ReportsDashboard({ data, onGeneratePDF, onGenerateCSV, onExportD
                 ${thisMonthExpenseTotal.toLocaleString()}
               </div>
               <p className="text-xs text-muted-foreground">
-                This month
+                {periodLabel}
               </p>
             </CardContent>
           </Card>
@@ -549,11 +550,11 @@ export function ReportsDashboard({ data, onGeneratePDF, onGenerateCSV, onExportD
             <CardContent>
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">This Month</span>
+                  <span className="text-muted-foreground">{periodLabel}</span>
                   <span className="font-bold">{thisMonthTrips} trips</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">Last Month</span>
+                  <span className="text-muted-foreground">Previous Period</span>
                   <span className="font-bold">{lastMonthTrips} trips</span>
                 </div>
                 <div className="flex justify-between items-center">

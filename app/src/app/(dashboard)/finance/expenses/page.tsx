@@ -90,7 +90,7 @@ export default async function ExpensesPage({ searchParams }: ExpensesPageProps) 
                 />
                 <ExpensesPeriodSelector />
             </div>
-            <ExpensesOverview categories={categories} expenses={expenses} />
+            <ExpensesOverview categories={categories} expenses={expenses} periodLabel={dateRange.label} />
         </div>
     );
 }

@@ -62,27 +62,22 @@ interface Expense {
 interface ExpensesOverviewProps {
     categories: Category[];
     expenses: Expense[];
+    periodLabel?: string;
 }
 
-export function ExpensesOverview({ categories, expenses }: ExpensesOverviewProps) {
+export function ExpensesOverview({ categories, expenses, periodLabel = "This Period" }: ExpensesOverviewProps) {
     const [activeTab, setActiveTab] = useState("expenses");
     const tableRef = useState<any>(null)[1];
 
-    // Calculate summary stats
+    // Calculate summary stats (expenses are already filtered by the selected period)
     const stats = useMemo(() => {
-        const now = new Date();
-        const thisMonth = expenses.filter(e => {
-            const expDate = new Date(e.date);
-            return expDate.getMonth() === now.getMonth() && expDate.getFullYear() === now.getFullYear();
-        });
-        const thisMonthTotal = thisMonth.reduce((sum, e) => sum + e.amount, 0);
         const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
         const withTrucks = expenses.filter(e => e.truckExpenses.length > 0).length;
         const withTrips = expenses.filter(e => e.tripExpenses.length > 0).length;
 
         return {
             total: totalExpenses,
-            thisMonth: thisMonthTotal,
+            periodTotal: totalExpenses, // Same as total since already filtered
             count: expenses.length,
             withTrucks,
             withTrips,
@@ -111,8 +106,8 @@ export function ExpensesOverview({ categories, expenses }: ExpensesOverviewProps
                                 <DollarSign className="h-5 w-5 text-primary" />
                             </div>
                             <div>
-                                <p className="text-sm text-muted-foreground">This Month</p>
-                                <p className="text-2xl font-bold">{formatCurrency(stats.thisMonth)}</p>
+                                <p className="text-sm text-muted-foreground">{periodLabel}</p>
+                                <p className="text-2xl font-bold">{formatCurrency(stats.periodTotal)}</p>
                             </div>
                         </div>
                     </CardContent>

@@ -9,11 +9,14 @@ interface DashboardStatsProps {
         tripsThisMonth: number;
         revenueThisMonth: number;
         overdueInvoicesCount: number;
+        periodLabel: string;
     };
     role: Role;
 }
 
 export function DashboardStats({ stats, role }: DashboardStatsProps) {
+    const periodLabel = stats.periodLabel || "This Period";
+    
     const cardStyles = [
         {
             title: "Active Trucks",
@@ -26,7 +29,7 @@ export function DashboardStats({ stats, role }: DashboardStatsProps) {
             textColor: "#2563eb",
         },
         {
-            title: "Trips This Month",
+            title: `Trips (${periodLabel})`,
             value: stats.tripsThisMonth.toString(),
             icon: Route,
             description: "scheduled & completed",
@@ -36,7 +39,7 @@ export function DashboardStats({ stats, role }: DashboardStatsProps) {
             textColor: "#9333ea",
         },
         {
-            title: "Revenue This Month",
+            title: `Revenue (${periodLabel})`,
             value: `$${stats.revenueThisMonth.toLocaleString()}`,
             icon: DollarSign,
             description: "from completed trips",

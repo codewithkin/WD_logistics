@@ -17,9 +17,10 @@ import { MonthlyRevenueExpense } from "@/lib/dashboard/revenue-expenses";
 
 interface RevenueExpensesChartProps {
     data: MonthlyRevenueExpense[];
+    periodLabel?: string;
 }
 
-export function RevenueExpensesChart({ data }: RevenueExpensesChartProps) {
+export function RevenueExpensesChart({ data, periodLabel }: RevenueExpensesChartProps) {
     // Format data for chart
     const chartData = data.map((item) => ({
         ...item,
@@ -35,7 +36,7 @@ export function RevenueExpensesChart({ data }: RevenueExpensesChartProps) {
         <Card>
             <CardHeader>
                 <CardTitle>Revenue vs Expenses</CardTitle>
-                <CardDescription>Monthly comparison for the past 12 months</CardDescription>
+                <CardDescription>{periodLabel ? `Data for ${periodLabel}` : "Monthly comparison"}</CardDescription>
             </CardHeader>
             <CardContent>
                 <div className="grid grid-cols-3 gap-4 mb-6">

@@ -225,7 +225,7 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
         customers={customers}
         trucks={trucks}
         initialReports={reports}
-        dashboardContent={<ReportsDashboard data={dashboardData} />}
+        dashboardContent={<ReportsDashboard data={dashboardData} periodLabel={dateRange.label} />}
       />
     </div>
   );
