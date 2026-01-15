@@ -2,13 +2,13 @@
  * WhatsApp Client for Agent
  * 
  * This module provides WhatsApp integration for the AI agent.
- * It reuses the shared WhatsApp service from the Next.js app.
+ * Uses a simpler configuration that works across environments.
  */
 
 import pkg from "whatsapp-web.js";
 const { Client, LocalAuth } = pkg;
 import { EventEmitter } from "events";
-import * as qrcode from "qrcode-terminal";
+import QRCode from "qrcode";
 
 export interface WhatsAppMessage {
   id: string;
@@ -65,73 +65,43 @@ export class AgentWhatsAppClient extends EventEmitter {
       this.state.status = "connecting";
       this.emit("status", this.state);
 
-      // Check for remote browser (browserless.io, etc.)
-      const browserWSEndpoint = process.env.BROWSER_WS_ENDPOINT;
-      
-      // Configure Puppeteer args based on environment
-      // These args are crucial for running Chrome in containerized environments (Docker, Render, etc.)
-      const puppeteerConfig: any = {
-        headless: true,
-        args: [
-          "--no-sandbox",
-          "--disable-setuid-sandbox",
-          "--disable-dev-shm-usage",
-          "--disable-accelerated-2d-canvas",
-          "--no-first-run",
-          "--no-zygote",
-          "--disable-gpu",
-          "--single-process", // Required for some container environments
-          "--disable-extensions",
-          "--disable-background-networking",
-          "--disable-background-timer-throttling",
-          "--disable-backgrounding-occluded-windows",
-          "--disable-breakpad", // Disable crashpad/crash reporting
-          "--disable-component-extensions-with-background-pages",
-          "--disable-component-update",
-          "--disable-default-apps",
-          "--disable-hang-monitor",
-          "--disable-ipc-flooding-protection",
-          "--disable-popup-blocking",
-          "--disable-prompt-on-repost",
-          "--disable-renderer-backgrounding",
-          "--disable-sync",
-          "--enable-features=NetworkService,NetworkServiceInProcess",
-          "--force-color-profile=srgb",
-          "--metrics-recording-only",
-          "--no-default-browser-check",
-          "--password-store=basic",
-          "--use-mock-keychain",
-          "--disable-software-rasterizer",
-        ],
-      };
-
-      // Use remote browser if configured (recommended for Render/Railway/Heroku)
-      if (browserWSEndpoint) {
-        console.log("🌐 Using remote browser endpoint");
-        puppeteerConfig.browserWSEndpoint = browserWSEndpoint;
-        // When using remote browser, we don't need local args
-        delete puppeteerConfig.args;
-        delete puppeteerConfig.executablePath;
-      } else if (process.env.PUPPETEER_EXECUTABLE_PATH) {
-        // In Docker/production, use system Chromium
-        puppeteerConfig.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
-        console.log(`🔧 Using Chrome at: ${process.env.PUPPETEER_EXECUTABLE_PATH}`);
-      } else {
-        console.log("⚠️ No BROWSER_WS_ENDPOINT or PUPPETEER_EXECUTABLE_PATH set, using bundled Chromium");
-      }
-
+      // Simple puppeteer config - let whatsapp-web.js handle defaults
       this.client = new Client({
+        puppeteer: { headless: true },
         authStrategy: new LocalAuth({
           clientId: "agent-whatsapp",
         }),
-        puppeteer: puppeteerConfig,
       });
 
+      // Generate QR code for first-time connection
       this.client.on("qr", (qr: string) => {
+        console.log("📱 Scan this QR code with your WhatsApp:");
         this.emit("qr", qr);
-        console.log("WhatsApp QR Code received. Scan to authenticate.");
-        // Optional: Display QR code in terminal
-        qrcode.generate(qr, { small: true });
+
+        if (process.env.NODE_ENV === "development") {
+          // Render QR in terminal (works locally)
+          QRCode.toString(qr, { type: "terminal", small: true }, (err: Error | null | undefined, qrCode: string) => {
+            if (err) {
+              console.error("Error generating terminal QR code:", err);
+              return;
+            }
+            console.log("```");
+            console.log(qrCode);
+            console.log("```");
+          });
+        } else {
+          // In production, generate a Data URL and log it
+          QRCode.toDataURL(qr, (err: Error | null | undefined, url: string) => {
+            if (err) {
+              console.error("Error generating QR code URL:", err);
+              return;
+            }
+            console.log("QR code (open this URL in your browser to scan):");
+            console.log("```");
+            console.log(url);
+            console.log("```");
+          });
+        }
       });
 
       // Setup event handlers
@@ -142,7 +112,7 @@ export class AgentWhatsAppClient extends EventEmitter {
           this.state.phoneNumber = info.wid.user;
         }
         this.emit("status", this.state);
-        console.log("✅ Agent WhatsApp Client ready");
+        console.log("✅ WhatsApp client is ready!");
 
         // Process queued messages
         this.processMessageQueue();
@@ -152,22 +122,26 @@ export class AgentWhatsAppClient extends EventEmitter {
         this.state.status = "disconnected";
         this.state.phoneNumber = null;
         this.emit("status", this.state);
-        console.log("❌ Agent WhatsApp Client disconnected");
+        console.log("❌ WhatsApp client disconnected");
       });
 
       this.client.on("auth_failure", (msg: any) => {
         this.state.status = "error";
         this.state.lastError = msg || "Authentication failed";
         this.emit("status", this.state);
-        console.error("❌ Agent WhatsApp Auth Failed:", msg);
+        console.error("❌ WhatsApp Auth Failed:", msg);
       });
 
       this.client.on("message", (msg: any) => {
         this.emit("message", msg);
       });
 
+      this.client.on("message_create", (msg: any) => {
+        this.emit("message_create", msg);
+      });
+
       // Initialize the client
-      await this.client.initialize();
+      this.client.initialize();
 
       return true;
     } catch (error) {
@@ -309,9 +283,9 @@ export class AgentWhatsAppClient extends EventEmitter {
     // Remove any non-digit characters except +
     let cleaned = phoneNumber.replace(/[^\d+]/g, "");
 
-    // If doesn't start with +, prepend +1 (US default)
-    if (!cleaned.startsWith("+")) {
-      cleaned = `+1${cleaned}`;
+    // Remove + if present
+    if (cleaned.startsWith("+")) {
+      cleaned = cleaned.substring(1);
     }
 
     return `${cleaned}@c.us`;
