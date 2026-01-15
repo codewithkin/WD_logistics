@@ -419,7 +419,9 @@ export async function exportSingleDriverReport(driverId: string) {
           },
         },
         driverExpenses: {
-          orderBy: { date: "desc" },
+          include: {
+            expense: true,
+          },
           take: 10,
         },
       },
@@ -432,7 +434,7 @@ export async function exportSingleDriverReport(driverId: string) {
     // Calculate stats
     const completedTrips = driver.trips.filter((t) => t.status === "completed").length;
     const inProgressTrips = driver.trips.filter((t) => t.status === "in_progress").length;
-    const totalExpenses = driver.driverExpenses.reduce((sum, e) => sum + e.amount, 0);
+    const totalExpenses = driver.driverExpenses.reduce((sum, de) => sum + de.expense.amount, 0);
 
     // Format dates helper
     const formatDate = (date: Date | null) => {
@@ -466,11 +468,11 @@ export async function exportSingleDriverReport(driverId: string) {
         status: trip.status.replace("_", " "),
         truck: trip.truck.registrationNo,
       })),
-      expenses: driver.driverExpenses.map((expense) => ({
-        date: formatDate(expense.date),
-        type: expense.type,
-        amount: expense.amount,
-        description: expense.description || "",
+      expenses: driver.driverExpenses.map((de) => ({
+        date: formatDate(de.expense.date),
+        type: de.expense.categoryId ? "Expense" : "Other",
+        amount: de.expense.amount,
+        description: de.expense.description || "",
       })),
     });
 

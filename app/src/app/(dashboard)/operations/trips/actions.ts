@@ -403,7 +403,6 @@ export async function exportSingleTripReport(tripId: string) {
         driver: true,
         customer: true,
         tripExpenses: {
-          orderBy: { date: "desc" },
           include: {
             expense: {
               include: {

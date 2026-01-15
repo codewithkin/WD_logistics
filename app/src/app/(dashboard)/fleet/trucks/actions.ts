@@ -416,7 +416,6 @@ export async function exportSingleTruckReport(truckId: string) {
           },
         },
         truckExpenses: {
-          orderBy: { date: "desc" },
           take: 10,
           include: {
             expense: {
