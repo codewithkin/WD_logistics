@@ -1616,3 +1616,384 @@ export function generateTripProfitLossPDF(data: {
   const generator = new PDFReportGenerator(config);
   return generator.generate();
 }
+
+/**
+ * Generate a Single Driver Report PDF (for individual driver export)
+ */
+export function generateSingleDriverReportPDF(data: {
+  driver: {
+    name: string;
+    phone: string;
+    email: string;
+    licenseNumber: string;
+    licenseExpiration: string;
+    passportNumber: string;
+    passportExpiration: string;
+    status: string;
+    assignedTruck: string;
+    startDate: string;
+    notes: string;
+  };
+  stats: {
+    totalTrips: number;
+    completedTrips: number;
+    inProgressTrips: number;
+    totalExpenses: number;
+  };
+  trips: Array<{
+    route: string;
+    date: string;
+    status: string;
+    truck: string;
+  }>;
+  expenses: Array<{
+    date: string;
+    type: string;
+    amount: number;
+    description: string;
+  }>;
+}): Uint8Array {
+  const config: ReportConfig = {
+    title: "Driver Report",
+    subtitle: data.driver.name,
+    reportType: "single-driver-report",
+    period: {
+      startDate: new Date(data.driver.startDate || Date.now()),
+      endDate: new Date(),
+    },
+    summary: [
+      { label: "Total Trips", value: data.stats.totalTrips, format: "number" },
+      { label: "Completed Trips", value: data.stats.completedTrips, format: "number" },
+      { label: "In Progress", value: data.stats.inProgressTrips, format: "number" },
+      { label: "Total Expenses", value: data.stats.totalExpenses, format: "currency" },
+    ],
+    sections: [
+      {
+        title: "Driver Information",
+        columns: [
+          { header: "Field", key: "field", align: "left" },
+          { header: "Value", key: "value", align: "left" },
+        ],
+        data: [
+          { field: "Full Name", value: data.driver.name },
+          { field: "Phone", value: data.driver.phone },
+          { field: "Email", value: data.driver.email },
+          { field: "Status", value: data.driver.status },
+          { field: "Assigned Truck", value: data.driver.assignedTruck },
+          { field: "Start Date", value: data.driver.startDate },
+          { field: "License Number", value: data.driver.licenseNumber },
+          { field: "License Expiration", value: data.driver.licenseExpiration },
+          { field: "Passport Number", value: data.driver.passportNumber },
+          { field: "Passport Expiration", value: data.driver.passportExpiration },
+        ],
+      },
+      ...(data.trips.length > 0
+        ? [
+            {
+              title: "Recent Trips",
+              columns: [
+                { header: "Route", key: "route", align: "left" as const },
+                { header: "Date", key: "date", align: "center" as const },
+                { header: "Status", key: "status", align: "center" as const },
+                { header: "Truck", key: "truck", align: "left" as const },
+              ],
+              data: data.trips,
+            },
+          ]
+        : []),
+      ...(data.expenses.length > 0
+        ? [
+            {
+              title: "Recent Expenses",
+              columns: [
+                { header: "Date", key: "date", align: "center" as const },
+                { header: "Type", key: "type", align: "left" as const },
+                { header: "Amount", key: "amount", format: "currency" as const, align: "right" as const },
+                { header: "Description", key: "description", align: "left" as const },
+              ],
+              data: data.expenses,
+              showTotal: true,
+              totalLabel: "Total Expenses",
+              totalColumns: ["amount"],
+            },
+          ]
+        : []),
+    ],
+    notes: data.driver.notes
+      ? [
+          "Driver Notes:",
+          data.driver.notes,
+        ]
+      : ["This report contains driver information as of the report date."],
+  };
+
+  const generator = new PDFReportGenerator(config);
+  return generator.generate();
+}
+
+/**
+ * Generate a Single Truck Report PDF (for individual truck export)
+ */
+export function generateSingleTruckReportPDF(data: {
+  truck: {
+    registrationNo: string;
+    make: string;
+    model: string;
+    year: number;
+    status: string;
+    currentMileage: number;
+    fuelType: string;
+    tankCapacity: number;
+    assignedDriver: string;
+    notes: string;
+  };
+  stats: {
+    totalTrips: number;
+    completedTrips: number;
+    inProgressTrips: number;
+    totalRevenue: number;
+    totalExpenses: number;
+    profitLoss: number;
+  };
+  trips: Array<{
+    route: string;
+    date: string;
+    status: string;
+    driver: string;
+  }>;
+  expenses: Array<{
+    date: string;
+    type: string;
+    amount: number;
+    description: string;
+  }>;
+}): Uint8Array {
+  const config: ReportConfig = {
+    title: "Truck Report",
+    subtitle: `${data.truck.make} ${data.truck.model} (${data.truck.registrationNo})`,
+    reportType: "single-truck-report",
+    period: {
+      startDate: new Date(new Date().setMonth(new Date().getMonth() - 1)),
+      endDate: new Date(),
+    },
+    summary: [
+      { label: "Total Trips", value: data.stats.totalTrips, format: "number" },
+      { label: "Completed Trips", value: data.stats.completedTrips, format: "number" },
+      { label: "In Progress", value: data.stats.inProgressTrips, format: "number" },
+      { label: "Total Revenue", value: data.stats.totalRevenue, format: "currency" },
+      { label: "Total Expenses", value: data.stats.totalExpenses, format: "currency" },
+      { label: "Profit/Loss", value: data.stats.profitLoss, format: "currency" },
+    ],
+    sections: [
+      {
+        title: "Truck Information",
+        columns: [
+          { header: "Field", key: "field", align: "left" },
+          { header: "Value", key: "value", align: "left" },
+        ],
+        data: [
+          { field: "Registration No.", value: data.truck.registrationNo },
+          { field: "Make", value: data.truck.make },
+          { field: "Model", value: data.truck.model },
+          { field: "Year", value: data.truck.year },
+          { field: "Status", value: data.truck.status },
+          { field: "Current Mileage", value: data.truck.currentMileage },
+          { field: "Fuel Type", value: data.truck.fuelType },
+          { field: "Tank Capacity", value: `${data.truck.tankCapacity} L` },
+          { field: "Assigned Driver", value: data.truck.assignedDriver },
+        ],
+      },
+      ...(data.trips.length > 0
+        ? [
+            {
+              title: "Recent Trips",
+              columns: [
+                { header: "Route", key: "route", align: "left" as const },
+                { header: "Date", key: "date", align: "center" as const },
+                { header: "Status", key: "status", align: "center" as const },
+                { header: "Driver", key: "driver", align: "left" as const },
+              ],
+              data: data.trips,
+            },
+          ]
+        : []),
+      ...(data.expenses.length > 0
+        ? [
+            {
+              title: "Recent Expenses",
+              columns: [
+                { header: "Date", key: "date", align: "center" as const },
+                { header: "Type", key: "type", align: "left" as const },
+                { header: "Amount", key: "amount", format: "currency" as const, align: "right" as const },
+                { header: "Description", key: "description", align: "left" as const },
+              ],
+              data: data.expenses,
+              showTotal: true,
+              totalLabel: "Total Expenses",
+              totalColumns: ["amount"],
+            },
+          ]
+        : []),
+    ],
+    notes: data.truck.notes
+      ? [
+          "Truck Notes:",
+          data.truck.notes,
+        ]
+      : ["This report contains truck information as of the report date."],
+  };
+
+  const generator = new PDFReportGenerator(config);
+  return generator.generate();
+}
+
+/**
+ * Generate a Single Trip Report PDF (for individual trip export)
+ */
+export function generateSingleTripReportPDF(data: {
+  trip: {
+    originCity: string;
+    originAddress: string;
+    destinationCity: string;
+    destinationAddress: string;
+    loadDescription: string;
+    loadWeight: number;
+    status: string;
+    scheduledDate: string;
+    startDate: string;
+    endDate: string;
+    truck: string;
+    driver: string;
+    customer: string;
+  };
+  financials: {
+    revenue: number;
+    expenses: number;
+    grossProfit: number;
+    netProfit: number;
+    invoiceNumber: string;
+    invoiceStatus: string;
+    invoiceTotal: number;
+    invoicePaid: number;
+    invoiceBalance: number;
+  };
+  mileage: {
+    estimated: number;
+    actual: number;
+    startOdometer: number;
+    endOdometer: number;
+  };
+  expenses: Array<{
+    date: string;
+    category: string;
+    description: string;
+    amount: number;
+  }>;
+  notes: string;
+}): Uint8Array {
+  const config: ReportConfig = {
+    title: "Trip Report",
+    subtitle: `${data.trip.originCity} → ${data.trip.destinationCity}`,
+    reportType: "single-trip-report",
+    period: {
+      startDate: new Date(data.trip.scheduledDate),
+      endDate: new Date(data.trip.endDate || data.trip.scheduledDate),
+    },
+    summary: [
+      { label: "Trip Status", value: data.trip.status, format: "text" },
+      { label: "Revenue", value: data.financials.revenue, format: "currency" },
+      { label: "Total Expenses", value: data.financials.expenses, format: "currency" },
+      { label: "Gross Profit", value: data.financials.grossProfit, format: "currency" },
+      { label: "Net Profit", value: data.financials.netProfit, format: "currency" },
+      { label: "Actual Mileage", value: data.mileage.actual, format: "number" },
+    ],
+    sections: [
+      {
+        title: "Trip Information",
+        columns: [
+          { header: "Field", key: "field", align: "left" },
+          { header: "Value", key: "value", align: "left" },
+        ],
+        data: [
+          { field: "Status", value: data.trip.status },
+          { field: "Scheduled Date", value: data.trip.scheduledDate },
+          { field: "Start Date", value: data.trip.startDate },
+          { field: "End Date", value: data.trip.endDate },
+          { field: "Origin", value: `${data.trip.originCity}, ${data.trip.originAddress}` },
+          { field: "Destination", value: `${data.trip.destinationCity}, ${data.trip.destinationAddress}` },
+          { field: "Load Description", value: data.trip.loadDescription },
+          { field: "Load Weight", value: `${data.trip.loadWeight} units` },
+          { field: "Truck", value: data.trip.truck },
+          { field: "Driver", value: data.trip.driver },
+          { field: "Customer", value: data.trip.customer },
+        ],
+      },
+      {
+        title: "Mileage Information",
+        columns: [
+          { header: "Field", key: "field", align: "left" },
+          { header: "Value", key: "value", align: "left" },
+        ],
+        data: [
+          { field: "Estimated Mileage", value: `${data.mileage.estimated} km` },
+          { field: "Actual Mileage", value: `${data.mileage.actual} km` },
+          { field: "Start Odometer", value: `${data.mileage.startOdometer} km` },
+          { field: "End Odometer", value: `${data.mileage.endOdometer} km` },
+        ],
+      },
+      {
+        title: "Financial Summary",
+        columns: [
+          { header: "Item", key: "item", align: "left" },
+          { header: "Amount", key: "amount", align: "right", format: "currency" },
+        ],
+        data: [
+          { item: "Revenue", amount: data.financials.revenue },
+          { item: "Total Expenses", amount: data.financials.expenses },
+          { item: "Gross Profit", amount: data.financials.grossProfit },
+          { item: "Net Profit", amount: data.financials.netProfit },
+        ],
+      },
+      {
+        title: "Invoice Information",
+        columns: [
+          { header: "Field", key: "field", align: "left" },
+          { header: "Value", key: "value", align: "left" },
+        ],
+        data: [
+          { field: "Invoice Number", value: data.financials.invoiceNumber },
+          { field: "Invoice Status", value: data.financials.invoiceStatus },
+          { field: "Invoice Total", value: `$${data.financials.invoiceTotal.toFixed(2)}` },
+          { field: "Amount Paid", value: `$${data.financials.invoicePaid.toFixed(2)}` },
+          { field: "Balance", value: `$${data.financials.invoiceBalance.toFixed(2)}` },
+        ],
+      },
+      ...(data.expenses.length > 0
+        ? [
+            {
+              title: "Trip Expenses",
+              columns: [
+                { header: "Date", key: "date", align: "center" as const },
+                { header: "Category", key: "category", align: "left" as const },
+                { header: "Description", key: "description", align: "left" as const },
+                { header: "Amount", key: "amount", format: "currency" as const, align: "right" as const },
+              ],
+              data: data.expenses,
+              showTotal: true,
+              totalLabel: "Total Expenses",
+              totalColumns: ["amount"],
+            },
+          ]
+        : []),
+    ],
+    notes: data.notes
+      ? [
+          "Trip Notes:",
+          data.notes,
+        ]
+      : ["This report contains trip information as of the report date."],
+  };
+
+  const generator = new PDFReportGenerator(config);
+  return generator.generate();
+}

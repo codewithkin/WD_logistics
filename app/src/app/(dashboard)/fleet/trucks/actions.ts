@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, requireRole } from "@/lib/session";
 import { TruckStatus } from "@/lib/types";
-import { generateTruckReportPDF } from "@/lib/reports/pdf-report-generator";
+import { generateTruckReportPDF, generateSingleTruckReportPDF } from "@/lib/reports/pdf-report-generator";
 import { notifyTruckCreated, notifyTruckUpdated, notifyTruckDeleted } from "@/lib/notifications";
 
 export async function createTruck(data: {
@@ -399,3 +399,96 @@ export async function exportTrucksPDF(options?: {
     return { success: false, error: "Failed to generate PDF report" };
   }
 }
+
+export async function exportSingleTruckReport(truckId: string) {
+  const session = await requireAuth();
+
+  try {
+    const truck = await prisma.truck.findFirst({
+      where: { id: truckId, organizationId: session.organizationId },
+      include: {
+        assignedDriver: true,
+        trips: {
+          orderBy: { scheduledDate: "desc" },
+          take: 20,
+          include: {
+            driver: true,
+          },
+        },
+        truckExpenses: {
+          orderBy: { date: "desc" },
+          take: 10,
+          include: {
+            expense: {
+              include: {
+                category: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!truck) {
+      return { success: false, error: "Truck not found" };
+    }
+
+    // Calculate stats
+    const completedTrips = truck.trips.filter((t) => t.status === "completed").length;
+    const inProgressTrips = truck.trips.filter((t) => t.status === "in_progress").length;
+    const totalRevenue = truck.trips.reduce((sum, t) => sum + t.revenue, 0);
+    const totalExpenses = truck.truckExpenses.reduce((sum, te) => sum + te.expense.amount, 0);
+
+    // Format dates helper
+    const formatDate = (date: Date | null) => {
+      if (!date) return "N/A";
+      return date.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+    };
+
+    const pdfBytes = generateSingleTruckReportPDF({
+      truck: {
+        registrationNo: truck.registrationNo,
+        make: truck.make,
+        model: truck.model,
+        year: truck.year,
+        status: truck.status.replace("_", " "),
+        currentMileage: truck.currentMileage,
+        fuelType: truck.fuelType || "N/A",
+        tankCapacity: truck.tankCapacity || 0,
+        assignedDriver: truck.assignedDriver
+          ? `${truck.assignedDriver.firstName} ${truck.assignedDriver.lastName}`
+          : "Unassigned",
+        notes: truck.notes || "",
+      },
+      stats: {
+        totalTrips: truck.trips.length,
+        completedTrips,
+        inProgressTrips,
+        totalRevenue,
+        totalExpenses,
+        profitLoss: totalRevenue - totalExpenses,
+      },
+      trips: truck.trips.map((trip) => ({
+        route: `${trip.originCity} → ${trip.destinationCity}`,
+        date: formatDate(trip.scheduledDate),
+        status: trip.status.replace("_", " "),
+        driver: `${trip.driver.firstName} ${trip.driver.lastName}`,
+      })),
+      expenses: truck.truckExpenses.map((te) => ({
+        date: formatDate(te.expense.date),
+        type: te.expense.category?.name || "Other",
+        amount: te.expense.amount,
+        description: te.expense.description || "",
+      })),
+    });
+
+    return {
+      success: true,
+      pdfBase64: Buffer.from(pdfBytes).toString("base64"),
+    };
+  } catch (error) {
+    console.error("Failed to export truck report:", error);
+    return { success: false, error: "Failed to export truck report" };
+  }
+}
+

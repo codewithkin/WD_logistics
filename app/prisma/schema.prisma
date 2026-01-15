@@ -212,23 +212,25 @@ model TruckExpense {
 // =============================================================================
 
 model Driver {
-  id              String    @id @default(cuid())
-  organizationId  String
-  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  firstName       String
-  lastName        String
-  email           String?
-  phone           String
-  whatsappNumber  String?
-  passportNumber  String?
-  licenseNumber   String
-  image           String?
-  startDate       DateTime  @default(now())
-  endDate         DateTime?
-  status          String    @default("active") // active, on_leave, suspended, terminated
-  notes           String?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id                  String    @id @default(cuid())
+  organizationId      String
+  organization        Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  firstName           String
+  lastName            String
+  email               String?
+  phone               String
+  whatsappNumber      String?
+  passportNumber      String?
+  passportExpiration  DateTime?
+  licenseNumber       String
+  licenseExpiration   DateTime?
+  image               String?
+  startDate           DateTime  @default(now())
+  endDate             DateTime?
+  status              String    @default("active") // active, on_leave, suspended, terminated
+  notes               String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
   assignedTruckId String?   @unique
   assignedTruck   Truck?    @relation("AssignedTruck", fields: [assignedTruckId], references: [id])

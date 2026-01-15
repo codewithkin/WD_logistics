@@ -35,7 +35,9 @@ const driverSchema = z.object({
     email: z.string().email().optional().or(z.literal("")),
     whatsappNumber: z.string().optional().or(z.literal("")),
     licenseNumber: z.string().min(1, "License number is required"),
+    licenseExpiration: z.string().optional().or(z.literal("")),
     passportNumber: z.string().optional().or(z.literal("")),
+    passportExpiration: z.string().optional().or(z.literal("")),
     status: z.enum(["active", "on_leave", "suspended", "terminated"]),
     notes: z.string().optional(),
     assignedTruckId: z.string().optional().nullable(),
@@ -57,15 +59,18 @@ interface DriverFormProps {
         email: string | null;
         whatsappNumber: string | null;
         licenseNumber: string;
+        licenseExpiration: Date | null;
         passportNumber: string | null;
+        passportExpiration: Date | null;
         status: string;
         notes: string | null;
         assignedTruckId: string | null;
     };
     availableTrucks: Truck[];
+    isSupervisor?: boolean;
 }
 
-export function DriverForm({ driver, availableTrucks }: DriverFormProps) {
+export function DriverForm({ driver, availableTrucks, isSupervisor = false }: DriverFormProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
     const isEditing = !!driver;
@@ -80,7 +85,9 @@ export function DriverForm({ driver, availableTrucks }: DriverFormProps) {
             email: driver?.email ?? "",
             whatsappNumber: driver?.whatsappNumber ?? "",
             licenseNumber: driver?.licenseNumber ?? "",
+            licenseExpiration: driver?.licenseExpiration ? driver.licenseExpiration.toISOString().split("T")[0] : "",
             passportNumber: driver?.passportNumber ?? "",
+            passportExpiration: driver?.passportExpiration ? driver.passportExpiration.toISOString().split("T")[0] : "",
             status: (driver?.status as DriverFormData["status"]) ?? "active",
             notes: driver?.notes ?? "",
             assignedTruckId: driver?.assignedTruckId ?? null,
@@ -97,7 +104,9 @@ export function DriverForm({ driver, availableTrucks }: DriverFormProps) {
                 email: data.email || undefined,
                 whatsappNumber: data.whatsappNumber || undefined,
                 licenseNumber: data.licenseNumber,
+                licenseExpiration: data.licenseExpiration ? new Date(data.licenseExpiration) : undefined,
                 passportNumber: data.passportNumber || undefined,
+                passportExpiration: data.passportExpiration ? new Date(data.passportExpiration) : undefined,
                 status: data.status,
                 notes: data.notes,
                 assignedTruckId: data.assignedTruckId,
@@ -131,8 +140,15 @@ export function DriverForm({ driver, availableTrucks }: DriverFormProps) {
                             <FormItem>
                                 <FormLabel>First Name</FormLabel>
                                 <FormControl>
-                                    <Input placeholder="John" {...field} />
+                                    <Input
+                                        placeholder="John"
+                                        {...field}
+                                        disabled={isEditing && isSupervisor}
+                                    />
                                 </FormControl>
+                                {isEditing && isSupervisor && (
+                                    <p className="text-xs text-muted-foreground">Only admins can edit names</p>
+                                )}
                                 <FormMessage />
                             </FormItem>
                         )}
@@ -144,8 +160,15 @@ export function DriverForm({ driver, availableTrucks }: DriverFormProps) {
                             <FormItem>
                                 <FormLabel>Last Name</FormLabel>
                                 <FormControl>
-                                    <Input placeholder="Doe" {...field} />
+                                    <Input
+                                        placeholder="Doe"
+                                        {...field}
+                                        disabled={isEditing && isSupervisor}
+                                    />
                                 </FormControl>
+                                {isEditing && isSupervisor && (
+                                    <p className="text-xs text-muted-foreground">Only admins can edit names</p>
+                                )}
                                 <FormMessage />
                             </FormItem>
                         )}
@@ -239,12 +262,41 @@ export function DriverForm({ driver, availableTrucks }: DriverFormProps) {
                     />
                     <FormField
                         control={form.control}
+                        name="licenseExpiration"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>License Expiration (Optional)</FormLabel>
+                                <FormControl>
+                                    <Input type="date" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                    <FormField
+                        control={form.control}
                         name="passportNumber"
                         render={({ field }) => (
                             <FormItem>
                                 <FormLabel>Passport Number (Optional)</FormLabel>
                                 <FormControl>
                                     <Input placeholder="Pass123456" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    <FormField
+                        control={form.control}
+                        name="passportExpiration"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Passport Expiration (Optional)</FormLabel>
+                                <FormControl>
+                                    <Input type="date" {...field} />
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>

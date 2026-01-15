@@ -8,9 +8,10 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Pencil, Truck, Calendar, Phone, Mail, FileText } from "lucide-react";
+import { Pencil, Truck, Calendar, Phone, Mail, FileText, CreditCard } from "lucide-react";
 import { format } from "date-fns";
 import { AssignTruck } from "./_components/assign-truck";
+import { ExportDriverButton } from "./_components/export-driver-button";
 
 interface DriverDetailPageProps {
     params: Promise<{ id: string }>;
@@ -56,7 +57,12 @@ export default async function DriverDetailPage({ params }: DriverDetailPageProps
                         }
                         : undefined
                 }
-            />
+            >
+                <ExportDriverButton
+                    driverId={driver.id}
+                    driverName={`${driver.firstName} ${driver.lastName}`}
+                />
+            </PageHeader>
 
             <div className="grid gap-6 md:grid-cols-2">
                 <Card>
@@ -128,14 +134,41 @@ export default async function DriverDetailPage({ params }: DriverDetailPageProps
                 <Card>
                     <CardHeader>
                         <CardTitle className="text-lg flex items-center gap-2">
-                            <Calendar className="h-5 w-5" /> License Information
+                            <CreditCard className="h-5 w-5" /> License & Documents
                         </CardTitle>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="space-y-4">
                         <div className="flex items-center justify-between">
                             <span className="text-muted-foreground">License Number</span>
                             <span className="font-medium">{driver.licenseNumber}</span>
                         </div>
+                        {driver.licenseExpiration && (
+                            <>
+                                <Separator />
+                                <div className="flex items-center justify-between">
+                                    <span className="text-muted-foreground">License Expiration</span>
+                                    <span className="font-medium">{format(driver.licenseExpiration, "PPP")}</span>
+                                </div>
+                            </>
+                        )}
+                        {driver.passportNumber && (
+                            <>
+                                <Separator />
+                                <div className="flex items-center justify-between">
+                                    <span className="text-muted-foreground">Passport Number</span>
+                                    <span className="font-medium">{driver.passportNumber}</span>
+                                </div>
+                            </>
+                        )}
+                        {driver.passportExpiration && (
+                            <>
+                                <Separator />
+                                <div className="flex items-center justify-between">
+                                    <span className="text-muted-foreground">Passport Expiration</span>
+                                    <span className="font-medium">{format(driver.passportExpiration, "PPP")}</span>
+                                </div>
+                            </>
+                        )}
                     </CardContent>
                 </Card>
 

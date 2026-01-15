@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, requireRole } from "@/lib/session";
 import { DriverStatus } from "@/lib/types";
-import { generateDriverReportPDF } from "@/lib/reports/pdf-report-generator";
+import { generateDriverReportPDF, generateSingleDriverReportPDF } from "@/lib/reports/pdf-report-generator";
 import { notifyDriverCreated, notifyDriverUpdated, notifyDriverDeleted } from "@/lib/notifications";
 
 export async function createDriver(data: {
@@ -14,7 +14,9 @@ export async function createDriver(data: {
   email?: string;
   whatsappNumber?: string;
   licenseNumber: string;
+  licenseExpiration?: Date;
   passportNumber?: string;
+  passportExpiration?: Date;
   status: DriverStatus;
   notes?: string;
   assignedTruckId?: string | null;
@@ -41,7 +43,9 @@ export async function createDriver(data: {
         email: data.email,
         whatsappNumber: data.whatsappNumber,
         licenseNumber: data.licenseNumber,
+        licenseExpiration: data.licenseExpiration,
         passportNumber: data.passportNumber,
+        passportExpiration: data.passportExpiration,
         status: data.status,
         notes: data.notes,
         assignedTruckId: data.assignedTruckId,
@@ -80,7 +84,9 @@ export async function updateDriver(
     email?: string;
     whatsappNumber?: string;
     licenseNumber?: string;
+    licenseExpiration?: Date;
     passportNumber?: string;
+    passportExpiration?: Date;
     status?: DriverStatus;
     notes?: string;
     assignedTruckId?: string | null;
@@ -128,20 +134,29 @@ export async function updateDriver(
       }
     }
 
+    // Prepare update data - supervisors cannot update name fields
+    const updateData: Parameters<typeof prisma.driver.update>[0]["data"] = {
+      phone: data.phone,
+      email: data.email,
+      whatsappNumber: data.whatsappNumber,
+      licenseNumber: data.licenseNumber,
+      licenseExpiration: data.licenseExpiration,
+      passportNumber: data.passportNumber,
+      passportExpiration: data.passportExpiration,
+      status: data.status,
+      notes: data.notes,
+      assignedTruckId: data.assignedTruckId,
+    };
+
+    // Only admins can update name fields
+    if (session.role === "admin") {
+      updateData.firstName = data.firstName;
+      updateData.lastName = data.lastName;
+    }
+
     const updatedDriver = await prisma.driver.update({
       where: { id },
-      data: {
-        firstName: data.firstName,
-        lastName: data.lastName,
-        phone: data.phone,
-        email: data.email,
-        whatsappNumber: data.whatsappNumber,
-        licenseNumber: data.licenseNumber,
-        passportNumber: data.passportNumber,
-        status: data.status,
-        notes: data.notes,
-        assignedTruckId: data.assignedTruckId,
-      },
+      data: updateData,
     });
 
     // Send admin notification
@@ -385,5 +400,86 @@ export async function exportDriversPDF() {
       success: false,
       error: "Failed to generate PDF report",
     };
+  }
+}
+
+export async function exportSingleDriverReport(driverId: string) {
+  const session = await requireAuth();
+
+  try {
+    const driver = await prisma.driver.findFirst({
+      where: { id: driverId, organizationId: session.organizationId },
+      include: {
+        assignedTruck: true,
+        trips: {
+          orderBy: { scheduledDate: "desc" },
+          take: 20,
+          include: {
+            truck: true,
+          },
+        },
+        driverExpenses: {
+          orderBy: { date: "desc" },
+          take: 10,
+        },
+      },
+    });
+
+    if (!driver) {
+      return { success: false, error: "Driver not found" };
+    }
+
+    // Calculate stats
+    const completedTrips = driver.trips.filter((t) => t.status === "completed").length;
+    const inProgressTrips = driver.trips.filter((t) => t.status === "in_progress").length;
+    const totalExpenses = driver.driverExpenses.reduce((sum, e) => sum + e.amount, 0);
+
+    // Format dates helper
+    const formatDate = (date: Date | null) => {
+      if (!date) return "N/A";
+      return date.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+    };
+
+    const pdfBytes = generateSingleDriverReportPDF({
+      driver: {
+        name: `${driver.firstName} ${driver.lastName}`,
+        phone: driver.phone,
+        email: driver.email || "N/A",
+        licenseNumber: driver.licenseNumber,
+        licenseExpiration: formatDate(driver.licenseExpiration),
+        passportNumber: driver.passportNumber || "N/A",
+        passportExpiration: formatDate(driver.passportExpiration),
+        status: driver.status.replace("_", " "),
+        assignedTruck: driver.assignedTruck?.registrationNo || "Unassigned",
+        startDate: formatDate(driver.startDate),
+        notes: driver.notes || "",
+      },
+      stats: {
+        totalTrips: driver.trips.length,
+        completedTrips,
+        inProgressTrips,
+        totalExpenses,
+      },
+      trips: driver.trips.map((trip) => ({
+        route: `${trip.originCity} → ${trip.destinationCity}`,
+        date: formatDate(trip.scheduledDate),
+        status: trip.status.replace("_", " "),
+        truck: trip.truck.registrationNo,
+      })),
+      expenses: driver.driverExpenses.map((expense) => ({
+        date: formatDate(expense.date),
+        type: expense.type,
+        amount: expense.amount,
+        description: expense.description || "",
+      })),
+    });
+
+    return {
+      success: true,
+      pdfBase64: Buffer.from(pdfBytes).toString("base64"),
+    };
+  } catch (error) {
+    console.error("Failed to export driver report:", error);
+    return { success: false, error: "Failed to export driver report" };
   }
 }

@@ -20,11 +20,13 @@ import {
     CreditCard,
     Clock,
     CheckCircle2,
+    Download,
 } from "lucide-react";
 import { format } from "date-fns";
 import { NotifyDriverButton } from "./_components/notify-driver-button";
 import { TripProfitLossTable } from "./_components/trip-profit-loss-table";
 import { TripRevenueExpenseChart } from "./_components/trip-revenue-expense-chart";
+import { ExportTripButton } from "./_components/export-trip-button";
 
 interface TripDetailPageProps {
     params: Promise<{ id: string }>;
@@ -104,7 +106,12 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
                         }
                         : undefined
                 }
-            />
+            >
+                <ExportTripButton
+                    tripId={trip.id}
+                    tripName={`${trip.originCity}-${trip.destinationCity}`}
+                />
+            </PageHeader>
 
             <div className="grid gap-6 md:grid-cols-2">
                 <Card>

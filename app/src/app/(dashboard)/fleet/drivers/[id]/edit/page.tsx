@@ -32,6 +32,8 @@ export default async function EditDriverPage({ params }: EditDriverPageProps) {
         orderBy: { registrationNo: "asc" },
     });
 
+    const isSupervisor = session.role === "supervisor";
+
     return (
         <div>
             <PageHeader
@@ -39,7 +41,7 @@ export default async function EditDriverPage({ params }: EditDriverPageProps) {
                 description={`Update details for ${driver.firstName} ${driver.lastName}`}
                 backHref={`/fleet/drivers/${driver.id}`}
             />
-            <DriverForm driver={driver} availableTrucks={availableTrucks} />
+            <DriverForm driver={driver} availableTrucks={availableTrucks} isSupervisor={isSupervisor} />
         </div>
     );
 }

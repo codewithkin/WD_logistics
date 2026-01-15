@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, requireRole } from "@/lib/session";
 import { TripStatus } from "@/lib/types";
-import { generateTripReportPDF } from "@/lib/reports/pdf-report-generator";
+import { generateTripReportPDF, generateSingleTripReportPDF } from "@/lib/reports/pdf-report-generator";
 import { notifyTripCreated, notifyTripUpdated, notifyTripDeleted } from "@/lib/notifications";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:3001";
@@ -391,3 +391,106 @@ export async function exportTripsPDF() {
     };
   }
 }
+
+export async function exportSingleTripReport(tripId: string) {
+  const session = await requireAuth();
+
+  try {
+    const trip = await prisma.trip.findFirst({
+      where: { id: tripId, organizationId: session.organizationId },
+      include: {
+        truck: true,
+        driver: true,
+        customer: true,
+        tripExpenses: {
+          orderBy: { date: "desc" },
+          include: {
+            expense: {
+              include: {
+                category: true,
+              },
+            },
+          },
+        },
+        invoices: {
+          select: {
+            id: true,
+            invoiceNumber: true,
+            total: true,
+            amountPaid: true,
+            balance: true,
+            status: true,
+            isCredit: true,
+            dueDate: true,
+          },
+        },
+      },
+    });
+
+    if (!trip) {
+      return { success: false, error: "Trip not found" };
+    }
+
+    // Format dates helper
+    const formatDate = (date: Date | null) => {
+      if (!date) return "N/A";
+      return date.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+    };
+
+    const totalExpenses = trip.tripExpenses.reduce((sum, te) => sum + te.expense.amount, 0);
+    const tripInvoice = trip.invoices[0];
+    const grossProfit = trip.revenue - totalExpenses;
+    const netProfit = tripInvoice?.status === "paid" ? grossProfit : 0;
+
+    const pdfBytes = generateSingleTripReportPDF({
+      trip: {
+        originCity: trip.originCity,
+        originAddress: trip.originAddress || "N/A",
+        destinationCity: trip.destinationCity,
+        destinationAddress: trip.destinationAddress || "N/A",
+        loadDescription: trip.loadDescription || "N/A",
+        loadWeight: trip.loadWeight || 0,
+        status: trip.status.replace("_", " "),
+        scheduledDate: formatDate(trip.scheduledDate),
+        startDate: formatDate(trip.startDate),
+        endDate: formatDate(trip.endDate),
+        truck: trip.truck.registrationNo,
+        driver: `${trip.driver.firstName} ${trip.driver.lastName}`,
+        customer: trip.customer?.name || "N/A",
+      },
+      financials: {
+        revenue: trip.revenue,
+        expenses: totalExpenses,
+        grossProfit,
+        netProfit,
+        invoiceNumber: tripInvoice?.invoiceNumber || "N/A",
+        invoiceStatus: tripInvoice?.status || "N/A",
+        invoiceTotal: tripInvoice?.total || 0,
+        invoicePaid: tripInvoice?.amountPaid || 0,
+        invoiceBalance: tripInvoice?.balance || 0,
+      },
+      mileage: {
+        estimated: trip.estimatedMileage,
+        actual: trip.actualMileage || 0,
+        startOdometer: trip.startOdometer || 0,
+        endOdometer: trip.endOdometer || 0,
+      },
+      expenses: trip.tripExpenses.map((te) => ({
+        date: formatDate(te.expense.date),
+        category: te.expense.category?.name || "Other",
+        description: te.expense.description || "",
+        amount: te.expense.amount,
+      })),
+      notes: trip.notes || "",
+    });
+
+    return {
+      success: true,
+      pdfBase64: Buffer.from(pdfBytes).toString("base64"),
+    };
+  } catch (error) {
+    console.error("Failed to export trip report:", error);
+    return { success: false, error: "Failed to export trip report" };
+  }
+}
+

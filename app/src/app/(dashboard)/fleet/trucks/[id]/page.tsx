@@ -8,9 +8,10 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Pencil, User, Gauge, FileText, DollarSign, TrendingUp, TrendingDown } from "lucide-react";
+import { Pencil, User, Gauge, FileText, DollarSign, TrendingUp, TrendingDown, Download } from "lucide-react";
 import { format } from "date-fns";
 import { AssignDriver } from "./_components/assign-driver";
+import { ExportTruckButton } from "./_components/export-truck-button";
 
 interface TruckDetailPageProps {
     params: Promise<{ id: string }>;
@@ -74,7 +75,12 @@ export default async function TruckDetailPage({ params }: TruckDetailPageProps) 
                         }
                         : undefined
                 }
-            />
+            >
+                <ExportTruckButton
+                    truckId={truck.id}
+                    truckName={truck.registrationNo}
+                />
+            </PageHeader>
 
             <div className="grid gap-6 md:grid-cols-2">
                 <Card>
