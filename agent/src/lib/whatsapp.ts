@@ -65,7 +65,11 @@ export class AgentWhatsAppClient extends EventEmitter {
       this.state.status = "connecting";
       this.emit("status", this.state);
 
+      // Check for remote browser (browserless.io, etc.)
+      const browserWSEndpoint = process.env.BROWSER_WS_ENDPOINT;
+      
       // Configure Puppeteer args based on environment
+      // These args are crucial for running Chrome in containerized environments (Docker, Render, etc.)
       const puppeteerConfig: any = {
         headless: true,
         args: [
@@ -76,12 +80,44 @@ export class AgentWhatsAppClient extends EventEmitter {
           "--no-first-run",
           "--no-zygote",
           "--disable-gpu",
+          "--single-process", // Required for some container environments
+          "--disable-extensions",
+          "--disable-background-networking",
+          "--disable-background-timer-throttling",
+          "--disable-backgrounding-occluded-windows",
+          "--disable-breakpad", // Disable crashpad/crash reporting
+          "--disable-component-extensions-with-background-pages",
+          "--disable-component-update",
+          "--disable-default-apps",
+          "--disable-hang-monitor",
+          "--disable-ipc-flooding-protection",
+          "--disable-popup-blocking",
+          "--disable-prompt-on-repost",
+          "--disable-renderer-backgrounding",
+          "--disable-sync",
+          "--enable-features=NetworkService,NetworkServiceInProcess",
+          "--force-color-profile=srgb",
+          "--metrics-recording-only",
+          "--no-default-browser-check",
+          "--password-store=basic",
+          "--use-mock-keychain",
+          "--disable-software-rasterizer",
         ],
       };
 
-      // In Docker/production, use system Chromium
-      if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+      // Use remote browser if configured (recommended for Render/Railway/Heroku)
+      if (browserWSEndpoint) {
+        console.log("🌐 Using remote browser endpoint");
+        puppeteerConfig.browserWSEndpoint = browserWSEndpoint;
+        // When using remote browser, we don't need local args
+        delete puppeteerConfig.args;
+        delete puppeteerConfig.executablePath;
+      } else if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+        // In Docker/production, use system Chromium
         puppeteerConfig.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+        console.log(`🔧 Using Chrome at: ${process.env.PUPPETEER_EXECUTABLE_PATH}`);
+      } else {
+        console.log("⚠️ No BROWSER_WS_ENDPOINT or PUPPETEER_EXECUTABLE_PATH set, using bundled Chromium");
       }
 
       this.client = new Client({
