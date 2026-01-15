@@ -8,7 +8,7 @@ import { getDateRangeFromParams } from "@/lib/period-utils";
 import { ReportsPeriodSelector } from "./_components/reports-period-selector";
 
 interface ReportsPageProps {
-  searchParams: Promise<{ period?: string; from?: string; to?: string }>;
+  searchParams: Promise<{ period?: string; from?: string; to?: string; tab?: string }>;
 }
 
 export default async function ReportsPage({ searchParams }: ReportsPageProps) {
@@ -191,6 +191,9 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
     }),
   ]);
 
+  // Get the current tab from URL params
+  const currentTab = params.tab || "overview";
+
   const dashboardData = {
     totalTrucks,
     activeTrucks,
@@ -225,7 +228,7 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
         customers={customers}
         trucks={trucks}
         initialReports={reports}
-        dashboardContent={<ReportsDashboard data={dashboardData} periodLabel={dateRange.label} />}
+        dashboardContent={<ReportsDashboard data={dashboardData} periodLabel={dateRange.label} initialTab={currentTab} />}
       />
     </div>
   );

@@ -23,6 +23,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { format } from "date-fns";
+import { ReportsTabs } from "./reports-tabs";
 
 interface OutstandingInvoice {
   id: string;
@@ -66,13 +67,14 @@ interface ReportsDashboardProps {
     expensesWithCategories: ExpenseCategory[];
   };
   periodLabel?: string;
+  initialTab?: string;
   onGeneratePDF?: () => void;
   onGenerateCSV?: () => void;
   onExportDashboard?: () => void;
   isGenerating?: boolean;
 }
 
-export function ReportsDashboard({ data, periodLabel = "This Month", onGeneratePDF, onGenerateCSV, onExportDashboard, isGenerating = false }: ReportsDashboardProps) {
+export function ReportsDashboard({ data, periodLabel = "This Month", initialTab = "overview", onGeneratePDF, onGenerateCSV, onExportDashboard, isGenerating = false }: ReportsDashboardProps) {
   const {
     totalTrucks,
     activeTrucks,
@@ -107,7 +109,7 @@ export function ReportsDashboard({ data, periodLabel = "This Month", onGenerateP
   const tripChange = calcChange(thisMonthTrips, lastMonthTrips);
 
   return (
-    <Tabs defaultValue="overview" className="space-y-6">
+    <ReportsTabs value={initialTab}>
       <div className="flex items-center justify-between">
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
@@ -572,6 +574,6 @@ export function ReportsDashboard({ data, periodLabel = "This Month", onGenerateP
           </Card>
         </div>
       </TabsContent>
-    </Tabs>
+    </ReportsTabs>
   );
 }
