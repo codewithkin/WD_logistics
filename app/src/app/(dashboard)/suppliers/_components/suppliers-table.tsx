@@ -48,6 +48,7 @@ interface Supplier {
     contactPerson: string | null;
     status: string;
     balance: number;
+    periodExpenseTotal?: number;
     _count: {
         expenses: number;
     };
@@ -56,9 +57,10 @@ interface Supplier {
 interface SuppliersTableProps {
     suppliers: Supplier[];
     role: Role;
+    periodLabel?: string;
 }
 
-export function SuppliersTable({ suppliers, role }: SuppliersTableProps) {
+export function SuppliersTable({ suppliers, role, periodLabel = "This Month" }: SuppliersTableProps) {
     const router = useRouter();
     const [search, setSearch] = useState("");
     const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -135,7 +137,8 @@ export function SuppliersTable({ suppliers, role }: SuppliersTableProps) {
                                 <TableHead>Contact Person</TableHead>
                                 <TableHead>Phone</TableHead>
                                 <TableHead>Email</TableHead>
-                                <TableHead className="text-center">Expenses</TableHead>
+                                <TableHead className="text-center" title={`Expenses in ${periodLabel}`}>Expenses ({periodLabel})</TableHead>
+                                <TableHead className="text-right" title={`Expense Total in ${periodLabel}`}>Expense Total ({periodLabel})</TableHead>
                                 <TableHead className="text-right">Balance Owed</TableHead>
                                 <TableHead className="text-center">Status</TableHead>
                                 <TableHead className="w-[70px]"></TableHead>
@@ -144,7 +147,7 @@ export function SuppliersTable({ suppliers, role }: SuppliersTableProps) {
                         <TableBody>
                             {paginatedSuppliers.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                                         No suppliers found
                                     </TableCell>
                                 </TableRow>
@@ -164,6 +167,9 @@ export function SuppliersTable({ suppliers, role }: SuppliersTableProps) {
                                         <TableCell>{supplier.email || "-"}</TableCell>
                                         <TableCell className="text-center">
                                             {supplier._count.expenses}
+                                        </TableCell>
+                                        <TableCell className="text-right font-medium text-amber-600">
+                                            {formatCurrency(supplier.periodExpenseTotal || 0)}
                                         </TableCell>
                                         <TableCell className={`text-right font-medium ${supplier.balance > 0 ? "text-red-600" : ""}`}>
                                             {formatCurrency(supplier.balance)}
