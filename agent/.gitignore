@@ -2,6 +2,8 @@
 
 # dependencies
 /node_modules
+.wwebjs_auth
+.wwebjs_cache
 /dist
 /.pnp
 .pnp.*
