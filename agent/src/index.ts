@@ -80,12 +80,7 @@ console.log(`🤖 WD Logistics AI Agent running on http://localhost:${port}`);
 // Initialize WhatsApp client immediately on startup (if enabled)
 const initWhatsApp = async () => {
   // Check if WhatsApp should be enabled
-  const whatsappEnabled = process.env.ENABLE_WHATSAPP === "true" || process.env.ENABLE_WHATSAPP === "1";
-  
-  if (!whatsappEnabled) {
-    console.log("⏭️  WhatsApp integration disabled (set ENABLE_WHATSAPP=true to enable)");
-    return;
-  }
+  const whatsappEnabled = true;
   
   console.log("🔄 Initializing WhatsApp client...");
   try {
