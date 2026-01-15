@@ -8,32 +8,54 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Pencil, User, Gauge, FileText, DollarSign, TrendingUp, TrendingDown, Download } from "lucide-react";
+import { Pencil, User, Gauge, FileText, DollarSign, TrendingUp, TrendingDown, Download, Calendar } from "lucide-react";
 import { format } from "date-fns";
 import { AssignDriver } from "./_components/assign-driver";
 import { ExportTruckButton } from "./_components/export-truck-button";
+import { getDateRangeFromParams } from "@/lib/period-utils";
+import { PagePeriodSelector } from "@/components/ui/page-period-selector";
+import { formatCurrency } from "@/lib/utils";
 
 interface TruckDetailPageProps {
     params: Promise<{ id: string }>;
+    searchParams: Promise<{ period?: string; from?: string; to?: string }>;
 }
 
-export default async function TruckDetailPage({ params }: TruckDetailPageProps) {
+export default async function TruckDetailPage({ params, searchParams }: TruckDetailPageProps) {
     const { id } = await params;
+    const searchParamsData = await searchParams;
     const session = await requireAuth();
     const { role, organizationId } = session;
+
+    // Get date range from URL params
+    const dateRange = getDateRangeFromParams(searchParamsData, "3m");
 
     const truck = await prisma.truck.findFirst({
         where: { id, organizationId },
         include: {
             assignedDriver: true,
             trips: {
+                where: {
+                    scheduledDate: {
+                        gte: dateRange.from,
+                        lte: dateRange.to,
+                    },
+                },
                 orderBy: { scheduledDate: "desc" },
-                take: 5,
+                take: 10,
                 include: {
                     driver: true,
                 },
             },
             truckExpenses: {
+                where: {
+                    expense: {
+                        date: {
+                            gte: dateRange.from,
+                            lte: dateRange.to,
+                        },
+                    },
+                },
                 include: {
                     expense: {
                         include: {
@@ -49,12 +71,21 @@ export default async function TruckDetailPage({ params }: TruckDetailPageProps) 
         notFound();
     }
 
-    // Calculate financials
-    const allTrips = await prisma.trip.findMany({
-        where: { truckId: id },
-        select: { revenue: true },
+    // Calculate financials for the selected period
+    const tripsInPeriod = await prisma.trip.findMany({
+        where: {
+            truckId: id,
+            scheduledDate: {
+                gte: dateRange.from,
+                lte: dateRange.to,
+            },
+        },
+        select: { revenue: true, status: true },
     });
-    const totalRevenue = allTrips.reduce((sum, t) => sum + t.revenue, 0);
+
+    const totalRevenue = tripsInPeriod.reduce((sum, t) => sum + t.revenue, 0);
+    const totalTrips = tripsInPeriod.length;
+    const completedTrips = tripsInPeriod.filter(t => t.status === "completed").length;
     const totalExpenses = truck.truckExpenses.reduce((sum, te) => sum + te.expense.amount, 0);
     const profitLoss = totalRevenue - totalExpenses;
 
@@ -62,25 +93,76 @@ export default async function TruckDetailPage({ params }: TruckDetailPageProps) 
 
     return (
         <div>
-            <PageHeader
-                title={truck.registrationNo}
-                description={`${truck.make} ${truck.model} (${truck.year})`}
-                backHref="/fleet/trucks"
-                action={
-                    canEdit
-                        ? {
-                            label: "Edit Truck",
-                            href: `/fleet/trucks/${truck.id}/edit`,
-                            icon: Pencil,
-                        }
-                        : undefined
-                }
-            >
-                <ExportTruckButton
-                    truckId={truck.id}
-                    truckName={truck.registrationNo}
-                />
-            </PageHeader>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+                <PageHeader
+                    title={truck.registrationNo}
+                    description={`${truck.make} ${truck.model} (${truck.year}) - ${dateRange.label}`}
+                    backHref="/fleet/trucks"
+                    action={
+                        canEdit
+                            ? {
+                                label: "Edit Truck",
+                                href: `/fleet/trucks/${truck.id}/edit`,
+                                icon: Pencil,
+                            }
+                            : undefined
+                    }
+                >
+                    <ExportTruckButton
+                        truckId={truck.id}
+                        truckName={truck.registrationNo}
+                    />
+                </PageHeader>
+                <PagePeriodSelector defaultPreset="3m" />
+            </div>
+
+            {/* Financial Summary for Selected Period */}
+            <div className="grid gap-4 md:grid-cols-4 mb-6">
+                <Card>
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                            <Calendar className="h-4 w-4" /> Total Trips
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-2xl font-bold">{totalTrips}</p>
+                        <p className="text-xs text-muted-foreground">{completedTrips} completed</p>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                            <DollarSign className="h-4 w-4" /> Revenue
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-2xl font-bold text-green-600">{formatCurrency(totalRevenue)}</p>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                            <TrendingDown className="h-4 w-4" /> Expenses
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-2xl font-bold text-red-600">{formatCurrency(totalExpenses)}</p>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                            {profitLoss >= 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+                            Profit/Loss
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className={`text-2xl font-bold ${profitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            {formatCurrency(profitLoss)}
+                        </p>
+                    </CardContent>
+                </Card>
+            </div>
 
             <div className="grid gap-6 md:grid-cols-2">
                 <Card>
@@ -191,57 +273,16 @@ export default async function TruckDetailPage({ params }: TruckDetailPageProps) 
                 )}
             </div>
 
-            {/* Financial Summary */}
-            <div className="grid gap-6 md:grid-cols-3 mt-6">
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                            <TrendingUp className="h-4 w-4 text-green-600" /> Total Revenue
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <p className="text-2xl font-bold text-green-600">${totalRevenue.toLocaleString()}</p>
-                        <p className="text-xs text-muted-foreground">{allTrips.length} trips</p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                            <TrendingDown className="h-4 w-4 text-red-600" /> Total Expenses
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <p className="text-2xl font-bold text-red-600">${totalExpenses.toLocaleString()}</p>
-                        <p className="text-xs text-muted-foreground">{truck.truckExpenses.length} expenses</p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                            <DollarSign className={`h-4 w-4 ${profitLoss >= 0 ? "text-green-600" : "text-red-600"}`} /> Profit/Loss
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <p className={`text-2xl font-bold ${profitLoss >= 0 ? "text-green-600" : "text-red-600"}`}>
-                            {profitLoss >= 0 ? "+" : ""}${profitLoss.toLocaleString()}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                            {totalRevenue > 0 ? ((profitLoss / totalRevenue) * 100).toFixed(1) : 0}% margin
-                        </p>
-                    </CardContent>
-                </Card>
-            </div>
-
             <Card className="mt-6">
                 <CardHeader className="flex flex-row items-center justify-between">
-                    <CardTitle className="text-lg">Recent Trips</CardTitle>
+                    <CardTitle className="text-lg">Recent Trips ({dateRange.label})</CardTitle>
                     <Button variant="outline" size="sm" asChild>
                         <Link href={`/operations/trips?truckId=${truck.id}`}>View All</Link>
                     </Button>
                 </CardHeader>
                 <CardContent>
                     {truck.trips.length === 0 ? (
-                        <p className="text-center text-muted-foreground py-4">No trips recorded</p>
+                        <p className="text-center text-muted-foreground py-4">No trips recorded in this period</p>
                     ) : (
                         <div className="space-y-4">
                             {truck.trips.map((trip) => (

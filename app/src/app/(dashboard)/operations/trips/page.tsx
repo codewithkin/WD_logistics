@@ -4,9 +4,11 @@ import { PageHeader } from "@/components/layout/page-header";
 import { TripsTable } from "./_components/trips-table";
 import { TripsAnalytics } from "./_components/trips-analytics";
 import { Plus } from "lucide-react";
+import { getDateRangeFromParams } from "@/lib/period-utils";
+import { PagePeriodSelector } from "@/components/ui/page-period-selector";
 
 interface TripsPageProps {
-    searchParams: Promise<{ truckId?: string; driverId?: string; customerId?: string }>;
+    searchParams: Promise<{ truckId?: string; driverId?: string; customerId?: string; period?: string; from?: string; to?: string }>;
 }
 
 export default async function TripsPage({ searchParams }: TripsPageProps) {
@@ -14,7 +16,16 @@ export default async function TripsPage({ searchParams }: TripsPageProps) {
     const session = await requireAuth();
     const { role, organizationId } = session;
 
-    const whereClause: Record<string, unknown> = { organizationId };
+    // Get date range from URL params
+    const dateRange = getDateRangeFromParams(params, "1m");
+
+    const whereClause: Record<string, unknown> = {
+        organizationId,
+        scheduledDate: {
+            gte: dateRange.from,
+            lte: dateRange.to,
+        },
+    };
 
     if (params.truckId) {
         whereClause.truckId = params.truckId;
@@ -62,19 +73,22 @@ export default async function TripsPage({ searchParams }: TripsPageProps) {
 
     return (
         <div className="space-y-6">
-            <PageHeader
-                title="Trips"
-                description="Manage and track all trips"
-                action={
-                    canCreate
-                        ? {
-                            label: "Create Trip",
-                            href: "/operations/trips/new",
-                            icon: Plus,
-                        }
-                        : undefined
-                }
-            />
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <PageHeader
+                    title="Trips"
+                    description={`Manage and track trips - ${dateRange.label}`}
+                    action={
+                        canCreate
+                            ? {
+                                label: "Create Trip",
+                                href: "/operations/trips/new",
+                                icon: Plus,
+                            }
+                            : undefined
+                    }
+                />
+                <PagePeriodSelector defaultPreset="1m" />
+            </div>
             <TripsAnalytics analytics={analytics} trips={trips} canExport={canExport} />
             <TripsTable trips={trips} role={role} />
         </div>

@@ -4,16 +4,27 @@ import { PageHeader } from "@/components/layout/page-header";
 import { ReportsClient } from "@/components/reports/reports-client";
 import { ReportsDashboard } from "@/components/reports/reports-dashboard";
 import { format, startOfMonth, endOfMonth, subMonths } from "date-fns";
+import { getDateRangeFromParams } from "@/lib/period-utils";
+import { ReportsPeriodSelector } from "./_components/reports-period-selector";
 
-export default async function ReportsPage() {
+interface ReportsPageProps {
+  searchParams: Promise<{ period?: string; from?: string; to?: string }>;
+}
+
+export default async function ReportsPage({ searchParams }: ReportsPageProps) {
+  const params = await searchParams;
   const session = await requireRole(["admin"]);
   const { organizationId } = session;
 
-  const now = new Date();
-  const thisMonthStart = startOfMonth(now);
-  const thisMonthEnd = endOfMonth(now);
-  const lastMonthStart = startOfMonth(subMonths(now, 1));
-  const lastMonthEnd = endOfMonth(subMonths(now, 1));
+  // Get date range from URL params
+  const dateRange = getDateRangeFromParams(params, "1m");
+  const periodStart = dateRange.from;
+  const periodEnd = dateRange.to;
+
+  // Calculate comparison period (same duration, previous period)
+  const periodDuration = periodEnd.getTime() - periodStart.getTime();
+  const comparisonEnd = new Date(periodStart.getTime() - 1);
+  const comparisonStart = new Date(comparisonEnd.getTime() - periodDuration);
 
   // Fleet Summary
   const [totalTrucks, activeTrucks, totalDrivers, activeDrivers] =
@@ -30,13 +41,13 @@ export default async function ReportsPage() {
       prisma.trip.count({
         where: {
           organizationId,
-          scheduledDate: { gte: thisMonthStart, lte: thisMonthEnd },
+          scheduledDate: { gte: periodStart, lte: periodEnd },
         },
       }),
       prisma.trip.count({
         where: {
           organizationId,
-          scheduledDate: { gte: lastMonthStart, lte: lastMonthEnd },
+          scheduledDate: { gte: comparisonStart, lte: comparisonEnd },
         },
       }),
       prisma.trip.count({
@@ -59,42 +70,42 @@ export default async function ReportsPage() {
     prisma.invoice.aggregate({
       where: {
         organizationId,
-        issueDate: { gte: thisMonthStart, lte: thisMonthEnd },
+        issueDate: { gte: periodStart, lte: periodEnd },
       },
       _sum: { total: true },
     }),
     prisma.invoice.aggregate({
       where: {
         organizationId,
-        issueDate: { gte: lastMonthStart, lte: lastMonthEnd },
+        issueDate: { gte: comparisonStart, lte: comparisonEnd },
       },
       _sum: { total: true },
     }),
     prisma.payment.aggregate({
       where: {
         invoice: { organizationId },
-        paymentDate: { gte: thisMonthStart, lte: thisMonthEnd },
+        paymentDate: { gte: periodStart, lte: periodEnd },
       },
       _sum: { amount: true },
     }),
     prisma.payment.aggregate({
       where: {
         invoice: { organizationId },
-        paymentDate: { gte: lastMonthStart, lte: lastMonthEnd },
+        paymentDate: { gte: comparisonStart, lte: comparisonEnd },
       },
       _sum: { amount: true },
     }),
     prisma.expense.aggregate({
       where: {
         organizationId,
-        date: { gte: thisMonthStart, lte: thisMonthEnd },
+        date: { gte: periodStart, lte: periodEnd },
       },
       _sum: { amount: true },
     }),
     prisma.expense.aggregate({
       where: {
         organizationId,
-        date: { gte: lastMonthStart, lte: lastMonthEnd },
+        date: { gte: comparisonStart, lte: comparisonEnd },
       },
       _sum: { amount: true },
     }),
@@ -114,13 +125,13 @@ export default async function ReportsPage() {
     take: 10,
   });
 
-  // Top customers by revenue
+  // Top customers by revenue (within selected period)
   const topCustomers = await prisma.customer.findMany({
     where: { organizationId },
     include: {
       invoices: {
         where: {
-          issueDate: { gte: thisMonthStart, lte: thisMonthEnd },
+          issueDate: { gte: periodStart, lte: periodEnd },
         },
         select: { total: true },
       },
@@ -137,12 +148,12 @@ export default async function ReportsPage() {
     .sort((a, b) => b.revenue - a.revenue)
     .slice(0, 5);
 
-  // Expense by category
+  // Expense by category (within selected period)
   const expensesByCategory = await prisma.expense.groupBy({
     by: ["categoryId"],
     where: {
       organizationId,
-      date: { gte: thisMonthStart, lte: thisMonthEnd },
+      date: { gte: periodStart, lte: periodEnd },
     },
     _sum: { amount: true },
   });
@@ -202,10 +213,13 @@ export default async function ReportsPage() {
 
   return (
     <div>
-      <PageHeader
-        title="Reports"
-        description={`Reports for ${format(now, "MMMM yyyy")}`}
-      />
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <PageHeader
+          title="Reports"
+          description={`Reports for ${dateRange.label}`}
+        />
+        <ReportsPeriodSelector />
+      </div>
 
       <ReportsClient
         customers={customers}

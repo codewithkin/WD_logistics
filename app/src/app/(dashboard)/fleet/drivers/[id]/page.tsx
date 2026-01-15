@@ -8,27 +8,41 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Pencil, Truck, Calendar, Phone, Mail, FileText, CreditCard } from "lucide-react";
+import { Pencil, Truck, Calendar, Phone, Mail, FileText, CreditCard, DollarSign, TrendingUp } from "lucide-react";
 import { format } from "date-fns";
 import { AssignTruck } from "./_components/assign-truck";
 import { ExportDriverButton } from "./_components/export-driver-button";
+import { getDateRangeFromParams } from "@/lib/period-utils";
+import { PagePeriodSelector } from "@/components/ui/page-period-selector";
+import { formatCurrency } from "@/lib/utils";
 
 interface DriverDetailPageProps {
     params: Promise<{ id: string }>;
+    searchParams: Promise<{ period?: string; from?: string; to?: string }>;
 }
 
-export default async function DriverDetailPage({ params }: DriverDetailPageProps) {
+export default async function DriverDetailPage({ params, searchParams }: DriverDetailPageProps) {
     const { id } = await params;
+    const searchParamsData = await searchParams;
     const session = await requireAuth();
     const { role, organizationId } = session;
+
+    // Get date range from URL params
+    const dateRange = getDateRangeFromParams(searchParamsData, "3m");
 
     const driver = await prisma.driver.findFirst({
         where: { id, organizationId },
         include: {
             assignedTruck: true,
             trips: {
+                where: {
+                    scheduledDate: {
+                        gte: dateRange.from,
+                        lte: dateRange.to,
+                    },
+                },
                 orderBy: { scheduledDate: "desc" },
-                take: 5,
+                take: 10,
                 include: {
                     truck: true,
                 },
@@ -40,29 +54,89 @@ export default async function DriverDetailPage({ params }: DriverDetailPageProps
         notFound();
     }
 
+    // Calculate driver performance metrics for the selected period
+    const allTripsInPeriod = await prisma.trip.findMany({
+        where: {
+            driverId: id,
+            organizationId,
+            scheduledDate: {
+                gte: dateRange.from,
+                lte: dateRange.to,
+            },
+        },
+        select: {
+            revenue: true,
+            status: true,
+        },
+    });
+
+    const totalTrips = allTripsInPeriod.length;
+    const completedTrips = allTripsInPeriod.filter(t => t.status === "completed").length;
+    const totalRevenue = allTripsInPeriod.reduce((sum, t) => sum + t.revenue, 0);
+
     const canEdit = role === "admin" || role === "supervisor";
 
     return (
         <div>
-            <PageHeader
-                title={`${driver.firstName} ${driver.lastName}`}
-                description="Driver details"
-                backHref="/fleet/drivers"
-                action={
-                    canEdit
-                        ? {
-                            label: "Edit Driver",
-                            href: `/fleet/drivers/${driver.id}/edit`,
-                            icon: Pencil,
-                        }
-                        : undefined
-                }
-            >
-                <ExportDriverButton
-                    driverId={driver.id}
-                    driverName={`${driver.firstName} ${driver.lastName}`}
-                />
-            </PageHeader>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+                <PageHeader
+                    title={`${driver.firstName} ${driver.lastName}`}
+                    description={`Driver details - ${dateRange.label}`}
+                    backHref="/fleet/drivers"
+                    action={
+                        canEdit
+                            ? {
+                                label: "Edit Driver",
+                                href: `/fleet/drivers/${driver.id}/edit`,
+                                icon: Pencil,
+                            }
+                            : undefined
+                    }
+                >
+                    <ExportDriverButton
+                        driverId={driver.id}
+                        driverName={`${driver.firstName} ${driver.lastName}`}
+                    />
+                </PageHeader>
+                <PagePeriodSelector defaultPreset="3m" />
+            </div>
+
+            {/* Performance Metrics for Selected Period */}
+            <div className="grid gap-4 md:grid-cols-3 mb-6">
+                <Card>
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                            <Calendar className="h-4 w-4" /> Total Trips
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-2xl font-bold">{totalTrips}</p>
+                        <p className="text-xs text-muted-foreground">{completedTrips} completed</p>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                            <DollarSign className="h-4 w-4" /> Revenue Generated
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-2xl font-bold">{formatCurrency(totalRevenue)}</p>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                            <TrendingUp className="h-4 w-4" /> Completion Rate
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-2xl font-bold">
+                            {totalTrips > 0 ? Math.round((completedTrips / totalTrips) * 100) : 0}%
+                        </p>
+                    </CardContent>
+                </Card>
+            </div>
 
             <div className="grid gap-6 md:grid-cols-2">
                 <Card>

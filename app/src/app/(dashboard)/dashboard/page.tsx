@@ -10,10 +10,20 @@ import { getPerformanceTrendData } from "@/lib/dashboard/performance-trend";
 import { DriverPerformanceTable } from "@/components/dashboard/driver-performance-table";
 import { getDriverPerformanceData } from "@/lib/dashboard/driver-performance";
 import { QuickActions } from "./_components/quick-actions";
+import { DashboardPeriodSelector } from "./_components/dashboard-period-selector";
+import { getDateRangeFromParams } from "@/lib/period-utils";
 
-export default async function DashboardPage() {
+interface DashboardPageProps {
+    searchParams: Promise<{ period?: string; from?: string; to?: string }>;
+}
+
+export default async function DashboardPage({ searchParams }: DashboardPageProps) {
+    const params = await searchParams;
     const session = await requireAuth();
     const { role, organizationId } = session;
+
+    // Get date range from URL params
+    const dateRange = getDateRangeFromParams(params, "1m");
 
     // Fetch dashboard data
     const [
@@ -31,22 +41,24 @@ export default async function DashboardPage() {
             where: { organizationId },
             _count: true,
         }),
-        // Trip stats this month
+        // Trip stats within period
         prisma.trip.count({
             where: {
                 organizationId,
                 scheduledDate: {
-                    gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+                    gte: dateRange.from,
+                    lte: dateRange.to,
                 },
             },
         }),
-        // Revenue this month
+        // Revenue within period
         prisma.trip.aggregate({
             where: {
                 organizationId,
                 status: "completed",
                 endDate: {
-                    gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+                    gte: dateRange.from,
+                    lte: dateRange.to,
                 },
             },
             _sum: { revenue: true },
@@ -63,11 +75,11 @@ export default async function DashboardPage() {
             take: 5,
         }),
         // Revenue vs Expenses data
-        getRevenueExpensesData(),
+        getRevenueExpensesData(dateRange.from, dateRange.to),
         // Performance trend data
-        getPerformanceTrendData(),
+        getPerformanceTrendData(dateRange.from, dateRange.to),
         // Driver performance data
-        getDriverPerformanceData(),
+        getDriverPerformanceData(dateRange.from, dateRange.to),
     ]);
 
     // Calculate fleet status
@@ -86,6 +98,7 @@ export default async function DashboardPage() {
         tripsThisMonth: tripStats,
         revenueThisMonth: revenueStats._sum.revenue || 0,
         overdueInvoicesCount: overdueInvoices.length,
+        periodLabel: dateRange.label,
     };
 
     return (
@@ -95,7 +108,10 @@ export default async function DashboardPage() {
                     title="Dashboard"
                     description={`Welcome back, ${session.user.name}`}
                 />
-                <QuickActions role={role} />
+                <div className="flex items-center gap-3">
+                    <DashboardPeriodSelector />
+                    <QuickActions role={role} />
+                </div>
             </div>
 
             {/* Stats Cards */}

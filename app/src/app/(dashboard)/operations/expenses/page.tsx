@@ -3,9 +3,11 @@ import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/layout/page-header";
 import { ExpensesClient } from "./_components/expenses-client";
 import { Plus } from "lucide-react";
+import { getDateRangeFromParams } from "@/lib/period-utils";
+import { PagePeriodSelector } from "@/components/ui/page-period-selector";
 
 interface ExpensesPageProps {
-    searchParams: Promise<{ tripId?: string; categoryId?: string }>;
+    searchParams: Promise<{ tripId?: string; categoryId?: string; period?: string; from?: string; to?: string }>;
 }
 
 export default async function ExpensesPage({ searchParams }: ExpensesPageProps) {
@@ -13,7 +15,16 @@ export default async function ExpensesPage({ searchParams }: ExpensesPageProps) 
     const session = await requireAuth();
     const { role, organizationId } = session;
 
-    const whereClause: Record<string, unknown> = { organizationId };
+    // Get date range from URL params
+    const dateRange = getDateRangeFromParams(params, "1m");
+
+    const whereClause: Record<string, unknown> = {
+        organizationId,
+        date: {
+            gte: dateRange.from,
+            lte: dateRange.to,
+        },
+    };
 
     // Filter by trip if specified
     if (params.tripId) {
@@ -85,19 +96,22 @@ export default async function ExpensesPage({ searchParams }: ExpensesPageProps) 
 
     return (
         <div className="space-y-6">
-            <PageHeader
-                title="Expenses"
-                description="Track and manage expenses"
-                action={
-                    canCreate
-                        ? {
-                            label: "Add Expense",
-                            href: "/operations/expenses/new",
-                            icon: Plus,
-                        }
-                        : undefined
-                }
-            />
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <PageHeader
+                    title="Expenses"
+                    description={`Track and manage expenses - ${dateRange.label}`}
+                    action={
+                        canCreate
+                            ? {
+                                label: "Add Expense",
+                                href: "/operations/expenses/new",
+                                icon: Plus,
+                            }
+                            : undefined
+                    }
+                />
+                <PagePeriodSelector defaultPreset="1m" />
+            </div>
             <ExpensesClient
                 expenses={expenses}
                 categories={categories}

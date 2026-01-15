@@ -2,9 +2,19 @@ import { PageHeader } from "@/components/layout/page-header";
 import { ExpensesOverview } from "./_components/expenses-overview";
 import prisma from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
+import { getDateRangeFromParams } from "@/lib/period-utils";
+import { ExpensesPeriodSelector } from "./_components/expenses-period-selector";
 
-export default async function ExpensesPage() {
+interface ExpensesPageProps {
+    searchParams: Promise<{ period?: string; from?: string; to?: string }>;
+}
+
+export default async function ExpensesPage({ searchParams }: ExpensesPageProps) {
+    const params = await searchParams;
     const user = await requireRole(["admin", "supervisor", "staff"]);
+
+    // Get date range from URL params
+    const dateRange = getDateRangeFromParams(params, "1m");
 
     // Fetch categories
     const categories = await prisma.expenseCategory.findMany({
@@ -17,10 +27,14 @@ export default async function ExpensesPage() {
         orderBy: { name: "asc" },
     });
 
-    // Fetch expenses
+    // Fetch expenses within the selected period
     const expenses = await prisma.expense.findMany({
         where: {
             organizationId: user.organizationId,
+            date: {
+                gte: dateRange.from,
+                lte: dateRange.to,
+            },
         },
         include: {
             category: {
@@ -69,10 +83,13 @@ export default async function ExpensesPage() {
 
     return (
         <div className="flex flex-col gap-6">
-            <PageHeader
-                title="Expenses"
-                description="Track and manage all business expenses"
-            />
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <PageHeader
+                    title="Expenses"
+                    description={`Track and manage expenses - ${dateRange.label}`}
+                />
+                <ExpensesPeriodSelector />
+            </div>
             <ExpensesOverview categories={categories} expenses={expenses} />
         </div>
     );

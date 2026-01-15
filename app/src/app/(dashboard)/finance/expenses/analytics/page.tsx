@@ -7,20 +7,27 @@ import { Truck, MapPin, Tag, TrendingUp, Calendar } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
+import { getDateRangeFromParams } from "@/lib/period-utils";
+import { PagePeriodSelector } from "@/components/ui/page-period-selector";
 
-export default async function ExpenseAnalyticsPage() {
+interface ExpenseAnalyticsPageProps {
+    searchParams: Promise<{ period?: string; from?: string; to?: string }>;
+}
+
+export default async function ExpenseAnalyticsPage({ searchParams }: ExpenseAnalyticsPageProps) {
+    const params = await searchParams;
     const user = await requireRole(["admin", "supervisor", "staff"]);
 
-    // Get date range for analytics (last 30 days)
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    // Get date range from URL params
+    const dateRange = getDateRangeFromParams(params, "1m");
 
-    // Fetch all expenses with associations
+    // Fetch all expenses with associations within the selected period
     const expenses = await prisma.expense.findMany({
         where: {
             organizationId: user.organizationId,
             date: {
-                gte: thirtyDaysAgo,
+                gte: dateRange.from,
+                lte: dateRange.to,
             },
         },
         include: {
@@ -108,18 +115,20 @@ export default async function ExpenseAnalyticsPage() {
 
     return (
         <div className="flex flex-col gap-6">
-            <PageHeader
-                title="Expense Analytics"
-                description="Analyze expenses by category, truck, and trip"
-            />
-
-            <div className="flex justify-end">
-                <Link href="/finance/expenses">
-                    <Button variant="outline">
-                        <ArrowLeft className="mr-2 h-4 w-4" />
-                        Back to Expenses
-                    </Button>
-                </Link>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <PageHeader
+                    title="Expense Analytics"
+                    description={`Analyze expenses - ${dateRange.label}`}
+                />
+                <div className="flex items-center gap-3">
+                    <PagePeriodSelector defaultPreset="1m" />
+                    <Link href="/finance/expenses">
+                        <Button variant="outline">
+                            <ArrowLeft className="mr-2 h-4 w-4" />
+                            Back
+                        </Button>
+                    </Link>
+                </div>
             </div>
 
             {/* Summary Card */}
@@ -127,7 +136,7 @@ export default async function ExpenseAnalyticsPage() {
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                         <TrendingUp className="h-5 w-5" />
-                        Last 30 Days Summary
+                        {dateRange.label} Summary
                     </CardTitle>
                     <CardDescription>
                         Total expenses and breakdown by entity
