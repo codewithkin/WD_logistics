@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { Suspense } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { format, subDays, subWeeks, subMonths, subYears, startOfDay, endOfDay } from "date-fns";
 import { Calendar as CalendarIcon, Clock, ChevronDown, Check } from "lucide-react";
@@ -153,6 +154,34 @@ export function getPeriodFromParams(searchParams: URLSearchParams): PeriodValue 
 }
 
 export function PeriodSelector({
+    className,
+    value,
+    onChange,
+    useUrlParams = false,
+    defaultPreset = "1m",
+}: PeriodSelectorProps) {
+    return (
+        <Suspense fallback={
+            <Button variant="outline" className={cn("min-w-[180px] justify-between", className)} disabled>
+                <div className="flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-muted-foreground" />
+                    <span className="truncate">Loading...</span>
+                </div>
+                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            </Button>
+        }>
+            <PeriodSelectorInner
+                className={className}
+                value={value}
+                onChange={onChange}
+                useUrlParams={useUrlParams}
+                defaultPreset={defaultPreset}
+            />
+        </Suspense>
+    );
+}
+
+function PeriodSelectorInner({
     className,
     value,
     onChange,
