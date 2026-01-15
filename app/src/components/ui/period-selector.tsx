@@ -227,7 +227,7 @@ function PeriodSelectorInner({
                     params.set("to", period.to.toISOString());
                 }
 
-                router.push(`${pathname}?${params.toString()}`);
+                router.push(`${pathname}?${params.toString()}`, { scroll: false });
             }
         },
         [onChange, useUrlParams, searchParams, pathname, router]

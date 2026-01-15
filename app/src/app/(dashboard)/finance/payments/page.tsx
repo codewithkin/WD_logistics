@@ -8,6 +8,8 @@ import { PagePeriodSelector } from "@/components/ui/page-period-selector";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
+export const dynamic = "force-dynamic";
+
 interface PaymentsPageProps {
     searchParams: Promise<{ period?: string; from?: string; to?: string }>;
 }
