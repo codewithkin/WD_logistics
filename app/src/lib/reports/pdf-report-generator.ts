@@ -1227,7 +1227,6 @@ export function generatePaymentReportPDF(data: {
     amount: number;
     paymentDate: Date | string;
     method: string;
-    reference: string;
   }>;
   analytics: {
     totalPayments: number;
@@ -1255,7 +1254,6 @@ export function generatePaymentReportPDF(data: {
           { header: "Customer", key: "customer", align: "left" },
           { header: "Payment Date", key: "paymentDate", format: "date", align: "center" },
           { header: "Method", key: "method", align: "center" },
-          { header: "Reference", key: "reference", align: "left" },
           { header: "Amount", key: "amount", format: "currency", align: "right" },
         ],
         data: data.payments.map((pmt) => ({
@@ -1263,7 +1261,6 @@ export function generatePaymentReportPDF(data: {
           customer: pmt.customer,
           paymentDate: pmt.paymentDate,
           method: pmt.method,
-          reference: pmt.reference || "N/A",
           amount: pmt.amount,
         })),
         showTotal: true,

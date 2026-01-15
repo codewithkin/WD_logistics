@@ -40,7 +40,6 @@ const paymentSchema = z.object({
     paymentDate: z.date({ message: "Payment date is required" }),
     method: z.enum(["cash", "check", "bank_transfer", "mobile_money", "other"]),
     customMethod: z.string().optional(),
-    reference: z.string().optional(),
     notes: z.string().optional(),
 }).refine((data) => {
     // If method is "other", customMethod is required
@@ -64,7 +63,6 @@ interface PaymentFormProps {
         paymentDate: Date;
         method: string;
         customMethod: string | null;
-        reference: string | null;
         notes: string | null;
     };
     invoices: Array<{
@@ -99,7 +97,6 @@ export function PaymentForm({ payment, invoices, defaultInvoiceId }: PaymentForm
             paymentDate: payment?.paymentDate ?? new Date(),
             method: (payment?.method as PaymentFormData["method"]) ?? "bank_transfer",
             customMethod: payment?.customMethod ?? "",
-            reference: payment?.reference ?? "",
             notes: payment?.notes ?? "",
         },
     });
@@ -273,19 +270,6 @@ export function PaymentForm({ payment, invoices, defaultInvoiceId }: PaymentForm
                                                 ))}
                                             </SelectContent>
                                         </Select>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                            <FormField
-                                control={form.control}
-                                name="reference"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Reference / Transaction ID</FormLabel>
-                                        <FormControl>
-                                            <Input placeholder="Optional" {...field} />
-                                        </FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}

@@ -14,7 +14,6 @@ export async function createPayment(data: {
   paymentDate: Date;
   method: PaymentMethod;
   customMethod?: string;
-  reference?: string;
   notes?: string;
 }) {
   const session = await requireRole(["admin", "supervisor"]);
@@ -41,7 +40,6 @@ export async function createPayment(data: {
         paymentDate: data.paymentDate,
         method: data.method,
         customMethod: data.method === "other" ? data.customMethod : null,
-        reference: data.reference,
         notes: data.notes,
       },
     });
@@ -99,7 +97,6 @@ export async function updatePayment(
     paymentDate?: Date;
     method?: PaymentMethod;
     customMethod?: string;
-    reference?: string;
     notes?: string;
   }
 ) {
@@ -265,7 +262,6 @@ export async function exportPaymentsPDF(options?: {
       amount: pmt.amount,
       paymentDate: pmt.paymentDate,
       method: pmt.method,
-      reference: pmt.reference || "N/A",
     }));
 
     // Count by payment method
