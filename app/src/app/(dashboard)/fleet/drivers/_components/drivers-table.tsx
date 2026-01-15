@@ -53,7 +53,7 @@ interface Driver {
     phone: string;
     email: string | null;
     licenseNumber: string;
-    licenseExpiry: Date | null;
+    licenseExpiration?: Date | null;
     status: string;
     assignedTruck: {
         id: string;

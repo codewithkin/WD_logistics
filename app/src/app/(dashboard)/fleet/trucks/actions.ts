@@ -400,8 +400,12 @@ export async function exportTrucksPDF(options?: {
   }
 }
 
-export async function exportSingleTruckReport(truckId: string) {
+export async function exportSingleTruckReport(truckId: string, periodParams?: { period?: string; from?: string; to?: string }) {
   const session = await requireAuth();
+
+  // Import date range function dynamically
+  const { getDateRangeFromParams } = await import("@/lib/period-utils");
+  const dateRange = getDateRangeFromParams(periodParams || {}, "3m");
 
   try {
     const truck = await prisma.truck.findFirst({
@@ -409,6 +413,12 @@ export async function exportSingleTruckReport(truckId: string) {
       include: {
         assignedDriver: true,
         trips: {
+          where: {
+            scheduledDate: {
+              gte: dateRange.from,
+              lte: dateRange.to,
+            },
+          },
           orderBy: { scheduledDate: "desc" },
           take: 20,
           include: {
@@ -416,6 +426,14 @@ export async function exportSingleTruckReport(truckId: string) {
           },
         },
         truckExpenses: {
+          where: {
+            expense: {
+              date: {
+                gte: dateRange.from,
+                lte: dateRange.to,
+              },
+            },
+          },
           take: 10,
           include: {
             expense: {

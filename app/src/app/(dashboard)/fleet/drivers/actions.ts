@@ -403,8 +403,12 @@ export async function exportDriversPDF() {
   }
 }
 
-export async function exportSingleDriverReport(driverId: string) {
+export async function exportSingleDriverReport(driverId: string, periodParams?: { period?: string; from?: string; to?: string }) {
   const session = await requireAuth();
+
+  // Import date range function dynamically
+  const { getDateRangeFromParams } = await import("@/lib/period-utils");
+  const dateRange = getDateRangeFromParams(periodParams || {}, "3m");
 
   try {
     const driver = await prisma.driver.findFirst({
@@ -412,6 +416,12 @@ export async function exportSingleDriverReport(driverId: string) {
       include: {
         assignedTruck: true,
         trips: {
+          where: {
+            scheduledDate: {
+              gte: dateRange.from,
+              lte: dateRange.to,
+            },
+          },
           orderBy: { scheduledDate: "desc" },
           take: 20,
           include: {
@@ -419,6 +429,14 @@ export async function exportSingleDriverReport(driverId: string) {
           },
         },
         driverExpenses: {
+          where: {
+            expense: {
+              date: {
+                gte: dateRange.from,
+                lte: dateRange.to,
+              },
+            },
+          },
           include: {
             expense: true,
           },

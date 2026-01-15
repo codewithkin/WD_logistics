@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Download, Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -13,11 +14,17 @@ interface ExportDriverButtonProps {
 
 export function ExportDriverButton({ driverId, driverName }: ExportDriverButtonProps) {
     const [isLoading, setIsLoading] = useState(false);
+    const searchParams = useSearchParams();
 
     const handleExport = async () => {
         setIsLoading(true);
         try {
-            const result = await exportSingleDriverReport(driverId);
+            // Pass current period params to the export
+            const period = searchParams.get("period") || "3m";
+            const from = searchParams.get("from");
+            const to = searchParams.get("to");
+
+            const result = await exportSingleDriverReport(driverId, { period, from: from || undefined, to: to || undefined });
             if (result.success && result.pdfBase64) {
                 // Convert base64 to blob and download
                 const byteCharacters = atob(result.pdfBase64);

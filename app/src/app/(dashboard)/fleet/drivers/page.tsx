@@ -4,23 +4,54 @@ import { PageHeader } from "@/components/layout/page-header";
 import { DriversTable } from "./_components/drivers-table";
 import { DriversAnalytics } from "./_components/drivers-analytics";
 import { Plus } from "lucide-react";
+import { getDateRangeFromParams } from "@/lib/period-utils";
+import { PagePeriodSelector } from "@/components/ui/page-period-selector";
 
-export default async function DriversPage() {
+interface DriversPageProps {
+    searchParams: Promise<{ period?: string; from?: string; to?: string }>;
+}
+
+export default async function DriversPage({ searchParams }: DriversPageProps) {
+    const params = await searchParams;
     const session = await requireAuth();
     const { role, organizationId } = session;
 
-    const drivers = await prisma.driver.findMany({
+    // Get date range from URL params
+    const dateRange = getDateRangeFromParams(params, "3m");
+
+    // Get base driver data with trips in the selected period
+    const driversData = await prisma.driver.findMany({
         where: { organizationId },
         include: {
-            assignedTruck: true,
-            _count: {
+            assignedTruck: {
                 select: {
-                    trips: true,
+                    id: true,
+                    registrationNo: true,
+                },
+            },
+            trips: {
+                where: {
+                    scheduledDate: {
+                        gte: dateRange.from,
+                        lte: dateRange.to,
+                    },
+                },
+                select: {
+                    id: true,
+                    revenue: true,
+                    status: true,
                 },
             },
         },
         orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
     });
+
+    // Transform to include _count and totalRevenue for compatibility
+    const drivers = driversData.map(d => ({
+        ...d,
+        _count: { trips: d.trips.length },
+        totalRevenue: d.trips.reduce((sum, t) => sum + t.revenue, 0),
+    }));
 
     // Calculate analytics
     const totalDrivers = drivers.length;
@@ -31,16 +62,7 @@ export default async function DriversPage() {
     const driversWithTruck = drivers.filter(d => d.assignedTruck !== null).length;
     const driversWithoutTruck = drivers.filter(d => d.assignedTruck === null).length;
     const totalTrips = drivers.reduce((sum, d) => sum + d._count.trips, 0);
-
-    // License type breakdown
-    const licenseBreakdown = drivers.reduce((acc, d) => {
-        const license = d.licenseType || "Unknown";
-        if (!acc[license]) {
-            acc[license] = { type: license, count: 0 };
-        }
-        acc[license].count += 1;
-        return acc;
-    }, {} as Record<string, { type: string; count: number }>);
+    const totalRevenue = drivers.reduce((sum, d) => sum + d.totalRevenue, 0);
 
     const analytics = {
         totalDrivers,
@@ -51,7 +73,8 @@ export default async function DriversPage() {
         driversWithTruck,
         driversWithoutTruck,
         totalTrips,
-        licenseBreakdown: Object.values(licenseBreakdown),
+        totalRevenue,
+        licenseBreakdown: [] as Array<{ type: string; count: number }>,
     };
 
     const canCreate = role === "admin" || role === "supervisor";
@@ -59,21 +82,24 @@ export default async function DriversPage() {
 
     return (
         <div className="space-y-6">
-            <PageHeader
-                title="Drivers"
-                description="Manage your fleet drivers"
-                action={
-                    canCreate
-                        ? {
-                            label: "Add Driver",
-                            href: "/fleet/drivers/new",
-                            icon: Plus,
-                        }
-                        : undefined
-                }
-            />
-            <DriversAnalytics analytics={analytics} drivers={drivers} canExport={canExport} />
-            <DriversTable drivers={drivers} role={role} />
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <PageHeader
+                    title="Drivers"
+                    description={`Manage your fleet drivers - ${dateRange.label}`}
+                    action={
+                        canCreate
+                            ? {
+                                label: "Add Driver",
+                                href: "/fleet/drivers/new",
+                                icon: Plus,
+                            }
+                            : undefined
+                    }
+                />
+                <PagePeriodSelector defaultPreset="3m" />
+            </div>
+            <DriversAnalytics analytics={analytics} drivers={drivers as any} canExport={canExport} periodLabel={dateRange.label} />
+            <DriversTable drivers={drivers as any} role={role} />
         </div>
     );
 }

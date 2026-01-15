@@ -72,9 +72,10 @@ interface Truck {
 interface TrucksTableProps {
     trucks: Truck[];
     role: Role;
+    periodLabel?: string;
 }
 
-export function TrucksTable({ trucks, role }: TrucksTableProps) {
+export function TrucksTable({ trucks, role, periodLabel }: TrucksTableProps) {
     const router = useRouter();
     const [search, setSearch] = useState("");
     const [statusFilter, setStatusFilter] = useState<string>("all");

@@ -27,7 +27,6 @@ interface Driver {
     email: string | null;
     phone: string;
     licenseNumber: string;
-    licenseType: string;
     status: string;
     assignedTruck: { registrationNo: string } | null;
     _count: { trips: number };
@@ -43,10 +42,12 @@ interface DriversAnalyticsProps {
         driversWithTruck: number;
         driversWithoutTruck: number;
         totalTrips: number;
+        totalRevenue?: number;
         licenseBreakdown: Array<{ type: string; count: number }>;
     };
     drivers: Driver[];
     canExport: boolean;
+    periodLabel?: string;
 }
 
 const STATUS_COLORS = {
@@ -61,7 +62,7 @@ const LICENSE_COLORS = [
     "#ec4899", "#14b8a6", "#f97316", "#6366f1", "#84cc16"
 ];
 
-export function DriversAnalytics({ analytics, drivers, canExport }: DriversAnalyticsProps) {
+export function DriversAnalytics({ analytics, drivers, canExport, periodLabel }: DriversAnalyticsProps) {
     const [isExporting, setIsExporting] = useState(false);
 
     const statusData = [
@@ -86,14 +87,13 @@ export function DriversAnalytics({ analytics, drivers, canExport }: DriversAnaly
         }));
 
     const handleExportCSV = () => {
-        const headers = ["First Name", "Last Name", "Email", "Phone", "License Number", "License Type", "Status", "Assigned Truck", "Trips"];
+        const headers = ["First Name", "Last Name", "Email", "Phone", "License Number", "Status", "Assigned Truck", "Trips"];
         const rows = drivers.map(d => [
             d.firstName,
             d.lastName,
             d.email || "N/A",
             d.phone,
             d.licenseNumber,
-            d.licenseType,
             d.status,
             d.assignedTruck?.registrationNo || "N/A",
             d._count.trips.toString(),
@@ -189,7 +189,7 @@ export function DriversAnalytics({ analytics, drivers, canExport }: DriversAnaly
                     <CardContent>
                         <div className="text-2xl font-bold">{analytics.totalTrips}</div>
                         <p className="text-xs text-muted-foreground">
-                            Across all drivers
+                            {periodLabel ? `For ${periodLabel}` : "Across all drivers"}
                         </p>
                     </CardContent>
                 </Card>
