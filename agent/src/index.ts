@@ -101,14 +101,21 @@ const initWhatsApp = async () => {
       // Setup incoming message handler with admin phone filter
       client.on("message", async (msg: { from: string; body: string; reply: (text: string) => Promise<void> }) => {
         try {
-          // Extract phone number from WhatsApp ID (format: 263789859332@c.us)
-          const phoneNumber = msg.from.replace("@c.us", "");
+          // Extract phone number from WhatsApp ID
+          // Format can be: 263789859332@c.us (normal) or 71025924542654@lid (broadcast/status)
+          const phoneNumber = msg.from.replace(/@c\.us|@lid|@g\.us/g, "");
           const formattedNumber = `+${phoneNumber}`;
+          
+          // Ignore broadcast/status messages (typically @lid)
+          if (msg.from.includes("@lid") || msg.from.includes("@g.us")) {
+            console.log(`⚠️ Ignoring non-personal message from: ${msg.from}`);
+            return;
+          }
           
           // Check if sender is an admin
           if (!isAdminPhoneNumber(formattedNumber)) {
             console.log(`⚠️ Ignoring message from non-admin number: ${formattedNumber}`);
-            await msg.reply("Sorry, you are not authorized to use the AI assistant. Contact your administrator for access.");
+            // Silently ignore non-admin messages to avoid errors
             return;
           }
           
@@ -129,8 +136,8 @@ const initWhatsApp = async () => {
           console.error("Error processing incoming message:", error);
           try {
             await msg.reply("Sorry, I encountered an error processing your request. Please try again.");
-          } catch {
-            // Ignore reply errors
+          } catch (replyError) {
+            console.error("Failed to send error message:", replyError);
           }
         }
       });
