@@ -129,15 +129,15 @@ export function SuppliersTable({ suppliers, role, periodLabel = "This Month" }: 
                     </div>
                 </div>
 
-                <div className="rounded-md border">
+                <div className="rounded-md border overflow-x-auto">
                     <Table>
                         <TableHeader>
                             <TableRow>
                                 <TableHead>Name</TableHead>
-                                <TableHead>Contact Person</TableHead>
+                                <TableHead className="hidden md:table-cell">Contact Person</TableHead>
                                 <TableHead>Phone</TableHead>
-                                <TableHead>Email</TableHead>
-                                <TableHead className="text-center" title={`Expenses in ${periodLabel}`}>Expenses ({periodLabel})</TableHead>
+                                <TableHead className="hidden lg:table-cell">Email</TableHead>
+                                <TableHead className="text-center hidden sm:table-cell" title={`Expenses in ${periodLabel}`}>Expenses ({periodLabel})</TableHead>
                                 <TableHead className="text-right" title={`Expense Total in ${periodLabel}`}>Expense Total ({periodLabel})</TableHead>
                                 <TableHead className="text-right">Balance Owed</TableHead>
                                 <TableHead className="text-center">Status</TableHead>
@@ -162,10 +162,10 @@ export function SuppliersTable({ suppliers, role, periodLabel = "This Month" }: 
                                                 {supplier.name}
                                             </Link>
                                         </TableCell>
-                                        <TableCell>{supplier.contactPerson || "-"}</TableCell>
+                                        <TableCell className="hidden md:table-cell">{supplier.contactPerson || "-"}</TableCell>
                                         <TableCell>{supplier.phone || "-"}</TableCell>
-                                        <TableCell>{supplier.email || "-"}</TableCell>
-                                        <TableCell className="text-center">
+                                        <TableCell className="hidden lg:table-cell">{supplier.email || "-"}</TableCell>
+                                        <TableCell className="text-center hidden sm:table-cell">
                                             {supplier._count.expenses}
                                         </TableCell>
                                         <TableCell className="text-right font-medium text-amber-600">
@@ -219,11 +219,14 @@ export function SuppliersTable({ suppliers, role, periodLabel = "This Month" }: 
                             )}
                             {paginatedSuppliers.length > 0 && (
                                 <TableRow className="bg-muted/50 font-medium">
-                                    <TableCell colSpan={5}>Total</TableCell>
+                                    <TableCell colSpan={2} className="sm:hidden">Total</TableCell>
+                                    <TableCell colSpan={3} className="hidden sm:table-cell md:hidden">Total</TableCell>
+                                    <TableCell colSpan={4} className="hidden md:table-cell lg:hidden">Total</TableCell>
+                                    <TableCell colSpan={5} className="hidden lg:table-cell">Total</TableCell>
                                     <TableCell className={`text-right ${totalBalance > 0 ? "text-red-600" : ""}`}>
                                         {formatCurrency(totalBalance)}
                                     </TableCell>
-                                    <TableCell colSpan={2}></TableCell>
+                                    <TableCell colSpan={3}></TableCell>
                                 </TableRow>
                             )}
                         </TableBody>
