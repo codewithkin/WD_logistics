@@ -70,10 +70,16 @@ app.route("/webhooks", webhooks);
 // Start server
 const port = Number(process.env.PORT) || 3001;
 
+serve({
+  fetch: app.fetch,
+  port,
+});
+
 console.log(`🤖 WD Logistics AI Agent running on http://localhost:${port}`);
 
-// Initialize WhatsApp client
+// Initialize WhatsApp client immediately on startup
 const initWhatsApp = async () => {
+  console.log("🔄 Initializing WhatsApp client...");
   try {
     const client = getAgentWhatsAppClient();
 
@@ -85,12 +91,12 @@ const initWhatsApp = async () => {
 
     // Listen for status changes
     client.on("status", (status) => {
-      console.log(`WhatsApp client status: ${status.status}`);
+      console.log(`📱 WhatsApp client status: ${status.status}`);
     });
 
     const initialized = await client.initialize();
     if (initialized) {
-      console.log("✅ WhatsApp client initialized on startup");
+      console.log("✅ WhatsApp client initialized and ready");
       
       // Setup incoming message handler with admin phone filter
       client.on("message", async (msg: { from: string; body: string; reply: (text: string) => Promise<void> }) => {
@@ -130,16 +136,11 @@ const initWhatsApp = async () => {
       });
     }
   } catch (error) {
-    console.error("❌ Failed to initialize WhatsApp client on startup:", error);
+    console.error("❌ Failed to initialize WhatsApp client:", error);
   }
 };
 
-// Initialize WhatsApp on startup
+// Start WhatsApp initialization immediately
 initWhatsApp();
-
-serve({
-  fetch: app.fetch,
-  port,
-});
 
 export default app;
