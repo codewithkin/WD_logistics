@@ -7,7 +7,7 @@ import workflows from "./routes/workflows";
 import whatsapp from "./routes/whatsapp";
 import webhooks from "./routes/webhooks";
 import { getAgentWhatsAppClient } from "./lib/whatsapp";
-import { isAdminPhoneNumber } from "./lib/constants";
+import { isAdminPhoneNumber, BUSINESS_INFO_SYSTEM_PROMPT } from "./lib/constants";
 import { logisticsAgent } from "./agents/logistics-agent";
 
 const app = new Hono();
@@ -98,7 +98,15 @@ const initWhatsApp = async () => {
     if (initialized) {
       console.log("✅ WhatsApp client initialized and ready");
       
-      // Setup incoming message handler with admin phone filter
+      // Get the bot's own phone number
+      const botInfo = await client.getClient().info;
+      const botPhoneNumber = botInfo?.wid?.user ? `+${botInfo.wid.user}` : null;
+      
+      if (botPhoneNumber) {
+        console.log(`📱 Bot connected as: ${botPhoneNumber}`);
+      }
+      
+      // Setup incoming message handler
       client.on("message", async (msg: { from: string; body: string; reply: (text: string) => Promise<void> }) => {
         try {
           // Extract phone number from WhatsApp ID
@@ -106,32 +114,77 @@ const initWhatsApp = async () => {
           const phoneNumber = msg.from.replace(/@c\.us|@lid|@g\.us/g, "");
           const formattedNumber = `+${phoneNumber}`;
           
-          // Ignore broadcast/status messages (typically @lid)
+          // Ignore broadcast/status messages or group messages
           if (msg.from.includes("@lid") || msg.from.includes("@g.us")) {
             console.log(`⚠️ Ignoring non-personal message from: ${msg.from}`);
             return;
           }
           
-          // Check if sender is an admin
-          if (!isAdminPhoneNumber(formattedNumber)) {
-            console.log(`⚠️ Ignoring message from non-admin number: ${formattedNumber}`);
-            // Silently ignore non-admin messages to avoid errors
+          // Check if message is from bot's own number with WD_LOGISTICS keyword
+          const isOwnNumber = botPhoneNumber && formattedNumber === botPhoneNumber;
+          const hasKeyword = msg.body.includes("WD_LOGISTICS");
+          
+          if (isOwnNumber && hasKeyword) {
+            console.log(`📨 Processing self-message with WD_LOGISTICS keyword`);
+            
+            // Process with AI agent (full admin access)
+            const response = await logisticsAgent.generate([
+              {
+                role: "user",
+                content: msg.body,
+              },
+            ]);
+            
+            await msg.reply(response.text);
+            console.log(`✅ Replied to self-message`);
             return;
           }
           
-          console.log(`📨 Processing message from admin: ${formattedNumber}`);
+          // Check if sender is an admin
+          const isAdmin = isAdminPhoneNumber(formattedNumber);
           
-          // Process with AI agent
+          if (isAdmin) {
+            console.log(`📨 Processing message from admin: ${formattedNumber}`);
+            
+            // Process with AI agent (full admin access)
+            const response = await logisticsAgent.generate([
+              {
+                role: "user",
+                content: msg.body,
+              },
+            ]);
+            
+            await msg.reply(response.text);
+            console.log(`✅ Replied to admin: ${formattedNumber}`);
+            return;
+          }
+          
+          // Non-admin user - check if we should respond
+          const noAdminAnswer = process.env.NO_ADMIN_ANSWER === "true" || process.env.NO_ADMIN_ANSWER === "1";
+          
+          if (noAdminAnswer) {
+            console.log(`⚠️ Ignoring non-admin message (NO_ADMIN_ANSWER enabled): ${formattedNumber}`);
+            return;
+          }
+          
+          // Respond to non-admin with business info only
+          console.log(`💬 Processing business inquiry from: ${formattedNumber}`);
+          
+          // Process with AI agent using business info system prompt
           const response = await logisticsAgent.generate([
+            {
+              role: "system",
+              content: BUSINESS_INFO_SYSTEM_PROMPT,
+            },
             {
               role: "user",
               content: msg.body,
             },
           ]);
           
-          // Reply via WhatsApp
           await msg.reply(response.text);
-          console.log(`✅ Replied to admin: ${formattedNumber}`);
+          console.log(`✅ Sent business info to: ${formattedNumber}`);
+          
         } catch (error) {
           console.error("Error processing incoming message:", error);
           try {
