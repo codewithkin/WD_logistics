@@ -18,18 +18,22 @@ import { MonthlyRevenueExpense } from "@/lib/dashboard/revenue-expenses";
 interface RevenueExpensesChartProps {
     data: MonthlyRevenueExpense[];
     periodLabel?: string;
+    periodTotals?: {
+        revenue: number;
+        expenses: number;
+    };
 }
 
-export function RevenueExpensesChart({ data, periodLabel }: RevenueExpensesChartProps) {
+export function RevenueExpensesChart({ data, periodLabel, periodTotals }: RevenueExpensesChartProps) {
     // Format data for chart
     const chartData = data.map((item) => ({
         ...item,
         month: item.month.split(" ")[0], // Show just month abbreviation
     }));
 
-    // Calculate totals
-    const totalRevenue = data.reduce((sum, item) => sum + item.revenue, 0);
-    const totalExpenses = data.reduce((sum, item) => sum + item.expenses, 0);
+    // Use period totals if provided, otherwise calculate from data
+    const totalRevenue = periodTotals?.revenue ?? data.reduce((sum, item) => sum + item.revenue, 0);
+    const totalExpenses = periodTotals?.expenses ?? data.reduce((sum, item) => sum + item.expenses, 0);
     const netProfit = totalRevenue - totalExpenses;
 
     return (

@@ -36,6 +36,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         revenueExpensesData,
         performanceTrendData,
         driverPerformanceData,
+        periodPayments,
+        periodExpenses,
     ] = await Promise.all([
         // Truck stats
         prisma.truck.groupBy({
@@ -76,13 +78,42 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             },
             take: 5,
         }),
-        // Revenue vs Expenses data
+        // Revenue vs Expenses data (monthly breakdown for chart)
         getRevenueExpensesData(dateRange.from, dateRange.to),
-        // Performance trend data
+        // Performance trend data (monthly breakdown for chart)
         getPerformanceTrendData(dateRange.from, dateRange.to),
         // Driver performance data
         getDriverPerformanceData(dateRange.from, dateRange.to),
+        // Period totals: Payments (revenue) within exact date range
+        prisma.payment.aggregate({
+            where: {
+                invoice: { organizationId },
+                paymentDate: {
+                    gte: dateRange.from,
+                    lte: dateRange.to,
+                },
+            },
+            _sum: { amount: true },
+        }),
+        // Period totals: Expenses within exact date range
+        prisma.expense.aggregate({
+            where: {
+                organizationId,
+                date: {
+                    gte: dateRange.from,
+                    lte: dateRange.to,
+                },
+            },
+            _sum: { amount: true },
+        }),
     ]);
+
+    // Calculate exact period totals for charts
+    const periodTotals = {
+        revenue: periodPayments._sum.amount || 0,
+        expenses: periodExpenses._sum.amount || 0,
+        trips: tripStats,
+    };
 
     // Calculate fleet status
     const fleetStatus = {
@@ -121,12 +152,20 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
             {/* Revenue vs Expenses Chart - Full Width */}
             <div className="mt-6">
-                <RevenueExpensesChart data={revenueExpensesData} periodLabel={dateRange.label} />
+                <RevenueExpensesChart 
+                    data={revenueExpensesData} 
+                    periodLabel={dateRange.label}
+                    periodTotals={{ revenue: periodTotals.revenue, expenses: periodTotals.expenses }}
+                />
             </div>
 
             {/* Performance Trend Chart - Full Width */}
             <div className="mt-6">
-                <PerformanceTrendChart data={performanceTrendData} periodLabel={dateRange.label} />
+                <PerformanceTrendChart 
+                    data={performanceTrendData} 
+                    periodLabel={dateRange.label}
+                    periodTotals={periodTotals}
+                />
             </div>
 
             {/* Driver Performance Table - Full Width */}

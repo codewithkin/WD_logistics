@@ -16,13 +16,18 @@ import { MonthlyPerformanceTrend } from "@/lib/dashboard/performance-trend";
 interface PerformanceTrendChartProps {
     data: MonthlyPerformanceTrend[];
     periodLabel?: string;
+    periodTotals?: {
+        revenue: number;
+        trips: number;
+        expenses: number;
+    };
 }
 
-export function PerformanceTrendChart({ data, periodLabel }: PerformanceTrendChartProps) {
-    // Calculate totals
-    const totalRevenue = data.reduce((sum, item) => sum + item.revenue, 0);
-    const totalTrips = data.reduce((sum, item) => sum + item.tripCount, 0);
-    const totalExpenses = data.reduce((sum, item) => sum + item.expenses, 0);
+export function PerformanceTrendChart({ data, periodLabel, periodTotals }: PerformanceTrendChartProps) {
+    // Use period totals if provided, otherwise calculate from data
+    const totalRevenue = periodTotals?.revenue ?? data.reduce((sum, item) => sum + item.revenue, 0);
+    const totalTrips = periodTotals?.trips ?? data.reduce((sum, item) => sum + item.tripCount, 0);
+    const totalExpenses = periodTotals?.expenses ?? data.reduce((sum, item) => sum + item.expenses, 0);
     const avgRevenuePerTrip = totalTrips > 0 ? totalRevenue / totalTrips : 0;
 
     return (
