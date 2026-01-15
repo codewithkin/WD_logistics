@@ -59,6 +59,8 @@ RUN apt-get update && apt-get install -y \
 # Set Puppeteer to use installed Chromium
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+# Disable Chrome sandboxing for containerized environments
+ENV PUPPETEER_ARGS="--no-sandbox --disable-setuid-sandbox"
 
 # Verify Chromium installation
 RUN which chromium && chromium --version
