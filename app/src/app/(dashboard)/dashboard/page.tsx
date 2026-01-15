@@ -152,8 +152,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
             {/* Revenue vs Expenses Chart - Full Width */}
             <div className="mt-6">
-                <RevenueExpensesChart 
-                    data={revenueExpensesData} 
+                <RevenueExpensesChart
+                    data={revenueExpensesData}
                     periodLabel={dateRange.label}
                     periodTotals={{ revenue: periodTotals.revenue, expenses: periodTotals.expenses }}
                 />
@@ -161,8 +161,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
             {/* Performance Trend Chart - Full Width */}
             <div className="mt-6">
-                <PerformanceTrendChart 
-                    data={performanceTrendData} 
+                <PerformanceTrendChart
+                    data={performanceTrendData}
                     periodLabel={dateRange.label}
                     periodTotals={periodTotals}
                 />
