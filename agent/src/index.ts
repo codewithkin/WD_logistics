@@ -72,10 +72,22 @@ const port = Number(process.env.PORT) || 3001;
 
 console.log(`🤖 WD Logistics AI Agent running on http://localhost:${port}`);
 
-// Initialize WhatsApp client (optional - can be done on-demand)
+// Initialize WhatsApp client
 const initWhatsApp = async () => {
   try {
     const client = getAgentWhatsAppClient();
+
+    // Listen for QR code
+    client.on("qr", (qr) => {
+      console.log("--- SCAN WHATSAPP QR CODE ---");
+      // The qrcode-terminal library will print the QR code to the console here
+    });
+
+    // Listen for status changes
+    client.on("status", (status) => {
+      console.log(`WhatsApp client status: ${status.status}`);
+    });
+
     const initialized = await client.initialize();
     if (initialized) {
       console.log("✅ WhatsApp client initialized on startup");
@@ -118,11 +130,11 @@ const initWhatsApp = async () => {
       });
     }
   } catch (error) {
-    console.warn("⚠️  WhatsApp client initialization deferred (will initialize on first use):", error);
+    console.error("❌ Failed to initialize WhatsApp client on startup:", error);
   }
 };
 
-// Try to initialize WhatsApp on startup
+// Initialize WhatsApp on startup
 initWhatsApp();
 
 serve({

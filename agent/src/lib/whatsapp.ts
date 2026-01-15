@@ -8,6 +8,7 @@
 import pkg from "whatsapp-web.js";
 const { Client, LocalAuth } = pkg;
 import { EventEmitter } from "events";
+import qrcode from "qrcode-terminal";
 
 export interface WhatsAppMessage {
   id: string;
@@ -88,6 +89,13 @@ export class AgentWhatsAppClient extends EventEmitter {
           clientId: "agent-whatsapp",
         }),
         puppeteer: puppeteerConfig,
+      });
+
+      this.client.on("qr", (qr) => {
+        this.emit("qr", qr);
+        console.log("WhatsApp QR Code received. Scan to authenticate.");
+        // Optional: Display QR code in terminal
+        qrcode.generate(qr, { small: true });
       });
 
       // Setup event handlers
