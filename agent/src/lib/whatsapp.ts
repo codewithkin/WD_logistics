@@ -8,7 +8,7 @@
 import pkg from "whatsapp-web.js";
 const { Client, LocalAuth } = pkg;
 import { EventEmitter } from "events";
-import qrcode from "qrcode-terminal";
+import * as qrcode from "qrcode-terminal";
 
 export interface WhatsAppMessage {
   id: string;
@@ -32,7 +32,7 @@ export interface AgentWhatsAppState {
  * WhatsApp client for the AI agent to send messages
  */
 export class AgentWhatsAppClient extends EventEmitter {
-  private client: Client | null = null;
+  private client: any = null;
   private state: AgentWhatsAppState = {
     status: "disconnected",
     phoneNumber: null,
@@ -91,7 +91,7 @@ export class AgentWhatsAppClient extends EventEmitter {
         puppeteer: puppeteerConfig,
       });
 
-      this.client.on("qr", (qr) => {
+      this.client.on("qr", (qr: string) => {
         this.emit("qr", qr);
         console.log("WhatsApp QR Code received. Scan to authenticate.");
         // Optional: Display QR code in terminal
@@ -119,14 +119,14 @@ export class AgentWhatsAppClient extends EventEmitter {
         console.log("❌ Agent WhatsApp Client disconnected");
       });
 
-      this.client.on("auth_failure", (msg) => {
+      this.client.on("auth_failure", (msg: any) => {
         this.state.status = "error";
         this.state.lastError = msg || "Authentication failed";
         this.emit("status", this.state);
         console.error("❌ Agent WhatsApp Auth Failed:", msg);
       });
 
-      this.client.on("message", (msg) => {
+      this.client.on("message", (msg: any) => {
         this.emit("message", msg);
       });
 
@@ -306,6 +306,13 @@ export class AgentWhatsAppClient extends EventEmitter {
    */
   getQueueLength(): number {
     return this.messageQueue.length;
+  }
+
+  /**
+   * Get underlying WhatsApp client instance
+   */
+  getClient(): any {
+    return this.client;
   }
 }
 

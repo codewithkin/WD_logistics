@@ -6,6 +6,7 @@
  */
 
 import { z } from "zod";
+import { createTool } from "@mastra/core/tools";
 import { getAgentWhatsAppClient } from "../lib/whatsapp";
 import { api } from "../lib/api-client";
 
@@ -13,32 +14,25 @@ import { api } from "../lib/api-client";
  * Send WhatsApp message tool
  * Used by the agent to send messages to drivers, customers, etc.
  */
-export const sendWhatsAppMessage = {
-  definition: {
-    name: "send_whatsapp_message",
-    description:
-      "Send a WhatsApp message to a driver, customer, or contact. Use this to notify drivers of trips, remind customers of payments, or send operational updates.",
-    inputSchema: z.object({
-      organizationId: z.string().describe("The organization ID for logging purposes"),
-      phoneNumber: z.string().describe("The phone number to send the message to (e.g., +1234567890)"),
-      message: z
-        .string()
-        .min(1)
-        .max(5000)
-        .describe("The message to send (WhatsApp has a limit per message)"),
-      recipientType: z
-        .enum(["driver", "customer", "employee", "other"])
-        .describe("Type of recipient for logging and context"),
-      recipientId: z.string().optional().describe("ID of the recipient (driverId, customerId, etc)"),
-    }),
-  },
-  execute: async (params: {
-    organizationId: string;
-    phoneNumber: string;
-    message: string;
-    recipientType: "driver" | "customer" | "employee" | "other";
-    recipientId?: string;
-  }) => {
+export const sendWhatsAppMessage = createTool({
+  id: "send_whatsapp_message",
+  description:
+    "Send a WhatsApp message to a driver, customer, or contact. Use this to notify drivers of trips, remind customers of payments, or send operational updates.",
+  inputSchema: z.object({
+    organizationId: z.string().describe("The organization ID for logging purposes"),
+    phoneNumber: z.string().describe("The phone number to send the message to (e.g., +1234567890)"),
+    message: z
+      .string()
+      .min(1)
+      .max(5000)
+      .describe("The message to send (WhatsApp has a limit per message)"),
+    recipientType: z
+      .enum(["driver", "customer", "employee", "other"])
+      .describe("Type of recipient for logging and context"),
+    recipientId: z.string().optional().describe("ID of the recipient (driverId, customerId, etc)"),
+  }),
+  execute: async ({ context }) => {
+    const { organizationId, phoneNumber, message, recipientType, recipientId } = context;
     try {
       const client = getAgentWhatsAppClient();
 
@@ -51,19 +45,19 @@ export const sendWhatsAppMessage = {
       }
 
       // Send the message
-      const result = await client.sendMessage(params.phoneNumber, params.message);
+      const result = await client.sendMessage(phoneNumber, message);
 
       // Log the message in database
       try {
-        await api.workflows.createNotification(params.organizationId, {
+        await api.workflows.createNotification(organizationId, {
           type: "whatsapp",
-          recipientPhone: params.phoneNumber,
-          message: params.message,
+          recipientPhone: phoneNumber,
+          message: message,
           status: "sent",
           metadata: {
             channel: "whatsapp",
-            recipientType: params.recipientType,
-            recipientId: params.recipientId,
+            recipientType: recipientType,
+            recipientId: recipientId,
           },
         });
       } catch (error) {
@@ -74,9 +68,9 @@ export const sendWhatsAppMessage = {
       return {
         success: true,
         messageId: result.id,
-        to: params.phoneNumber,
+        to: phoneNumber,
         sentAt: result.timestamp,
-        message: `Message sent successfully to ${params.phoneNumber}`,
+        message: `Message sent successfully to ${phoneNumber}`,
       };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : "Unknown error";
@@ -88,41 +82,32 @@ export const sendWhatsAppMessage = {
       };
     }
   },
-};
+});
 
 /**
  * Send bulk WhatsApp messages to multiple recipients
  */
-export const sendBulkWhatsAppMessages = {
-  definition: {
-    name: "send_bulk_whatsapp_messages",
-    description:
-      "Send WhatsApp messages to multiple recipients (drivers, customers, etc). Useful for broadcasts and bulk notifications.",
-    inputSchema: z.object({
-      recipients: z
-        .array(
-          z.object({
-            phoneNumber: z.string(),
-            recipientType: z.enum(["driver", "customer", "employee", "other"]),
-            recipientId: z.string().optional(),
-          })
-        )
-        .min(1)
-        .max(100)
-        .describe("List of recipients"),
-      message: z.string().min(1).max(5000).describe("The message to send to all recipients"),
-      delayMs: z.number().optional().default(1000).describe("Delay between messages in milliseconds"),
-    }),
-  },
-  execute: async (params: {
-    recipients: Array<{
-      phoneNumber: string;
-      recipientType: "driver" | "customer" | "employee" | "other";
-      recipientId?: string;
-    }>;
-    message: string;
-    delayMs?: number;
-  }) => {
+export const sendBulkWhatsAppMessages = createTool({
+  id: "send_bulk_whatsapp_messages",
+  description:
+    "Send WhatsApp messages to multiple recipients (drivers, customers, etc). Useful for broadcasts and bulk notifications.",
+  inputSchema: z.object({
+    recipients: z
+      .array(
+        z.object({
+          phoneNumber: z.string(),
+          recipientType: z.enum(["driver", "customer", "employee", "other"]),
+          recipientId: z.string().optional(),
+        })
+      )
+      .min(1)
+      .max(100)
+      .describe("List of recipients"),
+    message: z.string().min(1).max(5000).describe("The message to send to all recipients"),
+    delayMs: z.number().optional().default(1000).describe("Delay between messages in milliseconds"),
+  }),
+  execute: async ({ context }) => {
+    const { recipients, message, delayMs } = context;
     try {
       const client = getAgentWhatsAppClient();
 
@@ -135,11 +120,11 @@ export const sendBulkWhatsAppMessages = {
 
       // Send messages with rate limiting
       const results = await client.sendBulkMessages(
-        params.recipients.map((r) => ({
+        recipients.map((r: any) => ({
           to: r.phoneNumber,
-          body: params.message,
+          body: message,
         })),
-        params.delayMs
+        delayMs
       );
 
       // Count successes and failures
@@ -148,9 +133,9 @@ export const sendBulkWhatsAppMessages = {
       const failures: Array<{ to: string; error: string }> = [];
 
       for (const result of results) {
-        if (result.error) {
+        if ((result as any).error) {
           failureCount++;
-          failures.push({ to: result.to, error: result.error });
+          failures.push({ to: (result as any).to, error: (result as any).error });
         } else {
           successCount++;
         }
@@ -177,12 +162,25 @@ export const sendBulkWhatsAppMessages = {
 /**
  * Check WhatsApp connection status
  */
-export const checkWhatsAppStatus = {
-  definition: {
-    name: "check_whatsapp_status",
-    description: "Check if the WhatsApp integration is connected and ready for sending messages.",
-    inputSchema: z.object({}),
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : "Unknown error";
+      console.error("Bulk WhatsApp send error:", error);
+
+      return {
+        success: false,
+        error: `Failed to send bulk messages: ${errorMsg}`,
+      };
+    }
   },
+});
+
+/**
+ * Check WhatsApp connection status
+ */
+export const checkWhatsAppStatus = createTool({
+  id: "check_whatsapp_status",
+  description: "Check if the WhatsApp integration is connected and ready for sending messages.",
+  inputSchema: z.object({}),
   execute: async () => {
     try {
       const client = getAgentWhatsAppClient();
@@ -205,7 +203,7 @@ export const checkWhatsAppStatus = {
       };
     }
   },
-};
+});
 
 export const whatsappTools = {
   send_whatsapp_message: sendWhatsAppMessage,
