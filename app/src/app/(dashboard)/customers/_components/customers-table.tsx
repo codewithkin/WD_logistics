@@ -48,6 +48,7 @@ interface Customer {
     address: string | null;
     status: string;
     balance: number;
+    periodRevenue?: number;
     _count: {
         trips: number;
         invoices: number;
@@ -57,9 +58,10 @@ interface Customer {
 interface CustomersTableProps {
     customers: Customer[];
     role: Role;
+    periodLabel?: string;
 }
 
-export function CustomersTable({ customers, role }: CustomersTableProps) {
+export function CustomersTable({ customers, role, periodLabel = "This Month" }: CustomersTableProps) {
     const router = useRouter();
     const [search, setSearch] = useState("");
     const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -211,15 +213,16 @@ export function CustomersTable({ customers, role }: CustomersTableProps) {
                                 <TableHead>Contact</TableHead>
                                 <TableHead>Status</TableHead>
                                 <TableHead>Balance</TableHead>
-                                <TableHead>Trips</TableHead>
-                                <TableHead>Invoices</TableHead>
+                                <TableHead title={`Trips in ${periodLabel}`}>Trips ({periodLabel})</TableHead>
+                                <TableHead title={`Invoices in ${periodLabel}`}>Invoices ({periodLabel})</TableHead>
+                                <TableHead title={`Revenue in ${periodLabel}`}>Revenue ({periodLabel})</TableHead>
                                 <TableHead className="w-[70px]"></TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {paginatedCustomers.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={7} className="text-center h-24 text-muted-foreground">
+                                    <TableCell colSpan={8} className="text-center h-24 text-muted-foreground">
                                         No customers found
                                     </TableCell>
                                 </TableRow>
@@ -246,6 +249,11 @@ export function CustomersTable({ customers, role }: CustomersTableProps) {
                                         </TableCell>
                                         <TableCell>{customer._count.trips}</TableCell>
                                         <TableCell>{customer._count.invoices}</TableCell>
+                                        <TableCell>
+                                            <span className="font-medium text-green-600">
+                                                ${(customer.periodRevenue || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                            </span>
+                                        </TableCell>
                                         <TableCell>
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger asChild>

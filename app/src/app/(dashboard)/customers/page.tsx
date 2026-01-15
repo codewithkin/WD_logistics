@@ -3,11 +3,24 @@ import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/layout/page-header";
 import { CustomersTable } from "./_components/customers-table";
 import { Plus } from "lucide-react";
+import { getDateRangeFromParams } from "@/lib/period-utils";
+import { PagePeriodSelector } from "@/components/ui/page-period-selector";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
-export default async function CustomersPage() {
+interface CustomersPageProps {
+    searchParams: Promise<{ period?: string; from?: string; to?: string }>;
+}
+
+export default async function CustomersPage({ searchParams }: CustomersPageProps) {
+    const params = await searchParams;
     const session = await requireAuth();
     const { role, organizationId } = session;
 
+    // Get date range from URL params
+    const dateRange = getDateRangeFromParams(params, "1m");
+
+    // Get customers with period-filtered counts
     const customers = await prisma.customer.findMany({
         where: { organizationId },
         select: {
@@ -18,34 +31,72 @@ export default async function CustomersPage() {
             address: true,
             status: true,
             balance: true,
-            _count: {
-                select: {
-                    trips: true,
-                    invoices: true,
+            trips: {
+                where: {
+                    scheduledDate: {
+                        gte: dateRange.from,
+                        lte: dateRange.to,
+                    },
                 },
+                select: { id: true, revenue: true },
+            },
+            invoices: {
+                where: {
+                    issueDate: {
+                        gte: dateRange.from,
+                        lte: dateRange.to,
+                    },
+                },
+                select: { id: true, total: true, status: true },
             },
         },
         orderBy: { name: "asc" },
     });
 
+    // Transform data to include counts and period-specific balance
+    const customersWithCounts = customers.map((customer) => {
+        const periodRevenue = customer.invoices.reduce((sum, inv) => sum + inv.total, 0);
+        const periodTrips = customer.trips.length;
+        const periodInvoices = customer.invoices.length;
+
+        return {
+            id: customer.id,
+            name: customer.name,
+            email: customer.email,
+            phone: customer.phone,
+            address: customer.address,
+            status: customer.status,
+            balance: customer.balance,
+            periodRevenue,
+            _count: {
+                trips: periodTrips,
+                invoices: periodInvoices,
+            },
+        };
+    });
+
     const canCreate = role === "admin" || role === "supervisor";
 
     return (
-        <div>
-            <PageHeader
-                title="Customers"
-                description="Manage your customers and clients"
-                action={
-                    canCreate
-                        ? {
-                            label: "Add Customer",
-                            href: "/customers/new",
-                            icon: Plus,
-                        }
-                        : undefined
-                }
-            />
-            <CustomersTable customers={customers} role={role} />
+        <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <PageHeader
+                    title="Customers"
+                    description={`Manage your customers and clients - ${dateRange.label}`}
+                />
+                <div className="flex items-center gap-2">
+                    <PagePeriodSelector defaultPreset="1m" />
+                    {canCreate && (
+                        <Link href="/customers/new">
+                            <Button>
+                                <Plus className="h-4 w-4 mr-2" />
+                                Add Customer
+                            </Button>
+                        </Link>
+                    )}
+                </div>
+            </div>
+            <CustomersTable customers={customersWithCounts} role={role} periodLabel={dateRange.label} />
         </div>
     );
 }
