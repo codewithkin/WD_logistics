@@ -26,7 +26,6 @@ import {
 } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
 import { ROLE_LABELS } from "@/lib/types";
-import { inviteUser } from "../actions";
 import { toast } from "sonner";
 
 const inviteSchema = z.object({
@@ -51,15 +50,25 @@ export function InviteUserForm() {
     const onSubmit = async (data: InviteFormData) => {
         setIsLoading(true);
         try {
-            const result = await inviteUser(data);
+            const response = await fetch("/api/users/invite", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(data),
+            });
+
+            const result = await response.json();
 
             if (result.success) {
                 toast.success("User added to organization");
                 router.push("/users");
+                router.refresh();
             } else {
                 toast.error(result.error || "An error occurred");
             }
-        } catch {
+        } catch (error) {
+            console.error("Failed to invite user:", error);
             toast.error("An error occurred");
         } finally {
             setIsLoading(false);
