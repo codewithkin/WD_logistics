@@ -50,10 +50,10 @@ export default async function NewPaymentPage({ searchParams }: NewPaymentPagePro
                 description="Record a new payment"
                 backHref="/finance/payments"
             />
-            <PaymentForm 
-                invoices={formattedInvoices} 
+            <PaymentForm
+                invoices={formattedInvoices}
                 customers={customers}
-                defaultInvoiceId={params.invoiceId} 
+                defaultInvoiceId={params.invoiceId}
             />
         </div>
     );
