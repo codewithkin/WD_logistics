@@ -17,6 +17,7 @@ import {
   Handshake,
   PackageOpen,
   CreditCard,
+  MessageCircle,
 } from "lucide-react";
 import { Role } from "@/lib/types";
 
@@ -170,6 +171,12 @@ export const navigationSections: NavSection[] = [
         title: "AI Assistant",
         href: "/ai",
         icon: Bot,
+        roles: ["admin"],
+      },
+      {
+        title: "WhatsApp",
+        href: "/settings/whatsapp",
+        icon: MessageCircle,
         roles: ["admin"],
       },
       {

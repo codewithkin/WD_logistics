@@ -26,6 +26,7 @@ export interface AgentWhatsAppState {
   phoneNumber: string | null;
   messagesSent: number;
   lastError: string | null;
+  qrCode: string | null;
 }
 
 /**
@@ -38,6 +39,7 @@ export class AgentWhatsAppClient extends EventEmitter {
     phoneNumber: null,
     messagesSent: 0,
     lastError: null,
+    qrCode: null,
   };
   private messageQueue: Array<{ to: string; message: string; retries: number }> = [];
   private isProcessing = false;
@@ -100,6 +102,17 @@ export class AgentWhatsAppClient extends EventEmitter {
         console.log("📱 Scan this QR code with your WhatsApp:");
         this.emit("qr", qr);
 
+        // Generate QR code as Data URL and store it
+        QRCode.toDataURL(qr, (err: Error | null | undefined, url: string) => {
+          if (err) {
+            console.error("Error generating QR code URL:", err);
+            return;
+          }
+          this.state.qrCode = url;
+          this.emit("qr_data_url", url);
+          console.log("QR code generated and stored for web display");
+        });
+
         if (process.env.NODE_ENV === "development") {
           // Render QR in terminal (works locally)
           QRCode.toString(qr, { type: "terminal", small: true }, (err: Error | null | undefined, qrCode: string) => {
@@ -111,24 +124,13 @@ export class AgentWhatsAppClient extends EventEmitter {
             console.log(qrCode);
             console.log("```");
           });
-        } else {
-          // In production, generate a Data URL and log it
-          QRCode.toDataURL(qr, (err: Error | null | undefined, url: string) => {
-            if (err) {
-              console.error("Error generating QR code URL:", err);
-              return;
-            }
-            console.log("QR code (open this URL in your browser to scan):");
-            console.log("```");
-            console.log(url);
-            console.log("```");
-          });
         }
       });
 
       // Setup event handlers
       this.client.on("ready", () => {
         this.state.status = "ready";
+        this.state.qrCode = null; // Clear QR code once connected
         const info = this.client?.info;
         if (info) {
           this.state.phoneNumber = info.wid.user;

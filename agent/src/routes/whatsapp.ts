@@ -318,6 +318,7 @@ whatsapp.get("/status", zValidator("query", statusSchema), async (c) => {
       messagesSent: state.messagesSent,
       queuedMessages: client.getQueueLength(),
       lastError: state.lastError,
+      qrCode: state.qrCode,
     });
   } catch (error) {
     console.error("WhatsApp status error:", error);
