@@ -4,13 +4,26 @@ import { requireRole } from "@/lib/session";
 import { revalidatePath } from "next/cache";
 import { notifyUserInvited } from "@/lib/notifications";
 import { Role } from "@/lib/types";
+import { generateRandomPassword, sendUserCredentials } from "@/lib/email";
+import { auth } from "@/lib/auth";
 
 export async function POST(request: Request) {
   try {
-    const session = await requireRole(["admin"]);
+    // Verify admin role
+    let session;
+    try {
+      session = await requireRole(["admin"]);
+    } catch (error) {
+      console.error("Auth error in invite route:", error);
+      return NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json();
     
-    const { email, role } = body as { email: string; role: Role };
+    const { email, role, name } = body as { email: string; role: Role; name?: string };
 
     if (!email || !role) {
       return NextResponse.json(
@@ -20,18 +33,40 @@ export async function POST(request: Request) {
     }
 
     // Check if user exists
-    const user = await prisma.user.findUnique({
+    let user = await prisma.user.findUnique({
       where: { email },
     });
 
+    let isNewUser = false;
+    let generatedPassword: string | null = null;
+
     if (!user) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "User not found. They must create an account first.",
+      // User doesn't exist - create them with generated credentials
+      isNewUser = true;
+      generatedPassword = generateRandomPassword(12);
+      
+      // Create user using better-auth's internal method
+      const ctx = await auth.$context;
+      const hashedPassword = await ctx.password.hash(generatedPassword);
+
+      // Create the user in the database
+      user = await prisma.user.create({
+        data: {
+          name: name || email.split("@")[0], // Use provided name or derive from email
+          email: email,
+          emailVerified: true, // Pre-verified since admin is creating
         },
-        { status: 404 }
-      );
+      });
+
+      // Create the account (password credential)
+      await prisma.account.create({
+        data: {
+          userId: user.id,
+          accountId: user.id,
+          providerId: "credential",
+          password: hashedPassword,
+        },
+      });
     }
 
     // Check if already a member
@@ -57,6 +92,23 @@ export async function POST(request: Request) {
       },
     });
 
+    // Send credentials email if new user was created
+    if (isNewUser && generatedPassword) {
+      const emailResult = await sendUserCredentials(email, generatedPassword, role);
+      
+      if (!emailResult.success) {
+        console.warn("User created but email failed to send");
+        // Return success with warning and credentials for manual sharing
+        revalidatePath("/users");
+        return NextResponse.json({ 
+          success: true, 
+          member,
+          warning: "User created but email failed to send. Please share credentials manually.",
+          credentials: { email, password: generatedPassword }
+        });
+      }
+    }
+
     // Send admin notification
     notifyUserInvited(
       { email, role },
@@ -66,7 +118,13 @@ export async function POST(request: Request) {
 
     revalidatePath("/users");
     
-    return NextResponse.json({ success: true, member });
+    return NextResponse.json({ 
+      success: true, 
+      member,
+      message: isNewUser 
+        ? "User created and credentials sent to their email" 
+        : "User added to organization"
+    });
   } catch (error) {
     console.error("Failed to invite user:", error);
     return NextResponse.json(

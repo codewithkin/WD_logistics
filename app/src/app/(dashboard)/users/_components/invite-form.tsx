@@ -30,6 +30,7 @@ import { toast } from "sonner";
 
 const inviteSchema = z.object({
     email: z.string().email("Invalid email address"),
+    name: z.string().optional(),
     role: z.enum(["admin", "supervisor", "staff"]),
 });
 
@@ -43,6 +44,7 @@ export function InviteUserForm() {
         resolver: zodResolver(inviteSchema),
         defaultValues: {
             email: "",
+            name: "",
             role: "staff",
         },
     });
@@ -61,7 +63,13 @@ export function InviteUserForm() {
             const result = await response.json();
 
             if (result.success) {
-                toast.success("User added to organization");
+                if (result.warning) {
+                    toast.warning(result.warning);
+                    // Show credentials in console for manual sharing
+                    console.log("User credentials:", result.credentials);
+                } else {
+                    toast.success(result.message || "User added to organization");
+                }
                 router.push("/users");
                 router.refresh();
             } else {
@@ -94,7 +102,26 @@ export function InviteUserForm() {
                                         />
                                     </FormControl>
                                     <FormDescription>
-                                        The user must have an existing account to be added.
+                                        If the user doesn&apos;t have an account, one will be created and credentials sent to their email.
+                                    </FormDescription>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="name"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Name (Optional)</FormLabel>
+                                    <FormControl>
+                                        <Input
+                                            placeholder="John Doe"
+                                            {...field}
+                                        />
+                                    </FormControl>
+                                    <FormDescription>
+                                        Used when creating a new account. If left empty, the email prefix will be used.
                                     </FormDescription>
                                     <FormMessage />
                                 </FormItem>

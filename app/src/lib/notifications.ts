@@ -389,7 +389,7 @@ This is an automated notification from ${orgName}.
     .performed-by-value { font-weight: 600; color: #333; }
     .details { background: #f9fafb; padding: 20px; border-radius: 8px; }
     .details h3 { margin: 0 0 15px 0; font-size: 14px; color: #666; text-transform: uppercase; }
-    .detail-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #e5e7eb; }
+    .detail-row { padding: 8px 0; border-bottom: 1px solid #e5e7eb; }
     .detail-row:last-child { border-bottom: none; }
     .detail-label { color: #666; }
     .detail-value { font-weight: 600; color: #333; }
@@ -461,8 +461,7 @@ This is an automated notification from ${orgName}.
             }
             
             return `<div class="detail-row">
-              <span class="detail-label">${displayKey}</span>
-              <span class="detail-value">${displayValue}</span>
+              <span class="detail-label">${displayKey}:</span> <span class="detail-value">${displayValue}</span>
             </div>`;
           })
           .join("")}
