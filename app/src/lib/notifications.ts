@@ -45,6 +45,8 @@ export interface NotificationData {
  * Get admin and supervisor users for an organization
  */
 async function getNotificationRecipients(organizationId: string) {
+  console.log("📧 [NOTIFICATION] Fetching recipients for organization:", organizationId);
+  
   const members = await prisma.member.findMany({
     where: {
       organizationId,
@@ -59,6 +61,16 @@ async function getNotificationRecipients(organizationId: string) {
         },
       },
     },
+  });
+
+  console.log("📧 [NOTIFICATION] Raw members from database:", {
+    count: members.length,
+    members: members.map(m => ({
+      role: m.role,
+      userId: m.user.id,
+      email: m.user.email,
+      name: m.user.name,
+    })),
   });
 
   return members.map((m) => ({
@@ -255,10 +267,22 @@ function getEventColor(eventType: NotificationEventType): string {
  */
 export async function sendAdminNotification(data: NotificationData): Promise<void> {
   try {
+    console.log("📧 [NOTIFICATION] Starting notification process for:", {
+      entityType: data.entityType,
+      eventType: data.eventType,
+      entityName: data.entityName,
+      performedBy: data.performedBy.email,
+    });
+
     const recipients = await getNotificationRecipients(data.organizationId);
 
+    console.log("📧 [NOTIFICATION] Found recipients:", {
+      count: recipients.length,
+      recipients: recipients.map(r => ({ email: r.email, role: r.role })),
+    });
+
     if (recipients.length === 0) {
-      console.log("No admin/supervisor recipients found for notification");
+      console.log("📧 [NOTIFICATION] No admin/supervisor recipients found for notification");
       return;
     }
 
@@ -274,16 +298,25 @@ export async function sendAdminNotification(data: NotificationData): Promise<voi
     const icon = getEntityIcon(data.entityType);
     const eventColor = getEventColor(data.eventType);
 
-    // Create in-app notifications for all recipients
-    const inAppNotificationPromises = recipients.map(async (recipient) => {
-      // Don't send notification to the user who performed the action
-      if (recipient.email === data.performedBy.email) {
-        return;
-      }
+    // Filter out the performer from recipients
+    const filteredRecipients = recipients.filter(r => r.email !== data.performedBy.email);
+    console.log("📧 [NOTIFICATION] Recipients after filtering out performer:", {
+      count: filteredRecipients.length,
+      recipients: filteredRecipients.map(r => ({ email: r.email, role: r.role })),
+    });
 
+    if (filteredRecipients.length === 0) {
+      console.log("📧 [NOTIFICATION] No recipients left after filtering out the performer");
+      return;
+    }
+
+    // Create in-app notifications for all recipients
+    const inAppNotificationPromises = filteredRecipients.map(async (recipient) => {
       const title = `${entityTypeDisplay} ${actionVerb}`;
       const message = `${data.entityName} was ${actionVerb} by ${data.performedBy.name}`;
       const link = getEntityLink(data.entityType, data.entityId);
+
+      console.log("📧 [NOTIFICATION] Creating in-app notification for:", recipient.email);
 
       await prisma.userNotification.create({
         data: {
@@ -304,14 +337,10 @@ export async function sendAdminNotification(data: NotificationData): Promise<voi
     });
 
     await Promise.all(inAppNotificationPromises);
+    console.log("📧 [NOTIFICATION] In-app notifications created successfully");
 
     // Send emails to each recipient
-    const emailPromises = recipients.map((recipient) => {
-      // Don't send notification to the user who performed the action
-      if (recipient.email === data.performedBy.email) {
-        return Promise.resolve();
-      }
-
+    const emailPromises = filteredRecipients.map(async (recipient) => {
       const isSupervisor = recipient.role === "supervisor";
       const hideSensitive = isSupervisor;
 
@@ -323,6 +352,12 @@ export async function sendAdminNotification(data: NotificationData): Promise<voi
       );
 
       const subject = `${icon} ${entityTypeDisplay} ${actionVerb}: ${data.entityName}`;
+
+      console.log("📧 [NOTIFICATION] Sending email to:", {
+        email: recipient.email,
+        subject,
+        isSupervisor,
+      });
 
       const textContent = `
 ${entityTypeDisplay} ${actionVerb.toUpperCase()}
@@ -450,12 +485,29 @@ This is an automated notification from ${orgName}.
       });
     });
 
-    // Wait for all emails to be sent (don't block the main operation)
-    Promise.all(emailPromises).catch((err) => {
-      console.error("Failed to send some admin notifications:", err);
-    });
+    // Wait for all emails to be sent
+    console.log("📧 [NOTIFICATION] Waiting for all emails to be sent...");
+    try {
+      const results = await Promise.allSettled(emailPromises);
+      const successful = results.filter(r => r.status === "fulfilled").length;
+      const failed = results.filter(r => r.status === "rejected");
+      
+      console.log("📧 [NOTIFICATION] Email sending complete:", {
+        total: results.length,
+        successful,
+        failed: failed.length,
+      });
+
+      if (failed.length > 0) {
+        console.error("📧 [NOTIFICATION] Failed emails:", failed.map(f => 
+          f.status === "rejected" ? f.reason : "unknown"
+        ));
+      }
+    } catch (err) {
+      console.error("📧 [NOTIFICATION] Failed to send some admin notifications:", err);
+    }
   } catch (error) {
-    console.error("Error sending admin notification:", error);
+    console.error("📧 [NOTIFICATION] Error in notification process:", error);
     // Don't throw - notifications shouldn't break the main operation
   }
 }
