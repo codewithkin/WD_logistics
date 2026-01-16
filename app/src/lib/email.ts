@@ -7,8 +7,20 @@ const transporter = nodemailer.createTransport({
   secure: process.env.SMTP_SECURE === "true", // true for 465, false for other ports
   auth: {
     user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
+    pass: process.env.SMTP_PASSWORD,
   },
+  tls: {
+    rejectUnauthorized: false,
+  },
+});
+
+// Verify transporter configuration on startup
+transporter.verify((error, success) => {
+  if (error) {
+    console.error("SMTP transporter verification failed:", error);
+  } else {
+    console.log("✅ SMTP server is ready to send emails");
+  }
 });
 
 export interface SendEmailOptions {
@@ -22,7 +34,7 @@ export async function sendEmail(options: SendEmailOptions) {
   const { to, subject, text, html } = options;
 
   const mailOptions = {
-    from: process.env.SMTP_FROM || process.env.SMTP_USER,
+    from: `"${process.env.SMTP_FROM_NAME}" <${process.env.SMTP_FROM_EMAIL}>` || process.env.SMTP_USER,
     to,
     subject,
     text,
@@ -30,12 +42,22 @@ export async function sendEmail(options: SendEmailOptions) {
   };
 
   try {
+    console.log("Attempting to send email to:", to);
+    console.log("Using SMTP config:", {
+      host: process.env.SMTP_HOST,
+      port: process.env.SMTP_PORT,
+      secure: process.env.SMTP_SECURE,
+      user: process.env.SMTP_USER,
+      hasPassword: !!process.env.SMTP_PASSWORD,
+    });
+    
     const info = await transporter.sendMail(mailOptions);
-    console.log("Email sent:", info.messageId);
+    console.log("✅ Email sent successfully:", info.messageId);
+    console.log("Response:", info.response);
     return { success: true, messageId: info.messageId };
   } catch (error) {
-    console.error("Failed to send email:", error);
-    return { success: false, error: "Failed to send email" };
+    console.error("❌ Failed to send email:", error);
+    return { success: false, error: error instanceof Error ? error.message : "Failed to send email" };
   }
 }
 
