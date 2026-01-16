@@ -72,7 +72,7 @@ export function WhatsAppIntegration({ organizationId }: WhatsAppIntegrationProps
             }
 
             const data = await response.json();
-            
+
             if (data.success) {
                 setState({
                     agentStatus: "online",
@@ -126,7 +126,7 @@ export function WhatsAppIntegration({ organizationId }: WhatsAppIntegrationProps
             });
 
             const data = await response.json();
-            
+
             if (data.success) {
                 // Immediately fetch status to get QR code
                 await fetchStatus();
@@ -216,7 +216,7 @@ export function WhatsAppIntegration({ organizationId }: WhatsAppIntegrationProps
                                 </CardDescription>
                             </div>
                         </div>
-                        <Badge 
+                        <Badge
                             variant={state.agentStatus === "online" ? "default" : "destructive"}
                             className={state.agentStatus === "online" ? "bg-green-500" : ""}
                         >
@@ -306,11 +306,11 @@ export function WhatsAppIntegration({ organizationId }: WhatsAppIntegrationProps
                                     Open WhatsApp on your phone and scan this QR code to connect
                                 </AlertDescription>
                             </Alert>
-                            
+
                             <div className="flex flex-col items-center gap-4 rounded-lg border bg-white p-6">
-                                <img 
-                                    src={state.qrCode} 
-                                    alt="WhatsApp QR Code" 
+                                <img
+                                    src={state.qrCode}
+                                    alt="WhatsApp QR Code"
                                     className="h-64 w-64"
                                 />
                                 <div className="text-center text-sm text-muted-foreground">
@@ -350,8 +350,8 @@ export function WhatsAppIntegration({ organizationId }: WhatsAppIntegrationProps
                     {/* Action Buttons */}
                     <div className="flex gap-2 pt-2">
                         {state.agentStatus === "online" && !state.connected && state.status !== "connecting" && (
-                            <Button 
-                                onClick={handleInitialize} 
+                            <Button
+                                onClick={handleInitialize}
                                 disabled={isInitializing}
                                 className="gap-2"
                             >
@@ -364,8 +364,8 @@ export function WhatsAppIntegration({ organizationId }: WhatsAppIntegrationProps
                             </Button>
                         )}
 
-                        <Button 
-                            variant="outline" 
+                        <Button
+                            variant="outline"
                             onClick={fetchStatus}
                             disabled={isLoading}
                             className="gap-2"
