@@ -85,7 +85,7 @@ export class AgentWhatsAppClient extends EventEmitter {
 
       // Use system Chromium on Linux servers (like Render)
       if (process.platform === 'linux') {
-        puppeteerConfig.executablePath = '/usr/bin/chromium-browser';
+        puppeteerConfig.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium';
       }
 
       this.client = new Client({

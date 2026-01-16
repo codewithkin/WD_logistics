@@ -1,5 +1,5 @@
 import { Mastra } from "@mastra/core";
-import { createLogger } from "@mastra/core/logger";
+import { ConsoleLogger } from "@mastra/core/logger";
 
 // Mastra configuration with enhanced guardrails and memory
 export const mastraConfig = {
@@ -88,7 +88,7 @@ Safety Guidelines:
 };
 
 // Create Mastra logger
-export const logger = createLogger({
+export const logger = new ConsoleLogger({
   name: "WDLogisticsAgent",
   level: (process.env.MASTRA_LOG_LEVEL as "info" | "debug" | "warn" | "error") || "info",
 });
