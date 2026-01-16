@@ -71,7 +71,9 @@ export async function removeMember(memberId: string) {
       return { success: false, error: "Cannot remove yourself" };
     }
 
-    await prisma.member.delete({ where: { id: memberId } });
+    // Delete the user entirely from the database
+    // This will cascade delete the member record and all related data
+    await prisma.user.delete({ where: { id: member.userId } });
 
     // Send admin notification
     notifyUserRemoved(
