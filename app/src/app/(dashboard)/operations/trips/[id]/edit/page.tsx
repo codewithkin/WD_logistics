@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
+import { canViewFinancialData } from "@/lib/permissions";
 import { PageHeader } from "@/components/layout/page-header";
 import { TripForm } from "../../_components/trip-form";
 
@@ -11,6 +12,7 @@ interface EditTripPageProps {
 export default async function EditTripPage({ params }: EditTripPageProps) {
     const { id } = await params;
     const session = await requireRole(["admin", "supervisor"]);
+    const showFinancials = canViewFinancialData(session.role);
 
     const trip = await prisma.trip.findFirst({
         where: { id, organizationId: session.organizationId },
@@ -51,7 +53,7 @@ export default async function EditTripPage({ params }: EditTripPageProps) {
                 description={`Update trip: ${trip.originCity} → ${trip.destinationCity}`}
                 backHref={`/operations/trips/${trip.id}`}
             />
-            <TripForm trip={trip} trucks={trucks} drivers={drivers} customers={customers} />
+            <TripForm trip={trip} trucks={trucks} drivers={drivers} customers={customers} showFinancials={showFinancials} />
         </div>
     );
 }

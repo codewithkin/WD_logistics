@@ -91,9 +91,10 @@ interface TripFormProps {
     trucks: Array<{ id: string; registrationNo: string }>;
     drivers: Array<{ id: string; firstName: string; lastName: string }>;
     customers: Array<{ id: string; name: string }>;
+    showFinancials?: boolean;
 }
 
-export function TripForm({ trip, trucks, drivers, customers }: TripFormProps) {
+export function TripForm({ trip, trucks, drivers, customers, showFinancials = true }: TripFormProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
     const isEditing = !!trip;
@@ -526,19 +527,21 @@ export function TripForm({ trip, trucks, drivers, customers }: TripFormProps) {
                             </FormItem>
                         )}
                     />
-                    <FormField
-                        control={form.control}
-                        name="revenue"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Revenue ($)</FormLabel>
-                                <FormControl>
-                                    <Input type="number" step="0.01" placeholder="0.00" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
+                    {showFinancials && (
+                        <FormField
+                            control={form.control}
+                            name="revenue"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Revenue ($)</FormLabel>
+                                    <FormControl>
+                                        <Input type="number" step="0.01" placeholder="0.00" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                    )}
                 </div>
 
                 {isEditing && (
