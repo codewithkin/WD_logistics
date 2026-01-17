@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { requireAuth } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
+import { canViewFinancialData } from "@/lib/permissions";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -75,6 +76,7 @@ export default async function DriverDetailPage({ params, searchParams }: DriverD
     const totalRevenue = allTripsInPeriod.reduce((sum, t) => sum + t.revenue, 0);
 
     const canEdit = role === "admin" || role === "supervisor";
+    const showFinancials = canViewFinancialData(role);
 
     return (
         <div>
@@ -102,41 +104,43 @@ export default async function DriverDetailPage({ params, searchParams }: DriverD
             </div>
 
             {/* Performance Metrics for Selected Period */}
-            <div className="grid gap-4 md:grid-cols-3 mb-6">
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                            <Calendar className="h-4 w-4" /> Total Trips
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <p className="text-2xl font-bold">{totalTrips}</p>
-                        <p className="text-xs text-muted-foreground">{completedTrips} completed</p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                            <DollarSign className="h-4 w-4" /> Revenue Generated
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <p className="text-2xl font-bold">{formatCurrency(totalRevenue)}</p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                            <TrendingUp className="h-4 w-4" /> Completion Rate
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <p className="text-2xl font-bold">
-                            {totalTrips > 0 ? Math.round((completedTrips / totalTrips) * 100) : 0}%
-                        </p>
-                    </CardContent>
-                </Card>
-            </div>
+            {showFinancials && (
+                <div className="grid gap-4 md:grid-cols-3 mb-6">
+                    <Card>
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                                <Calendar className="h-4 w-4" /> Total Trips
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <p className="text-2xl font-bold">{totalTrips}</p>
+                            <p className="text-xs text-muted-foreground">{completedTrips} completed</p>
+                        </CardContent>
+                    </Card>
+                    <Card>
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                                <DollarSign className="h-4 w-4" /> Revenue Generated
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <p className="text-2xl font-bold">{formatCurrency(totalRevenue)}</p>
+                        </CardContent>
+                    </Card>
+                    <Card>
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                                <TrendingUp className="h-4 w-4" /> Completion Rate
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <p className="text-2xl font-bold">
+                                {totalTrips > 0 ? Math.round((completedTrips / totalTrips) * 100) : 0}%
+                            </p>
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
 
             <div className="grid gap-6 md:grid-cols-2">
                 <Card>
