@@ -123,29 +123,37 @@ const initWhatsApp = async () => {
             return;
           }
           
-          // Check if message is from bot's own number with WD_LOGISTICS keyword
-          const isOwnNumber = botPhoneNumber && formattedNumber === botPhoneNumber;
+          // Check if message contains WD_LOGISTICS keyword
           const hasKeyword = msg.body.includes("WD_LOGISTICS");
           
-          if (isOwnNumber && hasKeyword) {
-            console.log(`📨 Processing self-message with WD_LOGISTICS keyword`);
-            
-            // Process with AI agent (full admin access)
-            const response = await logisticsAgent.generate([
-              {
-                role: "user",
-                content: msg.body,
-              },
-            ]);
-            
-            await msg.reply(response.text);
-            console.log(`✅ Replied to self-message`);
-            return;
-          }
+          // Check if message is from bot's own number
+          const isOwnNumber = botPhoneNumber && formattedNumber === botPhoneNumber;
           
           // Check if sender is an admin
           const isAdmin = isAdminPhoneNumber(formattedNumber);
           
+          // Allow bot's own messages with keyword for testing
+          if (isOwnNumber) {
+            if (hasKeyword) {
+              console.log(`📨 Processing self-message with WD_LOGISTICS keyword for testing`);
+              
+              // Process with AI agent (full admin access)
+              const response = await logisticsAgent.generate([
+                {
+                  role: "user",
+                  content: msg.body,
+                },
+              ]);
+              
+              await msg.reply(response.text);
+              console.log(`✅ Replied to self-message`);
+            } else {
+              console.log(`⚠️ Ignoring self-message without WD_LOGISTICS keyword`);
+            }
+            return;
+          }
+          
+          // Process admin messages (no keyword required)
           if (isAdmin) {
             console.log(`📨 Processing message from admin: ${formattedNumber}`);
             
@@ -162,16 +170,14 @@ const initWhatsApp = async () => {
             return;
           }
           
-          // Non-admin user - check if we should respond
-          const noAdminAnswer = process.env.NO_ADMIN_ANSWER === "true" || process.env.NO_ADMIN_ANSWER === "1";
-          
-          if (noAdminAnswer) {
-            console.log(`⚠️ Ignoring non-admin message (NO_ADMIN_ANSWER enabled): ${formattedNumber}`);
+          // Non-admin user - only respond if message contains WD_LOGISTICS
+          if (!hasKeyword) {
+            console.log(`⚠️ Ignoring non-admin message without WD_LOGISTICS keyword: ${formattedNumber}`);
             return;
           }
           
-          // Respond to non-admin with business info only
-          console.log(`💬 Processing business inquiry from: ${formattedNumber}`);
+          // Respond to non-admin with keyword using business info only
+          console.log(`💬 Processing business inquiry with WD_LOGISTICS from: ${formattedNumber}`);
           
           // Process with AI agent using business info system prompt
           const response = await logisticsAgent.generate([
