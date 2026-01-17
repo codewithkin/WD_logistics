@@ -2,13 +2,14 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { navigationSections, NavItem, NavSection } from "@/config/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useSession } from "@/components/providers/session-provider";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, LogOut } from "lucide-react";
+import { signOut } from "@/lib/auth-client";
 import {
     Collapsible,
     CollapsibleContent,
@@ -22,8 +23,14 @@ interface SidebarProps {
 
 export function Sidebar({ pendingEditRequests = 0, showExpenses = false }: SidebarProps) {
     const pathname = usePathname();
+    const router = useRouter();
     const { role } = useSession();
     const [openMenus, setOpenMenus] = useState<string[]>([]);
+
+    const handleSignOut = async () => {
+        await signOut();
+        router.push("/sign-in");
+    };
 
     // Check if a path is active (exact match for dashboard, otherwise starts with)
     const isActive = (href: string) => {
@@ -202,14 +209,22 @@ export function Sidebar({ pendingEditRequests = 0, showExpenses = false }: Sideb
                 {filteredSections.map((section, index) => renderSection(section, index))}
             </nav>
 
-            {/* User Role Badge */}
-            <div className="p-4 border-t">
+            {/* User Role Badge and Logout */}
+            <div className="p-4 border-t space-y-2">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <span>Role:</span>
                     <Badge variant="outline" className="capitalize">
                         {role}
                     </Badge>
                 </div>
+                <Button
+                    variant="ghost"
+                    className="w-full justify-start text-destructive hover:text-destructive hover:bg-destructive/10"
+                    onClick={handleSignOut}
+                >
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Sign Out
+                </Button>
             </div>
         </aside>
     );
