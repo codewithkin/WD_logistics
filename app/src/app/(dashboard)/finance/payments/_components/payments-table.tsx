@@ -62,9 +62,10 @@ interface Payment {
 interface PaymentsTableProps {
     payments: Payment[];
     role: Role;
+    showFinancials?: boolean;
 }
 
-export function PaymentsTable({ payments, role }: PaymentsTableProps) {
+export function PaymentsTable({ payments, role, showFinancials = true }: PaymentsTableProps) {
     const router = useRouter();
     const [search, setSearch] = useState("");
     const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -74,6 +75,7 @@ export function PaymentsTable({ payments, role }: PaymentsTableProps) {
 
     const canEdit = role === "admin" || role === "supervisor";
     const canDelete = role === "admin";
+    const canViewAmounts = showFinancials && role === "admin";
 
     const filteredPayments = payments.filter((payment) => {
         return (
@@ -160,9 +162,11 @@ export function PaymentsTable({ payments, role }: PaymentsTableProps) {
                         />
                     </div>
                     <div className="flex gap-2 items-center">
-                        <div className="text-sm text-muted-foreground">
-                            Total: <span className="font-bold text-foreground">${totalPayments.toLocaleString()}</span>
-                        </div>
+                        {canViewAmounts && (
+                            <div className="text-sm text-muted-foreground">
+                                Total: <span className="font-bold text-foreground">${totalPayments.toLocaleString()}</span>
+                            </div>
+                        )}
                         <Button
                             variant="outline"
                             size="sm"
@@ -188,14 +192,14 @@ export function PaymentsTable({ payments, role }: PaymentsTableProps) {
                                 <TableHead>Customer</TableHead>
                                 <TableHead>Method</TableHead>
                                 <TableHead>Reference</TableHead>
-                                <TableHead className="text-right">Amount</TableHead>
+                                {canViewAmounts && <TableHead className="text-right">Amount</TableHead>}
                                 <TableHead className="w-[70px]"></TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {filteredPayments.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={7} className="text-center h-24 text-muted-foreground">
+                                    <TableCell colSpan={canViewAmounts ? 7 : 6} className="text-center h-24 text-muted-foreground">
                                         No payments found
                                     </TableCell>
                                 </TableRow>
@@ -231,9 +235,11 @@ export function PaymentsTable({ payments, role }: PaymentsTableProps) {
                                         <TableCell>
                                             {payment.reference || <span className="text-muted-foreground">—</span>}
                                         </TableCell>
-                                        <TableCell className="text-right font-medium text-green-600">
-                                            ${payment.amount.toLocaleString()}
-                                        </TableCell>
+                                        {canViewAmounts && (
+                                            <TableCell className="text-right font-medium text-green-600">
+                                                ${payment.amount.toLocaleString()}
+                                            </TableCell>
+                                        )}
                                         <TableCell>
                                             {(canEdit || canDelete) && (
                                                 <DropdownMenu>
@@ -272,7 +278,7 @@ export function PaymentsTable({ payments, role }: PaymentsTableProps) {
                                 ))
                             )}
                         </TableBody>
-                        {filteredPayments.length > 0 && (
+                        {filteredPayments.length > 0 && canViewAmounts && (
                             <TableFooter>
                                 <TableRow className="bg-muted/50 font-semibold">
                                     <TableCell colSpan={5} className="text-right">
