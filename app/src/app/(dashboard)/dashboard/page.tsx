@@ -3,12 +3,17 @@ import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/layout/page-header";
 import { DashboardStats } from "./_components/dashboard-stats";
 import { OverdueInvoices } from "./_components/overdue-invoices";
+import { RecentTrips } from "./_components/recent-trips";
 import { RevenueExpensesChart } from "@/components/dashboard/revenue-expenses-chart";
 import { getRevenueExpensesData } from "@/lib/dashboard/revenue-expenses";
 import { PerformanceTrendChart } from "@/components/dashboard/performance-trend-chart";
 import { getPerformanceTrendData } from "@/lib/dashboard/performance-trend";
 import { DriverPerformanceTable } from "@/components/dashboard/driver-performance-table";
 import { getDriverPerformanceData } from "@/lib/dashboard/driver-performance";
+import { TripStatusChart } from "@/components/dashboard/trip-status-chart";
+import { getTripStatusDistributionData } from "@/lib/dashboard/trip-status";
+import { FleetUtilizationChart } from "@/components/dashboard/fleet-utilization-chart";
+import { getFleetUtilizationData } from "@/lib/dashboard/fleet-utilization";
 import { QuickActions } from "./_components/quick-actions";
 import { DashboardPeriodSelector } from "./_components/dashboard-period-selector";
 import { getDateRangeFromParams } from "@/lib/period-utils";
@@ -39,6 +44,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         driverPerformanceData,
         periodPayments,
         periodExpenses,
+        tripStatusData,
+        fleetUtilizationData,
+        recentTrips,
     ] = await Promise.all([
         // Truck stats
         prisma.truck.groupBy({
@@ -106,6 +114,27 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 },
             },
             _sum: { amount: true },
+        }),
+        // Trip status distribution (for staff/supervisor)
+        getTripStatusDistributionData(dateRange.from, dateRange.to),
+        // Fleet utilization data (for staff/supervisor)
+        getFleetUtilizationData(),
+        // Recent trips (for staff/supervisor)
+        prisma.trip.findMany({
+            where: {
+                organizationId,
+                scheduledDate: {
+                    gte: dateRange.from,
+                    lte: dateRange.to,
+                },
+            },
+            include: {
+                truck: true,
+                driver: true,
+                customer: true,
+            },
+            orderBy: { scheduledDate: "desc" },
+            take: 5,
         }),
     ]);
 
@@ -180,6 +209,26 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 <div className="mt-6">
                     <DriverPerformanceTable data={driverPerformanceData} periodLabel={dateRange.label} />
                 </div>
+            )}
+
+            {/* Staff/Supervisor Charts - Non-Admin Only */}
+            {!showFinancials && (
+                <>
+                    {/* Trip Status Distribution Chart */}
+                    <div className="mt-6">
+                        <TripStatusChart data={tripStatusData} />
+                    </div>
+
+                    {/* Fleet Utilization Chart */}
+                    <div className="mt-6">
+                        <FleetUtilizationChart data={fleetUtilizationData} />
+                    </div>
+
+                    {/* Recent Trips Table */}
+                    <div className="mt-6">
+                        <RecentTrips trips={recentTrips} />
+                    </div>
+                </>
             )}
 
             {/* Admin Only: Overdue Invoices */}
