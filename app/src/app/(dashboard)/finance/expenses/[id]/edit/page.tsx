@@ -2,7 +2,8 @@ import { PageHeader } from "@/components/layout/page-header";
 import { ExpenseForm } from "../../_components/expense-form";
 import { requireRole } from "@/lib/session";
 import prisma from "@/lib/prisma";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { canViewExpensesPage } from "@/lib/permissions";
 
 interface EditExpensePageProps {
     params: Promise<{ id: string }>;
@@ -10,7 +11,12 @@ interface EditExpensePageProps {
 
 export default async function EditExpensePage({ params }: EditExpensePageProps) {
     const { id } = await params;
-    const user = await requireRole(["admin", "supervisor", "staff"]);
+    const user = await requireRole(["admin", "supervisor"]);
+
+    // Check if user can view expenses page
+    if (!canViewExpensesPage(user.role)) {
+        redirect("/dashboard");
+    }
 
     const [expense, categories, trucks, trips, drivers, suppliers] = await Promise.all([
         prisma.expense.findUnique({

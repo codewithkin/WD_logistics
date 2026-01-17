@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { getDateRangeFromParams } from "@/lib/period-utils";
 import { PagePeriodSelector } from "@/components/ui/page-period-selector";
+import { canViewExpensesPage } from "@/lib/permissions";
+import { redirect } from "next/navigation";
 
 interface ExpenseAnalyticsPageProps {
     searchParams: Promise<{ period?: string; from?: string; to?: string }>;
@@ -16,7 +18,12 @@ interface ExpenseAnalyticsPageProps {
 
 export default async function ExpenseAnalyticsPage({ searchParams }: ExpenseAnalyticsPageProps) {
     const params = await searchParams;
-    const user = await requireRole(["admin", "supervisor", "staff"]);
+    const user = await requireRole(["admin", "supervisor"]);
+
+    // Check if user can view expenses page
+    if (!canViewExpensesPage(user.role)) {
+        redirect("/dashboard");
+    }
 
     // Get date range from URL params
     const dateRange = getDateRangeFromParams(params, "1m");

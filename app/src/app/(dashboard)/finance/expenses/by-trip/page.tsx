@@ -8,9 +8,16 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { ArrowLeft, MapPin, Calendar, Truck as TruckIcon } from "lucide-react";
+import { canViewExpensesPage } from "@/lib/permissions";
+import { redirect } from "next/navigation";
 
 export default async function ExpensesByTripPage() {
-    const user = await requireRole(["admin", "supervisor", "staff"]);
+    const user = await requireRole(["admin", "supervisor"]);
+
+    // Check if user can view expenses page
+    if (!canViewExpensesPage(user.role)) {
+        redirect("/dashboard");
+    }
 
     // Get all trips with their associated expenses
     const trips = await prisma.trip.findMany({

@@ -5,9 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import prisma from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { formatCurrency } from "@/lib/utils";
+import { canViewExpensesPage } from "@/lib/permissions";
 import {
     Calendar,
     DollarSign,
@@ -26,7 +27,12 @@ interface ExpensePageProps {
 
 export default async function ExpensePage({ params }: ExpensePageProps) {
     const { id } = await params;
-    const user = await requireRole(["admin", "supervisor", "staff"]);
+    const user = await requireRole(["admin", "supervisor"]);
+
+    // Check if user can view expenses page
+    if (!canViewExpensesPage(user.role)) {
+        redirect("/dashboard");
+    }
 
     const expense = await prisma.expense.findUnique({
         where: {
