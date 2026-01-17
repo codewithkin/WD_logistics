@@ -123,6 +123,12 @@ export const navigationSections: NavSection[] = [
             roles: ["admin", "supervisor", "staff"],
           },
           {
+            title: "Expenses",
+            href: "/finance/expenses",
+            icon: Receipt,
+            roles: ["admin", "supervisor"],
+          },
+          {
             title: "Expense Categories",
             href: "/finance/expense-categories",
             icon: Tags,
