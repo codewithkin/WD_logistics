@@ -112,8 +112,20 @@ const initWhatsApp = async () => {
         console.log(`📱 Bot connected as: ${botPhoneNumber}`);
       }
       
+      // Helper function to send message without triggering sendSeen
+      const safeSendMessage = async (chatId: string, content: string) => {
+        try {
+          // Use the raw client to send without auto-seen
+          const chat = await client.getClient().getChatById(chatId);
+          await chat.sendMessage(content);
+        } catch (error) {
+          console.error("Failed to send message:", error);
+          throw error;
+        }
+      };
+      
       // Setup incoming message handler
-      client.on("message", async (msg: { from: string; body: string; reply: (text: string) => Promise<void> }) => {
+      client.on("message", async (msg: any) => {
         try {
           // Extract phone number from WhatsApp ID
           // Format can be: 263789859332@c.us (normal) or 71025924542654@lid (broadcast/status)
@@ -148,7 +160,8 @@ const initWhatsApp = async () => {
                 },
               ]);
               
-              await msg.reply(response.text);
+              // Use safeSendMessage to avoid sendSeen error
+              await safeSendMessage(msg.from, response.text);
               console.log(`✅ Replied to self-message`);
             } else {
               console.log(`⚠️ Ignoring self-message without WD_LOGISTICS keyword`);
@@ -168,7 +181,8 @@ const initWhatsApp = async () => {
               },
             ]);
             
-            await msg.reply(response.text);
+            // Use safeSendMessage to avoid sendSeen error
+            await safeSendMessage(msg.from, response.text);
             console.log(`✅ Replied to admin: ${formattedNumber}`);
             return;
           }
@@ -194,16 +208,14 @@ const initWhatsApp = async () => {
             },
           ]);
           
-          await msg.reply(response.text);
+          // Use safeSendMessage to avoid sendSeen error
+          await safeSendMessage(msg.from, response.text);
           console.log(`✅ Sent business info to: ${formattedNumber}`);
           
         } catch (error) {
           console.error("Error processing incoming message:", error);
-          try {
-            await msg.reply("Sorry, I encountered an error processing your request. Please try again.");
-          } catch (replyError) {
-            console.error("Failed to send error message:", replyError);
-          }
+          // Don't try to send error message as it might cause the same error
+          console.log(`⚠️ Skipping error reply to avoid recursive failure`);
         }
       });
     }
