@@ -18,6 +18,7 @@ import {
 import { format } from "date-fns";
 import { PAYMENT_METHOD_LABELS, PaymentMethod } from "@/lib/types";
 import { SendReminderButton } from "./_components/send-reminder-button";
+import { DownloadInvoiceButton } from "./_components/download-invoice-button";
 
 interface InvoiceDetailPageProps {
     params: Promise<{ id: string }>;
@@ -66,7 +67,9 @@ export default async function InvoiceDetailPage({ params }: InvoiceDetailPagePro
                         }
                         : undefined
                 }
-            />
+            >
+                {canEdit && <DownloadInvoiceButton invoiceId={invoice.id} />}
+            </PageHeader>
 
             <div className="grid gap-6 md:grid-cols-2">
                 <Card>

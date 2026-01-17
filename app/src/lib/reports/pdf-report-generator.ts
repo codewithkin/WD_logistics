@@ -1994,3 +1994,249 @@ export function generateSingleTripReportPDF(data: {
   const generator = new PDFReportGenerator(config);
   return generator.generate();
 }
+
+/**
+ * Generate a Single Invoice PDF (for download)
+ */
+export function generateSingleInvoicePDF(data: {
+  invoice: {
+    invoiceNumber: string;
+    issueDate: Date | string;
+    dueDate: Date | string | null;
+    status: string;
+    subtotal: number;
+    tax: number;
+    total: number;
+    amountPaid: number;
+    balance: number;
+    notes: string | null;
+    isCredit: boolean;
+  };
+  customer: {
+    name: string;
+    email: string | null;
+    phone: string | null;
+    address: string | null;
+  };
+  organization: {
+    name: string;
+  };
+  trip?: {
+    originCity: string;
+    destinationCity: string;
+    scheduledDate: Date | string;
+    loadDescription: string | null;
+    truck: string;
+    driver: string;
+  } | null;
+  payments: Array<{
+    amount: number;
+    paymentDate: Date | string;
+    method: string;
+    reference: string | null;
+  }>;
+}): Uint8Array {
+  const config: ReportConfig = {
+    title: data.invoice.isCredit ? "Credit Invoice" : "Invoice",
+    subtitle: data.invoice.invoiceNumber,
+    reportType: "single-invoice",
+    period: {
+      startDate: new Date(data.invoice.issueDate),
+      endDate: data.invoice.dueDate ? new Date(data.invoice.dueDate) : new Date(data.invoice.issueDate),
+    },
+    summary: [
+      { label: "Invoice Number", value: data.invoice.invoiceNumber, format: "text" },
+      { label: "Status", value: data.invoice.status.replace(/_/g, " ").toUpperCase(), format: "text" },
+      { label: "Total Amount", value: data.invoice.total, format: "currency" },
+      { label: "Amount Paid", value: data.invoice.amountPaid, format: "currency" },
+      { label: "Balance Due", value: data.invoice.balance, format: "currency" },
+    ],
+    sections: [
+      {
+        title: "Bill To",
+        columns: [
+          { header: "Field", key: "field", align: "left" },
+          { header: "Value", key: "value", align: "left" },
+        ],
+        data: [
+          { field: "Customer Name", value: data.customer.name },
+          { field: "Email", value: data.customer.email || "N/A" },
+          { field: "Phone", value: data.customer.phone || "N/A" },
+          { field: "Address", value: data.customer.address || "N/A" },
+        ],
+      },
+      {
+        title: "Invoice Details",
+        columns: [
+          { header: "Field", key: "field", align: "left" },
+          { header: "Value", key: "value", align: "left" },
+        ],
+        data: [
+          { field: "Issue Date", value: new Date(data.invoice.issueDate).toLocaleDateString() },
+          { field: "Due Date", value: data.invoice.dueDate ? new Date(data.invoice.dueDate).toLocaleDateString() : "N/A" },
+          { field: "Invoice Type", value: data.invoice.isCredit ? "Credit Invoice" : "Standard Invoice" },
+        ],
+      },
+      ...(data.trip ? [
+        {
+          title: "Trip Details",
+          columns: [
+            { header: "Field", key: "field", align: "left" as const },
+            { header: "Value", key: "value", align: "left" as const },
+          ],
+          data: [
+            { field: "Route", value: `${data.trip.originCity} → ${data.trip.destinationCity}` },
+            { field: "Scheduled Date", value: new Date(data.trip.scheduledDate).toLocaleDateString() },
+            { field: "Load Description", value: data.trip.loadDescription || "N/A" },
+            { field: "Truck", value: data.trip.truck },
+            { field: "Driver", value: data.trip.driver },
+          ],
+        },
+      ] : []),
+      {
+        title: "Amount Summary",
+        columns: [
+          { header: "Description", key: "description", align: "left" },
+          { header: "Amount", key: "amount", format: "currency", align: "right" },
+        ],
+        data: [
+          { description: "Subtotal", amount: data.invoice.subtotal },
+          { description: "Tax", amount: data.invoice.tax },
+          { description: "Total", amount: data.invoice.total },
+          { description: "Amount Paid", amount: data.invoice.amountPaid },
+          { description: "Balance Due", amount: data.invoice.balance },
+        ],
+      },
+      ...(data.payments.length > 0 ? [
+        {
+          title: "Payment History",
+          columns: [
+            { header: "Date", key: "date", align: "center" as const },
+            { header: "Method", key: "method", align: "left" as const },
+            { header: "Reference", key: "reference", align: "left" as const },
+            { header: "Amount", key: "amount", format: "currency" as const, align: "right" as const },
+          ],
+          data: data.payments.map(p => ({
+            date: new Date(p.paymentDate).toLocaleDateString(),
+            method: p.method.replace(/_/g, " "),
+            reference: p.reference || "N/A",
+            amount: p.amount,
+          })),
+          showTotal: true,
+          totalLabel: "Total Paid",
+          totalColumns: ["amount"],
+        },
+      ] : []),
+    ],
+    notes: [
+      `Invoice generated by ${data.organization.name}`,
+      ...(data.invoice.notes ? [`Notes: ${data.invoice.notes}`] : []),
+      "Thank you for your business!",
+    ],
+  };
+
+  const generator = new PDFReportGenerator(config);
+  return generator.generate();
+}
+
+/**
+ * Generate a Payment Receipt PDF
+ */
+export function generatePaymentReceiptPDF(data: {
+  payment: {
+    id: string;
+    amount: number;
+    paymentDate: Date | string;
+    method: string;
+    customMethod: string | null;
+    reference: string | null;
+    notes: string | null;
+  };
+  invoice: {
+    invoiceNumber: string;
+    total: number;
+    amountPaid: number;
+    balance: number;
+  } | null;
+  customer: {
+    name: string;
+    email: string | null;
+    phone: string | null;
+    address: string | null;
+  };
+  organization: {
+    name: string;
+  };
+}): Uint8Array {
+  const receiptNumber = `RCP-${data.payment.id.slice(-8).toUpperCase()}`;
+  const paymentMethod = data.payment.method === "other" && data.payment.customMethod 
+    ? data.payment.customMethod 
+    : data.payment.method.replace(/_/g, " ");
+
+  const config: ReportConfig = {
+    title: "Payment Receipt",
+    subtitle: receiptNumber,
+    reportType: "payment-receipt",
+    period: {
+      startDate: new Date(data.payment.paymentDate),
+      endDate: new Date(data.payment.paymentDate),
+    },
+    summary: [
+      { label: "Receipt Number", value: receiptNumber, format: "text" },
+      { label: "Payment Date", value: new Date(data.payment.paymentDate).toLocaleDateString(), format: "text" },
+      { label: "Amount Received", value: data.payment.amount, format: "currency" },
+      { label: "Payment Method", value: paymentMethod, format: "text" },
+    ],
+    sections: [
+      {
+        title: "Received From",
+        columns: [
+          { header: "Field", key: "field", align: "left" },
+          { header: "Value", key: "value", align: "left" },
+        ],
+        data: [
+          { field: "Customer Name", value: data.customer.name },
+          { field: "Email", value: data.customer.email || "N/A" },
+          { field: "Phone", value: data.customer.phone || "N/A" },
+          { field: "Address", value: data.customer.address || "N/A" },
+        ],
+      },
+      {
+        title: "Payment Details",
+        columns: [
+          { header: "Description", key: "description", align: "left" },
+          { header: "Value", key: "value", align: "left" },
+        ],
+        data: [
+          { description: "Payment Date", value: new Date(data.payment.paymentDate).toLocaleDateString() },
+          { description: "Payment Method", value: paymentMethod },
+          { description: "Reference", value: data.payment.reference || "N/A" },
+          { description: "Amount Received", value: `$${data.payment.amount.toLocaleString()}` },
+        ],
+      },
+      ...(data.invoice ? [
+        {
+          title: "Invoice Information",
+          columns: [
+            { header: "Description", key: "description", align: "left" as const },
+            { header: "Amount", key: "amount", format: "currency" as const, align: "right" as const },
+          ],
+          data: [
+            { description: `Invoice ${data.invoice.invoiceNumber} - Total`, amount: data.invoice.total },
+            { description: "Previous Payments", amount: data.invoice.amountPaid - data.payment.amount },
+            { description: "This Payment", amount: data.payment.amount },
+            { description: "Remaining Balance", amount: data.invoice.balance },
+          ],
+        },
+      ] : []),
+    ],
+    notes: [
+      `Receipt generated by ${data.organization.name}`,
+      ...(data.payment.notes ? [`Notes: ${data.payment.notes}`] : []),
+      "Thank you for your payment!",
+    ],
+  };
+
+  const generator = new PDFReportGenerator(config);
+  return generator.generate();
+}

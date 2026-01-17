@@ -33,13 +33,13 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { MoreHorizontal, Pencil, Trash2, Search, FileText, Loader2 } from "lucide-react";
+import { MoreHorizontal, Pencil, Trash2, Search, FileText, Loader2, Download } from "lucide-react";
 import { PaginationControls } from "@/components/ui/pagination-controls";
 import { usePagination } from "@/hooks/use-pagination";
 import { ExportOptionsDialog, type ExportScope } from "@/components/ui/export-options-dialog";
 import { format } from "date-fns";
 import { Role } from "@/lib/types";
-import { deletePayment, exportPaymentsPDF } from "../actions";
+import { deletePayment, exportPaymentsPDF, downloadPaymentReceiptPDF } from "../actions";
 import { toast } from "sonner";
 
 interface Payment {
@@ -72,6 +72,7 @@ export function PaymentsTable({ payments, role, showFinancials = true }: Payment
     const [isDeleting, setIsDeleting] = useState(false);
     const [exportDialogOpen, setExportDialogOpen] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
+    const [downloadingReceiptId, setDownloadingReceiptId] = useState<string | null>(null);
 
     const canEdit = role === "admin" || role === "supervisor";
     const canDelete = role === "admin";
@@ -145,6 +146,36 @@ export function PaymentsTable({ payments, role, showFinancials = true }: Payment
             toast.error("An error occurred while exporting");
         } finally {
             setIsExporting(false);
+        }
+    };
+
+    const handleDownloadReceipt = async (paymentId: string) => {
+        setDownloadingReceiptId(paymentId);
+        try {
+            const result = await downloadPaymentReceiptPDF(paymentId);
+            if (result.success && result.data) {
+                const byteCharacters = atob(result.data);
+                const byteNumbers = new Array(byteCharacters.length);
+                for (let i = 0; i < byteCharacters.length; i++) {
+                    byteNumbers[i] = byteCharacters.charCodeAt(i);
+                }
+                const byteArray = new Uint8Array(byteNumbers);
+                const blob = new Blob([byteArray], { type: "application/pdf" });
+
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = result.filename || "receipt.pdf";
+                a.click();
+                window.URL.revokeObjectURL(url);
+                toast.success("Receipt downloaded successfully");
+            } else {
+                toast.error(result.error || "Failed to download receipt");
+            }
+        } catch {
+            toast.error("An error occurred while downloading receipt");
+        } finally {
+            setDownloadingReceiptId(null);
         }
     };
 
@@ -244,12 +275,25 @@ export function PaymentsTable({ payments, role, showFinancials = true }: Payment
                                             {(canEdit || canDelete) && (
                                                 <DropdownMenu>
                                                     <DropdownMenuTrigger asChild>
-                                                        <Button variant="ghost" size="icon">
-                                                            <MoreHorizontal className="h-4 w-4" />
+                                                        <Button variant="ghost" size="icon" disabled={downloadingReceiptId === payment.id}>
+                                                            {downloadingReceiptId === payment.id ? (
+                                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                                            ) : (
+                                                                <MoreHorizontal className="h-4 w-4" />
+                                                            )}
                                                             <span className="sr-only">Open menu</span>
                                                         </Button>
                                                     </DropdownMenuTrigger>
                                                     <DropdownMenuContent align="end">
+                                                        {canEdit && (
+                                                            <DropdownMenuItem
+                                                                onClick={() => handleDownloadReceipt(payment.id)}
+                                                                disabled={downloadingReceiptId === payment.id}
+                                                            >
+                                                                <Download className="mr-2 h-4 w-4" />
+                                                                Download Receipt
+                                                            </DropdownMenuItem>
+                                                        )}
                                                         {canEdit && (
                                                             <DropdownMenuItem asChild>
                                                                 <Link href={`/finance/payments/${payment.id}/edit`}>

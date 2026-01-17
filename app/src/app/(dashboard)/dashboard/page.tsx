@@ -231,8 +231,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 </>
             )}
 
-            {/* Admin Only: Overdue Invoices */}
-            {role === "admin" && overdueInvoices.length > 0 && (
+            {/* Admin & Supervisor: Overdue Invoices */}
+            {(role === "admin" || role === "supervisor") && overdueInvoices.length > 0 && (
                 <div className="mt-6">
                     <OverdueInvoices invoices={overdueInvoices} />
                 </div>

@@ -468,3 +468,83 @@ export async function sendInvoiceToCustomer(invoiceId: string) {
     return { success: false, error: "Failed to send invoice email" };
   }
 }
+
+export async function downloadSingleInvoicePDF(invoiceId: string) {
+  const session = await requireRole(["admin", "supervisor"]);
+  const { generateSingleInvoicePDF } = await import("@/lib/reports/pdf-report-generator");
+
+  const invoice = await prisma.invoice.findFirst({
+    where: {
+      id: invoiceId,
+      organizationId: session.organizationId,
+    },
+    include: {
+      customer: true,
+      trip: {
+        include: {
+          truck: true,
+          driver: true,
+        },
+      },
+      payments: {
+        orderBy: { paymentDate: "desc" },
+      },
+    },
+  });
+
+  if (!invoice) {
+    return { success: false, error: "Invoice not found" };
+  }
+
+  const organization = await prisma.organization.findUnique({
+    where: { id: session.organizationId },
+    select: { name: true },
+  });
+
+  const pdfBytes = generateSingleInvoicePDF({
+    invoice: {
+      invoiceNumber: invoice.invoiceNumber,
+      issueDate: invoice.issueDate,
+      dueDate: invoice.dueDate,
+      status: invoice.status,
+      subtotal: invoice.subtotal,
+      tax: invoice.tax,
+      total: invoice.total,
+      amountPaid: invoice.amountPaid,
+      balance: invoice.balance,
+      notes: invoice.notes,
+      isCredit: invoice.isCredit,
+    },
+    customer: {
+      name: invoice.customer.name,
+      email: invoice.customer.email,
+      phone: invoice.customer.phone,
+      address: invoice.customer.address,
+    },
+    organization: {
+      name: organization?.name || "Unknown",
+    },
+    trip: invoice.trip ? {
+      originCity: invoice.trip.originCity,
+      destinationCity: invoice.trip.destinationCity,
+      scheduledDate: invoice.trip.scheduledDate,
+      loadDescription: invoice.trip.loadDescription,
+      truck: invoice.trip.truck.registrationNo,
+      driver: `${invoice.trip.driver.firstName} ${invoice.trip.driver.lastName}`,
+    } : null,
+    payments: invoice.payments.map((p) => ({
+      amount: p.amount,
+      paymentDate: p.paymentDate,
+      method: p.method,
+      reference: p.reference,
+    })),
+  });
+
+  // Convert to base64 for transfer
+  const base64 = Buffer.from(pdfBytes).toString("base64");
+  return {
+    success: true,
+    data: base64,
+    filename: `${invoice.invoiceNumber}.pdf`,
+  };
+}

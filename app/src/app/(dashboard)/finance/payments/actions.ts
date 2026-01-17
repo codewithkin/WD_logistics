@@ -332,3 +332,69 @@ export async function exportPaymentsPDF(options?: {
     return { success: false, error: "Failed to generate PDF report" };
   }
 }
+
+export async function downloadPaymentReceiptPDF(paymentId: string) {
+  const session = await requireRole(["admin", "supervisor"]);
+  const { generatePaymentReceiptPDF } = await import("@/lib/reports/pdf-report-generator");
+
+  const payment = await prisma.payment.findFirst({
+    where: {
+      id: paymentId,
+      invoice: {
+        organizationId: session.organizationId,
+      },
+    },
+    include: {
+      invoice: {
+        include: {
+          customer: true,
+        },
+      },
+    },
+  });
+
+  if (!payment) {
+    return { success: false, error: "Payment not found" };
+  }
+
+  const organization = await prisma.organization.findUnique({
+    where: { id: session.organizationId },
+    select: { name: true },
+  });
+
+  const pdfBytes = generatePaymentReceiptPDF({
+    payment: {
+      id: payment.id,
+      amount: payment.amount,
+      paymentDate: payment.paymentDate,
+      method: payment.method,
+      customMethod: payment.customMethod,
+      reference: payment.reference,
+      notes: payment.notes,
+    },
+    invoice: {
+      invoiceNumber: payment.invoice.invoiceNumber,
+      total: payment.invoice.total,
+      amountPaid: payment.invoice.amountPaid,
+      balance: payment.invoice.balance,
+    },
+    customer: {
+      name: payment.invoice.customer.name,
+      email: payment.invoice.customer.email,
+      phone: payment.invoice.customer.phone,
+      address: payment.invoice.customer.address,
+    },
+    organization: {
+      name: organization?.name || "Unknown",
+    },
+  });
+
+  // Convert to base64 for transfer
+  const base64 = Buffer.from(pdfBytes).toString("base64");
+  const receiptNumber = `RCP-${payment.id.slice(-8).toUpperCase()}`;
+  return {
+    success: true,
+    data: base64,
+    filename: `${receiptNumber}.pdf`,
+  };
+}
