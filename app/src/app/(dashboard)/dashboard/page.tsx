@@ -12,6 +12,7 @@ import { getDriverPerformanceData } from "@/lib/dashboard/driver-performance";
 import { QuickActions } from "./_components/quick-actions";
 import { DashboardPeriodSelector } from "./_components/dashboard-period-selector";
 import { getDateRangeFromParams } from "@/lib/period-utils";
+import { canViewFinancialData } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -134,6 +135,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         periodLabel: dateRange.label,
     };
 
+    const showFinancials = canViewFinancialData(role);
+
     return (
         <div>
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
@@ -148,30 +151,36 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             </div>
 
             {/* Stats Cards */}
-            <DashboardStats stats={stats} role={role} />
+            <DashboardStats stats={stats} role={role} showFinancials={showFinancials} />
 
-            {/* Revenue vs Expenses Chart - Full Width */}
-            <div className="mt-6">
-                <RevenueExpensesChart
-                    data={revenueExpensesData}
-                    periodLabel={dateRange.label}
-                    periodTotals={{ revenue: periodTotals.revenue, expenses: periodTotals.expenses }}
-                />
-            </div>
+            {/* Revenue vs Expenses Chart - Admin Only */}
+            {showFinancials && (
+                <div className="mt-6">
+                    <RevenueExpensesChart
+                        data={revenueExpensesData}
+                        periodLabel={dateRange.label}
+                        periodTotals={{ revenue: periodTotals.revenue, expenses: periodTotals.expenses }}
+                    />
+                </div>
+            )}
 
-            {/* Performance Trend Chart - Full Width */}
-            <div className="mt-6">
-                <PerformanceTrendChart
-                    data={performanceTrendData}
-                    periodLabel={dateRange.label}
-                    periodTotals={periodTotals}
-                />
-            </div>
+            {/* Performance Trend Chart - Admin Only */}
+            {showFinancials && (
+                <div className="mt-6">
+                    <PerformanceTrendChart
+                        data={performanceTrendData}
+                        periodLabel={dateRange.label}
+                        periodTotals={periodTotals}
+                    />
+                </div>
+            )}
 
-            {/* Driver Performance Table - Full Width */}
-            <div className="mt-6">
-                <DriverPerformanceTable data={driverPerformanceData} periodLabel={dateRange.label} />
-            </div>
+            {/* Driver Performance Table - Admin Only */}
+            {showFinancials && (
+                <div className="mt-6">
+                    <DriverPerformanceTable data={driverPerformanceData} periodLabel={dateRange.label} />
+                </div>
+            )}
 
             {/* Admin Only: Overdue Invoices */}
             {role === "admin" && overdueInvoices.length > 0 && (

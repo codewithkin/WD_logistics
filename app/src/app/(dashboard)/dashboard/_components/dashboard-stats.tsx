@@ -12,9 +12,10 @@ interface DashboardStatsProps {
         periodLabel: string;
     };
     role: Role;
+    showFinancials?: boolean;
 }
 
-export function DashboardStats({ stats, role }: DashboardStatsProps) {
+export function DashboardStats({ stats, role, showFinancials = true }: DashboardStatsProps) {
     const periodLabel = stats.periodLabel || "This Period";
 
     const cardStyles = [
@@ -24,6 +25,7 @@ export function DashboardStats({ stats, role }: DashboardStatsProps) {
             icon: Truck,
             description: "trucks in operation",
             roles: ["admin", "supervisor", "staff"] as Role[],
+            requiresFinancials: false,
             bgGradient: "linear-gradient(to bottom right, rgba(59, 130, 246, 0.1), rgba(34, 211, 238, 0.1))",
             iconGradient: "linear-gradient(to bottom right, #3b82f6, #06b6d4)",
             textColor: "#2563eb",
@@ -34,6 +36,7 @@ export function DashboardStats({ stats, role }: DashboardStatsProps) {
             icon: Route,
             description: "scheduled & completed",
             roles: ["admin", "supervisor", "staff"] as Role[],
+            requiresFinancials: false,
             bgGradient: "linear-gradient(to bottom right, rgba(168, 85, 247, 0.1), rgba(236, 72, 153, 0.1))",
             iconGradient: "linear-gradient(to bottom right, #a855f7, #ec4899)",
             textColor: "#9333ea",
@@ -43,7 +46,8 @@ export function DashboardStats({ stats, role }: DashboardStatsProps) {
             value: `$${stats.revenueThisMonth.toLocaleString()}`,
             icon: DollarSign,
             description: "from completed trips",
-            roles: ["admin", "supervisor"] as Role[],
+            roles: ["admin"] as Role[],
+            requiresFinancials: true,
             bgGradient: "linear-gradient(to bottom right, rgba(34, 197, 94, 0.1), rgba(16, 185, 129, 0.1))",
             iconGradient: "linear-gradient(to bottom right, #22c55e, #10b981)",
             textColor: "#16a34a",
@@ -54,6 +58,7 @@ export function DashboardStats({ stats, role }: DashboardStatsProps) {
             icon: AlertTriangle,
             description: "require attention",
             roles: ["admin"] as Role[],
+            requiresFinancials: true,
             bgGradient: stats.overdueInvoicesCount > 0
                 ? "linear-gradient(to bottom right, rgba(239, 68, 68, 0.1), rgba(249, 115, 22, 0.1))"
                 : "linear-gradient(to bottom right, rgba(107, 114, 128, 0.1), rgba(100, 116, 139, 0.1))",
@@ -64,7 +69,13 @@ export function DashboardStats({ stats, role }: DashboardStatsProps) {
         },
     ];
 
-    const visibleCards = cardStyles.filter((card) => card.roles.includes(role));
+    const visibleCards = cardStyles.filter((card) => {
+        // Check role permission
+        if (!card.roles.includes(role)) return false;
+        // Check if card requires financials and user can view financials
+        if (card.requiresFinancials && !showFinancials) return false;
+        return true;
+    });
 
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
