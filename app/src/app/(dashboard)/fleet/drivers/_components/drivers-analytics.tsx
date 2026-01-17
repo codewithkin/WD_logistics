@@ -157,7 +157,7 @@ export function DriversAnalytics({ analytics, drivers, canExport, periodLabel, s
             )}
 
             {/* Metric Cards */}
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className={`grid gap-4 sm:grid-cols-2 ${showFinancials ? "lg:grid-cols-4" : "lg:grid-cols-2"}`}>
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
                         <CardTitle className="text-sm font-medium">Total Drivers</CardTitle>
