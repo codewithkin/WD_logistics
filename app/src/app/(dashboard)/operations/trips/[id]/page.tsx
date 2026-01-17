@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { requireAuth } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
+import { canViewFinancialData } from "@/lib/permissions";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -72,6 +73,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
     }
 
     const canEdit = role === "admin" || role === "supervisor";
+    const showFinancials = canViewFinancialData(role);
     const totalExpenses = trip.tripExpenses.reduce((sum, te) => sum + te.expense.amount, 0);
 
     // Calculate invoice-based metrics
@@ -239,72 +241,74 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
                     </CardContent>
                 </Card>
 
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="text-lg flex items-center gap-2">
-                            <DollarSign className="h-5 w-5" /> Financials
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="flex items-center justify-between">
-                            <span className="text-muted-foreground">Revenue</span>
-                            <span className="font-medium text-green-600">
-                                ${trip.revenue.toLocaleString()}
-                            </span>
-                        </div>
-                        <Separator />
-                        <div className="flex items-center justify-between">
-                            <span className="text-muted-foreground">Expenses</span>
-                            <span className="font-medium text-red-600">
-                                ${totalExpenses.toLocaleString()}
-                            </span>
-                        </div>
-                        <Separator />
-                        <div className="flex items-center justify-between">
-                            <span className="text-muted-foreground">Gross Profit</span>
-                            <span
-                                className={`font-bold ${grossProfit >= 0 ? "text-green-600" : "text-red-600"}`}
-                            >
-                                ${grossProfit.toLocaleString()}
-                            </span>
-                        </div>
-                        <Separator />
-                        <div className="flex items-center justify-between">
-                            <span className="text-muted-foreground flex items-center gap-1">
-                                {isInvoicePaid ? (
-                                    <CheckCircle2 className="h-4 w-4 text-green-500" />
-                                ) : (
-                                    <Clock className="h-4 w-4 text-amber-500" />
-                                )}
-                                Net Profit
-                            </span>
-                            <span
-                                className={`font-bold ${isInvoicePaid
-                                    ? netProfit >= 0
-                                        ? "text-green-600"
-                                        : "text-red-600"
-                                    : "text-muted-foreground"
-                                    }`}
-                            >
-                                {isInvoicePaid ? `$${netProfit.toLocaleString()}` : "Awaiting Payment"}
-                            </span>
-                        </div>
-                        {pendingRevenue > 0 && (
-                            <>
-                                <Separator />
-                                <div className="flex items-center justify-between">
-                                    <span className="text-muted-foreground flex items-center gap-1">
-                                        <CreditCard className="h-4 w-4 text-amber-500" />
-                                        Pending (Credit)
-                                    </span>
-                                    <span className="font-medium text-amber-600">
-                                        ${pendingRevenue.toLocaleString()}
-                                    </span>
-                                </div>
-                            </>
-                        )}
-                    </CardContent>
-                </Card>
+                {showFinancials && (
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-lg flex items-center gap-2">
+                                <DollarSign className="h-5 w-5" /> Financials
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="flex items-center justify-between">
+                                <span className="text-muted-foreground">Revenue</span>
+                                <span className="font-medium text-green-600">
+                                    ${trip.revenue.toLocaleString()}
+                                </span>
+                            </div>
+                            <Separator />
+                            <div className="flex items-center justify-between">
+                                <span className="text-muted-foreground">Expenses</span>
+                                <span className="font-medium text-red-600">
+                                    ${totalExpenses.toLocaleString()}
+                                </span>
+                            </div>
+                            <Separator />
+                            <div className="flex items-center justify-between">
+                                <span className="text-muted-foreground">Gross Profit</span>
+                                <span
+                                    className={`font-bold ${grossProfit >= 0 ? "text-green-600" : "text-red-600"}`}
+                                >
+                                    ${grossProfit.toLocaleString()}
+                                </span>
+                            </div>
+                            <Separator />
+                            <div className="flex items-center justify-between">
+                                <span className="text-muted-foreground flex items-center gap-1">
+                                    {isInvoicePaid ? (
+                                        <CheckCircle2 className="h-4 w-4 text-green-500" />
+                                    ) : (
+                                        <Clock className="h-4 w-4 text-amber-500" />
+                                    )}
+                                    Net Profit
+                                </span>
+                                <span
+                                    className={`font-bold ${isInvoicePaid
+                                        ? netProfit >= 0
+                                            ? "text-green-600"
+                                            : "text-red-600"
+                                        : "text-muted-foreground"
+                                        }`}
+                                >
+                                    {isInvoicePaid ? `$${netProfit.toLocaleString()}` : "Awaiting Payment"}
+                                </span>
+                            </div>
+                            {pendingRevenue > 0 && (
+                                <>
+                                    <Separator />
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-muted-foreground flex items-center gap-1">
+                                            <CreditCard className="h-4 w-4 text-amber-500" />
+                                            Pending (Credit)
+                                        </span>
+                                        <span className="font-medium text-amber-600">
+                                            ${pendingRevenue.toLocaleString()}
+                                        </span>
+                                    </div>
+                                </>
+                            )}
+                        </CardContent>
+                    </Card>
+                )}
 
                 {trip.loadDescription && (
                     <Card>
@@ -335,10 +339,12 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
 
             <div className="grid gap-6 mt-6 md:grid-cols-2">
                 {/* Revenue vs Expenses Pie Chart */}
-                <TripRevenueExpenseChart
-                    revenue={trip.revenue}
-                    expenses={totalExpenses}
-                />
+                {showFinancials && (
+                    <TripRevenueExpenseChart
+                        revenue={trip.revenue}
+                        expenses={totalExpenses}
+                    />
+                )}
 
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between">
@@ -368,7 +374,9 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
                                                 {format(te.expense.date, "MMM d, yyyy")}
                                             </p>
                                         </div>
-                                        <span className="font-medium">${te.expense.amount.toLocaleString()}</span>
+                                        {showFinancials && (
+                                            <span className="font-medium">${te.expense.amount.toLocaleString()}</span>
+                                        )}
                                     </div>
                                 ))}
                             </div>
@@ -405,20 +413,24 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
                                             <StatusBadge status={tripInvoice.status} type="invoice" />
                                         </div>
                                     </div>
-                                    <Separator />
-                                    <div className="flex items-center justify-between text-sm">
-                                        <span className="text-muted-foreground">Total</span>
-                                        <span className="font-medium">${tripInvoice.total.toLocaleString()}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between text-sm">
-                                        <span className="text-muted-foreground">Paid</span>
-                                        <span className="font-medium text-green-600">${tripInvoice.amountPaid.toLocaleString()}</span>
-                                    </div>
-                                    {tripInvoice.balance > 0 && (
-                                        <div className="flex items-center justify-between text-sm">
-                                            <span className="text-muted-foreground">Balance</span>
-                                            <span className="font-medium text-amber-600">${tripInvoice.balance.toLocaleString()}</span>
-                                        </div>
+                                    {showFinancials && (
+                                        <>
+                                            <Separator />
+                                            <div className="flex items-center justify-between text-sm">
+                                                <span className="text-muted-foreground">Total</span>
+                                                <span className="font-medium">${tripInvoice.total.toLocaleString()}</span>
+                                            </div>
+                                            <div className="flex items-center justify-between text-sm">
+                                                <span className="text-muted-foreground">Paid</span>
+                                                <span className="font-medium text-green-600">${tripInvoice.amountPaid.toLocaleString()}</span>
+                                            </div>
+                                            {tripInvoice.balance > 0 && (
+                                                <div className="flex items-center justify-between text-sm">
+                                                    <span className="text-muted-foreground">Balance</span>
+                                                    <span className="font-medium text-amber-600">${tripInvoice.balance.toLocaleString()}</span>
+                                                </div>
+                                            )}
+                                        </>
                                     )}
                                     {tripInvoice.dueDate && (
                                         <div className="flex items-center justify-between text-sm">
@@ -438,21 +450,23 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
             </div>
 
             {/* Profit & Loss Table */}
-            <TripProfitLossTable
-                tripId={trip.id}
-                tripName={`${trip.originCity} → ${trip.destinationCity}`}
-                revenue={trip.revenue}
-                expenses={trip.tripExpenses}
-                invoice={tripInvoice ? {
-                    id: tripInvoice.id,
-                    invoiceNumber: tripInvoice.invoiceNumber,
-                    total: tripInvoice.total,
-                    amountPaid: tripInvoice.amountPaid,
-                    balance: tripInvoice.balance,
-                    status: tripInvoice.status,
-                    isCredit: tripInvoice.isCredit,
-                } : null}
-            />
+            {showFinancials && (
+                <TripProfitLossTable
+                    tripId={trip.id}
+                    tripName={`${trip.originCity} → ${trip.destinationCity}`}
+                    revenue={trip.revenue}
+                    expenses={trip.tripExpenses}
+                    invoice={tripInvoice ? {
+                        id: tripInvoice.id,
+                        invoiceNumber: tripInvoice.invoiceNumber,
+                        total: tripInvoice.total,
+                        amountPaid: tripInvoice.amountPaid,
+                        balance: tripInvoice.balance,
+                        status: tripInvoice.status,
+                        isCredit: tripInvoice.isCredit,
+                    } : null}
+                />
+            )}
         </div>
     );
 }
