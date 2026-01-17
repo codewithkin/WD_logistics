@@ -19,7 +19,7 @@ export interface FleetUtilizationData {
  * Get fleet utilization by truck status
  */
 export async function getFleetUtilizationData(): Promise<FleetUtilizationData[]> {
-  const user = await requireRole(["admin", "supervisor"]);
+  const user = await requireRole(["admin", "supervisor", "staff"]);
   const organization = user.organizationId;
 
   // Get truck counts by status

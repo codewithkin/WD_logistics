@@ -17,14 +17,23 @@ export interface TripStatusData {
 /**
  * Get trip count by status
  */
-export async function getTripStatusDistributionData(): Promise<TripStatusData[]> {
-  const user = await requireRole(["admin", "supervisor"]);
+export async function getTripStatusDistributionData(startDate?: Date, endDate?: Date): Promise<TripStatusData[]> {
+  const user = await requireRole(["admin", "supervisor", "staff"]);
   const organization = user.organizationId;
+
+  // Build where clause with optional date filter
+  const whereClause: any = { organizationId: organization };
+  if (startDate && endDate) {
+    whereClause.scheduledDate = {
+      gte: startDate,
+      lte: endDate,
+    };
+  }
 
   // Get trip counts by status
   const trips = await prisma.trip.groupBy({
     by: ["status"],
-    where: { organizationId: organization },
+    where: whereClause,
     _count: true,
   });
 
