@@ -23,6 +23,12 @@ export const ROLE_PERMISSIONS = {
     
     // Settings
     canAccessSettings: true,
+    
+    // Financial Data
+    canViewFinancials: true,
+    canViewRevenue: true,
+    canViewExpenses: true,
+    canViewPerformanceMetrics: true,
   },
   supervisor: {
     // User Management
@@ -45,6 +51,12 @@ export const ROLE_PERMISSIONS = {
     
     // Settings
     canAccessSettings: false,
+    
+    // Financial Data - Supervisors have restricted access
+    canViewFinancials: false,
+    canViewRevenue: false,
+    canViewExpenses: false, // Can be overridden by SHOW_EXPENSES env
+    canViewPerformanceMetrics: false,
   },
   staff: {
     // User Management
@@ -67,6 +79,12 @@ export const ROLE_PERMISSIONS = {
     
     // Settings
     canAccessSettings: false,
+    
+    // Financial Data - Staff have no access
+    canViewFinancials: false,
+    canViewRevenue: false,
+    canViewExpenses: false,
+    canViewPerformanceMetrics: false,
   },
 } as const;
 
@@ -78,6 +96,24 @@ export function getPermissions(role: Role): RolePermissions {
 
 export function hasPermission(role: Role, permission: keyof RolePermissions): boolean {
   return ROLE_PERMISSIONS[role][permission];
+}
+
+/**
+ * Check if supervisor can view expenses (controlled by SHOW_EXPENSES env variable)
+ */
+export function canViewExpensesPage(role: Role): boolean {
+  if (role === "admin") return true;
+  if (role === "supervisor") {
+    return process.env.SHOW_EXPENSES === "true";
+  }
+  return false;
+}
+
+/**
+ * Check if user can view financial data (revenue, expenses, performance metrics)
+ */
+export function canViewFinancialData(role: Role): boolean {
+  return role === "admin";
 }
 
 // Check if user can edit directly or needs to submit edit request
