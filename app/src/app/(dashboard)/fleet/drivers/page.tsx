@@ -1,5 +1,6 @@
 import { requireAuth } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
+import { canViewFinancialData } from "@/lib/permissions";
 import { PageHeader } from "@/components/layout/page-header";
 import { DriversTable } from "./_components/drivers-table";
 import { DriversAnalytics } from "./_components/drivers-analytics";
@@ -81,6 +82,7 @@ export default async function DriversPage({ searchParams }: DriversPageProps) {
 
     const canCreate = role === "admin" || role === "supervisor";
     const canExport = role === "admin";
+    const showFinancials = canViewFinancialData(role);
 
     return (
         <div className="space-y-6">
@@ -101,8 +103,8 @@ export default async function DriversPage({ searchParams }: DriversPageProps) {
                     )}
                 </div>
             </div>
-            <DriversAnalytics analytics={analytics} drivers={drivers as any} canExport={canExport} periodLabel={dateRange.label} />
-            <DriversTable drivers={drivers as any} role={role} />
+            <DriversAnalytics analytics={analytics} drivers={drivers as any} canExport={canExport} periodLabel={dateRange.label} showFinancials={showFinancials} />
+            <DriversTable drivers={drivers as any} role={role} showFinancials={showFinancials} />
         </div>
     );
 }

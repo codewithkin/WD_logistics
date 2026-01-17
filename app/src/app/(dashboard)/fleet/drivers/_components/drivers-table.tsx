@@ -67,9 +67,10 @@ interface Driver {
 interface DriversTableProps {
     drivers: Driver[];
     role: Role;
+    showFinancials?: boolean;
 }
 
-export function DriversTable({ drivers, role }: DriversTableProps) {
+export function DriversTable({ drivers, role, showFinancials = true }: DriversTableProps) {
     const router = useRouter();
     const [search, setSearch] = useState("");
     const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -166,14 +167,14 @@ export function DriversTable({ drivers, role }: DriversTableProps) {
                                 <TableHead>License</TableHead>
                                 <TableHead>Status</TableHead>
                                 <TableHead>Assigned Truck</TableHead>
-                                <TableHead>Trips</TableHead>
+                                {showFinancials && <TableHead>Trips</TableHead>}
                                 <TableHead className="w-[70px]"></TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {paginatedDrivers.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={7} className="text-center h-24 text-muted-foreground">
+                                    <TableCell colSpan={showFinancials ? 7 : 6} className="text-center h-24 text-muted-foreground">
                                         No drivers found
                                     </TableCell>
                                 </TableRow>
@@ -198,7 +199,7 @@ export function DriversTable({ drivers, role }: DriversTableProps) {
                                                 <span className="text-muted-foreground">Unassigned</span>
                                             )}
                                         </TableCell>
-                                        <TableCell>{driver._count.trips}</TableCell>
+                                        {showFinancials && <TableCell>{driver._count.trips}</TableCell>}
                                         <TableCell>
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger asChild>

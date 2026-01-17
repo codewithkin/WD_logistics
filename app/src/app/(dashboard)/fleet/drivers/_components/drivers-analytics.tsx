@@ -48,6 +48,7 @@ interface DriversAnalyticsProps {
     drivers: Driver[];
     canExport: boolean;
     periodLabel?: string;
+    showFinancials?: boolean;
 }
 
 const STATUS_COLORS = {
@@ -62,7 +63,7 @@ const LICENSE_COLORS = [
     "#ec4899", "#14b8a6", "#f97316", "#6366f1", "#84cc16"
 ];
 
-export function DriversAnalytics({ analytics, drivers, canExport, periodLabel }: DriversAnalyticsProps) {
+export function DriversAnalytics({ analytics, drivers, canExport, periodLabel, showFinancials = true }: DriversAnalyticsProps) {
     const [isExporting, setIsExporting] = useState(false);
 
     const statusData = [
@@ -181,32 +182,36 @@ export function DriversAnalytics({ analytics, drivers, canExport, periodLabel }:
                         </p>
                     </CardContent>
                 </Card>
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-sm font-medium">Total Trips</CardTitle>
-                        <Route className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{analytics.totalTrips}</div>
-                        <p className="text-xs text-muted-foreground">
-                            {periodLabel ? `For ${periodLabel}` : "Across all drivers"}
-                        </p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-sm font-medium">Avg. Trips/Driver</CardTitle>
-                        <IdCard className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">
-                            {averageTripsPerDriver.toFixed(1)}
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                            Per driver
-                        </p>
-                    </CardContent>
-                </Card>
+                {showFinancials && (
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between pb-2">
+                            <CardTitle className="text-sm font-medium">Total Trips</CardTitle>
+                            <Route className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">{analytics.totalTrips}</div>
+                            <p className="text-xs text-muted-foreground">
+                                {periodLabel ? `For ${periodLabel}` : "Across all drivers"}
+                            </p>
+                        </CardContent>
+                    </Card>
+                )}
+                {showFinancials && (
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between pb-2">
+                            <CardTitle className="text-sm font-medium">Avg. Trips/Driver</CardTitle>
+                            <IdCard className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">
+                                {averageTripsPerDriver.toFixed(1)}
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                                Per driver
+                            </p>
+                        </CardContent>
+                    </Card>
+                )}
             </div>
 
             {/* Status Cards */}
@@ -290,30 +295,32 @@ export function DriversAnalytics({ analytics, drivers, canExport, periodLabel }:
                     </CardContent>
                 </Card>
 
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Top Performers</CardTitle>
-                        <CardDescription>Drivers with most trips</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="h-64">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={topPerformers} layout="vertical">
-                                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                                    <XAxis type="number" stroke="hsl(var(--muted-foreground))" />
-                                    <YAxis type="category" dataKey="name" width={80} stroke="hsl(var(--muted-foreground))" />
-                                    <Tooltip
-                                        contentStyle={{
-                                            backgroundColor: "hsl(var(--background))",
-                                            border: "1px solid hsl(var(--border))",
-                                        }}
-                                    />
-                                    <Bar dataKey="trips" fill="#3b82f6" name="Trips" />
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </div>
-                    </CardContent>
-                </Card>
+                {showFinancials && (
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Top Performers</CardTitle>
+                            <CardDescription>Drivers with most trips</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="h-64">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={topPerformers} layout="vertical">
+                                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                                        <XAxis type="number" stroke="hsl(var(--muted-foreground))" />
+                                        <YAxis type="category" dataKey="name" width={80} stroke="hsl(var(--muted-foreground))" />
+                                        <Tooltip
+                                            contentStyle={{
+                                                backgroundColor: "hsl(var(--background))",
+                                                border: "1px solid hsl(var(--border))",
+                                            }}
+                                        />
+                                        <Bar dataKey="trips" fill="#3b82f6" name="Trips" />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
             </div>
 
             {/* License Type Breakdown */}
