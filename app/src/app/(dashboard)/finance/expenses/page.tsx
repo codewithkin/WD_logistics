@@ -4,6 +4,8 @@ import prisma from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { getDateRangeFromParams } from "@/lib/period-utils";
 import { ExpensesPeriodSelector } from "./_components/expenses-period-selector";
+import { canViewExpensesPage } from "@/lib/permissions";
+import { redirect } from "next/navigation";
 
 interface ExpensesPageProps {
     searchParams: Promise<{ period?: string; from?: string; to?: string }>;
@@ -12,6 +14,11 @@ interface ExpensesPageProps {
 export default async function ExpensesPage({ searchParams }: ExpensesPageProps) {
     const params = await searchParams;
     const user = await requireRole(["admin", "supervisor", "staff"]);
+
+    // Check if user can view expenses page
+    if (!canViewExpensesPage(user.role)) {
+        redirect("/dashboard");
+    }
 
     // Get date range from URL params
     const dateRange = getDateRangeFromParams(params, "1m");

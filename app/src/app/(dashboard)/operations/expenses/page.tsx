@@ -7,6 +7,8 @@ import { getDateRangeFromParams } from "@/lib/period-utils";
 import { PagePeriodSelector } from "@/components/ui/page-period-selector";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { canViewExpensesPage } from "@/lib/permissions";
+import { redirect } from "next/navigation";
 
 interface ExpensesPageProps {
     searchParams: Promise<{ tripId?: string; categoryId?: string; period?: string; from?: string; to?: string }>;
@@ -16,6 +18,11 @@ export default async function ExpensesPage({ searchParams }: ExpensesPageProps) 
     const params = await searchParams;
     const session = await requireAuth();
     const { role, organizationId } = session;
+
+    // Check if user can view expenses page
+    if (!canViewExpensesPage(role)) {
+        redirect("/dashboard");
+    }
 
     // Get date range from URL params
     const dateRange = getDateRangeFromParams(params, "1m");
