@@ -77,9 +77,10 @@ interface Trip {
 interface TripsTableProps {
     trips: Trip[];
     role: Role;
+    showFinancials?: boolean;
 }
 
-export function TripsTable({ trips, role }: TripsTableProps) {
+export function TripsTable({ trips, role, showFinancials = true }: TripsTableProps) {
     const router = useRouter();
     const [search, setSearch] = useState("");
     const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -89,6 +90,7 @@ export function TripsTable({ trips, role }: TripsTableProps) {
     const canEdit = role === "admin" || role === "supervisor";
     const canDelete = role === "admin";
     const isStaff = role === "staff";
+    const canViewAmounts = showFinancials && role === "admin";
 
     const filteredTrips = trips.filter((trip) => {
         const matchesSearch =
@@ -180,14 +182,16 @@ export function TripsTable({ trips, role }: TripsTableProps) {
                                 <TableHead>Truck</TableHead>
                                 <TableHead>Driver</TableHead>
                                 <TableHead>Customer</TableHead>
-                                <TableHead className="text-right">Revenue</TableHead>
+                                {canViewAmounts && (
+                                    <TableHead className="text-right">Revenue</TableHead>
+                                )}
                                 <TableHead className="w-[70px]"></TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {paginatedTrips.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={8} className="text-center h-24 text-muted-foreground">
+                                    <TableCell colSpan={canViewAmounts ? 8 : 7} className="text-center h-24 text-muted-foreground">
                                         No trips found
                                     </TableCell>
                                 </TableRow>
@@ -242,9 +246,11 @@ export function TripsTable({ trips, role }: TripsTableProps) {
                                                 <span className="text-muted-foreground">—</span>
                                             )}
                                         </TableCell>
-                                        <TableCell className="text-right font-medium">
-                                            ${trip.revenue.toLocaleString()}
-                                        </TableCell>
+                                        {canViewAmounts && (
+                                            <TableCell className="text-right font-medium">
+                                                ${trip.revenue.toLocaleString()}
+                                            </TableCell>
+                                        )}
                                         <TableCell>
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger asChild>
@@ -293,7 +299,7 @@ export function TripsTable({ trips, role }: TripsTableProps) {
                                 ))
                             )}
                         </TableBody>
-                        {filteredTrips.length > 0 && (
+                        {filteredTrips.length > 0 && canViewAmounts && (
                             <TableFooter>
                                 <TableRow className="bg-muted/50 font-semibold">
                                     <TableCell colSpan={6} className="text-right">

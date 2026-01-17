@@ -8,6 +8,7 @@ import { getDateRangeFromParams } from "@/lib/period-utils";
 import { PagePeriodSelector } from "@/components/ui/page-period-selector";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { canViewFinancialData } from "@/lib/permissions";
 
 interface TripsPageProps {
     searchParams: Promise<{ truckId?: string; driverId?: string; customerId?: string; period?: string; from?: string; to?: string }>;
@@ -72,6 +73,7 @@ export default async function TripsPage({ searchParams }: TripsPageProps) {
 
     const canCreate = role === "admin" || role === "supervisor";
     const canExport = role === "admin";
+    const showFinancials = canViewFinancialData(role);
 
     return (
         <div className="space-y-6">
@@ -92,8 +94,10 @@ export default async function TripsPage({ searchParams }: TripsPageProps) {
                     )}
                 </div>
             </div>
-            <TripsAnalytics analytics={analytics} trips={trips} canExport={canExport} periodLabel={dateRange.label} />
-            <TripsTable trips={trips} role={role} />
+            {showFinancials && (
+                <TripsAnalytics analytics={analytics} trips={trips} canExport={canExport} periodLabel={dateRange.label} />
+            )}
+            <TripsTable trips={trips} role={role} showFinancials={showFinancials} />
         </div>
     );
 }
