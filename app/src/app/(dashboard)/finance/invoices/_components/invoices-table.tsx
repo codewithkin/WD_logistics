@@ -68,9 +68,10 @@ interface Invoice {
 interface InvoicesTableProps {
     invoices: Invoice[];
     role: Role;
+    showFinancials?: boolean;
 }
 
-export function InvoicesTable({ invoices, role }: InvoicesTableProps) {
+export function InvoicesTable({ invoices, role, showFinancials = true }: InvoicesTableProps) {
     const router = useRouter();
     const [search, setSearch] = useState("");
     const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -82,6 +83,7 @@ export function InvoicesTable({ invoices, role }: InvoicesTableProps) {
 
     const canEdit = role === "admin" || role === "supervisor";
     const canDelete = role === "admin";
+    const canViewAmounts = showFinancials && role === "admin";
 
     const filteredInvoices = invoices.filter((invoice) => {
         const matchesSearch =
@@ -230,16 +232,20 @@ export function InvoicesTable({ invoices, role }: InvoicesTableProps) {
                                 <TableHead>Issue Date</TableHead>
                                 <TableHead>Due Date</TableHead>
                                 <TableHead>Status</TableHead>
-                                <TableHead className="text-right">Amount</TableHead>
-                                <TableHead className="text-right">Paid</TableHead>
-                                <TableHead className="text-right">Outstanding</TableHead>
+                                {canViewAmounts && (
+                                    <>
+                                        <TableHead className="text-right">Amount</TableHead>
+                                        <TableHead className="text-right">Paid</TableHead>
+                                        <TableHead className="text-right">Outstanding</TableHead>
+                                    </>
+                                )}
                                 <TableHead className="w-[70px]"></TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {filteredInvoices.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={9} className="text-center h-24 text-muted-foreground">
+                                    <TableCell colSpan={canViewAmounts ? 9 : 6} className="text-center h-24 text-muted-foreground">
                                         No invoices found
                                     </TableCell>
                                 </TableRow>
@@ -272,33 +278,37 @@ export function InvoicesTable({ invoices, role }: InvoicesTableProps) {
                                             <TableCell>
                                                 <StatusBadge status={invoice.status} type="invoice" />
                                             </TableCell>
-                                            <TableCell className="text-right font-medium">
-                                                ${invoice.total.toLocaleString()}
-                                            </TableCell>
-                                            <TableCell className="text-right">
-                                                <span
-                                                    className={
-                                                        invoice.balance <= 0
-                                                            ? "text-green-600"
-                                                            : invoice.amountPaid > 0
-                                                                ? "text-amber-600"
-                                                                : "text-muted-foreground"
-                                                    }
-                                                >
-                                                    ${invoice.amountPaid.toLocaleString()}
-                                                </span>
-                                            </TableCell>
-                                            <TableCell className="text-right">
-                                                <span
-                                                    className={
-                                                        invoice.balance <= 0
-                                                            ? "text-green-600"
-                                                            : "text-red-600 font-medium"
-                                                    }
-                                                >
-                                                    ${invoice.balance.toLocaleString()}
-                                                </span>
-                                            </TableCell>
+                                            {canViewAmounts && (
+                                                <>
+                                                    <TableCell className="text-right font-medium">
+                                                        ${invoice.total.toLocaleString()}
+                                                    </TableCell>
+                                                    <TableCell className="text-right">
+                                                        <span
+                                                            className={
+                                                                invoice.balance <= 0
+                                                                    ? "text-green-600"
+                                                                    : invoice.amountPaid > 0
+                                                                        ? "text-amber-600"
+                                                                        : "text-muted-foreground"
+                                                            }
+                                                        >
+                                                            ${invoice.amountPaid.toLocaleString()}
+                                                        </span>
+                                                    </TableCell>
+                                                    <TableCell className="text-right">
+                                                        <span
+                                                            className={
+                                                                invoice.balance <= 0
+                                                                    ? "text-green-600"
+                                                                    : "text-red-600 font-medium"
+                                                            }
+                                                        >
+                                                            ${invoice.balance.toLocaleString()}
+                                                        </span>
+                                                    </TableCell>
+                                                </>
+                                            )}
                                             <TableCell>
                                                 <DropdownMenu>
                                                     <DropdownMenuTrigger asChild>
@@ -361,7 +371,7 @@ export function InvoicesTable({ invoices, role }: InvoicesTableProps) {
                                 })
                             )}
                         </TableBody>
-                        {filteredInvoices.length > 0 && (
+                        {filteredInvoices.length > 0 && canViewAmounts && (
                             <TableFooter>
                                 <TableRow className="bg-muted/50 font-semibold">
                                     <TableCell colSpan={5} className="text-right">

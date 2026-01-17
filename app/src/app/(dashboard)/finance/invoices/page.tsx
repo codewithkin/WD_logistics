@@ -7,6 +7,7 @@ import { getDateRangeFromParams } from "@/lib/period-utils";
 import { PagePeriodSelector } from "@/components/ui/page-period-selector";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { canViewFinancialData } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -44,6 +45,7 @@ export default async function InvoicesPage({ searchParams }: InvoicesPageProps) 
     });
 
     const canCreate = role === "admin" || role === "supervisor";
+    const showFinancials = canViewFinancialData(role);
 
     return (
         <div className="space-y-6">
@@ -64,7 +66,7 @@ export default async function InvoicesPage({ searchParams }: InvoicesPageProps) 
                     )}
                 </div>
             </div>
-            <InvoicesTable invoices={invoices} role={role} />
+            <InvoicesTable invoices={invoices} role={role} showFinancials={showFinancials} />
         </div>
     );
 }
