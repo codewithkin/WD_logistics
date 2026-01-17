@@ -28,6 +28,8 @@ export interface NavItem {
   roles: Role[];
   badge?: "pending"; // Dynamic badge type
   children?: NavItem[];
+  // For items that require SHOW_EXPENSES env var for non-admin users
+  requiresShowExpenses?: boolean;
 }
 
 export interface NavSection {
@@ -86,7 +88,8 @@ export const navigationSections: NavSection[] = [
             title: "Expenses",
             href: "/operations/expenses",
             icon: Receipt,
-            roles: ["admin", "supervisor", "staff"],
+            roles: ["admin"], // Only admin can see; supervisor access controlled by SHOW_EXPENSES
+            requiresShowExpenses: true,
           },
         ],
       },

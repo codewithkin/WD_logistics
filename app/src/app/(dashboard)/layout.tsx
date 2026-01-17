@@ -19,6 +19,9 @@ export default async function DashboardLayout({
         },
     });
 
+    // Check if SHOW_EXPENSES is enabled (for supervisor access to expenses)
+    const showExpenses = process.env.SHOW_EXPENSES === "true";
+
     return (
         <SessionProvider
             user={session.user}
@@ -26,7 +29,7 @@ export default async function DashboardLayout({
             organizationId={session.organizationId}
         >
             <div className="flex min-h-screen">
-                <Sidebar pendingEditRequests={pendingEditRequests} />
+                <Sidebar pendingEditRequests={pendingEditRequests} showExpenses={showExpenses} />
                 <div className="flex-1 flex flex-col">
                     <Header />
                     <main className="flex-1 p-6 bg-muted/30">{children}</main>

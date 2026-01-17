@@ -17,9 +17,10 @@ import {
 
 interface SidebarProps {
     pendingEditRequests?: number;
+    showExpenses?: boolean;
 }
 
-export function Sidebar({ pendingEditRequests = 0 }: SidebarProps) {
+export function Sidebar({ pendingEditRequests = 0, showExpenses = false }: SidebarProps) {
     const pathname = usePathname();
     const { role } = useSession();
     const [openMenus, setOpenMenus] = useState<string[]>([]);
@@ -61,18 +62,30 @@ export function Sidebar({ pendingEditRequests = 0 }: SidebarProps) {
         );
     };
 
-    // Filter sections based on role
+    // Filter sections based on role and showExpenses
+    const shouldShowItem = (item: NavItem): boolean => {
+        // Check basic role permission
+        if (!item.roles.includes(role)) {
+            // Special case: if requiresShowExpenses and SHOW_EXPENSES is enabled, show to supervisor
+            if (item.requiresShowExpenses && role === "supervisor" && showExpenses) {
+                return true;
+            }
+            return false;
+        }
+        return true;
+    };
+
     const filteredSections = navigationSections
         .map((section) => ({
             ...section,
-            items: section.items.filter((item) => item.roles.includes(role)),
+            items: section.items.filter((item) => shouldShowItem(item)),
         }))
         .filter((section) => section.items.length > 0);
 
     const renderNavItem = (item: NavItem) => {
-        // Filter children by role
+        // Filter children by role and showExpenses
         const filteredChildren = item.children?.filter((child) =>
-            child.roles.includes(role)
+            shouldShowItem(child)
         );
 
         const hasChildren = filteredChildren && filteredChildren.length > 0;
