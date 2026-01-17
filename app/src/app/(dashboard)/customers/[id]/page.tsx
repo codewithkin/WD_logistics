@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Pencil, Mail, Phone, MapPin, User, FileText, DollarSign, Truck } from "lucide-react";
 import { format } from "date-fns";
+import { canViewFinancialData } from "@/lib/permissions";
 
 interface CustomerDetailPageProps {
     params: Promise<{ id: string }>;
@@ -42,6 +43,7 @@ export default async function CustomerDetailPage({ params }: CustomerDetailPageP
     }
 
     const canEdit = role === "admin" || role === "supervisor";
+    const showFinancials = canViewFinancialData(role);
 
     // Calculate totals
     const totalRevenue = customer.trips.reduce((sum, trip) => sum + trip.revenue, 0);
@@ -126,31 +128,33 @@ export default async function CustomerDetailPage({ params }: CustomerDetailPageP
                     </CardContent>
                 </Card>
 
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="text-lg flex items-center gap-2">
-                            <DollarSign className="h-5 w-5" /> Financial Summary
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="flex items-center justify-between">
-                            <span className="text-muted-foreground">Total Trips</span>
-                            <span className="font-medium">{customer.trips.length}</span>
-                        </div>
-                        <Separator />
-                        <div className="flex items-center justify-between">
-                            <span className="text-muted-foreground">Total Revenue</span>
-                            <span className="font-medium text-green-600">
-                                ${totalRevenue.toLocaleString()}
-                            </span>
-                        </div>
-                        <Separator />
-                        <div className="flex items-center justify-between">
-                            <span className="text-muted-foreground">Total Invoiced</span>
-                            <span className="font-medium">${totalInvoiced.toLocaleString()}</span>
-                        </div>
-                    </CardContent>
-                </Card>
+                {showFinancials && (
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-lg flex items-center gap-2">
+                                <DollarSign className="h-5 w-5" /> Financial Summary
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="flex items-center justify-between">
+                                <span className="text-muted-foreground">Total Trips</span>
+                                <span className="font-medium">{customer.trips.length}</span>
+                            </div>
+                            <Separator />
+                            <div className="flex items-center justify-between">
+                                <span className="text-muted-foreground">Total Revenue</span>
+                                <span className="font-medium text-green-600">
+                                    ${totalRevenue.toLocaleString()}
+                                </span>
+                            </div>
+                            <Separator />
+                            <div className="flex items-center justify-between">
+                                <span className="text-muted-foreground">Total Invoiced</span>
+                                <span className="font-medium">${totalInvoiced.toLocaleString()}</span>
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
 
                 {customer.notes && (
                     <Card className="md:col-span-2">
