@@ -1,5 +1,6 @@
 import { requireAuth } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
+import { canViewFinancialData } from "@/lib/permissions";
 import { PageHeader } from "@/components/layout/page-header";
 import { TrucksTable } from "./_components/trucks-table";
 import { Plus } from "lucide-react";
@@ -66,6 +67,7 @@ export default async function TrucksPage({ searchParams }: TrucksPageProps) {
     }));
 
     const canCreate = role === "admin" || role === "supervisor";
+    const showFinancials = canViewFinancialData(role);
 
     return (
         <div className="space-y-6">
@@ -86,7 +88,7 @@ export default async function TrucksPage({ searchParams }: TrucksPageProps) {
                     )}
                 </div>
             </div>
-            <TrucksTable trucks={trucksWithTotals} role={role} periodLabel={dateRange.label} />
+            <TrucksTable trucks={trucksWithTotals} role={role} periodLabel={dateRange.label} showFinancials={showFinancials} />
         </div>
     );
 }

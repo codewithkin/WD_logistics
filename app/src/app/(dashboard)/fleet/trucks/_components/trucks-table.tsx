@@ -73,9 +73,10 @@ interface TrucksTableProps {
     trucks: Truck[];
     role: Role;
     periodLabel?: string;
+    showFinancials?: boolean;
 }
 
-export function TrucksTable({ trucks, role, periodLabel }: TrucksTableProps) {
+export function TrucksTable({ trucks, role, periodLabel, showFinancials = true }: TrucksTableProps) {
     const router = useRouter();
     const [search, setSearch] = useState("");
     const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -275,17 +276,17 @@ export function TrucksTable({ trucks, role, periodLabel }: TrucksTableProps) {
                                 <TableHead>Status</TableHead>
                                 <TableHead>Mileage</TableHead>
                                 <TableHead>Assigned Driver</TableHead>
-                                <TableHead>Trips</TableHead>
-                                <TableHead className="text-right">Revenue</TableHead>
-                                <TableHead className="text-right">Expenses</TableHead>
-                                <TableHead className="text-right">Profit/Loss</TableHead>
+                                {showFinancials && <TableHead>Trips</TableHead>}
+                                {showFinancials && <TableHead className="text-right">Revenue</TableHead>}
+                                {showFinancials && <TableHead className="text-right">Expenses</TableHead>}
+                                {showFinancials && <TableHead className="text-right">Profit/Loss</TableHead>}
                                 <TableHead className="w-[70px]"></TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {paginatedTrucks.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={11} className="text-center h-24 text-muted-foreground">
+                                    <TableCell colSpan={showFinancials ? 11 : 7} className="text-center h-24 text-muted-foreground">
                                         No trucks found
                                     </TableCell>
                                 </TableRow>
@@ -315,16 +316,22 @@ export function TrucksTable({ trucks, role, periodLabel }: TrucksTableProps) {
                                                     <span className="text-muted-foreground">Unassigned</span>
                                                 )}
                                             </TableCell>
-                                            <TableCell>{truck._count.trips}</TableCell>
-                                            <TableCell className="text-right text-green-600">
-                                                ${truck.totalRevenue.toLocaleString()}
-                                            </TableCell>
-                                            <TableCell className="text-right text-red-600">
-                                                ${truck.totalExpenses.toLocaleString()}
-                                            </TableCell>
-                                            <TableCell className={`text-right font-medium ${profitLoss >= 0 ? "text-green-600" : "text-red-600"}`}>
-                                                {profitLoss >= 0 ? "+" : ""}${profitLoss.toLocaleString()}
-                                            </TableCell>
+                                            {showFinancials && <TableCell>{truck._count.trips}</TableCell>}
+                                            {showFinancials && (
+                                                <TableCell className="text-right text-green-600">
+                                                    ${truck.totalRevenue.toLocaleString()}
+                                                </TableCell>
+                                            )}
+                                            {showFinancials && (
+                                                <TableCell className="text-right text-red-600">
+                                                    ${truck.totalExpenses.toLocaleString()}
+                                                </TableCell>
+                                            )}
+                                            {showFinancials && (
+                                                <TableCell className={`text-right font-medium ${profitLoss >= 0 ? "text-green-600" : "text-red-600"}`}>
+                                                    {profitLoss >= 0 ? "+" : ""}${profitLoss.toLocaleString()}
+                                                </TableCell>
+                                            )}
                                             <TableCell>
                                                 <DropdownMenu>
                                                     <DropdownMenuTrigger asChild>
@@ -374,7 +381,7 @@ export function TrucksTable({ trucks, role, periodLabel }: TrucksTableProps) {
                                 })
                             )}
                         </TableBody>
-                        {filteredTrucks.length > 0 && (
+                        {filteredTrucks.length > 0 && showFinancials && (
                             <TableFooter>
                                 <TableRow className="bg-muted/50 font-semibold">
                                     <TableCell colSpan={4} className="text-right">
