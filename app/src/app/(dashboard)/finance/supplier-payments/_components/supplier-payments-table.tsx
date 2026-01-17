@@ -57,9 +57,10 @@ interface SupplierPayment {
 interface SupplierPaymentsTableProps {
     payments: SupplierPayment[];
     role: Role;
+    showFinancials?: boolean;
 }
 
-export function SupplierPaymentsTable({ payments, role }: SupplierPaymentsTableProps) {
+export function SupplierPaymentsTable({ payments, role, showFinancials = true }: SupplierPaymentsTableProps) {
     const router = useRouter();
     const [search, setSearch] = useState("");
     const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -67,6 +68,7 @@ export function SupplierPaymentsTable({ payments, role }: SupplierPaymentsTableP
 
     const canEdit = role === "admin" || role === "supervisor";
     const canDelete = role === "admin";
+    const canViewAmounts = showFinancials && role === "admin";
 
     const filteredPayments = payments.filter((payment) => {
         return (
@@ -121,9 +123,11 @@ export function SupplierPaymentsTable({ payments, role }: SupplierPaymentsTableP
                         />
                     </div>
                     <div className="flex gap-2 items-center">
-                        <div className="text-sm text-muted-foreground">
-                            Total: <span className="font-bold text-foreground">${totalPayments.toLocaleString()}</span>
-                        </div>
+                        {canViewAmounts && (
+                            <div className="text-sm text-muted-foreground">
+                                Total: <span className="font-bold text-foreground">${totalPayments.toLocaleString()}</span>
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -136,14 +140,14 @@ export function SupplierPaymentsTable({ payments, role }: SupplierPaymentsTableP
                                 <TableHead>Description</TableHead>
                                 <TableHead>Method</TableHead>
                                 <TableHead>Reference</TableHead>
-                                <TableHead className="text-right">Amount</TableHead>
+                                {canViewAmounts && <TableHead className="text-right">Amount</TableHead>}
                                 <TableHead className="w-[70px]"></TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {filteredPayments.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={7} className="text-center h-24 text-muted-foreground">
+                                    <TableCell colSpan={canViewAmounts ? 7 : 6} className="text-center h-24 text-muted-foreground">
                                         No supplier payments found
                                     </TableCell>
                                 </TableRow>
@@ -169,9 +173,11 @@ export function SupplierPaymentsTable({ payments, role }: SupplierPaymentsTableP
                                             {getMethodLabel(payment.method, payment.customMethod)}
                                         </TableCell>
                                         <TableCell>{payment.reference || "-"}</TableCell>
-                                        <TableCell className="text-right font-medium">
-                                            ${payment.amount.toLocaleString()}
-                                        </TableCell>
+                                        {canViewAmounts && (
+                                            <TableCell className="text-right font-medium">
+                                                ${payment.amount.toLocaleString()}
+                                            </TableCell>
+                                        )}
                                         <TableCell>
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger asChild>

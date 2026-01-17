@@ -1,5 +1,6 @@
 import { requireAuth } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
+import { canViewFinancialData } from "@/lib/permissions";
 import { PageHeader } from "@/components/layout/page-header";
 import { SupplierPaymentsTable } from "./_components/supplier-payments-table";
 import { Plus } from "lucide-react";
@@ -42,6 +43,7 @@ export default async function SupplierPaymentsPage({ searchParams }: SupplierPay
     });
 
     const canCreate = role === "admin" || role === "supervisor";
+    const showFinancials = canViewFinancialData(role);
 
     return (
         <div className="space-y-6">
@@ -62,7 +64,7 @@ export default async function SupplierPaymentsPage({ searchParams }: SupplierPay
                     )}
                 </div>
             </div>
-            <SupplierPaymentsTable payments={payments} role={role} />
+            <SupplierPaymentsTable payments={payments} role={role} showFinancials={showFinancials} />
         </div>
     );
 }
