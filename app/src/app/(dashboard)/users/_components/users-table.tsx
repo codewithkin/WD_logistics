@@ -40,13 +40,20 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { MoreHorizontal, Search, Trash2, Shield } from "lucide-react";
+import { MoreHorizontal, Search, Trash2, Shield, KeyRound, Copy, Check } from "lucide-react";
 import { PaginationControls } from "@/components/ui/pagination-controls";
 import { usePagination } from "@/hooks/use-pagination";
 import { format } from "date-fns";
 import { ROLE_LABELS } from "@/lib/types";
-import { updateMemberRole, removeMember } from "../actions";
+import { updateMemberRole, removeMember, resetUserPassword } from "../actions";
 import { toast } from "sonner";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 
 interface Member {
     id: string;
@@ -75,6 +82,14 @@ export function UsersTable({ members, currentUserId }: UsersTableProps) {
     const [isRemoving, setIsRemoving] = useState(false);
     const [changeRoleId, setChangeRoleId] = useState<string | null>(null);
     const [newRole, setNewRole] = useState<string>("");
+    const [resetPasswordId, setResetPasswordId] = useState<string | null>(null);
+    const [isResettingPassword, setIsResettingPassword] = useState(false);
+    const [newPasswordData, setNewPasswordData] = useState<{
+        password: string;
+        email: string;
+        name: string;
+    } | null>(null);
+    const [copied, setCopied] = useState(false);
 
     const filteredMembers = members.filter((member) => {
         const matchesSearch =
@@ -123,6 +138,38 @@ export function UsersTable({ members, currentUserId }: UsersTableProps) {
         } finally {
             setChangeRoleId(null);
             setNewRole("");
+        }
+    };
+
+    const handleResetPassword = async () => {
+        if (!resetPasswordId) return;
+        setIsResettingPassword(true);
+        try {
+            const result = await resetUserPassword(resetPasswordId);
+            if (result.success && result.newPassword) {
+                setNewPasswordData({
+                    password: result.newPassword,
+                    email: result.userEmail || "",
+                    name: result.userName || "",
+                });
+                toast.success("Password reset successfully. Email sent to user.");
+            } else {
+                toast.error(result.error || "Failed to reset password");
+            }
+        } catch {
+            toast.error("An error occurred");
+        } finally {
+            setIsResettingPassword(false);
+            setResetPasswordId(null);
+        }
+    };
+
+    const handleCopyPassword = async () => {
+        if (newPasswordData?.password) {
+            await navigator.clipboard.writeText(newPasswordData.password);
+            setCopied(true);
+            toast.success("Password copied to clipboard");
+            setTimeout(() => setCopied(false), 2000);
         }
     };
 
@@ -246,6 +293,13 @@ export function UsersTable({ members, currentUserId }: UsersTableProps) {
                                                                 ))}
                                                                 <DropdownMenuSeparator />
                                                                 <DropdownMenuItem
+                                                                    onClick={() => setResetPasswordId(member.id)}
+                                                                >
+                                                                    <KeyRound className="mr-2 h-4 w-4" />
+                                                                    Reset Password
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuSeparator />
+                                                                <DropdownMenuItem
                                                                     className="text-destructive focus:text-destructive"
                                                                     onClick={() => setRemoveId(member.id)}
                                                                 >
@@ -316,6 +370,88 @@ export function UsersTable({ members, currentUserId }: UsersTableProps) {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+
+            {/* Reset Password Confirmation Dialog */}
+            <AlertDialog
+                open={!!resetPasswordId}
+                onOpenChange={() => setResetPasswordId(null)}
+            >
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Reset Password</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Are you sure you want to reset this user&apos;s password? A new password
+                            will be generated and sent to their email.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={isResettingPassword}>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={handleResetPassword}
+                            disabled={isResettingPassword}
+                        >
+                            {isResettingPassword ? "Resetting..." : "Reset Password"}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            {/* New Password Display Dialog */}
+            <Dialog
+                open={!!newPasswordData}
+                onOpenChange={() => {
+                    setNewPasswordData(null);
+                    setCopied(false);
+                }}
+            >
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Password Reset Successful</DialogTitle>
+                        <DialogDescription>
+                            A new password has been generated for {newPasswordData?.name}. An email
+                            has been sent to the user, but you can also share the password manually
+                            if needed.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                            <p className="text-sm text-muted-foreground">Email</p>
+                            <p className="font-medium">{newPasswordData?.email}</p>
+                        </div>
+                        <div className="space-y-2">
+                            <p className="text-sm text-muted-foreground">New Password</p>
+                            <div className="flex items-center gap-2">
+                                <code className="flex-1 rounded bg-muted px-3 py-2 font-mono text-sm">
+                                    {newPasswordData?.password}
+                                </code>
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    onClick={handleCopyPassword}
+                                >
+                                    {copied ? (
+                                        <Check className="h-4 w-4 text-green-500" />
+                                    ) : (
+                                        <Copy className="h-4 w-4" />
+                                    )}
+                                </Button>
+                            </div>
+                        </div>
+                        <p className="text-sm text-amber-600 bg-amber-50 dark:bg-amber-950 dark:text-amber-400 p-3 rounded-md">
+                            <strong>Important:</strong> Save this password now. For security reasons,
+                            it won&apos;t be shown again.
+                        </p>
+                    </div>
+                    <div className="flex justify-end">
+                        <Button onClick={() => {
+                            setNewPasswordData(null);
+                            setCopied(false);
+                        }}>
+                            Done
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </>
     );
 }

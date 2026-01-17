@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { Role } from "@/lib/types";
-import { generateRandomPassword, sendSupervisorCredentials } from "@/lib/email";
+import { generateRandomPassword, sendSupervisorCredentials, sendEmail } from "@/lib/email";
 import { auth } from "@/lib/auth";
 import { notifyUserInvited, notifySupervisorCreated, notifyUserRoleChanged, notifyUserRemoved } from "@/lib/notifications";
 
@@ -224,5 +224,126 @@ export async function createSupervisor(data: { email: string; name: string }) {
   } catch (error) {
     console.error("Failed to create supervisor:", error);
     return { success: false, error: "Failed to create supervisor" };
+  }
+}
+
+export async function resetUserPassword(memberId: string) {
+  const session = await requireRole(["admin"]);
+
+  try {
+    const member = await prisma.member.findFirst({
+      where: { id: memberId, organizationId: session.organizationId },
+      include: { user: true },
+    });
+
+    if (!member) {
+      return { success: false, error: "Member not found" };
+    }
+
+    // Prevent resetting own password through this method
+    if (member.userId === session.user.id) {
+      return { success: false, error: "Use Account Settings to change your own password" };
+    }
+
+    // Generate a new random password
+    const newPassword = generateRandomPassword(12);
+
+    // Hash the password
+    const ctx = await auth.$context;
+    const hashedPassword = await ctx.password.hash(newPassword);
+
+    // Update the user's account password
+    await prisma.account.updateMany({
+      where: {
+        userId: member.userId,
+        providerId: "credential",
+      },
+      data: { password: hashedPassword },
+    });
+
+    // Get organization name for email
+    const organization = await prisma.organization.findUnique({
+      where: { id: session.organizationId },
+      select: { name: true },
+    });
+
+    // Send email with new password
+    const appUrl = process.env.BETTER_AUTH_URL || "http://localhost:3000";
+    await sendEmail({
+      to: member.user.email,
+      subject: `Your Password Has Been Reset - ${organization?.name || "WD Logistics"}`,
+      text: `
+Hello ${member.user.name},
+
+Your password has been reset by an administrator.
+
+Here are your new login credentials:
+
+Email: ${member.user.email}
+New Password: ${newPassword}
+
+Please login at: ${appUrl}/sign-in
+
+For security, please change your password after logging in by going to Account Settings.
+
+Best regards,
+${organization?.name || "WD Logistics"} Team
+      `.trim(),
+      html: `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background: #1a1a2e; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+    .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px; }
+    .credentials { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #1a1a2e; }
+    .credentials p { margin: 8px 0; }
+    .credentials strong { color: #1a1a2e; }
+    .button { display: inline-block; background: #1a1a2e; color: white !important; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-top: 20px; }
+    .warning { color: #666; font-size: 14px; margin-top: 20px; padding: 15px; background: #fff3cd; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Password Reset</h1>
+    </div>
+    <div class="content">
+      <p>Hello ${member.user.name},</p>
+      <p>Your password has been reset by an administrator.</p>
+      
+      <div class="credentials">
+        <h3>Your New Login Credentials</h3>
+        <p><strong>Email:</strong> ${member.user.email}</p>
+        <p><strong>New Password:</strong> ${newPassword}</p>
+      </div>
+      
+      <a href="${appUrl}/sign-in" class="button">Login Now</a>
+      
+      <div class="warning">
+        <strong>Security Notice:</strong> For your security, please change your password after logging in by going to Account Settings.
+      </div>
+      
+      <p style="margin-top: 30px;">Best regards,<br>${organization?.name || "WD Logistics"} Team</p>
+    </div>
+  </div>
+</body>
+</html>
+      `.trim(),
+    });
+
+    return { 
+      success: true, 
+      message: "Password reset successfully",
+      newPassword, // Return for admin to share manually if needed
+      userEmail: member.user.email,
+      userName: member.user.name,
+    };
+  } catch (error) {
+    console.error("Failed to reset user password:", error);
+    return { success: false, error: "Failed to reset password" };
   }
 }

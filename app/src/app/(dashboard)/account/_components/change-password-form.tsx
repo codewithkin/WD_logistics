@@ -161,9 +161,8 @@ export function ChangePasswordForm() {
                         {passwordRequirements.map((req, index) => (
                             <div
                                 key={index}
-                                className={`flex items-center gap-2 ${
-                                    req.met ? "text-green-600" : "text-muted-foreground"
-                                }`}
+                                className={`flex items-center gap-2 ${req.met ? "text-green-600" : "text-muted-foreground"
+                                    }`}
                             >
                                 <Check className={`h-4 w-4 ${req.met ? "opacity-100" : "opacity-30"}`} />
                                 <span>{req.label}</span>
