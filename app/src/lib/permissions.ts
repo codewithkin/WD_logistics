@@ -99,14 +99,28 @@ export function hasPermission(role: Role, permission: keyof RolePermissions): bo
 }
 
 /**
- * Check if supervisor can view expenses (controlled by SHOW_EXPENSES env variable)
+ * Check if user can view expenses page
+ * Supervisors have full access to expenses for data input
  */
 export function canViewExpensesPage(role: Role): boolean {
   if (role === "admin") return true;
-  if (role === "supervisor") {
-    return process.env.SHOW_EXPENSES === "true";
-  }
+  if (role === "supervisor") return true; // Supervisors can view and add expenses
   return false;
+}
+
+/**
+ * Check if user can create/add expenses
+ */
+export function canCreateExpenses(role: Role): boolean {
+  return role === "admin" || role === "supervisor";
+}
+
+/**
+ * Check if user can generate expense reports
+ * Only admins can generate reports
+ */
+export function canGenerateExpenseReports(role: Role): boolean {
+  return role === "admin";
 }
 
 /**
