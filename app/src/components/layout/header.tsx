@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Bell, LogOut, User, Truck, Receipt, AlertTriangle, Users, CheckCircle2, Clock, X } from "lucide-react";
+import { Bell, LogOut, User, Truck, Receipt, AlertTriangle, Users, CheckCircle2, Clock, X, KeyRound } from "lucide-react";
 import { getUserNotifications, markNotificationAsRead, markAllNotificationsAsRead, dismissNotification as dismissNotificationAction } from "@/app/(dashboard)/notifications/actions";
 import { Button } from "@/components/ui/button";
 import {
@@ -297,6 +297,10 @@ export function Header() {
                         <DropdownMenuItem onClick={() => router.push("/profile")}>
                             <User className="mr-2 h-4 w-4" />
                             Profile
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => router.push("/account")}>
+                            <KeyRound className="mr-2 h-4 w-4" />
+                            Account Settings
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
