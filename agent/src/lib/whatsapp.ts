@@ -164,15 +164,97 @@ export class AgentWhatsAppClient extends EventEmitter {
         this.emit("message_create", msg);
       });
 
-      // Initialize the client
-      this.client.initialize();
-
+      // Initialize the client with retry logic
+      let initAttempts = 0;
+      const maxAttempts = 3;
+      
+      while (initAttempts < maxAttempts) {
+        try {
+          initAttempts++;
+          console.log(`🔄 Initializing WhatsApp client (attempt ${initAttempts}/${maxAttempts})...`);
+          await this.client.initialize();
+          console.log("✅ WhatsApp client initialization completed");
+          return true;
+        } catch (initError) {
+          console.error(`❌ Initialization attempt ${initAttempts} failed:`, initError);
+          
+          if (initAttempts >= maxAttempts) {
+            throw initError;
+          }
+          
+          // Wait before retry with exponential backoff
+          const waitTime = Math.min(1000 * Math.pow(2, initAttempts - 1), 5000);
+          console.log(`⏳ Waiting ${waitTime}ms before retry...`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+          
+          // Destroy and recreate client for fresh attempt
+          try {
+            await this.client.destroy();
+          } catch (e) {
+            // Ignore destroy errors
+          }
+          
+          this.client = new Client({
+            puppeteer: puppeteerConfig,
+            authStrategy: new LocalAuth({
+              clientId: "agent-whatsapp",
+            }),
+          });
+          
+          // Re-attach event handlers
+          this.client.on("qr", (qr: string) => {
+            console.log("📱 Scan this QR code with your WhatsApp:");
+            this.emit("qr", qr);
+            QRCode.toDataURL(qr, (err: Error | null | undefined, url: string) => {
+              if (!err) {
+                this.state.qrCode = url;
+                this.emit("qr_data_url", url);
+              }
+            });
+          });
+          
+          this.client.on("ready", () => {
+            this.state.status = "ready";
+            this.state.qrCode = null;
+            const info = this.client?.info;
+            if (info) {
+              this.state.phoneNumber = info.wid.user;
+            }
+            this.emit("status", this.state);
+            console.log("✅ WhatsApp client is ready!");
+            this.processMessageQueue();
+          });
+          
+          this.client.on("disconnected", () => {
+            this.state.status = "disconnected";
+            this.state.phoneNumber = null;
+            this.emit("status", this.state);
+            console.log("❌ WhatsApp client disconnected");
+          });
+          
+          this.client.on("auth_failure", (msg: any) => {
+            this.state.status = "error";
+            this.state.lastError = msg || "Authentication failed";
+            this.emit("status", this.state);
+            console.error("❌ WhatsApp Auth Failed:", msg);
+          });
+          
+          this.client.on("message", (msg: any) => {
+            this.emit("message", msg);
+          });
+          
+          this.client.on("message_create", (msg: any) => {
+            this.emit("message_create", msg);
+          });
+        }
+      }
+      
       return true;
     } catch (error) {
       this.state.status = "error";
       this.state.lastError = error instanceof Error ? error.message : "Unknown error";
       this.emit("status", this.state);
-      console.error("Failed to initialize WhatsApp client:", error);
+      console.error("Failed to initialize WhatsApp client after all attempts:", error);
       return false;
     }
   }
