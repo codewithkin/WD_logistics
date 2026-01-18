@@ -23,7 +23,7 @@ async function getUpcomingTripsForNotification(
       status: "scheduled",
     },
     include: {
-      driver: { select: { id: true, firstName: true, lastName: true, phone: true, whatsappNumber: true } },
+      driver: { select: { id: true, firstName: true, lastName: true, phone: true, email: true } },
       truck: { select: { registrationNo: true } },
       customer: { select: { name: true } },
     },
@@ -39,7 +39,8 @@ async function getUpcomingTripsForNotification(
       id: trip.driver.id,
       firstName: trip.driver.firstName,
       lastName: trip.driver.lastName,
-      phone: trip.driver.whatsappNumber || trip.driver.phone,
+      phone: trip.driver.phone,
+      email: trip.driver.email,
     },
     truck: { registrationNo: trip.truck.registrationNo },
     customer: trip.customer ? { name: trip.customer.name } : null,
@@ -191,7 +192,7 @@ async function getDriversWithExpiringDocuments(organizationId: string, daysAhead
       firstName: true,
       lastName: true,
       phone: true,
-      whatsappNumber: true,
+      email: true,
     },
   });
 
@@ -199,7 +200,8 @@ async function getDriversWithExpiringDocuments(organizationId: string, daysAhead
     id: driver.id,
     firstName: driver.firstName,
     lastName: driver.lastName,
-    phone: driver.whatsappNumber || driver.phone,
+    phone: driver.phone,
+    email: driver.email,
   }));
 }
 
@@ -208,7 +210,7 @@ async function getTripDetailsForMessage(tripId: string) {
   const trip = await prisma.trip.findUnique({
     where: { id: tripId },
     include: {
-      driver: { select: { firstName: true, lastName: true, phone: true, whatsappNumber: true } },
+      driver: { select: { firstName: true, lastName: true, phone: true, email: true } },
       truck: { select: { registrationNo: true } },
       customer: { select: { name: true } },
     },
@@ -225,7 +227,8 @@ async function getTripDetailsForMessage(tripId: string) {
     driver: {
       firstName: trip.driver.firstName,
       lastName: trip.driver.lastName,
-      phone: trip.driver.whatsappNumber || trip.driver.phone,
+      phone: trip.driver.phone,
+      email: trip.driver.email,
     },
     truck: { registrationNo: trip.truck.registrationNo },
     customer: trip.customer ? { name: trip.customer.name } : null,

@@ -78,7 +78,6 @@ async function applyEditToEntity(entityType: string, entityId: string, proposedD
           lastName: data.lastName as string | undefined,
           email: data.email as string | undefined,
           phone: data.phone as string | undefined,
-          whatsappNumber: data.whatsappNumber as string | undefined,
           licenseNumber: data.licenseNumber as string | undefined,
           licenseExpiry: data.licenseExpiry ? new Date(data.licenseExpiry as string) : undefined,
           status: data.status as string | undefined,

@@ -6,23 +6,42 @@ import { requireAuth, requireRole } from "@/lib/session";
 import { TripStatus } from "@/lib/types";
 import { generateTripReportPDF, generateSingleTripReportPDF } from "@/lib/reports/pdf-report-generator";
 import { notifyTripCreated, notifyTripUpdated, notifyTripDeleted } from "@/lib/notifications";
-
-const AGENT_URL = process.env.AGENT_URL || "http://localhost:3001";
+import { sendTripAssignmentEmail } from "@/lib/email";
 
 /**
- * Notify driver about trip assignment via WhatsApp
+ * Notify driver about trip assignment via Email
  */
 async function notifyDriverOfTrip(tripId: string, organizationId: string) {
   try {
-    await fetch(`${AGENT_URL}/webhooks/trip-assigned`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        tripId,
-        organizationId,
-        sendImmediately: true,
-      }),
+    // Fetch trip with driver and truck details
+    const trip = await prisma.trip.findUnique({
+      where: { id: tripId },
+      include: {
+        driver: { select: { firstName: true, lastName: true, email: true } },
+        truck: { select: { registrationNo: true } },
+        customer: { select: { name: true } },
+        organization: { select: { name: true } },
+      },
     });
+
+    if (!trip || !trip.driver.email) {
+      console.log("Driver email not found, skipping notification");
+      return;
+    }
+
+    await sendTripAssignmentEmail({
+      driverEmail: trip.driver.email,
+      driverName: `${trip.driver.firstName} ${trip.driver.lastName}`,
+      origin: trip.originCity,
+      destination: trip.destinationCity,
+      scheduledDate: trip.scheduledDate,
+      loadDescription: trip.loadDescription || undefined,
+      truckRegistration: trip.truck.registrationNo,
+      customerName: trip.customer?.name || undefined,
+      notes: trip.notes || undefined,
+      organizationName: trip.organization?.name || undefined,
+    });
+    console.log(`✅ Trip assignment email sent to ${trip.driver.email}`);
   } catch (error) {
     console.error("Failed to notify driver:", error);
     // Don't throw - this is a non-blocking notification
@@ -113,7 +132,7 @@ export async function createTrip(data: {
       });
     }
 
-    // Notify driver via WhatsApp (async, don't block)
+    // Notify driver via Email (async, don't block)
     notifyDriverOfTrip(trip.id, session.organizationId);
 
     // Send admin notification

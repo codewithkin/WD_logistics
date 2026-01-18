@@ -219,7 +219,7 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
                                 <NotifyDriverButton
                                     tripId={trip.id}
                                     driverName={`${trip.driver.firstName} ${trip.driver.lastName}`}
-                                    driverPhone={trip.driver.whatsappNumber || trip.driver.phone}
+                                    driverEmail={trip.driver.email}
                                     alreadyNotified={trip.driverNotified}
                                 />
                             </div>

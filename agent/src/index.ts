@@ -8,6 +8,7 @@ import { logger } from "hono/logger";
 import chat from "./routes/chat";
 import workflows from "./routes/workflows";
 import whatsapp from "./routes/whatsapp";
+import testWhatsApp from "./routes/test-whatsapp";
 import webhooks from "./routes/webhooks";
 import { getAgentWhatsAppClient } from "./lib/whatsapp";
 import { isAdminPhoneNumber, BUSINESS_INFO_SYSTEM_PROMPT } from "./lib/constants";
@@ -68,6 +69,7 @@ app.get("/", (c) => {
 app.route("/chat", chat);
 app.route("/workflows", workflows);
 app.route("/whatsapp", whatsapp);
+app.route("/test-whatsapp", testWhatsApp);
 app.route("/webhooks", webhooks);
 
 // Start server
@@ -112,21 +114,45 @@ const initWhatsApp = async () => {
         console.log(`📱 Bot connected as: ${botPhoneNumber}`);
       }
       
-      // Helper function to send message without triggering sendSeen
-      const safeSendMessage = async (chatId: string, content: string) => {
+      // Patch the WhatsApp client to disable sendSeen which causes markedUnread error
+      const whatsappClient = client.getClient();
+      if (whatsappClient && whatsappClient.pupPage) {
         try {
-          // Use the raw client to send without auto-seen
-          const chat = await client.getClient().getChatById(chatId);
-          await chat.sendMessage(content);
-        } catch (error) {
-          console.error("Failed to send message:", error);
+          await whatsappClient.pupPage.evaluate(() => {
+            // Override sendSeen to be a no-op to avoid markedUnread error
+            if (window.WWebJS && window.WWebJS.sendSeen) {
+              window.WWebJS.sendSeen = async () => {
+                // Do nothing - this prevents the markedUnread error
+                return true;
+              };
+            }
+          });
+          console.log("✅ Patched sendSeen to prevent markedUnread errors");
+        } catch (patchError) {
+          console.warn("⚠️ Could not patch sendSeen:", patchError);
+        }
+      }
+      
+      // Helper function to reply to a message using msg.reply()
+      const replyToMessage = async (msg: any, content: string) => {
+        try {
+          console.log(`📤 Replying to message from ${msg.from}...`);
+          await msg.reply(content);
+          console.log(`✅ Message replied successfully`);
+        } catch (error: any) {
+          console.error(`❌ Error replying to message:`, error?.message || error);
           throw error;
         }
       };
       
       // Setup incoming message handler
-      client.on("message", async (msg: any) => {
+      client.on("message_create", async (msg: any) => {
         try {
+          console.log("Received message: ", msg.body);
+          
+          // Use msg.reply() instead of client.sendMessage()
+          await msg.reply("Generic reply here");
+
           // Extract phone number from WhatsApp ID
           // Format can be: 263789859332@c.us (normal) or 71025924542654@lid (broadcast/status)
           const phoneNumber = msg.from.replace(/@c\.us|@lid|@g\.us/g, "");
@@ -138,8 +164,8 @@ const initWhatsApp = async () => {
             return;
           }
           
-          // Check if message contains WD_LOGISTICS keyword
-          const hasKeyword = msg.body.includes("WD_LOGISTICS");
+          // Check if message contains WD_LOGISTICS keyword (case-insensitive)
+          const hasKeyword = msg.body.toUpperCase().includes("WD_LOGISTICS");
           
           // Check if message is from bot's own number
           const isOwnNumber = botPhoneNumber && formattedNumber === botPhoneNumber;
@@ -151,6 +177,7 @@ const initWhatsApp = async () => {
           if (isOwnNumber) {
             if (hasKeyword) {
               console.log(`📨 Processing self-message with WD_LOGISTICS keyword for testing`);
+              console.log(`📝 Generating AI response for self-message...`);
               
               // Process with AI agent (full admin access)
               const response = await logisticsAgent.generate([
@@ -159,9 +186,13 @@ const initWhatsApp = async () => {
                   content: msg.body,
                 },
               ]);
+
+              console.log("Received message: ", msg.body);
+              msg.reply("This is a test");
               
-              // Use safeSendMessage to avoid sendSeen error
-              await safeSendMessage(msg.from, response.text);
+              console.log(`💬 Generated response: ${response.text.substring(0, 100)}...`);
+              // Use msg.reply() to reply to the message
+              await replyToMessage(msg, response.text);
               console.log(`✅ Replied to self-message`);
             } else {
               console.log(`⚠️ Ignoring self-message without WD_LOGISTICS keyword`);
@@ -172,6 +203,7 @@ const initWhatsApp = async () => {
           // Process admin messages (no keyword required)
           if (isAdmin) {
             console.log(`📨 Processing message from admin: ${formattedNumber}`);
+            console.log(`📝 Generating AI response for admin with full access...`);
             
             // Process with AI agent (full admin access)
             const response = await logisticsAgent.generate([
@@ -181,20 +213,22 @@ const initWhatsApp = async () => {
               },
             ]);
             
-            // Use safeSendMessage to avoid sendSeen error
-            await safeSendMessage(msg.from, response.text);
+            console.log(`💬 Generated response: ${response.text.substring(0, 100)}...`);
+            // Use msg.reply() to reply to the message
+            await replyToMessage(msg, response.text);
             console.log(`✅ Replied to admin: ${formattedNumber}`);
             return;
           }
           
-          // Non-admin user - only respond if message contains WD_LOGISTICS
-          if (!hasKeyword) {
-            console.log(`⚠️ Ignoring non-admin message without WD_LOGISTICS keyword: ${formattedNumber}`);
-            return;
-          }
+          // // Non-admin user - only respond if message contains WD_LOGISTICS
+          // if (!hasKeyword) {
+          //   console.log(`⚠️ Ignoring non-admin message without WD_LOGISTICS keyword: ${formattedNumber}`);
+          //   return;
+          // }
           
           // Respond to non-admin with keyword using business info only
           console.log(`💬 Processing business inquiry with WD_LOGISTICS from: ${formattedNumber}`);
+          console.log(`📝 Generating AI response with business info system prompt...`);
           
           // Process with AI agent using business info system prompt
           const response = await logisticsAgent.generate([
@@ -208,11 +242,19 @@ const initWhatsApp = async () => {
             },
           ]);
           
-          // Use safeSendMessage to avoid sendSeen error
-          await safeSendMessage(msg.from, response.text);
+          console.log(`💬 Generated response: ${response.text.substring(0, 100)}...`);
+          // Use msg.reply() to reply to the message
+          await replyToMessage(msg, response.text);
           console.log(`✅ Sent business info to: ${formattedNumber}`);
           
-        } catch (error) {
+        } catch (error: any) {
+          // Check if it's just the markedUnread error
+          if (error?.message?.includes("markedUnread") || 
+              error?.toString()?.includes("markedUnread")) {
+            console.log(`✅ Message sent (markedUnread error ignored)`);
+            return;
+          }
+          
           console.error("Error processing incoming message:", error);
           // Don't try to send error message as it might cause the same error
           console.log(`⚠️ Skipping error reply to avoid recursive failure`);

@@ -12,7 +12,6 @@ export async function createDriver(data: {
   lastName: string;
   phone: string;
   email?: string;
-  whatsappNumber?: string;
   licenseNumber: string;
   licenseExpiration?: Date;
   passportNumber?: string;
@@ -41,7 +40,6 @@ export async function createDriver(data: {
         lastName: data.lastName,
         phone: data.phone,
         email: data.email,
-        whatsappNumber: data.whatsappNumber,
         licenseNumber: data.licenseNumber,
         licenseExpiration: data.licenseExpiration,
         passportNumber: data.passportNumber,
@@ -82,7 +80,6 @@ export async function updateDriver(
     lastName?: string;
     phone?: string;
     email?: string;
-    whatsappNumber?: string;
     licenseNumber?: string;
     licenseExpiration?: Date;
     passportNumber?: string;
@@ -138,7 +135,6 @@ export async function updateDriver(
     const updateData: Parameters<typeof prisma.driver.update>[0]["data"] = {
       phone: data.phone,
       email: data.email,
-      whatsappNumber: data.whatsappNumber,
       licenseNumber: data.licenseNumber,
       licenseExpiration: data.licenseExpiration,
       passportNumber: data.passportNumber,

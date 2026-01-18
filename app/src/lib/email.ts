@@ -701,3 +701,131 @@ ${orgName}
     `.trim(),
   });
 }
+
+/**
+ * Trip Assignment Email Data
+ */
+export interface TripAssignmentEmailData {
+  driverEmail: string;
+  driverName: string;
+  origin: string;
+  destination: string;
+  scheduledDate: Date;
+  loadDescription?: string;
+  truckRegistration: string;
+  customerName?: string;
+  notes?: string;
+  organizationName?: string;
+}
+
+/**
+ * Send trip assignment notification to driver via email
+ */
+export async function sendTripAssignmentEmail(data: TripAssignmentEmailData) {
+  const orgName = data.organizationName || "WD Logistics";
+  
+  const formatDate = (date: Date) => {
+    return new Date(date).toLocaleDateString("en-GB", {
+      weekday: "long",
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    });
+  };
+
+  return sendEmail({
+    to: data.driverEmail,
+    subject: `Trip Assignment: ${data.origin} → ${data.destination}`,
+    text: `
+Hello ${data.driverName},
+
+You have been assigned a new trip:
+
+FROM: ${data.origin}
+TO: ${data.destination}
+DATE: ${formatDate(data.scheduledDate)}
+TRUCK: ${data.truckRegistration}
+${data.customerName ? `CUSTOMER: ${data.customerName}` : ""}
+${data.loadDescription ? `LOAD: ${data.loadDescription}` : ""}
+${data.notes ? `NOTES: ${data.notes}` : ""}
+
+Please ensure you are prepared and available for this trip.
+
+Best regards,
+${orgName}
+    `.trim(),
+    html: `
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background: linear-gradient(135deg, #1e40af, #3b82f6); color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+    .content { background: #f8fafc; padding: 30px; border: 1px solid #e2e8f0; }
+    .trip-details { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #e2e8f0; }
+    .detail-row { display: flex; padding: 10px 0; border-bottom: 1px solid #f1f5f9; }
+    .detail-label { color: #64748b; width: 120px; font-weight: 500; }
+    .detail-value { color: #1e293b; font-weight: 600; }
+    .route { text-align: center; margin: 20px 0; padding: 20px; background: linear-gradient(135deg, #f0f9ff, #e0f2fe); border-radius: 8px; }
+    .route-arrow { color: #3b82f6; font-size: 24px; margin: 0 10px; }
+    .footer { text-align: center; padding: 20px; color: #64748b; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>${orgName}</h1>
+      <p>Trip Assignment</p>
+    </div>
+    <div class="content">
+      <p>Hello <strong>${data.driverName}</strong>,</p>
+      <p>You have been assigned a new trip. Please find the details below:</p>
+      
+      <div class="route">
+        <strong style="font-size: 18px;">${data.origin}</strong>
+        <span class="route-arrow">→</span>
+        <strong style="font-size: 18px;">${data.destination}</strong>
+      </div>
+
+      <div class="trip-details">
+        <div class="detail-row">
+          <span class="detail-label">Date:</span>
+          <span class="detail-value">${formatDate(data.scheduledDate)}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Truck:</span>
+          <span class="detail-value">${data.truckRegistration}</span>
+        </div>
+        ${data.customerName ? `
+        <div class="detail-row">
+          <span class="detail-label">Customer:</span>
+          <span class="detail-value">${data.customerName}</span>
+        </div>
+        ` : ""}
+        ${data.loadDescription ? `
+        <div class="detail-row">
+          <span class="detail-label">Load:</span>
+          <span class="detail-value">${data.loadDescription}</span>
+        </div>
+        ` : ""}
+        ${data.notes ? `
+        <div class="detail-row">
+          <span class="detail-label">Notes:</span>
+          <span class="detail-value">${data.notes}</span>
+        </div>
+        ` : ""}
+      </div>
+
+      <p>Please ensure you are prepared and available for this trip.</p>
+      <p>Best regards,<br><strong>${orgName}</strong></p>
+    </div>
+    <div class="footer">
+      <p>This is an automated notification from ${orgName}.</p>
+    </div>
+  </div>
+</body>
+</html>
+    `.trim(),
+  });
+}

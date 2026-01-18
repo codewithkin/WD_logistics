@@ -116,7 +116,6 @@ async function getDriverDetails(organizationId: string, params: { driverId?: str
       lastName: driver.lastName,
       email: driver.email,
       phone: driver.phone,
-      whatsappNumber: driver.whatsappNumber,
       licenseNumber: driver.licenseNumber,
       passportNumber: driver.passportNumber,
       status: driver.status,

@@ -183,12 +183,6 @@ export const navigationSections: NavSection[] = [
         roles: ["admin"],
       },
       {
-        title: "WhatsApp",
-        href: "/settings/whatsapp",
-        icon: MessageCircle,
-        roles: ["admin"],
-      },
-      {
         title: "Reports",
         href: "/reports",
         icon: BarChart3,

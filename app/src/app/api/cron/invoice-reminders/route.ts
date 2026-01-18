@@ -12,14 +12,13 @@
  * 3. Haven't had a reminder sent in the last 7 days
  * 4. Haven't exceeded their maxReminderDate
  * 
- * Sends notifications via both Email and WhatsApp.
+ * Sends notifications via Email.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendInvoiceReminderEmail } from "@/lib/email";
 
-const AGENT_URL = process.env.AGENT_URL || "http://localhost:3001";
 const CRON_SECRET = process.env.CRON_SECRET;
 
 export async function GET(request: NextRequest) {
@@ -81,7 +80,6 @@ export async function GET(request: NextRequest) {
     const results = {
       processed: 0,
       emailSent: 0,
-      whatsappSent: 0,
       errors: [] as string[],
     };
 
@@ -111,39 +109,6 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      // Send WhatsApp Reminder via Agent
-      if (invoice.customer.phone) {
-        try {
-          const response = await fetch(`${AGENT_URL}/whatsapp/template/invoice-reminder`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              phoneNumber: invoice.customer.phone,
-              organizationId: invoice.organizationId,
-              data: {
-                customerName: invoice.customer.name,
-                invoiceNumber: invoice.invoiceNumber,
-                total: invoice.total,
-                dueDate: invoice.dueDate,
-                balance: invoice.balance,
-                organizationName: invoice.organization?.name || "WD Logistics",
-              },
-            }),
-          });
-
-          if (response.ok) {
-            results.whatsappSent++;
-          } else {
-            const errorData = await response.json().catch(() => ({}));
-            results.errors.push(`WhatsApp failed for invoice ${invoice.invoiceNumber}: ${errorData.error || "Unknown error"}`);
-          }
-        } catch (whatsappError) {
-          results.errors.push(`WhatsApp failed for invoice ${invoice.invoiceNumber}: ${whatsappError instanceof Error ? whatsappError.message : "Unknown error"}`);
-        }
-      }
-
       // Update invoice reminder status
       await prisma.invoice.update({
         where: { id: invoice.id },
@@ -163,13 +128,12 @@ export async function GET(request: NextRequest) {
         data: {
           type: "invoice_reminder_batch",
           recipientPhone: "system",
-          message: `Processed ${results.processed} invoices: ${results.emailSent} emails, ${results.whatsappSent} WhatsApp messages sent.`,
+          message: `Processed ${results.processed} invoices: ${results.emailSent} emails sent.`,
           status: "sent",
           sentAt: now,
           metadata: {
             processed: results.processed,
             emailSent: results.emailSent,
-            whatsappSent: results.whatsappSent,
             errors: results.errors.length,
           },
         },

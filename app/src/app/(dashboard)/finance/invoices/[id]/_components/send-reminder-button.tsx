@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Bell, Loader2, Check, AlertCircle } from "lucide-react";
-import { sendInvoiceReminder } from "@/lib/whatsapp/notifications";
+import { Mail, Loader2, Check, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import {
     Tooltip,
@@ -11,11 +10,12 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { sendInvoiceReminderByEmail } from "../actions";
 
 interface SendReminderButtonProps {
     invoiceId: string;
     customerName: string;
-    customerPhone: string | null;
+    customerEmail: string | null;
     alreadySent: boolean;
     balance: number;
 }
@@ -23,7 +23,7 @@ interface SendReminderButtonProps {
 export function SendReminderButton({
     invoiceId,
     customerName,
-    customerPhone,
+    customerEmail,
     alreadySent,
     balance,
 }: SendReminderButtonProps) {
@@ -31,8 +31,8 @@ export function SendReminderButton({
     const [sent, setSent] = useState(alreadySent);
 
     const handleSendReminder = async () => {
-        if (!customerPhone) {
-            toast.error("Customer has no phone number configured");
+        if (!customerEmail) {
+            toast.error("Customer has no email address configured");
             return;
         }
 
@@ -43,20 +43,14 @@ export function SendReminderButton({
 
         setLoading(true);
         try {
-            const result = await sendInvoiceReminder(invoiceId, true);
+            const result = await sendInvoiceReminderByEmail(invoiceId);
 
             if (result.success) {
                 setSent(true);
-                if (result.whatsappSent) {
-                    toast.success(`Reminder sent to ${customerName} via WhatsApp`);
-                } else {
-                    toast.success(`Reminder queued for ${customerName}`, {
-                        description: result.whatsappError || "WhatsApp not connected",
-                    });
-                }
+                toast.success(`Email reminder sent to ${customerName}`);
             } else {
                 toast.error("Failed to send reminder", {
-                    description: result.error || result.message,
+                    description: result.error,
                 });
             }
         } catch (error) {
@@ -68,18 +62,18 @@ export function SendReminderButton({
         }
     };
 
-    if (!customerPhone) {
+    if (!customerEmail) {
         return (
             <TooltipProvider>
                 <Tooltip>
                     <TooltipTrigger asChild>
                         <Button variant="outline" size="sm" disabled>
                             <AlertCircle className="h-4 w-4 mr-2" />
-                            No Phone
+                            No Email
                         </Button>
                     </TooltipTrigger>
                     <TooltipContent>
-                        <p>Customer has no phone number configured</p>
+                        <p>Customer has no email address configured</p>
                     </TooltipContent>
                 </Tooltip>
             </TooltipProvider>
@@ -116,7 +110,7 @@ export function SendReminderButton({
             ) : sent ? (
                 <Check className="h-4 w-4 mr-2 text-green-600" />
             ) : (
-                <Bell className="h-4 w-4 mr-2" />
+                <Mail className="h-4 w-4 mr-2" />
             )}
             {sent ? "Send Again" : "Send Reminder"}
         </Button>

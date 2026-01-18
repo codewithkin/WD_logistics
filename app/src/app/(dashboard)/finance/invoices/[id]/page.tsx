@@ -108,7 +108,7 @@ export default async function InvoiceDetailPage({ params }: InvoiceDetailPagePro
                             <SendReminderButton
                                 invoiceId={invoice.id}
                                 customerName={invoice.customer.name}
-                                customerPhone={invoice.customer.phone}
+                                customerEmail={invoice.customer.email}
                                 alreadySent={invoice.reminderSent}
                                 balance={balance}
                             />

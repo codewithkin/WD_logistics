@@ -241,7 +241,6 @@ async function main() {
     lastName: d.lastName,
     email: `${d.firstName.toLowerCase()}.${d.lastName.toLowerCase()}@wdlogistics.com`,
     phone: `+25472${randomNumber(1000000, 9999999)}`,
-    whatsappNumber: `+25472${randomNumber(1000000, 9999999)}`,
     licenseNumber: `DL-${randomNumber(100000, 999999)}`,
     passportNumber: `A${randomNumber(1000000, 9999999)}`,
     status: "active",
