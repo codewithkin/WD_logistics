@@ -6,6 +6,32 @@ import { requireAuth, requireRole } from "@/lib/session";
 import { TripStatus } from "@/lib/types";
 import { generateTripReportPDF, generateSingleTripReportPDF } from "@/lib/reports/pdf-report-generator";
 import { notifyTripCreated, notifyTripUpdated, notifyTripDeleted } from "@/lib/notifications";
+
+// Reusable frontend function to notify driver via WhatsApp
+export async function notifyDriverViaWhatsapp(phoneNumber: string, message: string) {
+  try {
+    // Format phone number: if starts with '0', replace with '263'
+    let formatted = phoneNumber.trim();
+    if (formatted.startsWith('0')) {
+      formatted = '263' + formatted.slice(1);
+    }
+    // Only keep digits (for safety)
+    formatted = formatted.replace(/\D/g, '');
+    const res = await fetch(`${process.env.NEXT_PUBLIC_AGENT_URL || 'http://localhost:3001'}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phoneNumber: formatted, message }),
+    });
+    if (!res.ok) {
+      throw new Error('Failed to send WhatsApp message');
+    }
+    return await res.json();
+  } catch (error) {
+    console.error('Failed to send WhatsApp message:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+}
+
 import { sendTripAssignmentEmail } from "@/lib/email";
 
 /**
@@ -17,7 +43,7 @@ async function notifyDriverOfTrip(tripId: string, organizationId: string) {
     const trip = await prisma.trip.findUnique({
       where: { id: tripId },
       include: {
-        driver: { select: { firstName: true, lastName: true, email: true } },
+        driver: { select: { firstName: true, lastName: true, email: true, whatsappNumber: true } },
         truck: { select: { registrationNo: true } },
         customer: { select: { name: true } },
         organization: { select: { name: true } },
@@ -42,6 +68,12 @@ async function notifyDriverOfTrip(tripId: string, organizationId: string) {
       organizationName: trip.organization?.name || undefined,
     });
     console.log(`✅ Trip assignment email sent to ${trip.driver.email}`);
+
+    // WhatsApp notification (if driver has whatsappNumber)
+    if (trip.driver.whatsappNumber) {
+      const message = `You have been assigned a new trip: ${trip.originCity} → ${trip.destinationCity} on ${trip.scheduledDate.toLocaleDateString()}`;
+      notifyDriverViaWhatsapp(trip.driver.whatsappNumber, message);
+    }
   } catch (error) {
     console.error("Failed to notify driver:", error);
     // Don't throw - this is a non-blocking notification
@@ -134,6 +166,9 @@ export async function createTrip(data: {
 
     // Notify driver via Email (async, don't block)
     notifyDriverOfTrip(trip.id, session.organizationId);
+
+    // Notify the driver via whatsapp
+    
 
     // Send admin notification
     notifyTripCreated(

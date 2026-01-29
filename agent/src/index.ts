@@ -13,6 +13,7 @@ import webhooks from "./routes/webhooks";
 import { getAgentWhatsAppClient } from "./lib/whatsapp";
 import { isAdminPhoneNumber, BUSINESS_INFO_SYSTEM_PROMPT } from "./lib/constants";
 import { logisticsAgent } from "./agents/logistics-agent";
+import qrcode from "qrcode-terminal"
 
 const app = new Hono();
 
@@ -72,6 +73,37 @@ app.route("/whatsapp", whatsapp);
 app.route("/test-whatsapp", testWhatsApp);
 app.route("/webhooks", webhooks);
 
+// Backend route to send WhatsApp message
+app.post("/sendMessage", async (c) => {
+  try {
+    const { phoneNumber, message } = await c.req.json();
+    if (!phoneNumber || !message) {
+      return c.json({ success: false, error: "Missing phoneNumber or message" }, 400);
+    }
+    const client = getAgentWhatsAppClient().getClient();
+    if (!client) {
+      return c.json({ success: false, error: "WhatsApp client not initialized" }, 500);
+    }
+    // Format phone number for WhatsApp
+    const formattedNumber = phoneNumber.replace(/\D/g, "") + "@c.us";
+
+    // Check if number is registered on WhatsApp
+    const isRegistered = await client.isRegisteredUser(formattedNumber);
+    if (!isRegistered) {
+      return c.json({ success: false, error: "Phone number is not registered on WhatsApp" }, 400);
+    }
+
+    console.log("[LOG]: Sending message to:", formattedNumber);
+    await client.sendMessage(formattedNumber, message);
+
+    console.log("[LOG]: should have sent message")
+    return c.json({ success: true });
+  } catch (error: any) {
+    console.error("Failed to send WhatsApp message:", error);
+    return c.json({ success: false, error: error?.message || "Unknown error" }, 500);
+  }
+});
+
 // Start server
 const port = Number(process.env.PORT) || 3001;
 
@@ -95,6 +127,7 @@ const initWhatsApp = async () => {
     client.on("qr", (qr) => {
       console.log("--- SCAN WHATSAPP QR CODE ---");
       // The qrcode-terminal library will print the QR code to the console here
+      qrcode.generate(qr, {small: true})
     });
 
     // Listen for status changes

@@ -6,6 +6,7 @@ import { requireAuth, requireRole } from "@/lib/session";
 import { TruckStatus } from "@/lib/types";
 import { generateTruckReportPDF, generateSingleTruckReportPDF } from "@/lib/reports/pdf-report-generator";
 import { notifyTruckCreated, notifyTruckUpdated, notifyTruckDeleted } from "@/lib/notifications";
+import { redirect } from "next/navigation";
 
 export async function createTruck(data: {
   registrationNo: string;
@@ -64,6 +65,9 @@ export async function createTruck(data: {
     ).catch((err) => console.error("Failed to send admin notification:", err));
 
     revalidatePath("/fleet/trucks");
+
+    redirect("/fleet/trucks")
+
     return { success: true, truck };
   } catch (error) {
     console.error("Failed to create truck:", error);
