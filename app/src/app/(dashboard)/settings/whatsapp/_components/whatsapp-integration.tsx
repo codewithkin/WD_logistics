@@ -127,141 +127,24 @@ export function WhatsAppIntegration({ organizationId }: WhatsAppIntegrationProps
             case 'connecting':
             case 'qr':
                 return 'bg-yellow-500';
-            case 'error':
-                return 'bg-red-500';
-            default:
-                return 'bg-gray-500';
-        }
-    };
-
-    const getStatusLabel = (status: WhatsAppStatus): string => {
-        switch (status) {
-            case 'ready':
-                return 'Connected';
-            case 'connecting':
-                return 'Connecting...';
-            case 'qr':
-                return 'Scan QR Code';
-            case 'error':
-                return 'Error';
-            default:
-                return 'Disconnected';
-        }
-    };
-
-    const getStatusIcon = (status: WhatsAppStatus) => {
-        switch (status) {
-            case 'ready':
-                return <CheckCircle className="h-5 w-5 text-green-500" />;
-            case 'connecting':
-            case 'qr':
-                return <Loader2 className="h-5 w-5 text-yellow-500 animate-spin" />;
-            case 'error':
-                return <XCircle className="h-5 w-5 text-red-500" />;
-            default:
-                return <MessageCircle className="h-5 w-5 text-gray-500" />;
-        }
-    };
-
-    if (isCheckingStatus) {
-        return (
-            <Card>
-                <CardContent className="flex items-center justify-center py-8">
-                    <Loader2 className="h-6 w-6 animate-spin mr-2" />
-                    <span>Checking WhatsApp status...</span>
-                </CardContent>
-            </Card>
-        );
-    }
-
     return (
-        <div className="space-y-6">
-            {/* Agent Status Card */}
-            <Card>
-                <CardHeader>
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                            {state.agentOnline ? (
-                                <Wifi className="h-5 w-5 text-green-500" />
-                            ) : (
-                                <WifiOff className="h-5 w-5 text-red-500" />
-                            )}
-                            <CardTitle>Agent Server Status</CardTitle>
-                        </div>
-                        <Button variant="outline" size="sm" onClick={checkStatus}>
-                            <RefreshCw className="h-4 w-4 mr-2" />
-                            Refresh
-                        </Button>
-                    </div>
-                    <CardDescription>
-                        The backend service that handles WhatsApp communication
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    {state.agentOnline ? (
-                        <Alert>
-                            <CheckCircle className="h-4 w-4" />
-                            <AlertTitle>Online</AlertTitle>
-                            <AlertDescription>
-                                Agent server is online and ready to handle WhatsApp messages.
-                            </AlertDescription>
-                        </Alert>
-                    ) : (
-                        <Alert variant="destructive">
-                            <AlertTriangle className="h-4 w-4" />
-                            <AlertTitle>Offline</AlertTitle>
-                            <AlertDescription>
-                                The AI agent server is not reachable. WhatsApp features will not work until the server is online.
-                            </AlertDescription>
-                        </Alert>
-                    )}
-                </CardContent>
-            </Card>
-
-            {/* WhatsApp Connection Card */}
-            <Card>
-                <CardHeader>
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                            {getStatusIcon(state.status)}
-                            <CardTitle>WhatsApp Connection</CardTitle>
-                        </div>
-                        <Badge className={getStatusColor(state.status)}>
-                            {getStatusLabel(state.status)}
-                        </Badge>
-                    </div>
-                    <CardDescription>
-                        Link your WhatsApp account to send notifications
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    {state.error && (
-                        <Alert variant="destructive">
-                            <AlertTriangle className="h-4 w-4" />
-                            <AlertTitle>Error</AlertTitle>
-                            <AlertDescription>{state.error}</AlertDescription>
-                        </Alert>
-                    )}
-
-                    {state.status === 'ready' && (
-                        <Alert>
-                            <CheckCircle className="h-4 w-4" />
-                            <AlertTitle>Connected</AlertTitle>
-                            <AlertDescription>
-                                WhatsApp is connected and ready to send messages.
-                            </AlertDescription>
-                        </Alert>
-                    )}
-
-                    {state.status === 'qr' && state.qrCode && (
-                        <div className="flex flex-col items-center space-y-4">
-                            <p className="text-sm text-muted-foreground text-center">
-                                Open WhatsApp on your phone and scan this QR code to connect
-                            </p>
-                            <div className="bg-white p-4 rounded-lg shadow-sm">
-                                <img
-                                    src={`https://api.qrserver.com/v1/create-qr-code/?size=256x256&data=${encodeURIComponent(state.qrCode)}`}
-                                    alt="WhatsApp QR Code"
+        <Card>
+            <CardHeader>
+                <CardTitle>WhatsApp Connection</CardTitle>
+                <CardDescription>
+                    To connect WhatsApp, scan the QR code shown in your agent terminal window.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Alert>
+                    <AlertTitle>Check your agent terminal</AlertTitle>
+                    <AlertDescription>
+                        The WhatsApp QR code will appear in the terminal where your agent app is running. Open your agent terminal and scan the code with your WhatsApp app.
+                    </AlertDescription>
+                </Alert>
+            </CardContent>
+        </Card>
+    );
                                     className="w-64 h-64"
                                 />
                             </div>

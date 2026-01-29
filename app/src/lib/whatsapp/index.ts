@@ -53,8 +53,13 @@ export async function initializeWhatsApp(organizationId: string): Promise<{
     return { success: true, message: 'WhatsApp already connected' };
   }
 
-  // If connecting, return current state
+  // If connecting, always print QR code to terminal if available
   if (state.status === 'connecting' || state.status === 'qr') {
+    if (state.qrCode) {
+      console.log('📱 Scan this QR code with your WhatsApp:');
+      qrcode.generate(state.qrCode, { small: true });
+      console.log('--- SCAN WHATSAPP QR CODE ---');
+    }
     return {
       success: true,
       message: 'WhatsApp is connecting',
