@@ -66,6 +66,7 @@ async function listDrivers(organizationId: string, params: { status?: string; li
       id: driver.id,
       name: `${driver.firstName} ${driver.lastName}`,
       phone: driver.phone,
+      whatsappNumber: driver.whatsappNumber,
       email: driver.email,
       status: driver.status,
       licenseNumber: driver.licenseNumber,

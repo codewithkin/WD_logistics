@@ -23,7 +23,7 @@ async function getUpcomingTripsForNotification(
       status: "scheduled",
     },
     include: {
-      driver: { select: { id: true, firstName: true, lastName: true, phone: true, email: true } },
+      driver: { select: { id: true, firstName: true, lastName: true, phone: true, whatsappNumber: true, email: true } },
       truck: { select: { registrationNo: true } },
       customer: { select: { name: true } },
     },
@@ -40,6 +40,7 @@ async function getUpcomingTripsForNotification(
       firstName: trip.driver.firstName,
       lastName: trip.driver.lastName,
       phone: trip.driver.phone,
+      whatsappNumber: trip.driver.whatsappNumber,
       email: trip.driver.email,
     },
     truck: { registrationNo: trip.truck.registrationNo },

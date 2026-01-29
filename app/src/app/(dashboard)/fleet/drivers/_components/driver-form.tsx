@@ -32,6 +32,7 @@ const driverSchema = z.object({
     firstName: z.string().min(1, "First name is required"),
     lastName: z.string().min(1, "Last name is required"),
     phone: z.string().min(1, "Phone number is required"),
+    whatsappNumber: z.string().optional().or(z.literal("")),
     email: z.string().email().optional().or(z.literal("")),
     licenseNumber: z.string().min(1, "License number is required"),
     licenseExpiration: z.string().optional().or(z.literal("")),
@@ -55,6 +56,7 @@ interface DriverFormProps {
         firstName: string;
         lastName: string;
         phone: string;
+        whatsappNumber: string | null;
         email: string | null;
         licenseNumber: string;
         licenseExpiration: Date | null;
@@ -80,6 +82,7 @@ export function DriverForm({ driver, availableTrucks, isSupervisor = false }: Dr
             firstName: driver?.firstName ?? "",
             lastName: driver?.lastName ?? "",
             phone: driver?.phone ?? "",
+            whatsappNumber: driver?.whatsappNumber ?? "",
             email: driver?.email ?? "",
             licenseNumber: driver?.licenseNumber ?? "",
             licenseExpiration: driver?.licenseExpiration ? driver.licenseExpiration.toISOString().split("T")[0] : "",
@@ -98,6 +101,7 @@ export function DriverForm({ driver, availableTrucks, isSupervisor = false }: Dr
                 firstName: data.firstName,
                 lastName: data.lastName,
                 phone: data.phone,
+                whatsappNumber: data.whatsappNumber || undefined,
                 email: data.email || undefined,
                 licenseNumber: data.licenseNumber,
                 licenseExpiration: data.licenseExpiration ? new Date(data.licenseExpiration) : undefined,
@@ -178,6 +182,19 @@ export function DriverForm({ driver, availableTrucks, isSupervisor = false }: Dr
                         render={({ field }) => (
                             <FormItem>
                                 <FormLabel>Phone Number</FormLabel>
+                                <FormControl>
+                                    <Input placeholder="+1 234 567 8900" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    <FormField
+                        control={form.control}
+                        name="whatsappNumber"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>WhatsApp Number (Optional)</FormLabel>
                                 <FormControl>
                                     <Input placeholder="+1 234 567 8900" {...field} />
                                 </FormControl>

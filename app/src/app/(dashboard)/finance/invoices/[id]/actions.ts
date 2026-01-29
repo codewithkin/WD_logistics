@@ -3,6 +3,73 @@
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { sendInvoiceReminderEmail } from "@/lib/email";
+import { sendInvoiceReminderNotification } from "@/lib/whatsapp/notifications";
+import { format } from "date-fns";
+
+/**
+ * Send invoice payment reminder via WhatsApp
+ */
+export async function sendInvoiceReminderByWhatsApp(invoiceId: string) {
+  const session = await requireRole(["admin", "supervisor"]);
+
+  try {
+    // Fetch invoice with customer details
+    const invoice = await prisma.invoice.findFirst({
+      where: { 
+        id: invoiceId,
+        organizationId: session.organizationId 
+      },
+      include: {
+        customer: true,
+      },
+    });
+
+    if (!invoice) {
+      return { success: false, error: "Invoice not found" };
+    }
+
+    if (!invoice.customer.phone) {
+      return { success: false, error: "Customer has no phone number configured" };
+    }
+
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const isOverdue = invoice.dueDate !== null && invoice.dueDate < today;
+    const daysOverdue = isOverdue && invoice.dueDate
+      ? Math.ceil((now.getTime() - invoice.dueDate.getTime()) / (1000 * 60 * 60 * 24))
+      : 0;
+
+    const result = await sendInvoiceReminderNotification({
+      customerPhone: invoice.customer.phone,
+      customerName: invoice.customer.name,
+      invoiceNumber: invoice.invoiceNumber,
+      amount: `$${invoice.balance.toFixed(2)}`,
+      dueDate: invoice.dueDate ? format(invoice.dueDate, "PPP") : "N/A",
+      daysOverdue: daysOverdue > 0 ? daysOverdue : undefined,
+    });
+
+    if (!result.success) {
+      return { success: false, error: result.message };
+    }
+
+    // Mark reminder as sent
+    await prisma.invoice.update({
+      where: { id: invoiceId },
+      data: { 
+        reminderSent: true, 
+        reminderSentAt: now 
+      },
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to send WhatsApp invoice reminder:", error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : "Failed to send WhatsApp reminder" 
+    };
+  }
+}
 
 /**
  * Send invoice payment reminder via Email

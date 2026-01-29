@@ -11,6 +11,7 @@ export async function createDriver(data: {
   firstName: string;
   lastName: string;
   phone: string;
+  whatsappNumber?: string;
   email?: string;
   licenseNumber: string;
   licenseExpiration?: Date;
@@ -39,6 +40,7 @@ export async function createDriver(data: {
         firstName: data.firstName,
         lastName: data.lastName,
         phone: data.phone,
+        whatsappNumber: data.whatsappNumber,
         email: data.email,
         licenseNumber: data.licenseNumber,
         licenseExpiration: data.licenseExpiration,
@@ -79,6 +81,7 @@ export async function updateDriver(
     firstName?: string;
     lastName?: string;
     phone?: string;
+    whatsappNumber?: string;
     email?: string;
     licenseNumber?: string;
     licenseExpiration?: Date;
@@ -134,6 +137,7 @@ export async function updateDriver(
     // Prepare update data - supervisors cannot update name fields
     const updateData: Parameters<typeof prisma.driver.update>[0]["data"] = {
       phone: data.phone,
+      whatsappNumber: data.whatsappNumber,
       email: data.email,
       licenseNumber: data.licenseNumber,
       licenseExpiration: data.licenseExpiration,
