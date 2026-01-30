@@ -11,7 +11,12 @@ import whatsapp from "./routes/whatsapp";
 import testWhatsApp from "./routes/test-whatsapp";
 import webhooks from "./routes/webhooks";
 import { getAgentWhatsAppClient } from "./lib/whatsapp";
-import { isAdminPhoneNumber, BUSINESS_INFO_SYSTEM_PROMPT } from "./lib/constants";
+import { 
+  isAuthorizedNumber, 
+  extractPhoneNumber, 
+  shouldIgnoreMessage,
+  setBotPhoneNumber 
+} from "./lib/constants";
 import { logisticsAgent } from "./agents/logistics-agent";
 import qrcode from "qrcode-terminal"
 
@@ -139,11 +144,12 @@ const initWhatsApp = async () => {
     if (initialized) {
       console.log("✅ WhatsApp client initialized and ready");
       
-      // Get the bot's own phone number
+      // Get the bot's own phone number and register it
       const botInfo = await client.getClient().info;
       const botPhoneNumber = botInfo?.wid?.user ? `+${botInfo.wid.user}` : null;
       
       if (botPhoneNumber) {
+        setBotPhoneNumber(botPhoneNumber);
         console.log(`📱 Bot connected as: ${botPhoneNumber}`);
       }
       
@@ -181,104 +187,45 @@ const initWhatsApp = async () => {
       // Setup incoming message handler
       client.on("message_create", async (msg: any) => {
         try {
-          console.log("Received message: ", msg.body);
-          
-          // Use msg.reply() instead of client.sendMessage()
-          await msg.reply("Generic reply here");
-
-          // Extract phone number from WhatsApp ID
-          // Format can be: 263789859332@c.us (normal) or 71025924542654@lid (broadcast/status)
-          const phoneNumber = msg.from.replace(/@c\.us|@lid|@g\.us/g, "");
-          const formattedNumber = `+${phoneNumber}`;
-          
           // Ignore broadcast/status messages or group messages
-          if (msg.from.includes("@lid") || msg.from.includes("@g.us")) {
+          if (shouldIgnoreMessage(msg.from)) {
             console.log(`⚠️ Ignoring non-personal message from: ${msg.from}`);
             return;
           }
           
-          // Check if message contains WD_LOGISTICS keyword (case-insensitive)
-          const hasKeyword = msg.body.toUpperCase().includes("WD_LOGISTICS");
+          // Extract phone number from WhatsApp ID
+          const phoneNumber = extractPhoneNumber(msg.from);
           
-          // Check if message is from bot's own number
-          const isOwnNumber = botPhoneNumber && formattedNumber === botPhoneNumber;
+          console.log(`📨 Received message from ${phoneNumber}: ${msg.body.substring(0, 50)}...`);
           
-          // Check if sender is an admin
-          const isAdmin = isAdminPhoneNumber(formattedNumber);
+          // Check if sender is authorized
+          const isAuthorized = isAuthorizedNumber(phoneNumber);
           
-          // Allow bot's own messages with keyword for testing
-          if (isOwnNumber) {
-            if (hasKeyword) {
-              console.log(`📨 Processing self-message with WD_LOGISTICS keyword for testing`);
-              console.log(`📝 Generating AI response for self-message...`);
-              
-              // Process with AI agent (full admin access)
-              const response = await logisticsAgent.generate([
-                {
-                  role: "user",
-                  content: msg.body,
-                },
-              ]);
-
-              console.log("Received message: ", msg.body);
-              msg.reply("This is a test");
-              
-              console.log(`💬 Generated response: ${response.text.substring(0, 100)}...`);
-              // Use msg.reply() to reply to the message
-              await replyToMessage(msg, response.text);
-              console.log(`✅ Replied to self-message`);
-            } else {
-              console.log(`⚠️ Ignoring self-message without WD_LOGISTICS keyword`);
-            }
+          if (!isAuthorized) {
+            console.log(`⛔ Unauthorized number: ${phoneNumber} - ignoring message`);
             return;
           }
           
-          // Process admin messages (no keyword required)
-          if (isAdmin) {
-            console.log(`📨 Processing message from admin: ${formattedNumber}`);
-            console.log(`📝 Generating AI response for admin with full access...`);
-            
-            // Process with AI agent (full admin access)
-            const response = await logisticsAgent.generate([
-              {
-                role: "user",
-                content: msg.body,
-              },
-            ]);
-            
-            console.log(`💬 Generated response: ${response.text.substring(0, 100)}...`);
-            // Use msg.reply() to reply to the message
-            await replyToMessage(msg, response.text);
-            console.log(`✅ Replied to admin: ${formattedNumber}`);
-            return;
-          }
+          console.log(`✅ Authorized user: ${phoneNumber}`);
+          console.log(`📝 Generating AI response with business data access...`);
           
-          // // Non-admin user - only respond if message contains WD_LOGISTICS
-          // if (!hasKeyword) {
-          //   console.log(`⚠️ Ignoring non-admin message without WD_LOGISTICS keyword: ${formattedNumber}`);
-          //   return;
-          // }
+          // Get organization ID from environment (default to first org)
+          // In production, you might want to map phone numbers to specific organizations
+          const organizationId = "default-org-id"; // TODO: Map authorized numbers to their org IDs
           
-          // Respond to non-admin with keyword using business info only
-          console.log(`💬 Processing business inquiry with WD_LOGISTICS from: ${formattedNumber}`);
-          console.log(`📝 Generating AI response with business info system prompt...`);
-          
-          // Process with AI agent using business info system prompt
+          // Process with AI agent (full access to business data)
           const response = await logisticsAgent.generate([
             {
-              role: "system",
-              content: BUSINESS_INFO_SYSTEM_PROMPT,
-            },
-            {
               role: "user",
-              content: msg.body,
+              content: `[Organization ID: ${organizationId}]\n\n${msg.body}`,
             },
           ]);
           
-          console.log(`💬 Generated response: ${response.text.substring(0, 100)}...`);
-          // Use msg.reply() to reply to the message
+          console.log(`💬 Generated response (${response.text.length} chars)`);
+          
+          // Reply to the message
           await replyToMessage(msg, response.text);
-          console.log(`✅ Sent business info to: ${formattedNumber}`);
+          console.log(`✅ Replied to ${phoneNumber}`);
           
         } catch (error: any) {
           // Check if it's just the markedUnread error
@@ -289,8 +236,13 @@ const initWhatsApp = async () => {
           }
           
           console.error("Error processing incoming message:", error);
-          // Don't try to send error message as it might cause the same error
-          console.log(`⚠️ Skipping error reply to avoid recursive failure`);
+          
+          // Try to send error message to user
+          try {
+            await replyToMessage(msg, "Sorry, I encountered an error processing your request. Please try again or contact support.");
+          } catch (replyError) {
+            console.log(`⚠️ Could not send error message to user`);
+          }
         }
       });
     }

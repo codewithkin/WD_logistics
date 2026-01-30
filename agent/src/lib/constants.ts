@@ -1,23 +1,126 @@
 /**
  * Application Constants
  * 
- * Centralized configuration for admin access and other settings.
+ * Centralized configuration for authorized WhatsApp access.
  */
 
 /**
- * Admin phone numbers allowed to interact with the AI assistant via WhatsApp
- * These numbers bypass normal user restrictions and have full access to the AI agent.
+ * Authorized phone numbers allowed to interact with the AI assistant via WhatsApp
+ * - Admin WhatsApp number (from app environment)
+ * - Two developer numbers (for testing and support)
+ * - Bot's own number (set at runtime)
  * 
  * Format: Include country code with + prefix (e.g., "+263789859332")
  */
-export const ADMIN_PHONE_NUMBERS: string[] = [
-  "+263789859332",
-  "+263772958986", // Additional admin number
-];
+const ADMIN_WHATSAPP_NUMBER = process.env.ADMIN_WHATSAPP_NUMBER || "";
+const DEVELOPER_NUMBER_ONE = process.env.WHATSAPP_DEVELOPER_NUMBER_ONE || "";
+const DEVELOPER_NUMBER_TWO = process.env.WHATSAPP_DEVELOPER_NUMBER_TWO || "";
+
+// Store bot's own number (set at runtime after WhatsApp connects)
+let BOT_PHONE_NUMBER: string | null = null;
+
+/**
+ * Set the bot's own phone number after WhatsApp connection
+ */
+export function setBotPhoneNumber(phoneNumber: string) {
+  BOT_PHONE_NUMBER = phoneNumber;
+  console.log(`✅ Bot phone number registered: ${phoneNumber}`);
+}
+
+/**
+ * Get the bot's current phone number
+ */
+export function getBotPhoneNumber(): string | null {
+  return BOT_PHONE_NUMBER;
+}
+
+/**
+ * Get all authorized phone numbers (excluding bot number)
+ */
+export function getAuthorizedNumbers(): string[] {
+  return [
+    ADMIN_WHATSAPP_NUMBER,
+    DEVELOPER_NUMBER_ONE,
+    DEVELOPER_NUMBER_TWO,
+  ].filter(num => num && num.length > 5); // Filter out empty or invalid numbers
+}
+
+/**
+ * Check if a phone number is authorized to use the AI assistant
+ * Includes: admin number, developer numbers, and bot's own number
+ */
+export function isAuthorizedNumber(phoneNumber: string): boolean {
+  const normalized = normalizePhoneNumber(phoneNumber);
+  
+  // Check if it's the bot's own number
+  if (BOT_PHONE_NUMBER && normalizePhoneNumber(BOT_PHONE_NUMBER) === normalized) {
+    return true;
+  }
+  
+  // Check against authorized numbers
+  const authorizedNumbers = getAuthorizedNumbers();
+  return authorizedNumbers.some(
+    (authNumber) => normalizePhoneNumber(authNumber) === normalized
+  );
+}
+
+/**
+ * Format a phone number for WhatsApp (webjs format)
+ * Converts from various formats to: 263789859332@c.us
+ */
+export function formatForWhatsApp(phoneNumber: string): string {
+  // Remove all non-digit characters except leading +
+  let cleaned = phoneNumber.replace(/[^\d+]/g, "");
+  
+  // Remove leading + if present
+  if (cleaned.startsWith("+")) {
+    cleaned = cleaned.slice(1);
+  }
+  
+  // Ensure it starts with country code (263 for Zimbabwe)
+  if (cleaned.startsWith("0")) {
+    cleaned = "263" + cleaned.slice(1);
+  }
+  
+  // Return in WhatsApp format
+  return `${cleaned}@c.us`;
+}
+
+/**
+ * Extract phone number from WhatsApp ID
+ * Converts from: 263789859332@c.us or @lid or @g.us
+ * To: +263789859332
+ */
+export function extractPhoneNumber(whatsappId: string): string {
+  // Extract just the number part
+  const phoneNumber = whatsappId.replace(/@c\.us|@lid|@g\.us/g, "");
+  // Add + prefix for international format
+  return `+${phoneNumber}`;
+}
+
+/**
+ * Check if a WhatsApp message should be ignored
+ * Returns true for: broadcast messages, status updates, group messages
+ */
+export function shouldIgnoreMessage(whatsappFrom: string): boolean {
+  return whatsappFrom.includes("@lid") || whatsappFrom.includes("@g.us");
+}
+
+/**
+ * Normalize phone number for comparison
+ * Removes all non-digit characters and ensures consistent format
+ */
+export function normalizePhoneNumber(phoneNumber: string): string {
+  // Remove all non-digit characters except leading +
+  const cleaned = phoneNumber.replace(/[^\d+]/g, "");
+  
+  // Remove leading + for comparison
+  return cleaned.startsWith("+") ? cleaned.slice(1) : cleaned;
+}
 
 /**
  * Business information for WD Logistics
- * Used for responding to non-admin inquiries
+ * Used for basic company info queries (not currently used in authorized flow)
  */
 export const BUSINESS_INFO = {
   name: "WD Logistics",
@@ -34,53 +137,3 @@ export const BUSINESS_INFO = {
     phone: "+263 77 295 8986",
   }
 };
-
-/**
- * System prompt for non-admin business inquiries
- */
-export const BUSINESS_INFO_SYSTEM_PROMPT = `You are a customer service assistant for WD Logistics, a transportation company in Zimbabwe.
-
-Company Information:
-- ${BUSINESS_INFO.description}
-- Services: ${BUSINESS_INFO.services.join("; ")}
-- Operating Hours: ${BUSINESS_INFO.hours}
-- Address: ${BUSINESS_INFO.address}
-- Contact: ${BUSINESS_INFO.contact.phone}
-
-You can only answer questions about:
-- Services offered
-- Operating hours
-- Location and contact information
-- General transportation inquiries
-- Pricing inquiries (provide general information)
-
-You CANNOT:
-- Access or modify any data in the system
-- View trip details, invoices, or customer information
-- Perform administrative functions
-- Make bookings or reservations (inform them to call during business hours)
-
-Be professional, helpful, and courteous. If asked about something outside your scope, politely inform the customer to contact the office during business hours at ${BUSINESS_INFO.contact.phone}.`;
-
-/**
- * Check if a phone number is an admin number
- * Normalizes phone numbers before comparison for flexibility
- */
-export function isAdminPhoneNumber(phoneNumber: string): boolean {
-  const normalized = normalizePhoneNumber(phoneNumber);
-  return ADMIN_PHONE_NUMBERS.some(
-    (adminNumber) => normalizePhoneNumber(adminNumber) === normalized
-  );
-}
-
-/**
- * Normalize phone number for comparison
- * Removes all non-digit characters and ensures consistent format
- */
-export function normalizePhoneNumber(phoneNumber: string): string {
-  // Remove all non-digit characters except leading +
-  const cleaned = phoneNumber.replace(/[^\d+]/g, "");
-  
-  // Remove leading + for comparison
-  return cleaned.startsWith("+") ? cleaned.slice(1) : cleaned;
-}
