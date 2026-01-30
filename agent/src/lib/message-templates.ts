@@ -14,6 +14,9 @@ export interface TripMessageData {
   destinationCity: string;
   destinationAddress?: string;
   scheduledDate: Date;
+  startDate?: Date;
+  endDate?: Date;
+  estimatedMileage?: number;
   loadDescription?: string;
   loadWeight?: number;
   loadUnits?: number;
@@ -76,10 +79,42 @@ export function tripAssignmentTemplate(data: TripMessageData): string {
     ``,
     `📅 *Scheduled Date:*`,
     `   ${formatDate(new Date(data.scheduledDate))}`,
-    ``,
-    `🚛 *Truck:* ${data.truckRegistration}`,
-    `👤 *Customer:* ${data.customerName}`,
   ];
+
+  // Add start date if available
+  if (data.startDate) {
+    lines.push(``);
+    lines.push(`🚀 *Start Date:*`);
+    lines.push(`   ${formatDateTime(new Date(data.startDate))}`);
+  }
+
+  // Add expected end date if available
+  if (data.endDate) {
+    lines.push(``);
+    lines.push(`🏁 *Expected End Date:*`);
+    lines.push(`   ${formatDateTime(new Date(data.endDate))}`);
+  } else if (data.startDate) {
+    // If we have start date but no end date, estimate based on scheduled date
+    const daysDiff = Math.ceil((new Date(data.scheduledDate).getTime() - new Date(data.startDate).getTime()) / (1000 * 60 * 60 * 24));
+    if (daysDiff > 0) {
+      const estimatedEnd = new Date(data.startDate);
+      estimatedEnd.setDate(estimatedEnd.getDate() + daysDiff);
+      lines.push(``);
+      lines.push(`🏁 *Expected End Date:*`);
+      lines.push(`   ${formatDateTime(estimatedEnd)} (estimated)`);
+    }
+  }
+
+  // Add estimated mileage if available
+  if (data.estimatedMileage) {
+    lines.push(``);
+    lines.push(`📏 *Estimated Mileage:*`);
+    lines.push(`   ${data.estimatedMileage.toLocaleString()} km`);
+  }
+
+  lines.push(``);
+  lines.push(`🚛 *Truck:* ${data.truckRegistration}`);
+  lines.push(`👤 *Customer:* ${data.customerName}`);
 
   if (data.loadDescription || data.loadWeight || data.loadUnits) {
     lines.push(``);
