@@ -6,7 +6,7 @@ import { requireAuth, requireRole } from "@/lib/session";
 import { TruckStatus } from "@/lib/types";
 import { generateTruckReportPDF, generateSingleTruckReportPDF } from "@/lib/reports/pdf-report-generator";
 import { notifyTruckCreated, notifyTruckUpdated, notifyTruckDeleted } from "@/lib/notifications";
-import { notifyTruckEvent } from "@/lib/whatsapp-notifications";
+import { notifyAdminTruckCreated } from "@/lib/whatsapp-notifications";
 import { redirect } from "next/navigation";
 
 export async function createTruck(data: {
@@ -65,17 +65,11 @@ export async function createTruck(data: {
       { name: session.user.name, email: session.user.email, role: session.role }
     ).catch((err) => console.error("Failed to send admin notification:", err));
 
-    // Send WhatsApp notification to admins
-    notifyTruckEvent(
-      'created',
-      {
-        registrationNo: truck.registrationNo,
-        make: truck.make,
-        model: truck.model,
-        year: truck.year,
-      },
+    // Send WhatsApp notification to admin
+    notifyAdminTruckCreated(
+      truck.id,
       session.organizationId,
-      { name: session.user.name, email: session.user.email, role: session.role, id: session.user.id }
+      { name: session.user.name, email: session.user.email, role: session.role }
     ).catch((err) => console.error("Failed to send admin WhatsApp notification:", err));
 
     revalidatePath("/fleet/trucks");
@@ -262,19 +256,6 @@ export async function deleteTruck(id: string) {
       session.organizationId,
       { name: session.user.name, email: session.user.email, role: session.role }
     ).catch((err) => console.error("Failed to send admin notification:", err));
-
-    // Send WhatsApp notification to admins
-    notifyTruckEvent(
-      'deleted',
-      {
-        registrationNo: truck.registrationNo,
-        make: truck.make,
-        model: truck.model,
-        year: truck.year,
-      },
-      session.organizationId,
-      { name: session.user.name, email: session.user.email, role: session.role, id: session.user.id }
-    ).catch((err) => console.error("Failed to send admin WhatsApp notification:", err));
 
     revalidatePath("/fleet/trucks");
     return { success: true };

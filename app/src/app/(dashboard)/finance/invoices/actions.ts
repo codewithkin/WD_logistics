@@ -7,6 +7,7 @@ import { InvoiceStatus } from "@/lib/types";
 import { sendInvoiceEmail, sendCreditInvoiceReminderEmail } from "@/lib/email";
 import { generateInvoiceReportPDF } from "@/lib/reports/pdf-report-generator";
 import { notifyInvoiceCreated, notifyInvoiceUpdated, notifyInvoiceDeleted } from "@/lib/notifications";
+import { notifyAdminInvoiceCreated } from "@/lib/whatsapp-notifications";
 
 export async function createInvoice(data: {
   customerId: string;
@@ -152,6 +153,13 @@ export async function createInvoice(data: {
       session.organizationId,
       { name: session.user.name, email: session.user.email, role: session.role }
     ).catch((err) => console.error("Failed to send admin notification:", err));
+
+    // Send WhatsApp notification to admin
+    notifyAdminInvoiceCreated(
+      invoice.id,
+      session.organizationId,
+      { name: session.user.name, email: session.user.email, role: session.role }
+    ).catch((err) => console.error("Failed to send admin WhatsApp notification:", err));
 
     revalidatePath("/finance/invoices");
     if (data.tripId) {

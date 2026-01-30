@@ -6,7 +6,7 @@ import { requireRole, requireAuth } from "@/lib/session";
 import { PaymentMethod } from "@/lib/types";
 import { generatePaymentReportPDF } from "@/lib/reports/pdf-report-generator";
 import { notifyPaymentCreated, notifyPaymentUpdated, notifyPaymentDeleted } from "@/lib/notifications";
-import { notifyInvoiceFullyPaid } from "@/lib/whatsapp-notifications";
+import { notifyInvoiceFullyPaid, notifyAdminPaymentReceived } from "@/lib/whatsapp-notifications";
 
 export async function createPayment(data: {
   invoiceId?: string;
@@ -100,6 +100,13 @@ export async function createPayment(data: {
       session.organizationId,
       { name: session.user.name, email: session.user.email, role: session.role }
     ).catch((err) => console.error("Failed to send admin notification:", err));
+
+    // Send WhatsApp notification to admin
+    notifyAdminPaymentReceived(
+      payment.id,
+      session.organizationId,
+      { name: session.user.name, email: session.user.email, role: session.role }
+    ).catch((err) => console.error("Failed to send admin WhatsApp notification:", err));
 
     // If invoice is fully paid, send special notification to customer (email) and admin
     if (invoiceFullyPaid && data.invoiceId) {
@@ -195,6 +202,13 @@ export async function updatePayment(
       session.organizationId,
       { name: session.user.name, email: session.user.email, role: session.role }
     ).catch((err) => console.error("Failed to send admin notification:", err));
+
+    // Send WhatsApp notification to admin
+    notifyAdminPaymentReceived(
+      updatedPayment.id,
+      session.organizationId,
+      { name: session.user.name, email: session.user.email, role: session.role }
+    ).catch((err) => console.error("Failed to send admin WhatsApp notification:", err));
 
     // If invoice is fully paid, send special notification to customer (email) and admin
     if (invoiceFullyPaid && payment.invoice) {

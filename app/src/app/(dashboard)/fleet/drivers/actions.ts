@@ -6,7 +6,7 @@ import { requireAuth, requireRole } from "@/lib/session";
 import { DriverStatus } from "@/lib/types";
 import { generateDriverReportPDF, generateSingleDriverReportPDF } from "@/lib/reports/pdf-report-generator";
 import { notifyDriverCreated, notifyDriverUpdated, notifyDriverDeleted } from "@/lib/notifications";
-import { notifyDriverWelcome, notifyDriverDeleted as notifyDriverDeletedWhatsApp } from "@/lib/whatsapp-notifications";
+import { notifyDriverWelcome, notifyAdminDriverCreated } from "@/lib/whatsapp-notifications";
 
 export async function createDriver(data: {
   firstName: string;
@@ -72,6 +72,13 @@ export async function createDriver(data: {
       session.organizationId,
       { name: session.user.name, email: session.user.email, role: session.role }
     ).catch((err) => console.error("Failed to send admin notification:", err));
+
+    // Send WhatsApp notification to admin
+    notifyAdminDriverCreated(
+      driver.id,
+      session.organizationId,
+      { name: session.user.name, email: session.user.email, role: session.role }
+    ).catch((err) => console.error("Failed to send admin WhatsApp notification:", err));
 
     revalidatePath("/fleet/drivers");
     return { success: true, driver };
@@ -227,13 +234,6 @@ export async function deleteDriver(id: string) {
       session.organizationId,
       { name: session.user.name, email: session.user.email, role: session.role }
     ).catch((err) => console.error("Failed to send admin notification:", err));
-
-    // Send WhatsApp notification to admins
-    notifyDriverDeletedWhatsApp(
-      `${driver.firstName} ${driver.lastName}`,
-      session.organizationId,
-      { name: session.user.name, email: session.user.email, role: session.role, id: session.user.id }
-    ).catch((err) => console.error("Failed to send admin WhatsApp notification:", err));
 
     revalidatePath("/fleet/drivers");
     revalidatePath("/fleet/trucks");

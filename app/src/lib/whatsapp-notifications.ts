@@ -8,154 +8,8 @@
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email";
 
-// Import types and templates from agent
-// Note: We'll define these locally to avoid cross-project imports
-type TripMessageData = {
-  driverName: string;
-  originCity: string;
-  originAddress?: string;
-  destinationCity: string;
-  destinationAddress?: string;
-  scheduledDate: Date;
-  startDate?: Date;
-  endDate?: Date;
-  estimatedMileage?: number;
-  loadDescription?: string;
-  loadWeight?: number;
-  loadUnits?: number;
-  truckRegistration: string;
-  customerName: string;
-  notes?: string;
-};
-
-// Date formatters
-const formatDate = (date: Date): string => {
-  return new Date(date).toLocaleDateString("en-US", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-};
-
-const formatDateTime = (date: Date): string => {
-  return new Date(date).toLocaleDateString("en-US", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-};
-
-/**
- * Trip Assignment Template - enhanced with all details
- */
-function tripAssignmentTemplate(data: TripMessageData): string {
-  const lines = [
-    `🚚 *New Trip Assignment*`,
-    ``,
-    `Hello ${data.driverName}!`,
-    ``,
-    `You have been assigned a new trip:`,
-    ``,
-    `📍 *Route:*`,
-    `   From: ${data.originCity}${data.originAddress ? ` (${data.originAddress})` : ''}`,
-    `   To: ${data.destinationCity}${data.destinationAddress ? ` (${data.destinationAddress})` : ''}`,
-    ``,
-    `📅 *Scheduled Date:*`,
-    `   ${formatDate(new Date(data.scheduledDate))}`,
-  ];
-
-  // Add start date if available
-  if (data.startDate) {
-    lines.push(``);
-    lines.push(`🚀 *Start Date:*`);
-    lines.push(`   ${formatDateTime(new Date(data.startDate))}`);
-  }
-
-  // Add expected end date if available
-  if (data.endDate) {
-    lines.push(``);
-    lines.push(`🏁 *Expected End Date:*`);
-    lines.push(`   ${formatDateTime(new Date(data.endDate))}`);
-  } else if (data.startDate) {
-    // If we have start date but no end date, estimate based on scheduled date
-    const daysDiff = Math.ceil((new Date(data.scheduledDate).getTime() - new Date(data.startDate).getTime()) / (1000 * 60 * 60 * 24));
-    if (daysDiff > 0) {
-      const estimatedEnd = new Date(data.startDate);
-      estimatedEnd.setDate(estimatedEnd.getDate() + daysDiff);
-      lines.push(``);
-      lines.push(`🏁 *Expected End Date:*`);
-      lines.push(`   ${formatDateTime(estimatedEnd)} (estimated)`);
-    }
-  }
-
-  // Add estimated mileage if available
-  if (data.estimatedMileage) {
-    lines.push(``);
-    lines.push(`📏 *Estimated Mileage:*`);
-    lines.push(`   ${data.estimatedMileage.toLocaleString()} km`);
-  }
-
-  lines.push(``);
-  lines.push(`🚛 *Truck:* ${data.truckRegistration}`);
-  lines.push(`👤 *Customer:* ${data.customerName}`);
-
-  if (data.loadDescription || data.loadWeight || data.loadUnits) {
-    lines.push(``);
-    lines.push(`📦 *Load Details:*`);
-    if (data.loadDescription) lines.push(`   ${data.loadDescription}`);
-    if (data.loadWeight) lines.push(`   Weight: ${data.loadWeight} kg`);
-    if (data.loadUnits) lines.push(`   Units: ${data.loadUnits}`);
-  }
-
-  if (data.notes) {
-    lines.push(``);
-    lines.push(`📝 *Notes:* ${data.notes}`);
-  }
-
-  lines.push(``);
-  lines.push(`Please confirm receipt of this assignment.`);
-  lines.push(`Safe travels! 🛣️`);
-
-  return lines.join('\n');
-}
-
-/**
- * Payment Received Template
- */
-function paymentReceivedTemplate(data: {
-  customerName: string;
-  invoiceNumber: string;
-  amount: number;
-  paymentDate: Date;
-  paymentMethod: string;
-  organizationName: string;
-}): string {
-  const formatCurrency = (amount: number): string =>
-    new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(amount);
-
-  return [
-    `💚 *Payment Received*`,
-    ``,
-    `Dear ${data.customerName},`,
-    ``,
-    `We have received your payment. Thank you!`,
-    ``,
-    `📋 *Payment Details:*`,
-    `   Invoice #: ${data.invoiceNumber}`,
-    `   Amount: ${formatCurrency(data.amount)}`,
-    `   Date: ${formatDate(new Date(data.paymentDate))}`,
-    `   Method: ${data.paymentMethod}`,
-    ``,
-    `Thank you for your prompt payment!`,
-    `— ${data.organizationName}`,
-  ].join('\n');
-}
-
 const AGENT_URL = process.env.NEXT_PUBLIC_AGENT_URL || process.env.AGENT_URL || 'http://localhost:3001';
+const ADMIN_WHATSAPP_NUMBER = process.env.ADMIN_WHATSAPP_NUMBER;
 
 /**
  * Send WhatsApp message via agent API
@@ -192,12 +46,337 @@ async function sendWhatsAppMessage(phoneNumber: string, message: string): Promis
 }
 
 /**
- * Determine if a customer/supplier is a company (has contactPerson or taxId suggests business)
- * For now, we'll use email preference - if they have email, prefer email for professionalism
+ * Send WhatsApp notification to admin
+ */
+async function notifyAdminWhatsApp(message: string): Promise<void> {
+  if (!ADMIN_WHATSAPP_NUMBER) {
+    console.log('ADMIN_WHATSAPP_NUMBER not configured, skipping admin WhatsApp notification');
+    return;
+  }
+
+  try {
+    await sendWhatsAppMessage(ADMIN_WHATSAPP_NUMBER, message);
+    console.log('✅ Admin WhatsApp notification sent');
+  } catch (error) {
+    console.error('Failed to send admin WhatsApp notification:', error);
+  }
+}
+
+// Date formatters
+const formatDate = (date: Date): string => {
+  return new Date(date).toLocaleDateString("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+};
+
+const formatDateTime = (date: Date): string => {
+  return new Date(date).toLocaleDateString("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+};
+
+const formatCurrency = (amount: number): string => {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(amount);
+};
+
+// Types
+type TripMessageData = {
+  driverName: string;
+  originCity: string;
+  originAddress?: string;
+  destinationCity: string;
+  destinationAddress?: string;
+  scheduledDate: Date;
+  startDate?: Date;
+  endDate?: Date;
+  estimatedMileage?: number;
+  loadDescription?: string;
+  loadWeight?: number;
+  loadUnits?: number;
+  truckRegistration: string;
+  customerName: string;
+  notes?: string;
+};
+
+/**
+ * Trip Assignment Template - for drivers (NO EMOJIS)
+ */
+function tripAssignmentTemplate(data: TripMessageData): string {
+  const lines = [
+    `*NEW TRIP ASSIGNMENT*`,
+    ``,
+    `Hello ${data.driverName}!`,
+    ``,
+    `You have been assigned a new trip:`,
+    ``,
+    `*ROUTE:*`,
+    `From: ${data.originCity}${data.originAddress ? ` (${data.originAddress})` : ''}`,
+    `To: ${data.destinationCity}${data.destinationAddress ? ` (${data.destinationAddress})` : ''}`,
+    ``,
+    `*SCHEDULED DATE:*`,
+    `${formatDate(new Date(data.scheduledDate))}`,
+  ];
+
+  if (data.startDate) {
+    lines.push(``);
+    lines.push(`*START DATE:*`);
+    lines.push(`${formatDateTime(new Date(data.startDate))}`);
+  }
+
+  if (data.endDate) {
+    lines.push(``);
+    lines.push(`*EXPECTED END DATE:*`);
+    lines.push(`${formatDateTime(new Date(data.endDate))}`);
+  }
+
+  if (data.estimatedMileage) {
+    lines.push(``);
+    lines.push(`*ESTIMATED MILEAGE:*`);
+    lines.push(`${data.estimatedMileage.toLocaleString()} km`);
+  }
+
+  lines.push(``);
+  lines.push(`*TRUCK:* ${data.truckRegistration}`);
+  lines.push(`*CUSTOMER:* ${data.customerName}`);
+
+  if (data.loadDescription || data.loadWeight || data.loadUnits) {
+    lines.push(``);
+    lines.push(`*LOAD DETAILS:*`);
+    if (data.loadDescription) lines.push(`${data.loadDescription}`);
+    if (data.loadWeight) lines.push(`Weight: ${data.loadWeight} kg`);
+    if (data.loadUnits) lines.push(`Units: ${data.loadUnits}`);
+  }
+
+  if (data.notes) {
+    lines.push(``);
+    lines.push(`*NOTES:* ${data.notes}`);
+  }
+
+  lines.push(``);
+  lines.push(`Please confirm receipt of this assignment.`);
+  lines.push(`Safe travels!`);
+
+  return lines.join('\n');
+}
+
+/**
+ * Admin Templates - NO EMOJIS
+ */
+
+function adminDriverCreatedTemplate(data: {
+  driverName: string;
+  phone: string;
+  whatsappNumber?: string | null;
+  email?: string | null;
+  licenseNumber: string;
+  status: string;
+  assignedTruck?: string | null;
+  performedBy: string;
+}): string {
+  const lines = [
+    `*NEW DRIVER ADDED*`,
+    ``,
+    `A new driver has been added to the fleet.`,
+    ``,
+    `*NAME:* ${data.driverName}`,
+    `*PHONE:* ${data.phone}`,
+  ];
+
+  if (data.whatsappNumber) {
+    lines.push(`*WHATSAPP:* ${data.whatsappNumber}`);
+  }
+
+  if (data.email) {
+    lines.push(`*EMAIL:* ${data.email}`);
+  }
+
+  lines.push(`*LICENSE:* ${data.licenseNumber}`);
+  lines.push(`*STATUS:* ${data.status.charAt(0).toUpperCase() + data.status.slice(1)}`);
+
+  if (data.assignedTruck) {
+    lines.push(`*ASSIGNED TRUCK:* ${data.assignedTruck}`);
+  }
+
+  lines.push(``);
+  lines.push(`_Added by ${data.performedBy}_`);
+
+  return lines.join('\n');
+}
+
+function adminTruckCreatedTemplate(data: {
+  registrationNo: string;
+  make: string;
+  model: string;
+  year: number;
+  status: string;
+  currentMileage?: number;
+  fuelType?: string | null;
+  performedBy: string;
+}): string {
+  const lines = [
+    `*NEW TRUCK ADDED*`,
+    ``,
+    `A new truck has been added to the fleet.`,
+    ``,
+    `*REGISTRATION:* ${data.registrationNo}`,
+    `*MAKE:* ${data.make}`,
+    `*MODEL:* ${data.model}`,
+    `*YEAR:* ${data.year}`,
+    `*STATUS:* ${data.status.charAt(0).toUpperCase() + data.status.slice(1)}`,
+  ];
+
+  if (data.currentMileage !== undefined) {
+    lines.push(`*CURRENT MILEAGE:* ${data.currentMileage.toLocaleString()} km`);
+  }
+
+  if (data.fuelType) {
+    lines.push(`*FUEL TYPE:* ${data.fuelType}`);
+  }
+
+  lines.push(``);
+  lines.push(`_Added by ${data.performedBy}_`);
+
+  return lines.join('\n');
+}
+
+function adminInvoiceCreatedTemplate(data: {
+  invoiceNumber: string;
+  customerName: string;
+  total: number;
+  subtotal: number;
+  tax: number;
+  status: string;
+  isCredit: boolean;
+  issueDate: Date;
+  dueDate?: Date | null;
+  tripRoute?: string | null;
+  performedBy: string;
+}): string {
+  const lines = [
+    `*NEW INVOICE CREATED*`,
+    ``,
+    `A new invoice has been created.`,
+    ``,
+    `*INVOICE NUMBER:* ${data.invoiceNumber}`,
+    `*CUSTOMER:* ${data.customerName}`,
+    `*SUBTOTAL:* ${formatCurrency(data.subtotal)}`,
+  ];
+
+  if (data.tax > 0) {
+    lines.push(`*TAX:* ${formatCurrency(data.tax)}`);
+  }
+
+  lines.push(`*TOTAL:* ${formatCurrency(data.total)}`);
+  lines.push(`*STATUS:* ${data.status.charAt(0).toUpperCase() + data.status.slice(1)}`);
+
+  if (data.isCredit) {
+    lines.push(`*TYPE:* Credit Invoice`);
+    if (data.dueDate) {
+      lines.push(`*DUE DATE:* ${formatDate(new Date(data.dueDate))}`);
+    }
+  }
+
+  lines.push(`*ISSUE DATE:* ${formatDate(new Date(data.issueDate))}`);
+
+  if (data.tripRoute) {
+    lines.push(`*TRIP:* ${data.tripRoute}`);
+  }
+
+  lines.push(``);
+  lines.push(`_Created by ${data.performedBy}_`);
+
+  return lines.join('\n');
+}
+
+function adminEmployeeCreatedTemplate(data: {
+  employeeName: string;
+  position: string;
+  department?: string | null;
+  email?: string | null;
+  phone: string;
+  status: string;
+  performedBy: string;
+}): string {
+  const lines = [
+    `*NEW EMPLOYEE ADDED*`,
+    ``,
+    `A new employee has been added.`,
+    ``,
+    `*NAME:* ${data.employeeName}`,
+    `*POSITION:* ${data.position}`,
+  ];
+
+  if (data.department) {
+    lines.push(`*DEPARTMENT:* ${data.department}`);
+  }
+
+  if (data.email) {
+    lines.push(`*EMAIL:* ${data.email}`);
+  }
+
+  lines.push(`*PHONE:* ${data.phone}`);
+  lines.push(`*STATUS:* ${data.status.charAt(0).toUpperCase() + data.status.slice(1)}`);
+
+  lines.push(``);
+  lines.push(`_Added by ${data.performedBy}_`);
+
+  return lines.join('\n');
+}
+
+function adminPaymentReceivedTemplate(data: {
+  paymentNumber: string;
+  invoiceNumber: string;
+  customerName: string;
+  amount: number;
+  paymentMethod: string;
+  paymentDate: Date;
+  invoiceTotal: number;
+  invoiceBalance: number;
+  isFullyPaid: boolean;
+  performedBy: string;
+}): string {
+  const lines = [
+    `*PAYMENT RECEIVED*`,
+    ``,
+    `A payment has been recorded.`,
+    ``,
+    `*PAYMENT NUMBER:* ${data.paymentNumber}`,
+    `*INVOICE NUMBER:* ${data.invoiceNumber}`,
+    `*CUSTOMER:* ${data.customerName}`,
+    `*AMOUNT PAID:* ${formatCurrency(data.amount)}`,
+    `*METHOD:* ${data.paymentMethod.replace(/_/g, ' ').toUpperCase()}`,
+    `*DATE:* ${formatDate(new Date(data.paymentDate))}`,
+    ``,
+    `*INVOICE DETAILS:*`,
+    `Total: ${formatCurrency(data.invoiceTotal)}`,
+    `Balance Remaining: ${formatCurrency(data.invoiceBalance)}`,
+  ];
+
+  if (data.isFullyPaid) {
+    lines.push(`*STATUS:* _FULLY PAID_`);
+  } else {
+    const percentPaid = ((data.invoiceTotal - data.invoiceBalance) / data.invoiceTotal * 100).toFixed(0);
+    lines.push(`*STATUS:* Partial (${percentPaid}% paid)`);
+  }
+
+  lines.push(``);
+  lines.push(`_Recorded by ${data.performedBy}_`);
+
+  return lines.join('\n');
+}
+
+/**
+ * Determine if a customer/supplier is a company
  */
 function isCompany(entity: { contactPerson?: string | null; taxId?: string | null; email?: string | null }): boolean {
-  // If they have a contact person or tax ID, they're likely a company
-  // Also prefer email if available for professionalism
   return !!(entity.contactPerson || entity.taxId || entity.email);
 }
 
@@ -231,7 +410,6 @@ export async function notifyDriverTripAssignment(tripId: string, organizationId:
     const driverName = `${trip.driver.firstName} ${trip.driver.lastName}`;
     const orgName = trip.organization?.name || "WD Logistics";
 
-    // Prepare detailed trip message data
     const tripData: TripMessageData = {
       driverName,
       originCity: trip.originCity,
@@ -250,16 +428,13 @@ export async function notifyDriverTripAssignment(tripId: string, organizationId:
       notes: trip.notes || undefined,
     };
 
-    // Generate detailed message using template
     const whatsappMessage = tripAssignmentTemplate(tripData);
 
-    // Send WhatsApp if driver has WhatsApp number (preferred for individuals)
     if (trip.driver.whatsappNumber) {
       await sendWhatsAppMessage(trip.driver.whatsappNumber, whatsappMessage);
       console.log(`✅ Trip assignment WhatsApp sent to driver ${driverName}`);
     }
 
-    // Also send email as backup/confirmation (if driver has email)
     if (trip.driver.email) {
       const { sendTripAssignmentEmail } = await import("@/lib/email");
       await sendTripAssignmentEmail({
@@ -282,7 +457,6 @@ export async function notifyDriverTripAssignment(tripId: string, organizationId:
     }
   } catch (error) {
     console.error("Failed to notify driver of trip assignment:", error);
-    // Don't throw - this is a non-blocking notification
   }
 }
 
@@ -310,36 +484,34 @@ export async function notifyDriverWelcome(
     const driverName = `${driver.firstName} ${driver.lastName}`;
     const orgName = driver.organization?.name || "WD Logistics";
 
-    const welcomeMessage = `🎉 *Welcome to ${orgName}!*
+    const welcomeMessage = `*WELCOME TO ${orgName.toUpperCase()}*
 
 Hello ${driverName},
 
-We're excited to have you join our team! 
+We're excited to have you join our team!
 
-📋 *Your Details:*
-• Name: ${driverName}
-• License: ${driver.licenseNumber}
-• Status: ${driver.status.charAt(0).toUpperCase() + driver.status.slice(1)}
-${driver.assignedTruck ? `• Assigned Truck: ${driver.assignedTruck.registrationNo}` : ''}
+*YOUR DETAILS:*
+Name: ${driverName}
+License: ${driver.licenseNumber}
+Status: ${driver.status.charAt(0).toUpperCase() + driver.status.slice(1)}
+${driver.assignedTruck ? `Assigned Truck: ${driver.assignedTruck.registrationNo}` : ''}
 
 You'll receive trip assignments via WhatsApp. Please keep your phone number and WhatsApp number updated.
 
 If you have any questions, don't hesitate to reach out.
 
-Welcome aboard! 🚛`;
+Welcome aboard!`;
 
-    // Send WhatsApp if driver has WhatsApp number
     if (driver.whatsappNumber) {
       await sendWhatsAppMessage(driver.whatsappNumber, welcomeMessage);
       console.log(`✅ Welcome WhatsApp sent to driver ${driverName}`);
     }
 
-    // Also send email if available
     if (driver.email) {
       await sendEmail({
         to: driver.email,
         subject: `Welcome to ${orgName}!`,
-        text: welcomeMessage.replace(/\*/g, '').replace(/🎉|📋|🚛/g, ''),
+        text: welcomeMessage.replace(/\*/g, ''),
         html: `<div style="font-family: Arial, sans-serif; padding: 20px;">
           <h2>Welcome to ${orgName}!</h2>
           <p>Hello ${driverName},</p>
@@ -364,94 +536,201 @@ Welcome aboard! 🚛`;
 }
 
 /**
- * Send WhatsApp notification to admins about key events
+ * Notify admin about new driver creation
  */
-export async function notifyAdminsWhatsApp(
+export async function notifyAdminDriverCreated(
+  driverId: string,
   organizationId: string,
-  message: string,
-  excludeUserId?: string
+  performedBy: { name: string; email: string; role: string }
 ): Promise<void> {
   try {
-    const members = await prisma.member.findMany({
-      where: {
-        organizationId,
-        role: { in: ["admin", "supervisor"] },
-        ...(excludeUserId ? { userId: { not: excludeUserId } } : {}),
-      },
+    const driver = await prisma.driver.findUnique({
+      where: { id: driverId },
       include: {
-        user: {
+        assignedTruck: { select: { registrationNo: true } },
+      },
+    });
+
+    if (!driver) return;
+
+    const message = adminDriverCreatedTemplate({
+      driverName: `${driver.firstName} ${driver.lastName}`,
+      phone: driver.phone,
+      whatsappNumber: driver.whatsappNumber,
+      email: driver.email,
+      licenseNumber: driver.licenseNumber,
+      status: driver.status,
+      assignedTruck: driver.assignedTruck?.registrationNo || null,
+      performedBy: performedBy.name,
+    });
+
+    await notifyAdminWhatsApp(message);
+  } catch (error) {
+    console.error("Failed to notify admin about driver creation:", error);
+  }
+}
+
+/**
+ * Notify admin about new truck creation
+ */
+export async function notifyAdminTruckCreated(
+  truckId: string,
+  organizationId: string,
+  performedBy: { name: string; email: string; role: string }
+): Promise<void> {
+  try {
+    const truck = await prisma.truck.findUnique({
+      where: { id: truckId },
+    });
+
+    if (!truck) return;
+
+    const message = adminTruckCreatedTemplate({
+      registrationNo: truck.registrationNo,
+      make: truck.make,
+      model: truck.model,
+      year: truck.year,
+      status: truck.status,
+      currentMileage: truck.currentMileage,
+      fuelType: truck.fuelType,
+      performedBy: performedBy.name,
+    });
+
+    await notifyAdminWhatsApp(message);
+  } catch (error) {
+    console.error("Failed to notify admin about truck creation:", error);
+  }
+}
+
+/**
+ * Notify admin about new invoice creation
+ */
+export async function notifyAdminInvoiceCreated(
+  invoiceId: string,
+  organizationId: string,
+  performedBy: { name: string; email: string; role: string }
+): Promise<void> {
+  try {
+    const invoice = await prisma.invoice.findUnique({
+      where: { id: invoiceId },
+      include: {
+        customer: { select: { name: true } },
+        trip: {
           select: {
-            id: true,
-            name: true,
-            email: true,
-            phone: true,
+            originCity: true,
+            destinationCity: true,
           },
         },
       },
     });
 
-    // Send WhatsApp to admins who have phone numbers
-    // Note: We'd need to add whatsappNumber to User model or use phone
-    // For now, we'll use email-based notifications for admins
-    // This can be enhanced later when we have admin WhatsApp numbers
-    
-    console.log(`📱 Admin notification prepared for ${members.length} admins/supervisors`);
-    
-    // For now, admins get email notifications (via existing notification system)
-    // WhatsApp for admins can be added when we have their WhatsApp numbers
+    if (!invoice) return;
+
+    const tripRoute = invoice.trip 
+      ? `${invoice.trip.originCity} to ${invoice.trip.destinationCity}`
+      : null;
+
+    const message = adminInvoiceCreatedTemplate({
+      invoiceNumber: invoice.invoiceNumber,
+      customerName: invoice.customer.name,
+      total: invoice.total,
+      subtotal: invoice.subtotal,
+      tax: invoice.tax,
+      status: invoice.status,
+      isCredit: invoice.isCredit,
+      issueDate: invoice.issueDate,
+      dueDate: invoice.dueDate,
+      tripRoute,
+      performedBy: performedBy.name,
+    });
+
+    await notifyAdminWhatsApp(message);
   } catch (error) {
-    console.error("Failed to notify admins via WhatsApp:", error);
+    console.error("Failed to notify admin about invoice creation:", error);
   }
 }
 
 /**
- * Send notification about truck creation/deletion to admins
+ * Notify admin about new employee creation
  */
-export async function notifyTruckEvent(
-  event: 'created' | 'deleted',
-  truckData: {
-    registrationNo: string;
-    make?: string;
-    model?: string;
-    year?: number;
-  },
+export async function notifyAdminEmployeeCreated(
+  employeeId: string,
   organizationId: string,
-  performedBy: { name: string; email: string; role: string; id?: string }
+  performedBy: { name: string; email: string; role: string }
 ): Promise<void> {
-  const emoji = event === 'created' ? '🚛' : '🗑️';
-  const action = event === 'created' ? 'added' : 'deleted';
-  
-  const message = `${emoji} *Truck ${action.charAt(0).toUpperCase() + action.slice(1)}*
+  try {
+    const employee = await prisma.employee.findUnique({
+      where: { id: employeeId },
+    });
 
-A truck has been ${action} from the fleet:
+    if (!employee) return;
 
-• Registration: ${truckData.registrationNo}
-${truckData.make ? `• Make: ${truckData.make}` : ''}
-${truckData.model ? `• Model: ${truckData.model}` : ''}
-${truckData.year ? `• Year: ${truckData.year}` : ''}
+    const message = adminEmployeeCreatedTemplate({
+      employeeName: `${employee.firstName} ${employee.lastName}`,
+      position: employee.position,
+      department: employee.department,
+      email: employee.email,
+      phone: employee.phone,
+      status: employee.status,
+      performedBy: performedBy.name,
+    });
 
-Action performed by: ${performedBy.name} (${performedBy.role})`;
-
-  await notifyAdminsWhatsApp(organizationId, message, performedBy.id);
+    await notifyAdminWhatsApp(message);
+  } catch (error) {
+    console.error("Failed to notify admin about employee creation:", error);
+  }
 }
 
 /**
- * Send notification about driver deletion to admins
+ * Notify admin about invoice payment
  */
-export async function notifyDriverDeleted(
-  driverName: string,
+export async function notifyAdminPaymentReceived(
+  paymentId: string,
   organizationId: string,
-  performedBy: { name: string; email: string; role: string; id?: string }
+  performedBy: { name: string; email: string; role: string }
 ): Promise<void> {
-  const message = `🗑️ *Driver Removed*
+  try {
+    const payment = await prisma.payment.findUnique({
+      where: { id: paymentId },
+      include: {
+        invoice: {
+          select: {
+            invoiceNumber: true,
+            total: true,
+            amountPaid: true,
+            balance: true,
+          },
+        },
+        customer: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    });
 
-A driver has been removed from the fleet:
+    if (!payment) return;
 
-• Name: ${driverName}
+    const invoice = payment.invoice;
+    const isFullyPaid = invoice ? invoice.balance <= 0 : false;
 
-Action performed by: ${performedBy.name} (${performedBy.role})`;
+    const message = adminPaymentReceivedTemplate({
+      paymentNumber: `PMT-${payment.id.slice(-8).toUpperCase()}`,
+      invoiceNumber: invoice?.invoiceNumber || 'N/A',
+      customerName: payment.customer.name,
+      amount: payment.amount,
+      paymentMethod: payment.method,
+      paymentDate: payment.paymentDate,
+      invoiceTotal: invoice?.total || 0,
+      invoiceBalance: invoice?.balance || 0,
+      isFullyPaid,
+      performedBy: performedBy.name,
+    });
 
-  await notifyAdminsWhatsApp(organizationId, message, performedBy.id);
+    await notifyAdminWhatsApp(message);
+  } catch (error) {
+    console.error("Failed to notify admin about payment:", error);
+  }
 }
 
 /**
@@ -468,12 +747,6 @@ export async function notifyInvoiceFullyPaid(
       include: {
         customer: true,
         organization: { select: { name: true } },
-        trip: {
-          include: {
-            driver: { select: { firstName: true, lastName: true } },
-            truck: { select: { registrationNo: true } },
-          },
-        },
       },
     });
 
@@ -486,21 +759,22 @@ export async function notifyInvoiceFullyPaid(
     const customer = invoice.customer;
     const isCustomerCompany = isCompany(customer);
 
-    // For customers (companies), send email
     if (isCustomerCompany && customer.email) {
-      const paymentMessage = paymentReceivedTemplate({
-        customerName: customer.name,
-        invoiceNumber: invoice.invoiceNumber,
-        amount: invoice.total,
-        paymentDate: new Date(),
-        paymentMethod: "Payment received",
-        organizationName: orgName,
-      });
-
       await sendEmail({
         to: customer.email,
         subject: `Payment Received - Invoice ${invoice.invoiceNumber}`,
-        text: paymentMessage.replace(/\*/g, '').replace(/💚/g, ''),
+        text: `Dear ${customer.name},
+
+We have received full payment for your invoice.
+
+Payment Details:
+- Invoice #: ${invoice.invoiceNumber}
+- Amount: ${formatCurrency(invoice.total)}
+- Date: ${formatDate(new Date())}
+
+Thank you for your prompt payment!
+
+— ${orgName}`,
         html: `<div style="font-family: Arial, sans-serif; padding: 20px;">
           <h2>Payment Received</h2>
           <p>Dear ${customer.name},</p>
@@ -508,8 +782,8 @@ export async function notifyInvoiceFullyPaid(
           <h3>Payment Details:</h3>
           <ul>
             <li>Invoice #: ${invoice.invoiceNumber}</li>
-            <li>Amount: $${invoice.total.toFixed(2)}</li>
-            <li>Date: ${new Date().toLocaleDateString()}</li>
+            <li>Amount: ${formatCurrency(invoice.total)}</li>
+            <li>Date: ${formatDate(new Date())}</li>
           </ul>
           <p>Thank you for your prompt payment!</p>
           <p>— ${orgName}</p>
@@ -518,8 +792,6 @@ export async function notifyInvoiceFullyPaid(
       console.log(`✅ Payment confirmation email sent to customer ${customer.name}`);
     }
 
-    // Notify admins via existing notification system (which handles email)
-    // WhatsApp for admins can be added when we have their WhatsApp numbers
     console.log(`✅ Invoice ${invoice.invoiceNumber} fully paid - admins notified`);
   } catch (error) {
     console.error("Failed to notify about invoice payment:", error);

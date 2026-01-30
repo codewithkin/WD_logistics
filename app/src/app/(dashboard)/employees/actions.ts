@@ -6,6 +6,7 @@ import { requireRole, requireAuth } from "@/lib/session";
 import { EmployeeStatus } from "@/lib/types";
 import { generateEmployeeReportPDF } from "@/lib/reports/pdf-report-generator";
 import { notifyEmployeeCreated, notifyEmployeeUpdated, notifyEmployeeDeleted } from "@/lib/notifications";
+import { notifyAdminEmployeeCreated } from "@/lib/whatsapp-notifications";
 
 export async function createEmployee(data: {
   firstName: string;
@@ -53,6 +54,13 @@ export async function createEmployee(data: {
       session.organizationId,
       { name: session.user.name, email: session.user.email, role: session.role }
     ).catch((err) => console.error("Failed to send admin notification:", err));
+
+    // Send WhatsApp notification to admin
+    notifyAdminEmployeeCreated(
+      employee.id,
+      session.organizationId,
+      { name: session.user.name, email: session.user.email, role: session.role }
+    ).catch((err) => console.error("Failed to send admin WhatsApp notification:", err));
 
     revalidatePath("/employees");
     return { success: true, employee };
