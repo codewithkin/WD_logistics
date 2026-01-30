@@ -6,6 +6,7 @@ import { requireRole, requireAuth } from "@/lib/session";
 import { PaymentMethod } from "@/lib/types";
 import { generatePaymentReportPDF } from "@/lib/reports/pdf-report-generator";
 import { notifyPaymentCreated, notifyPaymentUpdated, notifyPaymentDeleted } from "@/lib/notifications";
+import { notifyInvoiceFullyPaid } from "@/lib/whatsapp-notifications";
 
 export async function createPayment(data: {
   invoiceId?: string;
@@ -60,10 +61,12 @@ export async function createPayment(data: {
     });
 
     // Update invoice amountPaid and balance if invoice was provided
+    let invoiceFullyPaid = false;
     if (invoice) {
       const newAmountPaid = invoice.amountPaid + data.amount;
       const newBalance = invoice.total - newAmountPaid;
       const newStatus = newBalance <= 0 ? "paid" : newAmountPaid > 0 ? "partial" : invoice.status;
+      invoiceFullyPaid = newBalance <= 0 && invoice.status !== "paid";
 
       await prisma.invoice.update({
         where: { id: data.invoiceId },
@@ -97,6 +100,15 @@ export async function createPayment(data: {
       session.organizationId,
       { name: session.user.name, email: session.user.email, role: session.role }
     ).catch((err) => console.error("Failed to send admin notification:", err));
+
+    // If invoice is fully paid, send special notification to customer (email) and admin
+    if (invoiceFullyPaid && data.invoiceId) {
+      notifyInvoiceFullyPaid(
+        data.invoiceId,
+        session.organizationId,
+        { name: session.user.name, email: session.user.email, role: session.role }
+      ).catch((err) => console.error("Failed to send invoice fully paid notification:", err));
+    }
 
     revalidatePath("/finance/payments");
     if (data.invoiceId) {
@@ -153,11 +165,13 @@ export async function updatePayment(
     });
 
     // Recalculate invoice if amount changed and payment has an invoice
+    let invoiceFullyPaid = false;
     if (amountDiff !== 0 && payment.invoice) {
       const invoice = payment.invoice;
       const newAmountPaid = invoice.amountPaid + amountDiff;
       const newBalance = invoice.total - newAmountPaid;
       const newStatus = newBalance <= 0 ? "paid" : newAmountPaid > 0 ? "partial" : "sent";
+      invoiceFullyPaid = newBalance <= 0 && invoice.status !== "paid";
 
       await prisma.invoice.update({
         where: { id: invoice.id },
@@ -181,6 +195,15 @@ export async function updatePayment(
       session.organizationId,
       { name: session.user.name, email: session.user.email, role: session.role }
     ).catch((err) => console.error("Failed to send admin notification:", err));
+
+    // If invoice is fully paid, send special notification to customer (email) and admin
+    if (invoiceFullyPaid && payment.invoice) {
+      notifyInvoiceFullyPaid(
+        payment.invoice.id,
+        session.organizationId,
+        { name: session.user.name, email: session.user.email, role: session.role }
+      ).catch((err) => console.error("Failed to send invoice fully paid notification:", err));
+    }
 
     revalidatePath("/finance/payments");
     if (payment.invoiceId) {

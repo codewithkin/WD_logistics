@@ -6,6 +6,7 @@ import { requireAuth, requireRole } from "@/lib/session";
 import { DriverStatus } from "@/lib/types";
 import { generateDriverReportPDF, generateSingleDriverReportPDF } from "@/lib/reports/pdf-report-generator";
 import { notifyDriverCreated, notifyDriverUpdated, notifyDriverDeleted } from "@/lib/notifications";
+import { notifyDriverWelcome, notifyDriverDeleted as notifyDriverDeletedWhatsApp } from "@/lib/whatsapp-notifications";
 
 export async function createDriver(data: {
   firstName: string;
@@ -53,7 +54,12 @@ export async function createDriver(data: {
       },
     });
 
-    // Send admin notification
+    // Send welcome message to driver (WhatsApp preferred, email backup)
+    notifyDriverWelcome(driver.id, session.organizationId).catch((err) => 
+      console.error("Failed to send driver welcome message:", err)
+    );
+
+    // Send admin notification (email + in-app)
     notifyDriverCreated(
       {
         id: driver.id,
@@ -214,13 +220,20 @@ export async function deleteDriver(id: string) {
 
     await prisma.driver.delete({ where: { id } });
 
-    // Send admin notification
+    // Send admin notification (email + in-app)
     notifyDriverDeleted(
       driver.firstName,
       driver.lastName,
       session.organizationId,
       { name: session.user.name, email: session.user.email, role: session.role }
     ).catch((err) => console.error("Failed to send admin notification:", err));
+
+    // Send WhatsApp notification to admins
+    notifyDriverDeletedWhatsApp(
+      `${driver.firstName} ${driver.lastName}`,
+      session.organizationId,
+      { name: session.user.name, email: session.user.email, role: session.role, id: session.user.id }
+    ).catch((err) => console.error("Failed to send admin WhatsApp notification:", err));
 
     revalidatePath("/fleet/drivers");
     revalidatePath("/fleet/trucks");
