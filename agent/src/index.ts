@@ -198,12 +198,14 @@ const initWhatsApp = async () => {
           const phoneNumber = extractPhoneNumber(msg.from);
           
           console.log(`📨 Received message from ${phoneNumber}: ${msg.body.substring(0, 50)}...`);
+          console.log(`   WhatsApp ID: ${msg.from}`);
           
           // Check if sender is authorized
           const isAuthorized = isAuthorizedNumber(phoneNumber);
           
           if (!isAuthorized) {
-            console.log(`⛔ Unauthorized number: ${phoneNumber} - ignoring message`);
+            console.log(`⛔ UNAUTHORIZED - Message from ${phoneNumber} ignored`);
+            console.log(`   This number is not in the authorized list`);
             return;
           }
           

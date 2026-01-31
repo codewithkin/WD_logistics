@@ -5,16 +5,22 @@
  */
 
 /**
- * Authorized phone numbers allowed to interact with the AI assistant via WhatsApp
- * - Admin WhatsApp number (from app environment)
- * - Two developer numbers (for testing and support)
- * - Bot's own number (set at runtime)
- * 
- * Format: Include country code with + prefix (e.g., "+263789859332")
+ * Get environment variables with logging for debugging
  */
-const ADMIN_WHATSAPP_NUMBER = process.env.ADMIN_WHATSAPP_NUMBER || "";
-const DEVELOPER_NUMBER_ONE = process.env.WHATSAPP_DEVELOPER_NUMBER_ONE || "";
-const DEVELOPER_NUMBER_TWO = process.env.WHATSAPP_DEVELOPER_NUMBER_TWO || "";
+function loadAuthNumbers() {
+  const admin = process.env.ADMIN_WHATSAPP_NUMBER || "";
+  const dev1 = process.env.WHATSAPP_DEVELOPER_NUMBER_ONE || "";
+  const dev2 = process.env.WHATSAPP_DEVELOPER_NUMBER_TWO || "";
+  
+  console.log("📱 Loading authorized WhatsApp numbers:");
+  console.log(`  - ADMIN_WHATSAPP_NUMBER: ${admin ? "✅ loaded" : "❌ missing"}`);
+  console.log(`  - DEVELOPER_NUMBER_ONE: ${dev1 ? "✅ loaded" : "❌ missing"}`);
+  console.log(`  - DEVELOPER_NUMBER_TWO: ${dev2 ? "✅ loaded" : "❌ missing"}`);
+  
+  return { admin, dev1, dev2 };
+}
+
+const { admin: ADMIN_WHATSAPP_NUMBER, dev1: DEVELOPER_NUMBER_ONE, dev2: DEVELOPER_NUMBER_TWO } = loadAuthNumbers();
 
 // Store bot's own number (set at runtime after WhatsApp connects)
 let BOT_PHONE_NUMBER: string | null = null;
