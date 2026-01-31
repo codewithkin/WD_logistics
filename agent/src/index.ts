@@ -188,33 +188,54 @@ const initWhatsApp = async () => {
       // Setup incoming message handler
       client.on("message_create", async (msg: any) => {
         try {
+          // Log every received message
+          console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+          console.log(`📬 MESSAGE RECEIVED`);
+          console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+          console.log(`   From: ${msg.from}`);
+          console.log(`   Body: "${msg.body.substring(0, 100)}${msg.body.length > 100 ? '...' : ''}"`);
+          console.log(`   Timestamp: ${new Date().toISOString()}`);
+          
           // Ignore broadcast/status messages or group messages
           if (shouldIgnoreMessage(msg.from)) {
-            console.log(`⚠️ Ignoring non-personal message from: ${msg.from}`);
+            console.log(`⚠️ EARLY RETURN: Non-personal message (broadcast/group/status)`);
+            console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
             return;
           }
           
           // Extract phone number from WhatsApp ID
           const phoneNumber = extractPhoneNumber(msg.from);
+          console.log(`📱 Extracted phone: ${phoneNumber}`);
           
-          console.log(`📨 Received message from ${phoneNumber}: ${msg.body.substring(0, 50)}...`);
-          console.log(`   WhatsApp ID: ${msg.from}`);
-          
-          // Check if sender is authorized
-          const isAuthorized = isAuthorizedNumber(phoneNumber);
-          
-          if (!isAuthorized) {
-            console.log(`⛔ UNAUTHORIZED - Message from ${phoneNumber} ignored`);
-            console.log(`   This number is not in the authorized list`);
+          // Check if it's the bot's own number and ignore
+          if (botPhoneNumber && phoneNumber === botPhoneNumber) {
+            console.log(`⚠️ EARLY RETURN: Message from bot's own number (self-message) - ignoring`);
+            console.log(`   Bot number: ${botPhoneNumber}`);
+            console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
             return;
           }
           
-          console.log(`✅ Authorized user: ${phoneNumber}`);
+          // Check if sender is authorized
+          console.log(`🔐 Checking authorization...`);
+          const isAuthorized = isAuthorizedNumber(phoneNumber);
+          
+          if (!isAuthorized) {
+            console.log(`⛔ EARLY RETURN: Unauthorized number`);
+            console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
+            return;
+          }
+          
+          // ✅ MESSAGE PASSED ALL CHECKS - LOG IT
+          console.log(`\n✅ MESSAGE PASSED ALL CHECKS ✅`);
+          console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+          console.log(`✓ From authorized number: ${phoneNumber}`);
           
           // Get user's name for personalization
           const userName = getAuthorizedUserName(phoneNumber);
-          console.log(`👤 User identified as: ${userName || 'Unknown'}`);
-          console.log(`📝 Generating AI response with business data access...`);
+          console.log(`✓ User identified as: ${userName || 'Unknown'}`);
+          
+          console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+          console.log(`📝 Processing message with AI agent...`);
           
           // Get organization ID from environment (default to first org)
           // In production, you might want to map phone numbers to specific organizations
@@ -233,11 +254,13 @@ const initWhatsApp = async () => {
             },
           ]);
           
-          console.log(`💬 Generated response (${response.text.length} chars)`);
+          console.log(`💬 Generated response (${response.text.length} characters)`);
+          console.log(`   Preview: "${response.text.substring(0, 60)}${response.text.length > 60 ? '...' : ''}"`);
           
           // Reply to the message
           await replyToMessage(msg, response.text);
-          console.log(`✅ Replied to ${phoneNumber}`);
+          console.log(`✅ Message sent to ${phoneNumber}`);
+          console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
           
         } catch (error: any) {
           // Check if it's just the markedUnread error
@@ -247,7 +270,8 @@ const initWhatsApp = async () => {
             return;
           }
           
-          console.error("Error processing incoming message:", error);
+          console.error("❌ Error processing incoming message:", error);
+          console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
           
           // Try to send error message to user
           try {

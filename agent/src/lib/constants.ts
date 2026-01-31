@@ -44,11 +44,15 @@ export function getBotPhoneNumber(): string | null {
  * Get all authorized phone numbers (excluding bot number)
  */
 export function getAuthorizedNumbers(): string[] {
-  return [
+  const numbers = [
     ADMIN_WHATSAPP_NUMBER,
     DEVELOPER_NUMBER_ONE,
     DEVELOPER_NUMBER_TWO,
-  ].filter(num => num && num.length > 5); // Filter out empty or invalid numbers
+  ].filter(num => num && num.length > 5);
+  
+  console.log(`📋 Authorized numbers (${numbers.length}):`, numbers.map(n => normalizePhoneNumber(n)));
+  
+  return numbers;
 }
 
 /**
@@ -57,17 +61,35 @@ export function getAuthorizedNumbers(): string[] {
  */
 export function isAuthorizedNumber(phoneNumber: string): boolean {
   const normalized = normalizePhoneNumber(phoneNumber);
+  console.log(`🔍 Checking authorization for: ${phoneNumber} (normalized: ${normalized})`);
   
   // Check if it's the bot's own number
-  if (BOT_PHONE_NUMBER && normalizePhoneNumber(BOT_PHONE_NUMBER) === normalized) {
-    return true;
+  if (BOT_PHONE_NUMBER) {
+    const botNormalized = normalizePhoneNumber(BOT_PHONE_NUMBER);
+    if (botNormalized === normalized) {
+      console.log(`✅ Matched bot number`);
+      return true;
+    }
   }
   
   // Check against authorized numbers
   const authorizedNumbers = getAuthorizedNumbers();
-  return authorizedNumbers.some(
-    (authNumber) => normalizePhoneNumber(authNumber) === normalized
+  const isAuthorized = authorizedNumbers.some(
+    (authNumber) => {
+      const authNormalized = normalizePhoneNumber(authNumber);
+      const matches = authNormalized === normalized;
+      if (matches) {
+        console.log(`✅ Matched authorized number: ${authNumber} (normalized: ${authNormalized})`);
+      }
+      return matches;
+    }
   );
+  
+  if (!isAuthorized) {
+    console.log(`❌ Not authorized. Checked against: ${authorizedNumbers.map(n => normalizePhoneNumber(n)).join(", ")}`);
+  }
+  
+  return isAuthorized;
 }
 
 /**
@@ -145,11 +167,10 @@ export function shouldIgnoreMessage(whatsappFrom: string): boolean {
  * Removes all non-digit characters and ensures consistent format
  */
 export function normalizePhoneNumber(phoneNumber: string): string {
-  // Remove all non-digit characters except leading +
-  const cleaned = phoneNumber.replace(/[^\d+]/g, "");
+  // Remove all non-digit characters
+  const cleaned = phoneNumber.replace(/\D/g, "");
   
-  // Remove leading + for comparison
-  return cleaned.startsWith("+") ? cleaned.slice(1) : cleaned;
+  return cleaned;
 }
 
 /**
