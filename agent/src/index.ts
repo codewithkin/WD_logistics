@@ -15,7 +15,8 @@ import {
   isAuthorizedNumber, 
   extractPhoneNumber, 
   shouldIgnoreMessage,
-  setBotPhoneNumber 
+  setBotPhoneNumber,
+  getAuthorizedUserName 
 } from "./lib/constants";
 import { logisticsAgent } from "./agents/logistics-agent";
 import qrcode from "qrcode-terminal"
@@ -207,17 +208,26 @@ const initWhatsApp = async () => {
           }
           
           console.log(`✅ Authorized user: ${phoneNumber}`);
+          
+          // Get user's name for personalization
+          const userName = getAuthorizedUserName(phoneNumber);
+          console.log(`👤 User identified as: ${userName || 'Unknown'}`);
           console.log(`📝 Generating AI response with business data access...`);
           
           // Get organization ID from environment (default to first org)
           // In production, you might want to map phone numbers to specific organizations
           const organizationId = "default-org-id"; // TODO: Map authorized numbers to their org IDs
           
+          // Build context with user identification
+          const userContext = userName 
+            ? `[User: ${userName}] [Organization ID: ${organizationId}]\n\n` 
+            : `[Organization ID: ${organizationId}]\n\n`;
+          
           // Process with AI agent (full access to business data)
           const response = await logisticsAgent.generate([
             {
               role: "user",
-              content: `[Organization ID: ${organizationId}]\n\n${msg.body}`,
+              content: `${userContext}${msg.body}`,
             },
           ]);
           

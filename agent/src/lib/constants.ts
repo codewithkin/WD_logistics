@@ -65,6 +65,34 @@ export function isAuthorizedNumber(phoneNumber: string): boolean {
 }
 
 /**
+ * Get the name/title of an authorized user based on their phone number
+ * Used for personalized greetings and references
+ */
+export function getAuthorizedUserName(phoneNumber: string): string | null {
+  const normalized = normalizePhoneNumber(phoneNumber);
+  
+  // Check if it's the admin
+  if (ADMIN_WHATSAPP_NUMBER && normalizePhoneNumber(ADMIN_WHATSAPP_NUMBER) === normalized) {
+    return "Mr Dziruni";
+  }
+  
+  // Check if it's one of the developers
+  if (
+    (DEVELOPER_NUMBER_ONE && normalizePhoneNumber(DEVELOPER_NUMBER_ONE) === normalized) ||
+    (DEVELOPER_NUMBER_TWO && normalizePhoneNumber(DEVELOPER_NUMBER_TWO) === normalized)
+  ) {
+    return "Kin";
+  }
+  
+  // Check if it's the bot's own number
+  if (BOT_PHONE_NUMBER && normalizePhoneNumber(BOT_PHONE_NUMBER) === normalized) {
+    return "Bot";
+  }
+  
+  return null;
+}
+
+/**
  * Format a phone number for WhatsApp (webjs format)
  * Converts from various formats to: 263789859332@c.us
  */
