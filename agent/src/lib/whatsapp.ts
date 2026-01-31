@@ -156,10 +156,8 @@ export class AgentWhatsAppClient extends EventEmitter {
         console.error("❌ WhatsApp Auth Failed:", msg);
       });
 
-      this.client.on("message", (msg: any) => {
-        this.emit("message", msg);
-      });
-
+      // Only listen to message_create for outgoing and incoming messages
+      // (message event is for incoming only, message_create is for all messages)
       this.client.on("message_create", (msg: any) => {
         this.emit("message_create", msg);
       });
