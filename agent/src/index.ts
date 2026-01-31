@@ -185,6 +185,10 @@ const initWhatsApp = async () => {
         }
       };
       
+      console.log(`\n✅ MESSAGE HANDLER SETUP STARTING`);
+      console.log(`   Bot phone number: ${botPhoneNumber}`);
+      console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+      
       // Setup incoming message handler
       client.on("message_create", async (msg: any) => {
         try {
@@ -195,6 +199,8 @@ const initWhatsApp = async () => {
           console.log(`   From: ${msg.from}`);
           console.log(`   Body: "${msg.body.substring(0, 100)}${msg.body.length > 100 ? '...' : ''}"`);
           console.log(`   Timestamp: ${new Date().toISOString()}`);
+          console.log(`   Message type: ${msg.type}`);
+          console.log(`   Message ID: ${msg.id}`);
           
           // Ignore broadcast/status messages or group messages
           if (shouldIgnoreMessage(msg.from)) {
@@ -206,6 +212,7 @@ const initWhatsApp = async () => {
           // Extract phone number from WhatsApp ID
           const phoneNumber = extractPhoneNumber(msg.from);
           console.log(`📱 Extracted phone: ${phoneNumber}`);
+          console.log(`   Bot phone number: ${botPhoneNumber}`);
           
           // Check if it's the bot's own number and ignore
           if (botPhoneNumber && phoneNumber === botPhoneNumber) {
@@ -281,11 +288,24 @@ const initWhatsApp = async () => {
           }
         }
       });
-    }
-  } catch (error) {
-    console.error("❌ Failed to initialize WhatsApp client:", error);
-  }
-};
+      
+      console.log(`✅ MESSAGE HANDLER REGISTERED SUCCESSFULLY`);
+      console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
+      // Also log when we detect all client events for debugging
+      console.log(`\n📋 SETTING UP EVENT LISTENERS FOR DEBUGGING`);
+      
+      // Listen to all events for debugging
+      const originalOn = client.getClient().on;
+      client.getClient().on = function(eventName: string, handler: any) {
+        if (eventName !== "message_create" && eventName !== "message") {
+          // Don't log the logging listener itself
+          console.log(`   📌 WhatsApp client event listener registered: ${eventName}`);
+        }
+        return originalOn.call(this, eventName, handler);
+      };
+      
+      console.log(`✅ WHATSAPP INITIALIZATION COMPLETE AND READY FOR MESSAGES`);
+      console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
 
 // Start WhatsApp initialization immediately
 initWhatsApp();
