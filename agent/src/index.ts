@@ -306,6 +306,11 @@ const initWhatsApp = async () => {
       
       console.log(`✅ WHATSAPP INITIALIZATION COMPLETE AND READY FOR MESSAGES`);
       console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
+    }
+  } catch (error) {
+    console.error("❌ Failed to initialize WhatsApp client:", error);
+  }
+};
 
 // Start WhatsApp initialization immediately
 initWhatsApp();
