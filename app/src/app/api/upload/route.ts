@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/session";
-import { uploadToS3 } from "@/lib/s3";
+import { uploadToR2 } from "@/lib/r2";
 
 // Max file size: 5MB
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
@@ -43,8 +43,8 @@ export async function POST(request: NextRequest) {
         // Convert file to buffer
         const buffer = Buffer.from(await file.arrayBuffer());
 
-        // Upload to S3
-        const result = await uploadToS3(buffer, file.name, folder);
+        // Upload to R2
+        const result = await uploadToR2(buffer, file.name, folder);
 
         if (!result.success) {
             return NextResponse.json(

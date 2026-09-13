@@ -72,7 +72,7 @@ The real `src/app/api/` surface is narrow and serves specific cross-cutting need
 - `api/agent/*` — the agent-integration action-dispatch endpoints described above
 - `api/whatsapp/{initialize,send,status}` — WhatsApp control from the web UI
 - `api/cron/invoice-reminders` — scheduled job endpoint
-- `api/upload` — file upload (S3)
+- `api/upload` — file upload (Cloudflare R2, via `src/lib/r2.ts`; R2 speaks the S3 API so this reuses `@aws-sdk/client-s3` pointed at R2's endpoint, not real AWS)
 - `api/users/invite` — org invitations
 
 ### Auth & authorization model
