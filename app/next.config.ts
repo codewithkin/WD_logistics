@@ -5,6 +5,11 @@ const nextConfig: NextConfig = {
   reactCompiler: true,
   typescript: {
     ignoreBuildErrors: true
+  },
+  eslint: {
+    // Matches the typescript setting above: `next build` shouldn't fail a
+    // Docker image build over lint findings that don't block `next dev`.
+    ignoreDuringBuilds: true
   }
 };
 

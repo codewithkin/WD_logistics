@@ -1,36 +1,45 @@
-# WD Logistics AI Agent Dockerfile
-# Uses Node.js with Puppeteer support for WhatsApp Web integration
+# WD Logistics AI Agent — Dockerfile
+#
+# Runs via `tsx` (transpile-only, no type-check) instead of a compiled dist/
+# build. `bun run build` (tsc) isn't guaranteed clean on this codebase, so
+# building to dist/ and running the compiled JS risks either failing the
+# image build outright or silently shipping stale/partial output. `tsx` at
+# runtime is exactly what `bun run dev` already does locally, minus --watch.
+# Revisit once `tsc` passes cleanly and there's a real reason to prebuild.
+#
+# Needs a real Chromium because whatsapp-web.js drives it via Puppeteer.
+# PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true is set BEFORE `bun install` so
+# Puppeteer's postinstall doesn't also pull its own ~170MB copy — the apt
+# Chromium below is the only one that ends up in the image, and
+# PUPPETEER_EXECUTABLE_PATH points whatsapp-web.js at it (see
+# src/lib/whatsapp.ts, which reads this var on Linux).
+#
+# WhatsApp only actually starts if ENABLE_WHATSAPP=true is set at runtime
+# (see src/index.ts) — leave it unset/false to run this as a plain chat/API
+# service with no Chromium launch at boot.
 
 # ============================================================================
-# Stage 1: Build
+# Stage 1: install dependencies
 # ============================================================================
-FROM node:22-slim AS builder
+FROM node:22-slim AS deps
 
 WORKDIR /app
 
-# Install bun for faster dependency installation
 RUN npm install -g bun
 
-# Copy package files
-COPY package.json bun.lock ./
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 
-# Install dependencies
+COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile
 
-# Copy source files
-COPY tsconfig.json ./
-COPY src ./src
-
-# Build TypeScript (allow errors - runtime will handle them)
-RUN bun run build || echo "Build completed with warnings"
-
 # ============================================================================
-# Stage 2: Production
+# Stage 2: runtime
 # ============================================================================
-FROM node:22-slim AS production
+FROM node:22-slim AS runtime
 
-# Install Chromium dependencies for whatsapp-web.js/Puppeteer
-RUN apt-get update && apt-get install -y \
+# Chromium + the shared libs whatsapp-web.js/Puppeteer needs to launch it
+# headless in a container (no X server, no sandbox namespaces by default).
+RUN apt-get update && apt-get install -y --no-install-recommends \
     chromium \
     chromium-sandbox \
     fonts-liberation \
@@ -51,46 +60,35 @@ RUN apt-get update && apt-get install -y \
     libxfixes3 \
     libxrandr2 \
     xdg-utils \
-    wget \
     ca-certificates \
-    --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
-# Set Puppeteer to use installed Chromium
-ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=false
-ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
-# Disable Chrome sandboxing for containerized environments
-ENV PUPPETEER_ARGS="--no-sandbox --disable-setuid-sandbox"
+ENV NODE_ENV=production \
+    PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
+    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
-# Verify Chromium installation
-RUN which chromium && chromium --version
-
-# Create app directory
 WORKDIR /app
 
-# Create non-root user for security
-RUN groupadd -r appuser && useradd -r -g appuser appuser
+RUN groupadd -r appuser && useradd -r -g appuser -m appuser
 
-# Copy package files and install ALL dependencies (including dev for tsx)
-COPY package.json ./
-RUN npm install
+# node_modules comes from the deps stage (built with the Chromium download
+# already skipped) rather than reinstalling here.
+COPY --from=deps /app/node_modules ./node_modules
+COPY package.json bun.lock tsconfig.json ./
+COPY src ./src
 
-# Copy source files directly
-COPY --from=builder /app/src ./src
-COPY --from=builder /app/tsconfig.json ./tsconfig.json
-
-# Create directory for WhatsApp session data
+# WhatsApp session (LocalAuth) lives here — mount a volume over it so a
+# redeploy doesn't force re-scanning the pairing QR code.
 RUN mkdir -p /app/.wwebjs_auth && chown -R appuser:appuser /app
 
-# Switch to non-root user
 USER appuser
 
-# Expose the agent port
 EXPOSE 3001
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD node -e "fetch('http://localhost:3001/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"
+# `GET /` is the only route guaranteed to respond regardless of config (see
+# src/index.ts) — there's no dedicated /health endpoint, despite the
+# sub-router health checks (/chat/health etc.) advertised in its JSON body.
+HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
+    CMD node -e "fetch('http://localhost:3001/').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
 
-# Start the application with dev command
 CMD ["npx", "tsx", "src/index.ts"]

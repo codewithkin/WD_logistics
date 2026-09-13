@@ -122,9 +122,17 @@ console.log(`🤖 WD Logistics AI Agent running on http://localhost:${port}`);
 
 // Initialize WhatsApp client immediately on startup (if enabled)
 const initWhatsApp = async () => {
-  // Check if WhatsApp should be enabled
-  const whatsappEnabled = true;
-  
+  // README/.env.example document ENABLE_WHATSAPP as gating this (disabled by
+  // default in production); this was previously hardcoded to `true` and
+  // ignored the env var entirely, so every boot launched Chromium/Puppeteer
+  // unconditionally regardless of configuration.
+  const whatsappEnabled = process.env.ENABLE_WHATSAPP === "true";
+
+  if (!whatsappEnabled) {
+    console.log("⏭️  WhatsApp integration disabled (set ENABLE_WHATSAPP=true to enable)");
+    return;
+  }
+
   console.log("🔄 Initializing WhatsApp client...");
   try {
     const client = getAgentWhatsAppClient();

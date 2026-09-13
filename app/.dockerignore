@@ -1,6 +1,12 @@
 # Dependencies & build output — reinstalled/rebuilt inside the image
 node_modules
-dist
+.next
+out
+build
+
+# Prisma client is regenerated during the image build (postinstall runs
+# `prisma generate`) — never ship a host-generated copy into the build context
+src/generated
 
 # VCS / editor
 .git
@@ -23,3 +29,4 @@ dist
 *.pem
 coverage
 *.tsbuildinfo
+next-env.d.ts

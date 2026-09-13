@@ -1,0 +1,170 @@
+# WD Logistics — combined VPS deployment (web app + AI agent + Postgres)
+#
+# Usage:
+#   cp .env.example .env   # fill in real values
+#   docker compose up -d --build
+#
+# Networking note: `app` and `agent` call each other over their PUBLIC URLs
+# (AGENT_URL / WEB_APP_URL below), not Docker's internal service hostnames.
+# This is deliberate, not an oversight: the browser talks to the agent
+# DIRECTLY (chat widget, WhatsApp status polling — see NEXT_PUBLIC_AGENT_URL
+# usage in app/src/lib/ai/client.ts), and the agent's CORS allow-list
+# (agent/src/index.ts) is keyed off WEB_APP_URL. If WEB_APP_URL were the
+# internal hostname `http://app:3000`, the browser's real Origin header
+# (your public domain) would never match it and every direct browser->agent
+# request would be CORS-blocked. Keeping both URLs public keeps this correct
+# without needing a second, internal-only value that's easy to misconfigure.
+# Postgres has no such constraint — DATABASE_URL below does use the internal
+# `postgres` hostname, since nothing browser-side ever talks to it directly.
+#
+# This exposes app/agent on plain HTTP ports (3000/3001) with no TLS —
+# put a reverse proxy (Caddy/Nginx) in front for real domains + HTTPS; that's
+# intentionally out of scope here since it depends on the domains you use.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: wd-logistics-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-wdlogistics}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-wdlogistics}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-wdlogistics} -d ${POSTGRES_DB:-wdlogistics}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # Not published to the host on purpose — only `app` needs to reach it,
+    # over the internal compose network. Uncomment to allow host access
+    # (e.g. for a one-off `psql` or GUI client) during setup:
+    # ports:
+    #   - "5432:5432"
+
+  app:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
+        NEXT_PUBLIC_AGENT_URL: ${NEXT_PUBLIC_AGENT_URL}
+        DATABASE_URL: ${DATABASE_URL}
+    container_name: wd-logistics-app
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+
+      # Database (internal network hostname — see header comment)
+      DATABASE_URL: ${DATABASE_URL}
+      ACCELERATE_URL: ${ACCELERATE_URL:-}
+
+      # Auth (better-auth)
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?BETTER_AUTH_SECRET is required}
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
+
+      # Agent integration (public URLs — see header comment)
+      AGENT_URL: ${AGENT_URL}
+      NEXT_PUBLIC_AGENT_URL: ${NEXT_PUBLIC_AGENT_URL}
+      AGENT_API_KEY: ${AGENT_API_KEY:?AGENT_API_KEY is required and must match the agent service}
+
+      # Email (SMTP)
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-}
+      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-WD Logistics}
+
+      # AWS S3 (file uploads)
+      AWS_REGION: ${AWS_REGION:-}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_S3_BUCKET_NAME: ${AWS_S3_BUCKET_NAME:-}
+      AWS_CLOUDFRONT_URL: ${AWS_CLOUDFRONT_URL:-}
+
+      # WhatsApp (this app's own client — Settings -> WhatsApp; separate
+      # from the agent's bot) + notification routing
+      ADMIN_WHATSAPP_NUMBER: ${ADMIN_WHATSAPP_NUMBER:-}
+
+      # Misc feature flags
+      CRON_SECRET: ${CRON_SECRET:-}
+      SHOW_EXPENSES: ${SHOW_EXPENSES:-false}
+    volumes:
+      # Persist this app's own WhatsApp session (Settings -> WhatsApp) so a
+      # redeploy doesn't force re-pairing.
+      - app_whatsapp_auth:/app/.wwebjs_auth
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/').then(r => process.exit(r.status < 500 ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    # Required for Puppeteer/Chromium (whatsapp-web.js)
+    cap_add:
+      - SYS_ADMIN
+    security_opt:
+      - seccomp=unconfined
+
+  agent:
+    build:
+      context: ./agent
+      dockerfile: Dockerfile
+    container_name: wd-logistics-agent
+    restart: unless-stopped
+    ports:
+      - "${AGENT_PORT:-3001}:3001"
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+
+      # App integration (public URL — see header comment; also doubles as
+      # this service's CORS allow-list origin)
+      WEB_APP_URL: ${WEB_APP_URL}
+      AGENT_API_KEY: ${AGENT_API_KEY:?AGENT_API_KEY is required and must match the app service}
+
+      # AI (Mastra / OpenAI)
+      OPENAI_API_KEY: ${OPENAI_API_KEY:?OPENAI_API_KEY is required}
+      MASTRA_LOG_LEVEL: ${MASTRA_LOG_LEVEL:-info}
+
+      # WhatsApp bot — disabled unless explicitly turned on (see
+      # src/index.ts); enabling it launches Chromium at boot and requires
+      # scanning a pairing QR code from `docker compose logs -f agent`.
+      ENABLE_WHATSAPP: ${ENABLE_WHATSAPP:-false}
+      ADMIN_WHATSAPP_NUMBER: ${ADMIN_WHATSAPP_NUMBER:-}
+      WHATSAPP_DEVELOPER_NUMBER_ONE: ${WHATSAPP_DEVELOPER_NUMBER_ONE:-}
+      WHATSAPP_DEVELOPER_NUMBER_TWO: ${WHATSAPP_DEVELOPER_NUMBER_TWO:-}
+      TEST_MODE: ${TEST_MODE:-false}
+    volumes:
+      # Persist the bot's WhatsApp session across redeploys.
+      - agent_whatsapp_auth:/app/.wwebjs_auth
+    depends_on:
+      - app
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3001/').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    # Required for Puppeteer/Chromium (whatsapp-web.js)
+    cap_add:
+      - SYS_ADMIN
+    security_opt:
+      - seccomp=unconfined
+
+volumes:
+  postgres_data:
+    driver: local
+  app_whatsapp_auth:
+    driver: local
+  agent_whatsapp_auth:
+    driver: local
