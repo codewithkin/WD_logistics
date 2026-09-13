@@ -88,15 +88,12 @@ export function TruckForm({ truck }: TruckFormProps) {
                 ? await updateTruck(truck.id, data)
                 : await createTruck(data);
 
-            console.log("result of truck creation: ", result);
-
             if (result.success) {
                 toast.success(isEditing ? "Truck updated successfully" : "Truck created successfully");
+                router.push("/fleet/trucks");
             } else {
                 toast.error(result.error || "An error occurred");
             }
-
-            router.push("/fleet/trucks");
         } catch {
             toast.error("An error occurred");
         } finally {
