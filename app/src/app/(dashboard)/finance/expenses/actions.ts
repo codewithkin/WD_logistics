@@ -18,192 +18,208 @@ export interface ExpenseFormData {
   supplierId?: string;
 }
 
-export async function createExpense(data: ExpenseFormData) {
+export type ExpenseActionResponse = {
+  success: boolean;
+  error?: string;
+  expense?: unknown;
+};
+
+export async function createExpense(data: ExpenseFormData): Promise<ExpenseActionResponse> {
   const user = await requireRole(["admin", "supervisor", "staff"]);
 
-  // Get category name for notification
-  const category = await prisma.expenseCategory.findUnique({
-    where: { id: data.categoryId },
-    select: { name: true },
-  });
-
-  const expense = await prisma.expense.create({
-    data: {
-      organizationId: user.organizationId,
-      categoryId: data.categoryId,
-      amount: data.amount,
-      date: data.date,
-      notes: data.notes,
-      isBusinessExpense: data.isBusinessExpense || false,
-      supplierId: data.isBusinessExpense ? data.supplierId : undefined,
-      truckExpenses: !data.isBusinessExpense && data.truckIds?.length
-        ? {
-            create: data.truckIds.map((truckId) => ({ truckId })),
-          }
-        : undefined,
-      tripExpenses: !data.isBusinessExpense && data.tripIds?.length
-        ? {
-            create: data.tripIds.map((tripId) => ({ tripId })),
-          }
-        : undefined,
-      driverExpenses: !data.isBusinessExpense && data.driverIds?.length
-        ? {
-            create: data.driverIds.map((driverId) => ({ driverId })),
-          }
-        : undefined,
-    },
-  });
-
-  // Update supplier balance if business expense with supplier
-  if (data.isBusinessExpense && data.supplierId) {
-    await prisma.supplier.update({
-      where: { id: data.supplierId },
-      data: {
-        balance: {
-          increment: data.amount,
-        },
-      },
+  try {
+    // Get category name for notification
+    const category = await prisma.expenseCategory.findUnique({
+      where: { id: data.categoryId },
+      select: { name: true },
     });
-  }
 
-  // Send admin notification
-  notifyExpenseCreated(
-    {
-      id: expense.id,
-      description: data.notes || category?.name || "Expense",
-      category: category?.name || "Unknown",
-      amount: data.amount,
-      date: data.date,
-    },
-    user.organizationId,
-    { name: user.user.name, email: user.user.email, role: user.role }
-  ).catch((err) => console.error("Failed to send admin notification:", err));
-
-  revalidatePath("/finance/expenses");
-  if (data.supplierId) {
-    revalidatePath(`/suppliers/${data.supplierId}`);
-  }
-  return { success: true as const, expense };
-}
-
-export async function updateExpense(id: string, data: ExpenseFormData) {
-  const user = await requireRole(["admin", "supervisor", "staff"]);
-
-  // Verify ownership and get old data for supplier balance adjustment
-  const existing = await prisma.expense.findUnique({
-    where: { id },
-    select: { 
-      organizationId: true, 
-      amount: true, 
-      isBusinessExpense: true, 
-      supplierId: true,
-      isPaid: true,
-    },
-  });
-
-  if (!existing || existing.organizationId !== user.organizationId) {
-    throw new Error("Expense not found");
-  }
-
-  // Get category name for notification
-  const category = await prisma.expenseCategory.findUnique({
-    where: { id: data.categoryId },
-    select: { name: true },
-  });
-
-  await prisma.$transaction(async (tx) => {
-    // Handle supplier balance changes for unpaid expenses
-    if (!existing.isPaid) {
-      // If expense was linked to a supplier, decrement old supplier balance
-      if (existing.isBusinessExpense && existing.supplierId) {
-        await tx.supplier.update({
-          where: { id: existing.supplierId },
-          data: { balance: { decrement: existing.amount } },
-        });
-      }
-      
-      // If expense is now linked to a supplier, increment new supplier balance
-      if (data.isBusinessExpense && data.supplierId) {
-        await tx.supplier.update({
-          where: { id: data.supplierId },
-          data: { balance: { increment: data.amount } },
-        });
-      }
-    }
-
-    // Update the expense
-    await tx.expense.update({
-      where: { id },
+    const expense = await prisma.expense.create({
       data: {
+        organizationId: user.organizationId,
         categoryId: data.categoryId,
         amount: data.amount,
         date: data.date,
         notes: data.notes,
         isBusinessExpense: data.isBusinessExpense || false,
-        supplierId: data.isBusinessExpense ? data.supplierId : null,
+        supplierId: data.isBusinessExpense ? data.supplierId : undefined,
+        truckExpenses: !data.isBusinessExpense && data.truckIds?.length
+          ? {
+              create: data.truckIds.map((truckId) => ({ truckId })),
+            }
+          : undefined,
+        tripExpenses: !data.isBusinessExpense && data.tripIds?.length
+          ? {
+              create: data.tripIds.map((tripId) => ({ tripId })),
+            }
+          : undefined,
+        driverExpenses: !data.isBusinessExpense && data.driverIds?.length
+          ? {
+              create: data.driverIds.map((driverId) => ({ driverId })),
+            }
+          : undefined,
       },
     });
 
-    // Clear associations if now a business expense
-    if (data.isBusinessExpense) {
-      await tx.truckExpense.deleteMany({ where: { expenseId: id } });
-      await tx.tripExpense.deleteMany({ where: { expenseId: id } });
-      await tx.driverExpense.deleteMany({ where: { expenseId: id } });
-    } else {
-      // Update truck associations
-      if (data.truckIds !== undefined) {
-        await tx.truckExpense.deleteMany({ where: { expenseId: id } });
-        if (data.truckIds.length > 0) {
-          await tx.truckExpense.createMany({
-            data: data.truckIds.map((truckId) => ({ truckId, expenseId: id })),
-          });
-        }
-      }
-
-      // Update trip associations
-      if (data.tripIds !== undefined) {
-        await tx.tripExpense.deleteMany({ where: { expenseId: id } });
-        if (data.tripIds.length > 0) {
-          await tx.tripExpense.createMany({
-            data: data.tripIds.map((tripId) => ({ tripId, expenseId: id })),
-          });
-        }
-      }
-
-      // Update driver associations
-      if (data.driverIds !== undefined) {
-        await tx.driverExpense.deleteMany({ where: { expenseId: id } });
-        if (data.driverIds.length > 0) {
-          await tx.driverExpense.createMany({
-            data: data.driverIds.map((driverId) => ({ driverId, expenseId: id })),
-          });
-        }
-      }
+    // Update supplier balance if business expense with supplier
+    if (data.isBusinessExpense && data.supplierId) {
+      await prisma.supplier.update({
+        where: { id: data.supplierId },
+        data: {
+          balance: {
+            increment: data.amount,
+          },
+        },
+      });
     }
-  });
 
-  // Send admin notification
-  notifyExpenseUpdated(
-    {
-      id,
-      description: data.notes || category?.name || "Expense",
-      category: category?.name || "Unknown",
-      amount: data.amount,
-      date: data.date,
-    },
-    user.organizationId,
-    { name: user.user.name, email: user.user.email, role: user.role }
-  ).catch((err) => console.error("Failed to send admin notification:", err));
+    // Send admin notification
+    notifyExpenseCreated(
+      {
+        id: expense.id,
+        description: data.notes || category?.name || "Expense",
+        category: category?.name || "Unknown",
+        amount: data.amount,
+        date: data.date,
+      },
+      user.organizationId,
+      { name: user.user.name, email: user.user.email, role: user.role }
+    ).catch((err) => console.error("Failed to send admin notification:", err));
 
-  revalidatePath("/finance/expenses");
-  revalidatePath(`/finance/expenses/${id}`);
-  if (existing.supplierId) {
-    revalidatePath(`/suppliers/${existing.supplierId}`);
+    revalidatePath("/finance/expenses");
+    if (data.supplierId) {
+      revalidatePath(`/suppliers/${data.supplierId}`);
+    }
+    return { success: true, expense };
+  } catch (error) {
+    console.error("Failed to create expense:", error);
+    return { success: false, error: "Failed to create expense" };
   }
-  if (data.supplierId) {
-    revalidatePath(`/suppliers/${data.supplierId}`);
+}
+
+export async function updateExpense(id: string, data: ExpenseFormData): Promise<ExpenseActionResponse> {
+  const user = await requireRole(["admin", "supervisor", "staff"]);
+
+  try {
+    // Verify ownership and get old data for supplier balance adjustment
+    const existing = await prisma.expense.findUnique({
+      where: { id },
+      select: {
+        organizationId: true,
+        amount: true,
+        isBusinessExpense: true,
+        supplierId: true,
+        isPaid: true,
+      },
+    });
+
+    if (!existing || existing.organizationId !== user.organizationId) {
+      return { success: false, error: "Expense not found" };
+    }
+
+    // Get category name for notification
+    const category = await prisma.expenseCategory.findUnique({
+      where: { id: data.categoryId },
+      select: { name: true },
+    });
+
+    await prisma.$transaction(async (tx) => {
+      // Handle supplier balance changes for unpaid expenses
+      if (!existing.isPaid) {
+        // If expense was linked to a supplier, decrement old supplier balance
+        if (existing.isBusinessExpense && existing.supplierId) {
+          await tx.supplier.update({
+            where: { id: existing.supplierId },
+            data: { balance: { decrement: existing.amount } },
+          });
+        }
+
+        // If expense is now linked to a supplier, increment new supplier balance
+        if (data.isBusinessExpense && data.supplierId) {
+          await tx.supplier.update({
+            where: { id: data.supplierId },
+            data: { balance: { increment: data.amount } },
+          });
+        }
+      }
+
+      // Update the expense
+      await tx.expense.update({
+        where: { id },
+        data: {
+          categoryId: data.categoryId,
+          amount: data.amount,
+          date: data.date,
+          notes: data.notes,
+          isBusinessExpense: data.isBusinessExpense || false,
+          supplierId: data.isBusinessExpense ? data.supplierId : null,
+        },
+      });
+
+      // Clear associations if now a business expense
+      if (data.isBusinessExpense) {
+        await tx.truckExpense.deleteMany({ where: { expenseId: id } });
+        await tx.tripExpense.deleteMany({ where: { expenseId: id } });
+        await tx.driverExpense.deleteMany({ where: { expenseId: id } });
+      } else {
+        // Update truck associations
+        if (data.truckIds !== undefined) {
+          await tx.truckExpense.deleteMany({ where: { expenseId: id } });
+          if (data.truckIds.length > 0) {
+            await tx.truckExpense.createMany({
+              data: data.truckIds.map((truckId) => ({ truckId, expenseId: id })),
+            });
+          }
+        }
+
+        // Update trip associations
+        if (data.tripIds !== undefined) {
+          await tx.tripExpense.deleteMany({ where: { expenseId: id } });
+          if (data.tripIds.length > 0) {
+            await tx.tripExpense.createMany({
+              data: data.tripIds.map((tripId) => ({ tripId, expenseId: id })),
+            });
+          }
+        }
+
+        // Update driver associations
+        if (data.driverIds !== undefined) {
+          await tx.driverExpense.deleteMany({ where: { expenseId: id } });
+          if (data.driverIds.length > 0) {
+            await tx.driverExpense.createMany({
+              data: data.driverIds.map((driverId) => ({ driverId, expenseId: id })),
+            });
+          }
+        }
+      }
+    });
+
+    // Send admin notification
+    notifyExpenseUpdated(
+      {
+        id,
+        description: data.notes || category?.name || "Expense",
+        category: category?.name || "Unknown",
+        amount: data.amount,
+        date: data.date,
+      },
+      user.organizationId,
+      { name: user.user.name, email: user.user.email, role: user.role }
+    ).catch((err) => console.error("Failed to send admin notification:", err));
+
+    revalidatePath("/finance/expenses");
+    revalidatePath(`/finance/expenses/${id}`);
+    if (existing.supplierId) {
+      revalidatePath(`/suppliers/${existing.supplierId}`);
+    }
+    if (data.supplierId) {
+      revalidatePath(`/suppliers/${data.supplierId}`);
+    }
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to update expense:", error);
+    return { success: false, error: "Failed to update expense" };
   }
-  return { success: true as const, expense: existing };
 }
 
 export async function deleteExpense(id: string) {
