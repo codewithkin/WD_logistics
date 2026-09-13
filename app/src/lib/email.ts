@@ -1,27 +1,42 @@
-import nodemailer from "nodemailer";
+import nodemailer, { type Transporter } from "nodemailer";
 
-// Create reusable transporter object using SMTP configuration
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: parseInt(process.env.SMTP_PORT || "587"),
-  secure: process.env.SMTP_SECURE === "true", // true for 465, false for other ports
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASSWORD,
-  },
-  tls: {
-    rejectUnauthorized: false,
-  },
-});
+// Built and verified on first actual send, not at import. Every route that
+// (transitively) imports this module — including ones with nothing to do
+// with email, like the invoice-reminders cron job — used to dial the SMTP
+// host the moment Next.js evaluated the module graph, which happens during
+// `next build`'s page-data collection. That made SMTP_HOST/SMTP_PASSWORD
+// look like build-time requirements when they are only needed when an email
+// is actually sent, at runtime.
+let transporter: Transporter | undefined;
+let verified = false;
 
-// Verify transporter configuration on startup
-transporter.verify((error, success) => {
-  if (error) {
-    console.error("SMTP transporter verification failed:", error);
-  } else {
-    console.log("✅ SMTP server is ready to send emails");
+function getTransporter(): Transporter {
+  transporter ??= nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: parseInt(process.env.SMTP_PORT || "587"),
+    secure: process.env.SMTP_SECURE === "true", // true for 465, false for other ports
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASSWORD,
+    },
+    tls: {
+      rejectUnauthorized: false,
+    },
+  });
+
+  if (!verified) {
+    verified = true;
+    transporter.verify((error) => {
+      if (error) {
+        console.error("SMTP transporter verification failed:", error);
+      } else {
+        console.log("✅ SMTP server is ready to send emails");
+      }
+    });
   }
-});
+
+  return transporter;
+}
 
 export interface SendEmailOptions {
   to: string;
@@ -32,6 +47,11 @@ export interface SendEmailOptions {
 
 export async function sendEmail(options: SendEmailOptions) {
   const { to, subject, text, html } = options;
+
+  if (!process.env.SMTP_HOST) {
+    console.warn("SMTP_HOST is not configured; skipping email to", to);
+    return { success: false, error: "Email is not configured" };
+  }
 
   const mailOptions = {
     from: `"${process.env.SMTP_FROM_NAME}" <${process.env.SMTP_FROM_EMAIL}>` || process.env.SMTP_USER,
@@ -50,8 +70,8 @@ export async function sendEmail(options: SendEmailOptions) {
       user: process.env.SMTP_USER,
       hasPassword: !!process.env.SMTP_PASSWORD,
     });
-    
-    const info = await transporter.sendMail(mailOptions);
+
+    const info = await getTransporter().sendMail(mailOptions);
     console.log("✅ Email sent successfully:", info.messageId);
     console.log("Response:", info.response);
     return { success: true, messageId: info.messageId };

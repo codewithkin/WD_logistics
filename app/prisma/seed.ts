@@ -1,13 +1,17 @@
 import "dotenv/config";
 import { PrismaClient } from "@/generated/prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
 import { hashPassword } from "better-auth/crypto";
 
+// See src/lib/prisma.ts for why this needs an adapter or accelerateUrl.
 const prismaConfig: any = {
   log: ["error", "warn"],
 };
 
 if (process.env.ACCELERATE_URL) {
   prismaConfig.accelerateUrl = process.env.ACCELERATE_URL;
+} else {
+  prismaConfig.adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 }
 
 const prisma = new PrismaClient(prismaConfig);

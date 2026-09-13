@@ -111,6 +111,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
+# Only needed to run prisma/ensure-admin.mjs at startup (see CMD below) — it
+# imports the generated Prisma client, which is TypeScript source
+# (src/generated/prisma/client.ts), and Bun transpiles that on the fly the
+# same way it already runs prisma/seed.ts locally. `next start` itself runs
+# under plain Node, not Bun — see the CMD comment.
+RUN npm install -g bun
+
 ENV NODE_ENV=production \
     PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
     PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium \
@@ -136,15 +143,21 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
     CMD node -e "fetch('http://localhost:3000/').then(r => process.exit(r.status < 500 ? 0 : 1)).catch(() => process.exit(1))"
 
-# `prisma migrate deploy` applies any pending migrations before the server
-# takes traffic — needs the real DATABASE_URL, only available at container
-# start, not the placeholder ARG'd in during build.
+# Startup sequence, all needing the real DATABASE_URL that only exists at
+# container start (not the placeholder ARG'd in during build):
+#   1. `prisma migrate deploy` (via node_modules/.bin, plain Node) applies
+#      any pending migrations before the server takes traffic.
+#   2. `prisma/ensure-admin.mjs` (via `bun` — see the apt/npm step above for
+#      why) guarantees one organization + one admin user exist. It is NOT
+#      prisma/seed.ts (which wipes and regenerates all demo data every run)
+#      — this only creates what's missing and is safe on every boot/redeploy.
+#      Override its defaults via SEED_ADMIN_EMAIL/SEED_ADMIN_PASSWORD/etc.
+#   3. `next start` (via node_modules/.bin, plain Node) takes over as PID 1
+#      via `exec`, so it receives SIGTERM directly for a clean shutdown
+#      instead of leaving it with the shell.
 #
-# Both run through node_modules/.bin directly (via plain Node, not
-# `bun run`/`bunx`) so the actual server process is Next's own Node runtime —
-# `bun` here is only ever used for installing packages, not for serving
-# production traffic, since Next's CLI under Bun's runtime isn't something
-# this app has been verified against. `exec` hands off to `next start` as
-# PID 1's replacement so it receives SIGTERM directly for a clean shutdown
-# instead of leaving it with the wrapping shell.
-CMD ["sh", "-c", "node_modules/.bin/prisma migrate deploy && exec node_modules/.bin/next start"]
+# `next start` deliberately runs under plain Node, not `bun run`/`bunx` —
+# Next's CLI under Bun's own runtime isn't something this app has been
+# verified against, so Bun here is scoped to installing packages and running
+# the one script that needs its TypeScript-transpiling import resolution.
+CMD ["sh", "-c", "node_modules/.bin/prisma migrate deploy && bun prisma/ensure-admin.mjs && exec node_modules/.bin/next start"]
