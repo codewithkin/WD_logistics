@@ -95,6 +95,10 @@ export async function initializeWhatsApp(organizationId: string): Promise<{
           '--no-zygote',
           '--disable-gpu',
         ],
+        // See agent/src/lib/whatsapp.ts for why this is raised above
+        // Puppeteer's 180s default — CPU/memory pressure on small VPS
+        // deployments can make Chromium slow to respond without being dead.
+        protocolTimeout: 300000,
       },
     });
 

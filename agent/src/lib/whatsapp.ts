@@ -72,6 +72,7 @@ export class AgentWhatsAppClient extends EventEmitter {
         headless: boolean;
         args: string[];
         executablePath?: string;
+        protocolTimeout?: number;
       } = {
         headless: true,
         args: [
@@ -83,6 +84,11 @@ export class AgentWhatsAppClient extends EventEmitter {
           '--no-zygote',
           '--disable-gpu',
         ],
+        // Puppeteer's default (180s) was still timing out ("Runtime.callFunctionOn
+        // timed out") under CPU/memory pressure on small VPS deployments — this
+        // doesn't fix resource contention, it just stops the connection from
+        // being torn down over a slow-but-alive Chromium process.
+        protocolTimeout: 300000,
       };
 
       // Use system Chromium on Linux servers (like Render)
