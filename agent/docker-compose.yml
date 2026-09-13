@@ -32,6 +32,9 @@ services:
       - WHATSAPP_DEVELOPER_NUMBER_ONE=${WHATSAPP_DEVELOPER_NUMBER_ONE:-}
       - WHATSAPP_DEVELOPER_NUMBER_TWO=${WHATSAPP_DEVELOPER_NUMBER_TWO:-}
       - TEST_MODE=${TEST_MODE:-false}
+      # Where LocalAuth stores the bot's session — must match the volume
+      # mount below so a redeploy doesn't force re-scanning the QR code.
+      - WHATSAPP_AUTH_PATH=/app/.wwebjs_auth
     volumes:
       # Persist WhatsApp session data
       - whatsapp_auth:/app/.wwebjs_auth

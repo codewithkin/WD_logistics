@@ -9,6 +9,14 @@ import pkg from "whatsapp-web.js";
 const { Client, LocalAuth } = pkg;
 import { EventEmitter } from "events";
 import QRCode from "qrcode";
+import path from "path";
+
+// Where the WhatsApp session (LocalAuth) is stored. Defaults to an absolute
+// path under the process working directory so the auth state survives
+// container restarts/rebuilds as long as this directory is mounted as a
+// volume (see Dockerfile + docker-compose.yml). Override via
+// WHATSAPP_AUTH_PATH to point at the volume explicitly if the CWD differs.
+const WHATSAPP_AUTH_PATH = process.env.WHATSAPP_AUTH_PATH || path.resolve(process.cwd(), ".wwebjs_auth");
 
 export interface WhatsAppMessage {
   id: string;
@@ -100,6 +108,7 @@ export class AgentWhatsAppClient extends EventEmitter {
         puppeteer: puppeteerConfig,
         authStrategy: new LocalAuth({
           clientId: "agent-whatsapp",
+          dataPath: WHATSAPP_AUTH_PATH,
         }),
       });
 
@@ -202,6 +211,7 @@ export class AgentWhatsAppClient extends EventEmitter {
             puppeteer: puppeteerConfig,
             authStrategy: new LocalAuth({
               clientId: "agent-whatsapp",
+              dataPath: WHATSAPP_AUTH_PATH,
             }),
           });
           
