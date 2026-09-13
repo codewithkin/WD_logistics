@@ -10,17 +10,19 @@ export default async function DashboardLayout({
 }: {
     children: ReactNode;
 }) {
-    const session = await requireAuth();
-
-    // Get pending edit requests count for badge
-    const pendingEditRequests = await prisma.editRequest.count({
-        where: {
-            status: "pending",
-        },
-    });
-
     // Check if SHOW_EXPENSES is enabled (for supervisor access to expenses)
     const showExpenses = process.env.SHOW_EXPENSES === "true";
+
+    // Run auth + sidebar badge count concurrently so every navigation doesn't
+    // serialize two database round-trips before the shell can render.
+    const [session, pendingEditRequests] = await Promise.all([
+        requireAuth(),
+        prisma.editRequest.count({
+            where: {
+                status: "pending",
+            },
+        }),
+    ]);
 
     return (
         <SessionProvider

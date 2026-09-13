@@ -139,7 +139,7 @@ export function SidebarNavContent({ pendingEditRequests = 0, showExpenses = fals
                             const ChildIcon = child.icon;
                             const childIsActive = isActive(child.href);
                             return (
-                                <Link key={child.href} href={child.href} onClick={onNavigate}>
+                                <Link key={child.href} href={child.href} prefetch onClick={onNavigate}>
                                     <Button
                                         variant="ghost"
                                         className={cn(
@@ -159,7 +159,7 @@ export function SidebarNavContent({ pendingEditRequests = 0, showExpenses = fals
         }
 
         return (
-            <Link key={item.href} href={item.href} onClick={onNavigate}>
+            <Link key={item.href} href={item.href} prefetch onClick={onNavigate}>
                 <Button
                     variant="ghost"
                     className={cn(
@@ -202,7 +202,7 @@ export function SidebarNavContent({ pendingEditRequests = 0, showExpenses = fals
         <div className="flex flex-col h-full">
             {/* Logo */}
             <div className="p-4 border-b">
-                <Link href="/dashboard" className="flex items-center gap-2 group" onClick={onNavigate}>
+                <Link href="/dashboard" prefetch className="flex items-center gap-2 group" onClick={onNavigate}>
                     <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg flex items-center justify-center shadow-lg shadow-green-500/25 transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3">
                         <span className="text-white font-bold text-sm">WD</span>
                     </div>
