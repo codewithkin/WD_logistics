@@ -3,7 +3,6 @@
 import { requireRole } from "@/lib/session";
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { generateExpenseReportPDF } from "@/lib/reports/pdf-report-generator";
 import { notifyExpenseCreated, notifyExpenseUpdated, notifyExpenseDeleted } from "@/lib/notifications";
 
@@ -84,7 +83,7 @@ export async function createExpense(data: ExpenseFormData) {
   if (data.supplierId) {
     revalidatePath(`/suppliers/${data.supplierId}`);
   }
-  redirect("/finance/expenses");
+  return { success: true as const, expense };
 }
 
 export async function updateExpense(id: string, data: ExpenseFormData) {
@@ -204,7 +203,7 @@ export async function updateExpense(id: string, data: ExpenseFormData) {
   if (data.supplierId) {
     revalidatePath(`/suppliers/${data.supplierId}`);
   }
-  redirect("/finance/expenses");
+  return { success: true as const, expense: existing };
 }
 
 export async function deleteExpense(id: string) {

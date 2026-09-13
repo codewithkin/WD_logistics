@@ -44,6 +44,7 @@ import { createExpense, updateExpense, type ExpenseFormData } from "../actions";
 import { Loader2, ChevronsUpDown, X, Truck, User, MapPin, AlertCircle, Building2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { showAlert } from "@/components/ui/custom-alert";
+import { toast } from "sonner";
 
 const expenseSchema = z.object({
     categoryId: z.string().min(1, "Category is required"),
@@ -244,21 +245,20 @@ export function ExpenseForm({ categories, trucks, trips, drivers, suppliers, exp
                 driverIds: values.isBusinessExpense ? [] : values.driverIds,
             };
 
-            if (expense) {
-                await updateExpense(expense.id, data);
+            const result = expense
+                ? await updateExpense(expense.id, data)
+                : await createExpense(data);
+
+            if (result.success) {
+                toast.success(expense ? "Expense updated successfully" : "Expense created successfully");
+                router.push("/finance/expenses");
             } else {
-                await createExpense(data);
+                showAlert(result.error || "Failed to save expense");
             }
         } catch (error) {
-            // Check if this is a redirect error (which is expected and not an error)
-            if (error instanceof Error) {
-                // Next.js redirect() throws RedirectError with name property
-                if (error.name === "RedirectError" || (error as any).digest?.startsWith("NEXT_REDIRECT")) {
-                    return;
-                }
-            }
             console.error("Failed to save expense:", error);
-            showAlert("Failed to save expense");
+            showAlert(error instanceof Error ? error.message : "Failed to save expense");
+        } finally {
             setIsSubmitting(false);
         }
     };
