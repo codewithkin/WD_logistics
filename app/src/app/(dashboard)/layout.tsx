@@ -30,9 +30,9 @@ export default async function DashboardLayout({
         >
             <div className="flex min-h-screen">
                 <Sidebar pendingEditRequests={pendingEditRequests} showExpenses={showExpenses} />
-                <div className="flex-1 flex flex-col">
-                    <Header />
-                    <main className="flex-1 p-6 bg-muted/30">{children}</main>
+                <div className="flex-1 flex flex-col min-w-0">
+                    <Header pendingEditRequests={pendingEditRequests} showExpenses={showExpenses} />
+                    <main className="flex-1 p-3 sm:p-6 bg-muted/30 min-w-0 overflow-x-hidden">{children}</main>
                 </div>
             </div>
         </SessionProvider>

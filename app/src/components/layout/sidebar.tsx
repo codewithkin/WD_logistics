@@ -19,9 +19,15 @@ import {
 interface SidebarProps {
     pendingEditRequests?: number;
     showExpenses?: boolean;
+    /** Called after a nav link is clicked — used to close the mobile Sheet. */
+    onNavigate?: () => void;
 }
 
-export function Sidebar({ pendingEditRequests = 0, showExpenses = false }: SidebarProps) {
+/**
+ * The actual logo + nav + user/logout content, shared between the desktop
+ * `<aside>` (Sidebar, below) and the mobile Sheet drawer (MobileSidebar).
+ */
+export function SidebarNavContent({ pendingEditRequests = 0, showExpenses = false, onNavigate }: SidebarProps) {
     const pathname = usePathname();
     const router = useRouter();
     const { role } = useSession();
@@ -133,7 +139,7 @@ export function Sidebar({ pendingEditRequests = 0, showExpenses = false }: Sideb
                             const ChildIcon = child.icon;
                             const childIsActive = isActive(child.href);
                             return (
-                                <Link key={child.href} href={child.href}>
+                                <Link key={child.href} href={child.href} onClick={onNavigate}>
                                     <Button
                                         variant="ghost"
                                         className={cn(
@@ -153,7 +159,7 @@ export function Sidebar({ pendingEditRequests = 0, showExpenses = false }: Sideb
         }
 
         return (
-            <Link key={item.href} href={item.href}>
+            <Link key={item.href} href={item.href} onClick={onNavigate}>
                 <Button
                     variant="ghost"
                     className={cn(
@@ -193,10 +199,10 @@ export function Sidebar({ pendingEditRequests = 0, showExpenses = false }: Sideb
     };
 
     return (
-        <aside className="w-64 border-r bg-card h-screen sticky top-0 flex flex-col">
+        <div className="flex flex-col h-full">
             {/* Logo */}
             <div className="p-4 border-b">
-                <Link href="/dashboard" className="flex items-center gap-2 group">
+                <Link href="/dashboard" className="flex items-center gap-2 group" onClick={onNavigate}>
                     <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg flex items-center justify-center shadow-lg shadow-green-500/25 transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3">
                         <span className="text-white font-bold text-sm">WD</span>
                     </div>
@@ -220,12 +226,27 @@ export function Sidebar({ pendingEditRequests = 0, showExpenses = false }: Sideb
                 <Button
                     variant="ghost"
                     className="w-full justify-start text-destructive hover:text-destructive hover:bg-destructive/10"
-                    onClick={handleSignOut}
+                    onClick={() => {
+                        onNavigate?.();
+                        handleSignOut();
+                    }}
                 >
                     <LogOut className="h-4 w-4 mr-2" />
                     Sign Out
                 </Button>
             </div>
+        </div>
+    );
+}
+
+/**
+ * Desktop sidebar — fixed 64-width column, hidden below the `lg` breakpoint.
+ * See MobileSidebar (mobile-sidebar.tsx) for the small-screen equivalent.
+ */
+export function Sidebar(props: Omit<SidebarProps, "onNavigate">) {
+    return (
+        <aside className="hidden lg:flex w-64 border-r bg-card h-screen sticky top-0 flex-col shrink-0">
+            <SidebarNavContent {...props} />
         </aside>
     );
 }

@@ -25,6 +25,7 @@ import { signOut } from "@/lib/auth-client";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
+import { MobileSidebar } from "@/components/layout/mobile-sidebar";
 
 interface NotificationItem {
     id: string;
@@ -66,7 +67,12 @@ const typeColors: Record<string, string> = {
 
 
 
-export function Header() {
+interface HeaderProps {
+    pendingEditRequests?: number;
+    showExpenses?: boolean;
+}
+
+export function Header({ pendingEditRequests = 0, showExpenses = false }: HeaderProps) {
     const { user, role } = useSession();
     const router = useRouter();
     const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -142,14 +148,16 @@ export function Header() {
         : "??";
 
     return (
-        <header className="h-16 border-b bg-card flex items-center justify-between px-6">
-            <div className="flex items-center gap-4">
-                <h1 className="text-lg font-semibold text-muted-foreground">
-                    WD Logistics Management System
+        <header className="h-16 border-b bg-card flex items-center justify-between px-3 sm:px-6 gap-2">
+            <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+                <MobileSidebar pendingEditRequests={pendingEditRequests} showExpenses={showExpenses} />
+                <h1 className="text-base sm:text-lg font-semibold text-muted-foreground truncate">
+                    <span className="hidden sm:inline">WD Logistics Management System</span>
+                    <span className="sm:hidden">WD Logistics</span>
                 </h1>
             </div>
 
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-4 shrink-0">
                 {/* Notifications */}
                 <Popover open={notificationsOpen} onOpenChange={setNotificationsOpen}>
                     <PopoverTrigger asChild>
