@@ -94,20 +94,20 @@ async function main() {
   // STEP 3: Get or Create Admin User
   // ============================================================================
   const existingAdmin = await prisma.user.findFirst({
-    where: { email: "admin@wdlogistics.com" },
+    where: { email: "dziruniw@gmail.com" },
     include: { members: true },
   });
 
   if (!existingAdmin) {
-    const hashedPassword = await hashPassword("Admin@123");
+    const hashedPassword = await hashPassword("@logisticswd");
     await prisma.user.create({
       data: {
-        name: "System Admin",
-        email: "admin@wdlogistics.com",
+        name: "Mr Dziruni",
+        email: "dziruniw@gmail.com",
         emailVerified: true,
         accounts: {
           create: {
-            accountId: "admin@wdlogistics.com",
+            accountId: "dziruniw@gmail.com",
             providerId: "credential",
             password: hashedPassword,
           },
@@ -120,7 +120,7 @@ async function main() {
         },
       },
     });
-    console.log("✅ Created admin user: admin@wdlogistics.com");
+    console.log("✅ Created admin user: dziruniw@gmail.com");
   } else if (existingAdmin.members.length === 0) {
     await prisma.member.create({
       data: {
@@ -515,8 +515,8 @@ async function main() {
   console.log(`   • TruckExpenses:  ${allTruckExpenses.length}`);
   console.log(`   • DriverExpenses: ${allDriverExpenses.length}`);
   console.log("\n📝 Admin Credentials:");
-  console.log("   Email:    admin@wdlogistics.com");
-  console.log("   Password: Admin@123");
+  console.log("   Email:    dziruniw@gmail.com");
+  console.log("   Password: @logisticswd");
   console.log("\n⚠️  Please change the password after first login!");
   console.log("=".repeat(60) + "\n");
 }

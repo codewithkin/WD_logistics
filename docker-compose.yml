@@ -66,13 +66,13 @@ services:
       ACCELERATE_URL: ${ACCELERATE_URL:-}
 
       # Admin bootstrap (prisma/ensure-admin.mjs, runs every container start —
-      # idempotent, never deletes data). Defaults to admin@wdlogistics.com /
-      # Admin@123 if left unset.
+      # idempotent, never deletes data). Defaults to dziruniw@gmail.com /
+      # @logisticswd if left unset.
       SEED_ORG_NAME: ${SEED_ORG_NAME:-WD Logistics}
       SEED_ORG_SLUG: ${SEED_ORG_SLUG:-wd-logistics}
-      SEED_ADMIN_NAME: ${SEED_ADMIN_NAME:-System Admin}
-      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-admin@wdlogistics.com}
-      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-Admin@123}
+      SEED_ADMIN_NAME: ${SEED_ADMIN_NAME:-Mr Dziruni}
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-dziruniw@gmail.com}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-@logisticswd}
 
       # Auth (better-auth)
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?BETTER_AUTH_SECRET is required}

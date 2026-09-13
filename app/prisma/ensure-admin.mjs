@@ -14,7 +14,7 @@
 // import a .ts file without a loader.
 //
 // Override the defaults via env vars if you don't want the stock
-// admin@wdlogistics.com / Admin@123 credentials in a production deploy:
+// dziruniw@gmail.com / @logisticswd credentials in a production deploy:
 //   SEED_ORG_NAME, SEED_ORG_SLUG, SEED_ADMIN_NAME, SEED_ADMIN_EMAIL, SEED_ADMIN_PASSWORD
 
 import "dotenv/config";
@@ -32,9 +32,9 @@ const prisma = new PrismaClient(prismaConfig);
 
 const ORG_NAME = process.env.SEED_ORG_NAME || "WD Logistics";
 const ORG_SLUG = process.env.SEED_ORG_SLUG || "wd-logistics";
-const ADMIN_NAME = process.env.SEED_ADMIN_NAME || "System Admin";
-const ADMIN_EMAIL = process.env.SEED_ADMIN_EMAIL || "admin@wdlogistics.com";
-const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD || "Admin@123";
+const ADMIN_NAME = process.env.SEED_ADMIN_NAME || "Mr Dziruni";
+const ADMIN_EMAIL = process.env.SEED_ADMIN_EMAIL || "dziruniw@gmail.com";
+const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD || "@logisticswd";
 
 async function main() {
   let organization = await prisma.organization.findFirst({ where: { slug: ORG_SLUG } });

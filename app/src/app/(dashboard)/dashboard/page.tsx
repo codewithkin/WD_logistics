@@ -166,12 +166,19 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
     const showFinancials = canViewFinancialData(role);
 
+    const greeting = (() => {
+        const hour = new Date().getHours();
+        if (hour < 12) return "Good morning";
+        if (hour < 18) return "Good afternoon";
+        return "Good evening";
+    })();
+
     return (
         <div>
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
                 <PageHeader
                     title="Dashboard"
-                    description={`Welcome back, ${session.user.name}`}
+                    description={`${greeting}, ${session.user.name}`}
                 />
                 <div className="flex items-center gap-3">
                     <DashboardPeriodSelector />
