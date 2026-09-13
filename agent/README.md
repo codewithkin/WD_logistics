@@ -66,9 +66,10 @@ bun start      # Run production build
 
 ### Option 2: Docker CLI
 
-1. **Build the image:**
+1. **Build the image** (from the repo root, not from `agent/` — the
+   Dockerfile's COPY paths are root-relative; see its header comment):
    ```bash
-   docker build -t wd-logistics-agent .
+   docker build -f agent/Dockerfile -t wd-logistics-agent .
    ```
 
 2. **Run with environment variables:**

@@ -1,5 +1,10 @@
 # WD Logistics AI Agent — Dockerfile
 #
+# Build from the REPO ROOT, not from agent/: `docker build -f agent/Dockerfile .`
+# (Coolify's Dockerfile build pack does exactly this by default — see the
+# same note in app/Dockerfile). If you need `agent/` itself as the context
+# instead, change every `COPY agent/...` below back to `COPY ...`.
+#
 # Runs via `tsx` (transpile-only, no type-check) instead of a compiled dist/
 # build. `bun run build` (tsc) isn't guaranteed clean on this codebase, so
 # building to dist/ and running the compiled JS risks either failing the
@@ -29,7 +34,7 @@ RUN npm install -g bun
 
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 
-COPY package.json bun.lock ./
+COPY agent/package.json agent/bun.lock ./
 RUN bun install --frozen-lockfile
 
 # ============================================================================
@@ -74,8 +79,8 @@ RUN groupadd -r appuser && useradd -r -g appuser -m appuser
 # node_modules comes from the deps stage (built with the Chromium download
 # already skipped) rather than reinstalling here.
 COPY --from=deps /app/node_modules ./node_modules
-COPY package.json bun.lock tsconfig.json ./
-COPY src ./src
+COPY agent/package.json agent/bun.lock agent/tsconfig.json ./
+COPY agent/src ./src
 
 # WhatsApp session (LocalAuth) lives here — mount a volume over it so a
 # redeploy doesn't force re-scanning the pairing QR code.

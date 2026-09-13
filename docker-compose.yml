@@ -45,8 +45,10 @@ services:
 
   app:
     build:
-      context: ./app
-      dockerfile: Dockerfile
+      # Context is the repo root, not ./app — both Dockerfiles expect this
+      # (see the header comment in each); their COPY paths are root-relative.
+      context: .
+      dockerfile: app/Dockerfile
       args:
         NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
         NEXT_PUBLIC_AGENT_URL: ${NEXT_PUBLIC_AGENT_URL}
@@ -117,8 +119,8 @@ services:
 
   agent:
     build:
-      context: ./agent
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: agent/Dockerfile
     container_name: wd-logistics-agent
     restart: unless-stopped
     ports:

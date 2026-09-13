@@ -1,0 +1,43 @@
+# Both app/Dockerfile and agent/Dockerfile build from this repo root as their
+# context (see the header comment in each) — this is the one .dockerignore
+# that actually applies to either build.
+
+# Dependencies & build output — reinstalled/rebuilt inside each image
+**/node_modules
+app/.next
+app/out
+app/build
+agent/dist
+
+# Prisma client is regenerated during the app image build (postinstall runs
+# `prisma generate`) — never ship a host-generated copy into the build context
+app/src/generated
+
+# VCS / editor
+.git
+.gitignore
+.vscode
+.idea
+
+# Env files — never bake secrets into an image layer
+.env
+.env.*
+**/.env
+**/.env.*
+!.env.example
+!**/.env.example
+
+# WhatsApp session data — persisted via a volume at runtime, not baked in
+**/.wwebjs_auth
+**/.wwebjs_cache
+
+# Logs / OS noise / misc
+**/*.log
+.DS_Store
+**/*.pem
+**/coverage
+**/*.tsbuildinfo
+app/next-env.d.ts
+
+# Docs / non-build-relevant
+docs

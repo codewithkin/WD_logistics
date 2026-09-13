@@ -1,5 +1,11 @@
 # WD Logistics Web App — Dockerfile
 #
+# Build from the REPO ROOT, not from app/: `docker build -f app/Dockerfile .`
+# (Coolify's Dockerfile build pack does exactly this by default — it found
+# this file fine but every COPY failed with "not found" until the paths
+# below were made root-relative). If you need to build with `app/` itself as
+# the context instead, change every `COPY app/...` below back to `COPY ...`.
+#
 # Two stages: `builder` installs deps and runs `next build`; `runtime` gets
 # the ENTIRE unpruned /app tree copied in (full node_modules, .next, public,
 # prisma/, the generated Prisma client under src/generated). This does NOT
@@ -42,17 +48,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # PUPPETEER_EXECUTABLE_PATH at it.
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 
-COPY package.json bun.lock ./
-COPY prisma ./prisma
-COPY prisma.config.ts ./
-COPY scripts ./scripts
+COPY app/package.json app/bun.lock ./
+COPY app/prisma ./prisma
+COPY app/prisma.config.ts ./
+COPY app/scripts ./scripts
 
 RUN bun install --frozen-lockfile
 
 # Source after install for better layer caching.
-COPY next.config.ts tsconfig.json postcss.config.mjs ./
-COPY public ./public
-COPY src ./src
+COPY app/next.config.ts app/tsconfig.json app/postcss.config.mjs ./
+COPY app/public ./public
+COPY app/src ./src
 
 # NEXT_PUBLIC_* vars get inlined into the client bundle by `next build` and
 # are NOT re-readable at container runtime — override at build time:

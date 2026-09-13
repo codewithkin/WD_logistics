@@ -1,10 +1,10 @@
-# Docker Compose for WD Logistics AI Agent
-# 
+# Docker Compose for WD Logistics AI Agent (standalone — this service only)
+#
 # ENVIRONMENT VARIABLES:
 #   For Render/production: Set env vars in the dashboard
 #   For local dev with Docker: Create .env file or pass vars directly
 #
-# Usage:
+# Usage (run from this agent/ directory):
 #   docker-compose up -d
 
 version: '3.8'
@@ -12,8 +12,10 @@ version: '3.8'
 services:
   agent:
     build:
-      context: .
-      dockerfile: Dockerfile
+      # Context is the repo root (one level up), not agent/ itself —
+      # Dockerfile's COPY paths are root-relative; see its header comment.
+      context: ..
+      dockerfile: agent/Dockerfile
     container_name: wd-logistics-agent
     ports:
       - "3001:3001"
