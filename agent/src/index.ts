@@ -161,26 +161,7 @@ const initWhatsApp = async () => {
         setBotPhoneNumber(botPhoneNumber);
         console.log(`📱 Bot connected as: ${botPhoneNumber}`);
       }
-      
-      // Patch the WhatsApp client to disable sendSeen which causes markedUnread error
-      const whatsappClient = client.getClient();
-      if (whatsappClient && whatsappClient.pupPage) {
-        try {
-          await whatsappClient.pupPage.evaluate(() => {
-            // Override sendSeen to be a no-op to avoid markedUnread error
-            if (window.WWebJS && window.WWebJS.sendSeen) {
-              window.WWebJS.sendSeen = async () => {
-                // Do nothing - this prevents the markedUnread error
-                return true;
-              };
-            }
-          });
-          console.log("✅ Patched sendSeen to prevent markedUnread errors");
-        } catch (patchError) {
-          console.warn("⚠️ Could not patch sendSeen:", patchError);
-        }
-      }
-      
+
       // Helper function to reply to a message using msg.reply()
       const replyToMessage = async (msg: any, content: string) => {
         try {
