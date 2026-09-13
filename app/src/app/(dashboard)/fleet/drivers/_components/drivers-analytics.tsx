@@ -302,7 +302,8 @@ export function DriversAnalytics({ analytics, drivers, canExport, periodLabel, s
                             <CardDescription>Drivers with most trips</CardDescription>
                         </CardHeader>
                         <CardContent>
-                            <div className="h-64">
+                            <div className="overflow-x-auto">
+                            <div className="min-w-[400px] h-64">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <BarChart data={topPerformers} layout="vertical">
                                         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
@@ -317,6 +318,7 @@ export function DriversAnalytics({ analytics, drivers, canExport, periodLabel, s
                                         <Bar dataKey="trips" fill="#3b82f6" name="Trips" />
                                     </BarChart>
                                 </ResponsiveContainer>
+                            </div>
                             </div>
                         </CardContent>
                     </Card>

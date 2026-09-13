@@ -307,7 +307,8 @@ export function ExpensesAnalytics({ analytics, expenses, canExport, categoryId, 
                         <CardDescription>Last 6 months</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <div className="h-64">
+                        <div className="overflow-x-auto">
+                        <div className="min-w-[480px] h-64">
                             <ResponsiveContainer width="100%" height="100%">
                                 <BarChart data={monthlyChartData}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
@@ -327,6 +328,7 @@ export function ExpensesAnalytics({ analytics, expenses, canExport, categoryId, 
                                     <Bar dataKey="amount" fill="#ef4444" name="Amount ($)" />
                                 </BarChart>
                             </ResponsiveContainer>
+                        </div>
                         </div>
                     </CardContent>
                 </Card>

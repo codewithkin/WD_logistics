@@ -291,7 +291,8 @@ export function TripsAnalytics({ analytics, trips, canExport, periodLabel }: Tri
                         <CardDescription>Last 6 months</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <div className="h-64">
+                        <div className="overflow-x-auto">
+                        <div className="min-w-[480px] h-64">
                             <ResponsiveContainer width="100%" height="100%">
                                 <BarChart data={monthlyChartData}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
@@ -309,6 +310,7 @@ export function TripsAnalytics({ analytics, trips, canExport, periodLabel }: Tri
                                     <Bar yAxisId="right" dataKey="revenue" fill="#10b981" name="Revenue ($)" />
                                 </BarChart>
                             </ResponsiveContainer>
+                        </div>
                         </div>
                     </CardContent>
                 </Card>
