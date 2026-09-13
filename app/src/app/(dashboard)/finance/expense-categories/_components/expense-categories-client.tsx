@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { showAlert } from "@/components/ui/custom-alert";
+import { toast } from "sonner";
 import {
     Table,
     TableBody,
@@ -101,6 +102,7 @@ export function ExpenseCategoriesClient({ categories }: ExpenseCategoriesClientP
             setIsCreateOpen(false);
             form.reset();
             router.refresh();
+            toast.success("Expense category created successfully");
         } catch (error) {
             console.error("Failed to create category:", error);
             showAlert(error instanceof Error ? error.message : "Failed to create category");
@@ -126,6 +128,7 @@ export function ExpenseCategoriesClient({ categories }: ExpenseCategoriesClientP
             setEditingCategory(null);
             form.reset();
             router.refresh();
+            toast.success("Expense category updated successfully");
         } catch (error) {
             console.error("Failed to update category:", error);
             showAlert(error instanceof Error ? error.message : "Failed to update category");
@@ -139,6 +142,7 @@ export function ExpenseCategoriesClient({ categories }: ExpenseCategoriesClientP
         try {
             await deleteExpenseCategory(id);
             router.refresh();
+            toast.success("Expense category deleted successfully");
         } catch (error) {
             console.error("Failed to delete category:", error);
             showAlert(error instanceof Error ? error.message : "Failed to delete category");
