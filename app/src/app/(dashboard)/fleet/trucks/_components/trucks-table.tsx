@@ -236,7 +236,7 @@ export function TrucksTable({ trucks, role, periodLabel, showFinancials = true }
                             className="pl-9"
                         />
                     </div>
-                    <div className="flex gap-2 items-center">
+                    <div className="flex gap-2 items-center flex-wrap">
                         <Select value={statusFilter} onValueChange={setStatusFilter}>
                             <SelectTrigger className="w-[180px]">
                                 <SelectValue placeholder="Filter by status" />

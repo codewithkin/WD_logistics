@@ -122,7 +122,7 @@ export function SupplierPaymentsTable({ payments, role, showFinancials = true }:
                             className="pl-9"
                         />
                     </div>
-                    <div className="flex gap-2 items-center">
+                    <div className="flex gap-2 items-center flex-wrap">
                         {canViewAmounts && (
                             <div className="text-sm text-muted-foreground">
                                 Total: <span className="font-bold text-foreground">${totalPayments.toLocaleString()}</span>
