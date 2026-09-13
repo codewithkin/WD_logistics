@@ -5,7 +5,6 @@
  * in service, in repair, or inactive.
  */
 
-import { requireRole } from "@/lib/session";
 import prisma from "@/lib/prisma";
 
 export interface FleetUtilizationData {
@@ -17,15 +16,13 @@ export interface FleetUtilizationData {
 
 /**
  * Get fleet utilization by truck status
+ * @param organizationId The organization to scope queries to
  */
-export async function getFleetUtilizationData(): Promise<FleetUtilizationData[]> {
-  const user = await requireRole(["admin", "supervisor", "staff"]);
-  const organization = user.organizationId;
-
+export async function getFleetUtilizationData(organizationId: string): Promise<FleetUtilizationData[]> {
   // Get truck counts by status
   const trucks = await prisma.truck.groupBy({
     by: ["status"],
-    where: { organizationId: organization },
+    where: { organizationId: organizationId },
     _count: true,
   });
 

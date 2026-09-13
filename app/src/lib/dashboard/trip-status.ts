@@ -4,8 +4,8 @@
  * Fetches count of trips by status for pie/donut chart visualization.
  */
 
-import { requireRole } from "@/lib/session";
 import prisma from "@/lib/prisma";
+import { Prisma } from "@/generated/prisma/client";
 
 export interface TripStatusData {
   status: string;
@@ -16,13 +16,15 @@ export interface TripStatusData {
 
 /**
  * Get trip count by status
+ * @param organizationId The organization to scope queries to
  */
-export async function getTripStatusDistributionData(startDate?: Date, endDate?: Date): Promise<TripStatusData[]> {
-  const user = await requireRole(["admin", "supervisor", "staff"]);
-  const organization = user.organizationId;
-
+export async function getTripStatusDistributionData(
+  organizationId: string,
+  startDate?: Date,
+  endDate?: Date
+): Promise<TripStatusData[]> {
   // Build where clause with optional date filter
-  const whereClause: any = { organizationId: organization };
+  const whereClause: Prisma.TripWhereInput = { organizationId: organizationId };
   if (startDate && endDate) {
     whereClause.scheduledDate = {
       gte: startDate,

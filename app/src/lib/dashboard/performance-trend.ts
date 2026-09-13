@@ -1,13 +1,12 @@
 /**
  * Monthly Performance Trend API Route
- * 
+ *
  * Fetches multi-metric monthly data for trend analysis:
  * - Revenue
  * - Trip count
  * - Expenses
  */
 
-import { requireRole } from "@/lib/session";
 import prisma from "@/lib/prisma";
 import { startOfMonth, endOfMonth, subMonths, format, eachMonthOfInterval } from "date-fns";
 
@@ -21,19 +20,60 @@ export interface MonthlyPerformanceTrend {
 
 /**
  * Get performance trend for the specified period
+ * @param organizationId The organization to scope queries to
  * @param fromDate Start of the period (defaults to 12 months ago)
  * @param toDate End of the period (defaults to now)
  */
 export async function getPerformanceTrendData(
+  organizationId: string,
   fromDate?: Date,
   toDate?: Date
 ): Promise<MonthlyPerformanceTrend[]> {
-  const user = await requireRole(["admin", "supervisor"]);
-  const organization = user.organizationId;
-
   const now = new Date();
   const endDate = toDate || now;
   const startDate = fromDate || subMonths(now, 11);
+
+  const [completedTrips, allTrips, expenses] = await Promise.all([
+    prisma.trip.findMany({
+      where: {
+        organizationId: organizationId,
+        status: "completed",
+        endDate: {
+          gte: startDate,
+          lte: endDate,
+        },
+      },
+      select: {
+        revenue: true,
+        endDate: true,
+      },
+    }),
+    prisma.trip.findMany({
+      where: {
+        organizationId: organizationId,
+        scheduledDate: {
+          gte: startDate,
+          lte: endDate,
+        },
+      },
+      select: {
+        scheduledDate: true,
+      },
+    }),
+    prisma.expense.findMany({
+      where: {
+        organizationId: organizationId,
+        date: {
+          gte: startDate,
+          lte: endDate,
+        },
+      },
+      select: {
+        amount: true,
+        date: true,
+      },
+    }),
+  ]);
 
   // Get all months in the range
   const monthIntervals = eachMonthOfInterval({
@@ -41,64 +81,28 @@ export async function getPerformanceTrendData(
     end: endOfMonth(endDate),
   });
 
-  const months: MonthlyPerformanceTrend[] = [];
+  const inMonth = (date: Date, monthStart: Date, monthEnd: Date) =>
+    new Date(date) >= monthStart && new Date(date) <= monthEnd;
 
-  for (const monthStart of monthIntervals) {
+  return monthIntervals.map((monthStart) => {
     const monthEnd = endOfMonth(monthStart);
 
-    // Get revenue from completed trips
-    const trips = await prisma.trip.findMany({
-      where: {
-        organizationId: organization,
-        status: "completed",
-        endDate: {
-          gte: monthStart,
-          lte: monthEnd,
-        },
-      },
-      select: {
-        revenue: true,
-      },
-    });
+    const revenue = completedTrips
+      .filter((t) => t.endDate && inMonth(t.endDate, monthStart, monthEnd))
+      .reduce((sum, t) => sum + (t.revenue || 0), 0);
 
-    const revenue = trips.reduce((sum, t) => sum + (t.revenue || 0), 0);
-    const tripCount = trips.length;
+    const tripCount = allTrips.filter((t) => inMonth(t.scheduledDate, monthStart, monthEnd)).length;
 
-    // Get trip count (all statuses)
-    const allTripsCount = await prisma.trip.count({
-      where: {
-        organizationId: organization,
-        scheduledDate: {
-          gte: monthStart,
-          lte: monthEnd,
-        },
-      },
-    });
+    const totalExpenses = expenses
+      .filter((e) => inMonth(e.date, monthStart, monthEnd))
+      .reduce((sum, e) => sum + e.amount, 0);
 
-    // Get expenses
-    const expenses = await prisma.expense.findMany({
-      where: {
-        organizationId: organization,
-        date: {
-          gte: monthStart,
-          lte: monthEnd,
-        },
-      },
-      select: {
-        amount: true,
-      },
-    });
-
-    const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
-
-    months.push({
+    return {
       month: format(monthStart, "MMM"),
       date: monthStart,
       revenue: Math.round(revenue * 100) / 100,
-      tripCount: allTripsCount,
+      tripCount,
       expenses: Math.round(totalExpenses * 100) / 100,
-    });
-  }
-
-  return months;
+    };
+  });
 }

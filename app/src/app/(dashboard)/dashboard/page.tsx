@@ -88,11 +88,11 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             take: 5,
         }),
         // Revenue vs Expenses data (monthly breakdown for chart)
-        getRevenueExpensesData(dateRange.from, dateRange.to),
+        getRevenueExpensesData(organizationId, dateRange.from, dateRange.to),
         // Performance trend data (monthly breakdown for chart)
-        getPerformanceTrendData(dateRange.from, dateRange.to),
+        getPerformanceTrendData(organizationId, dateRange.from, dateRange.to),
         // Driver performance data
-        getDriverPerformanceData(dateRange.from, dateRange.to),
+        getDriverPerformanceData(organizationId, dateRange.from, dateRange.to),
         // Period totals: Payments (revenue) within exact date range
         prisma.payment.aggregate({
             where: {
@@ -116,9 +116,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             _sum: { amount: true },
         }),
         // Trip status distribution (for staff/supervisor)
-        getTripStatusDistributionData(dateRange.from, dateRange.to),
+        getTripStatusDistributionData(organizationId, dateRange.from, dateRange.to),
         // Fleet utilization data (for staff/supervisor)
-        getFleetUtilizationData(),
+        getFleetUtilizationData(organizationId),
         // Recent trips (for staff/supervisor)
         prisma.trip.findMany({
             where: {
