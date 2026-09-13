@@ -68,7 +68,7 @@ export function DriverPerformanceTable({ data, periodLabel }: DriverPerformanceT
                 <CardDescription>Top 10 drivers by revenue {periodLabel ? `(${periodLabel})` : ""}</CardDescription>
             </CardHeader>
             <CardContent>
-                <div className="grid grid-cols-3 gap-4 mb-6">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
                     <div className="bg-blue-50 dark:bg-blue-950 p-4 rounded-lg">
                         <p className="text-sm font-medium text-blue-700 dark:text-blue-200">Total Drivers</p>
                         <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">{data.length}</p>
@@ -161,7 +161,7 @@ export function DriverPerformanceTable({ data, periodLabel }: DriverPerformanceT
                 </div>
 
                 {/* Legend */}
-                <div className="mt-6 grid grid-cols-4 gap-4">
+                <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div className="flex items-center gap-2">
                         <div className="w-4 h-4 bg-green-500 rounded"></div>
                         <span className="text-sm text-muted-foreground">Excellent (90%+)</span>

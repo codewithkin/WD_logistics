@@ -339,7 +339,7 @@ export function EditRequestsTable({ editRequests, role }: EditRequestsTableProps
                     </DialogHeader>
                     {selectedRequest && (
                         <div className="space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div>
                                     <p className="text-sm text-muted-foreground">Entity Type</p>
                                     <p className="font-medium">
@@ -366,7 +366,7 @@ export function EditRequestsTable({ editRequests, role }: EditRequestsTableProps
                                 <p className="text-sm">{selectedRequest.reason}</p>
                             </div>
                             {selectedRequest.approvedAt && (
-                                <div className="grid grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div>
                                         <p className="text-sm text-muted-foreground">Approved By</p>
                                         <p className="font-medium">

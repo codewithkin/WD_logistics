@@ -43,7 +43,7 @@ export function RevenueExpensesChart({ data, periodLabel, periodTotals }: Revenu
                 <CardDescription>{periodLabel ? `Data for ${periodLabel}` : "Monthly comparison"}</CardDescription>
             </CardHeader>
             <CardContent>
-                <div className="grid grid-cols-3 gap-4 mb-6">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
                     <div className="bg-green-50 dark:bg-green-950 p-4 rounded-lg">
                         <p className="text-sm font-medium text-green-700 dark:text-green-200">Total Revenue</p>
                         <p className="text-2xl font-bold text-green-900 dark:text-green-100">
@@ -66,7 +66,11 @@ export function RevenueExpensesChart({ data, periodLabel, periodTotals }: Revenu
                     </div>
                 </div>
 
-                <div className="w-full h-80">
+                {/* overflow-x-auto + min-w scrolls the chart itself on narrow
+                    screens instead of squeezing axis labels illegible or
+                    letting the whole page grow wider than the viewport. */}
+                <div className="w-full overflow-x-auto">
+                <div className="min-w-[560px] h-80">
                     <ResponsiveContainer width="100%" height="100%">
                         <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                             <defs>
@@ -119,6 +123,7 @@ export function RevenueExpensesChart({ data, periodLabel, periodTotals }: Revenu
                             />
                         </AreaChart>
                     </ResponsiveContainer>
+                </div>
                 </div>
             </CardContent>
         </Card>
