@@ -11,7 +11,6 @@ import {
   UserCog,
   ClipboardEdit,
   DollarSign,
-  Bot,
   LucideIcon,
   Tags,
   Handshake,
@@ -176,12 +175,6 @@ export const navigationSections: NavSection[] = [
   {
     label: "Tools",
     items: [
-      {
-        title: "AI Assistant",
-        href: "/ai",
-        icon: Bot,
-        roles: ["admin"],
-      },
       {
         title: "WhatsApp",
         href: "/settings/whatsapp",
