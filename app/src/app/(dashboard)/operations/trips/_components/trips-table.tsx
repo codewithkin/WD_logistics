@@ -42,10 +42,10 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
-import { MoreHorizontal, Eye, Pencil, Trash2, Search, FileEdit, MapPin } from "lucide-react";
+import { MoreHorizontal, Eye, Pencil, Trash2, Search, FileEdit, MapPin, Play, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { Role, TRIP_STATUS_LABELS } from "@/lib/types";
-import { deleteTrip, requestEditTrip } from "../actions";
+import { deleteTrip, requestEditTrip, updateTrip } from "../actions";
 import { toast } from "sonner";
 
 interface Trip {
@@ -86,6 +86,7 @@ export function TripsTable({ trips, role, showFinancials = true }: TripsTablePro
     const [statusFilter, setStatusFilter] = useState<string>("all");
     const [deleteId, setDeleteId] = useState<string | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [completingId, setCompletingId] = useState<string | null>(null);
 
     const canEdit = role === "admin" || role === "supervisor";
     const canDelete = role === "admin";
@@ -144,6 +145,23 @@ export function TripsTable({ trips, role, showFinancials = true }: TripsTablePro
         }
     };
 
+    const handleComplete = async (tripId: string) => {
+        setCompletingId(tripId);
+        try {
+            const result = await updateTrip(tripId, { status: "completed" });
+            if (result.success) {
+                toast.success("Trip marked as complete");
+                router.refresh();
+            } else {
+                toast.error(result.error || "Failed to mark trip complete");
+            }
+        } catch {
+            toast.error("An error occurred");
+        } finally {
+            setCompletingId(null);
+        }
+    };
+
     return (
         <Card>
             <CardContent className="p-6">
@@ -185,13 +203,16 @@ export function TripsTable({ trips, role, showFinancials = true }: TripsTablePro
                                 {canViewAmounts && (
                                     <TableHead className="text-right">Revenue</TableHead>
                                 )}
+                                {canEdit && (
+                                    <TableHead className="w-[10px]"></TableHead>
+                                )}
                                 <TableHead className="w-[70px]"></TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {paginatedTrips.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={canViewAmounts ? 8 : 7} className="text-center h-24 text-muted-foreground">
+                                    <TableCell colSpan={(canViewAmounts ? 1 : 0) + (canEdit ? 1 : 0) + 7} className="text-center h-24 text-muted-foreground">
                                         No trips found
                                     </TableCell>
                                 </TableRow>
@@ -251,6 +272,34 @@ export function TripsTable({ trips, role, showFinancials = true }: TripsTablePro
                                                 ${trip.revenue.toLocaleString()}
                                             </TableCell>
                                         )}
+                                        {canEdit && (
+                                            <TableCell className="p-0">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    title={
+                                                        trip.status === "completed"
+                                                            ? "Trip already complete"
+                                                            : trip.status === "cancelled"
+                                                                ? "Trip was cancelled"
+                                                                : "Mark trip complete"
+                                                    }
+                                                    disabled={
+                                                        trip.status === "completed" ||
+                                                        trip.status === "cancelled" ||
+                                                        completingId === trip.id
+                                                    }
+                                                    onClick={() => handleComplete(trip.id)}
+                                                >
+                                                    {completingId === trip.id ? (
+                                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                                    ) : (
+                                                        <Play className="h-4 w-4" />
+                                                    )}
+                                                    <span className="sr-only">Mark trip complete</span>
+                                                </Button>
+                                            </TableCell>
+                                        )}
                                         <TableCell>
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger asChild>
@@ -308,7 +357,7 @@ export function TripsTable({ trips, role, showFinancials = true }: TripsTablePro
                                     <TableCell className="text-right text-green-600">
                                         ${totalRevenue.toLocaleString()}
                                     </TableCell>
-                                    <TableCell></TableCell>
+                                    <TableCell colSpan={canEdit ? 2 : 1}></TableCell>
                                 </TableRow>
                             </TableFooter>
                         )}
