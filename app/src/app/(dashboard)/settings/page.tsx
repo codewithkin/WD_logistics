@@ -6,6 +6,7 @@ import { GeneralSettings } from "./_components/general-settings";
 import { NotificationsSettings } from "./_components/notifications-settings";
 import { OrganisationSettings } from "./_components/organisation-settings";
 import { MembersSettings } from "./_components/members-settings";
+import { DangerZone } from "./_components/danger-zone";
 import { getOrganizationMembers, getPendingInvitations } from "./actions";
 
 export default async function SettingsPage() {
@@ -63,10 +64,13 @@ export default async function SettingsPage() {
         <SettingsLayout
             children={{
                 general: (
-                    <GeneralSettings
-                        settings={generalSettings}
-                        organizationName={organization.name}
-                    />
+                    <>
+                        <GeneralSettings
+                            settings={generalSettings}
+                            organizationName={organization.name}
+                        />
+                        <DangerZone />
+                    </>
                 ),
                 notifications: (
                     <NotificationsSettings preferences={defaultNotificationPreferences} />

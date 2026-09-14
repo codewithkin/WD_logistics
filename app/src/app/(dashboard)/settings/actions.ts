@@ -387,3 +387,81 @@ export async function cancelInvitation(invitationId: string) {
     return { success: false, error: "Failed to cancel invitation" };
   }
 }
+
+/**
+ * Wipe all operational/business data (trips, trucks, drivers, customers,
+ * suppliers, invoices, expenses, inventory, reports, notifications, edit
+ * requests) while KEEPING the organization, users/members, and employees.
+ *
+ * Delete order matters — every foreign key points at trucks/drivers/trips
+ * (e.g. Trip → Truck/Driver, Invoice → Trip, Driver.assignedTruckId → Truck),
+ * and none of those relations cascade on delete, so children must go first.
+ * All deletes run in a single transaction; if anything fails, nothing changes.
+ */
+export async function wipeAllData() {
+  await requireRole(["admin"]);
+
+  try {
+    const [
+      lineItems,
+      payments,
+      invoices,
+      tripExpenses,
+      truckExpenses,
+      driverExpenses,
+      expenses,
+      partAllocations,
+      trips,
+      drivers,
+      trucks,
+      customers,
+      supplierPayments,
+      suppliers,
+      expenseCategories,
+      inventoryItems,
+      reports,
+      notifications,
+      userNotifications,
+      editRequests,
+    ] = await prisma.$transaction([
+      prisma.invoiceLineItem.deleteMany(),
+      prisma.payment.deleteMany(),
+      prisma.invoice.deleteMany(),
+      prisma.tripExpense.deleteMany(),
+      prisma.truckExpense.deleteMany(),
+      prisma.driverExpense.deleteMany(),
+      prisma.expense.deleteMany(),
+      prisma.partAllocation.deleteMany(),
+      prisma.trip.deleteMany(),
+      prisma.driver.deleteMany(),
+      prisma.truck.deleteMany(),
+      prisma.customer.deleteMany(),
+      prisma.supplierPayment.deleteMany(),
+      prisma.supplier.deleteMany(),
+      prisma.expenseCategory.deleteMany(),
+      prisma.inventoryItem.deleteMany(),
+      prisma.report.deleteMany(),
+      prisma.notification.deleteMany(),
+      prisma.userNotification.deleteMany(),
+      prisma.editRequest.deleteMany(),
+    ]);
+
+    const deleted =
+      lineItems.count + payments.count + invoices.count +
+      tripExpenses.count + truckExpenses.count + driverExpenses.count +
+      expenses.count + partAllocations.count + trips.count +
+      drivers.count + trucks.count + customers.count + supplierPayments.count +
+      suppliers.count + expenseCategories.count + inventoryItems.count +
+      reports.count + notifications.count + userNotifications.count +
+      editRequests.count;
+
+    revalidatePath("/");
+    revalidatePath("/dashboard");
+    revalidatePath("/settings");
+
+    return { success: true, deleted };
+  } catch (error) {
+    console.error("Failed to wipe data:", error);
+    return { success: false, error: "Failed to wipe data" };
+  }
+}
