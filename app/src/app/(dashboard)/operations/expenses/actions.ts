@@ -5,7 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, requireRole } from "@/lib/session";
 import { generateOperationsExpenseReportPDF } from "@/lib/reports/pdf-report-generator";
 import { notifyExpenseCreated, notifyExpenseUpdated, notifyExpenseDeleted } from "@/lib/notifications";
-import { debitAccountForExpense, creditAccountForExpense, InsufficientBalanceError } from "@/lib/accounts";
+import { InsufficientBalanceError } from "@/lib/accounts";
+import { debitAccountForExpense, creditAccountForExpense } from "@/lib/accounts-server";
 
 export async function createExpense(data: {
   description?: string;

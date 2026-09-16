@@ -1,7 +1,7 @@
 import { PageHeader } from "@/components/layout/page-header";
 import { requireRole } from "@/lib/session";
 import prisma from "@/lib/prisma";
-import { ensureAccountsExist } from "@/lib/accounts";
+import { ensureAccountsExist } from "@/lib/accounts-server";
 import { ExpenseCategoriesClient } from "./_components/expense-categories-client";
 
 export default async function ExpenseCategoriesPage() {

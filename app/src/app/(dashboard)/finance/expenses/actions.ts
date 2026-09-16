@@ -5,7 +5,8 @@ import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { generateExpenseReportPDF } from "@/lib/reports/pdf-report-generator";
 import { notifyExpenseCreated, notifyExpenseUpdated, notifyExpenseDeleted } from "@/lib/notifications";
-import { debitAccountForExpense, creditAccountForExpense, InsufficientBalanceError } from "@/lib/accounts";
+import { InsufficientBalanceError } from "@/lib/accounts";
+import { debitAccountForExpense, creditAccountForExpense } from "@/lib/accounts-server";
 
 export interface ExpenseFormData {
   categoryId: string;

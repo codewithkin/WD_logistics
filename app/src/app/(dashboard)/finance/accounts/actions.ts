@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
-import { ACCOUNT_TYPES, AccountType, ensureAccountsExist, transferFunds, InsufficientBalanceError } from "@/lib/accounts";
+import { ACCOUNT_TYPES, AccountType, InsufficientBalanceError } from "@/lib/accounts";
+import { ensureAccountsExist, transferFunds } from "@/lib/accounts-server";
 
 export async function getAccounts() {
   const session = await requireRole(["admin", "supervisor"]);
