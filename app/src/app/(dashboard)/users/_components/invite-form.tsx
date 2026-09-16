@@ -31,7 +31,7 @@ import { toast } from "sonner";
 const inviteSchema = z.object({
     email: z.string().email("Invalid email address"),
     name: z.string().optional(),
-    role: z.enum(["admin", "supervisor", "staff"]),
+    role: z.enum(["admin", "supervisor", "staff", "workshop"]),
 });
 
 type InviteFormData = z.infer<typeof inviteSchema>;
@@ -153,6 +153,8 @@ export function InviteUserForm() {
                                         <strong>Supervisor:</strong> Can manage operations but cannot delete
                                         <br />
                                         <strong>Staff:</strong> View access and can request edits
+                                        <br />
+                                        <strong>Workshop:</strong> Views and resolves maintenance requests only
                                     </FormDescription>
                                     <FormMessage />
                                 </FormItem>
