@@ -14,15 +14,15 @@ export default function ContactPage() {
     <div className="w-[1320px] max-w-full bg-[#FBFCFB] text-[#1E2320]">
       <Header />
 
-      <div className="grid grid-cols-[0.82fr_1.18fr] items-start gap-[34px] px-[34px] pb-[70px] pt-14">
-        <div className="flex flex-col gap-[18px]">
+      <div className="grid grid-cols-1 items-start gap-8 px-5 pb-12 pt-10 sm:px-8 lg:grid-cols-[0.82fr_1.18fr] lg:gap-[34px] lg:px-[34px] lg:pb-[70px] lg:pt-14">
+        <div className="flex flex-col gap-4 lg:gap-[18px]">
           <span className="w-fit rounded-full bg-[#EFF8E5] px-4 py-2.5 font-sans text-xs font-semibold tracking-[0.06em] text-[#3D8A14]">
             CONTACT US
           </span>
-          <h1 className="m-0 max-w-[16ch] font-heading text-[58px] font-semibold leading-none tracking-[-0.035em] text-balance">
+          <h1 className="m-0 max-w-full font-heading text-[36px] font-semibold leading-[1.05] tracking-[-0.02em] text-balance sm:text-[46px] lg:max-w-[16ch] lg:text-[58px] lg:leading-none lg:tracking-[-0.035em]">
             Let&apos;s get it <span className="italic text-[#3D8A14]">on the road</span>
           </h1>
-          <p className="m-0 max-w-[38ch] font-sans text-base leading-[1.7] text-[#646B65] text-balance">
+          <p className="m-0 max-w-full font-sans text-sm leading-[1.7] text-[#646B65] text-balance sm:text-base lg:max-w-[38ch]">
             Fill in as much as you know — only your name and number are
             required. If you have the load details handy, add them and
             we&apos;ll come back with a price instead of questions.
@@ -95,11 +95,11 @@ export default function ContactPage() {
         <EnquiryForm />
       </div>
 
-      <div className="px-[34px] pb-[70px]">
+      <div className="px-5 pb-12 sm:px-8 lg:px-[34px] lg:pb-[70px]">
         <PhotoPlaceholder
           variant="neutral"
           label="MAP — NYAKAMETE, MUTARE"
-          className="flex h-[300px] items-end justify-between gap-5 rounded-[36px] p-6"
+          className="flex h-[220px] flex-col items-start justify-end gap-4 rounded-[28px] p-5 sm:h-[300px] sm:flex-row sm:items-end sm:justify-between sm:gap-5 sm:rounded-[36px] sm:p-6"
         >
           <a
             href="https://www.google.com/maps/search/?api=1&query=Nyakamete+Mutare+Zimbabwe"

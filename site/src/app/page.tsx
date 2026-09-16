@@ -52,70 +52,70 @@ export default function HomePage() {
       <Header />
 
       {/* Hero */}
-      <div className="px-[34px] pt-[26px]">
+      <div className="px-5 pt-5 sm:px-8 lg:px-[34px] lg:pt-[26px]">
         <PhotoPlaceholder
           variant="neutral"
-          className="flex min-h-[800px] flex-col justify-between rounded-[40px] p-[46px]"
+          className="flex min-h-0 flex-col justify-between gap-8 rounded-[28px] p-6 sm:rounded-[32px] sm:p-8 lg:min-h-[800px] lg:rounded-[40px] lg:p-[46px]"
           label=""
         >
-          <div className="flex items-start justify-between gap-10">
-            <div className="flex max-w-[640px] flex-col gap-6">
-              <span className="inline-flex w-fit items-center gap-2.5 rounded-full bg-white px-4 py-2.5 font-sans text-xs font-semibold tracking-[0.06em]">
+          <div className="flex flex-col items-start justify-between gap-8 lg:flex-row lg:gap-10">
+            <div className="flex max-w-full flex-col gap-5 lg:max-w-[640px] lg:gap-6">
+              <span className="inline-flex w-fit items-center gap-2.5 rounded-full bg-white px-4 py-2.5 font-sans text-[11px] font-semibold tracking-[0.06em] sm:text-xs">
                 <span className="h-[7px] w-[7px] rounded-full bg-[#1667C4]" />
                 ROAD FREIGHT · ZIMBABWE &amp; SADC
               </span>
-              <h1 className="m-0 font-heading text-[74px] font-semibold leading-[0.98] tracking-[-0.035em] text-balance">
+              <h1 className="m-0 font-heading text-[40px] font-semibold leading-[1.05] tracking-[-0.03em] text-balance sm:text-[56px] lg:text-[74px] lg:leading-[0.98] lg:tracking-[-0.035em]">
                 Zimbabwe&apos;s
                 <br />
                 load, moved
                 <br />
                 <span className="italic text-[#3D8A14]">on time.</span>
               </h1>
-              <p className="m-0 max-w-[44ch] rounded-[20px] bg-white/85 px-[22px] py-[18px] font-sans text-base leading-[1.6] text-[#333833] text-balance">
+              <p className="m-0 max-w-full rounded-[20px] bg-white/85 px-5 py-4 font-sans text-sm leading-[1.6] text-[#333833] text-balance sm:max-w-[44ch] sm:px-[22px] sm:py-[18px] sm:text-base">
                 Short and long distance haulage from our Mutare base — across
                 Zimbabwe and into the SADC region. Satellite tracking on every
                 truck, one dispatcher, a quote the same day.
               </p>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 <a
                   href={COMPANY.whatsappHref}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="rounded-full bg-[#63C32E] px-7 py-[17px] font-sans text-[15px] font-bold text-[#15250A]"
+                  className="rounded-full bg-[#63C32E] px-6 py-4 font-sans text-sm font-bold text-[#15250A] sm:px-7 sm:py-[17px] sm:text-[15px]"
                 >
                   WhatsApp us →
                 </a>
                 <Link
                   href="/contact"
-                  className="rounded-full bg-white px-7 py-[17px] font-sans text-[15px] font-semibold text-[#1E2320]"
+                  className="rounded-full bg-white px-6 py-4 font-sans text-sm font-semibold text-[#1E2320] sm:px-7 sm:py-[17px] sm:text-[15px]"
                 >
                   Contact us
                 </Link>
               </div>
             </div>
 
-            <div className="flex flex-col items-end gap-3">
-              <span className="flex flex-col gap-1 rounded-[24px] bg-white px-[26px] py-5 text-right">
-                <span className="font-heading text-[34px] font-bold leading-none tracking-[-0.03em]">
+            <div className="flex w-full flex-row items-center justify-between gap-3 lg:w-auto lg:flex-col lg:items-end">
+              <span className="flex flex-col gap-1 rounded-[20px] bg-white px-5 py-4 text-right sm:rounded-[24px] sm:px-[26px] sm:py-5">
+                <span className="font-heading text-2xl font-bold leading-none tracking-[-0.03em] sm:text-[34px]">
                   4,100+
                 </span>
-                <span className="font-sans text-xs leading-[1.4] text-[#646B65]">
+                <span className="font-sans text-[11px] leading-[1.4] text-[#646B65] sm:text-xs">
                   loads delivered
                   <br />
                   across Zimbabwe
                 </span>
               </span>
-              <span className="flex items-center gap-2.5 rounded-full bg-[#1667C4] px-5 py-3.5 font-sans text-[13px] font-semibold text-white">
+              <span className="flex items-center gap-2.5 rounded-full bg-[#1667C4] px-4 py-3 font-sans text-xs font-semibold text-white sm:px-5 sm:py-3.5 sm:text-[13px]">
                 98% on-time
               </span>
             </div>
           </div>
 
-          <div className="flex items-end justify-between gap-6">
-            <span className="inline-flex items-center gap-2 rounded-full bg-white/90 px-3.5 py-2 font-mono text-[11px] tracking-[0.08em] text-[#6A716B]">
+          <div className="flex flex-col items-start gap-4 lg:flex-row lg:items-end lg:justify-between lg:gap-6">
+            <span className="inline-flex items-center gap-2 rounded-full bg-white/90 px-3.5 py-2 font-mono text-[10px] tracking-[0.08em] text-[#6A716B] sm:text-[11px]">
               HERO PHOTO — LOADED TRAILER, WIDE CROP
             </span>
-            <div className="flex w-[430px] flex-col gap-4 rounded-[28px] bg-white p-6 shadow-[0_20px_50px_rgba(30,35,32,.18)]">
+            <div className="flex w-full flex-col gap-4 rounded-[24px] bg-white p-5 shadow-[0_20px_50px_rgba(30,35,32,.18)] sm:rounded-[28px] sm:p-6 lg:w-[430px]">
               <span className="font-heading text-base font-bold">
                 Get a same-day quote
               </span>
@@ -160,10 +160,10 @@ export default function HomePage() {
       </div>
 
       {/* Route ticker */}
-      <div className="my-[34px] overflow-hidden bg-[#1E2320] py-[18px] text-white">
-        <div className="flex items-center gap-[34px] whitespace-nowrap font-heading text-[15px] font-semibold tracking-[0.02em]">
+      <div className="my-8 overflow-x-auto bg-[#1E2320] py-4 text-white lg:my-[34px] lg:overflow-hidden lg:py-[18px]">
+        <div className="flex w-max items-center gap-6 whitespace-nowrap px-5 font-heading text-sm font-semibold tracking-[0.02em] sm:gap-[34px] sm:px-8 sm:text-[15px] lg:px-[34px]">
           {ROUTES.map((route, i) => (
-            <span key={`${route}-${i}`} className="flex items-center gap-[34px]">
+            <span key={`${route}-${i}`} className="flex items-center gap-6 sm:gap-[34px]">
               <span className="text-[#8FD94F]">✳</span>
               <span>{route}</span>
             </span>
@@ -172,20 +172,20 @@ export default function HomePage() {
       </div>
 
       {/* Services */}
-      <div id="b-services" className="px-[34px] pb-[70px] pt-5">
-        <div className="flex items-end justify-between gap-10 pb-[34px]">
-          <h2 className="m-0 max-w-[22ch] font-heading text-[50px] font-semibold leading-[1.02] tracking-[-0.03em] text-balance">
+      <div id="b-services" className="px-5 pb-12 pt-5 sm:px-8 lg:px-[34px] lg:pb-[70px]">
+        <div className="flex flex-col gap-6 pb-8 lg:flex-row lg:items-end lg:justify-between lg:gap-10 lg:pb-[34px]">
+          <h2 className="m-0 max-w-full font-heading text-[32px] font-semibold leading-[1.08] tracking-[-0.02em] text-balance sm:text-[40px] lg:max-w-[22ch] lg:text-[50px] lg:leading-[1.02] lg:tracking-[-0.03em]">
             One fleet, every kind of <span className="italic">load</span>
           </h2>
-          <p className="m-0 max-w-[40ch] font-sans text-base leading-[1.6] text-[#646B65] text-balance">
+          <p className="m-0 max-w-full font-sans text-sm leading-[1.6] text-[#646B65] text-balance sm:text-base lg:max-w-[40ch]">
             Road freight is all we do — which is why we do it properly. Tell
             us what&apos;s on the floor and we&apos;ll tell you which trailer
             it needs.
           </p>
         </div>
 
-        <div className="grid grid-cols-4 gap-[18px]">
-          <div className="col-span-2 flex flex-col gap-[18px] rounded-[32px] border border-[#E6E9E2] bg-white p-[26px]">
+        <div className="grid grid-cols-1 gap-[18px] sm:grid-cols-2 lg:grid-cols-4">
+          <div className="sm:col-span-2 flex flex-col gap-[18px] rounded-[28px] border border-[#E6E9E2] bg-white p-6 lg:rounded-[32px] lg:p-[26px]">
             <PhotoPlaceholder
               variant="card"
               label="PHOTO — SUPERLINK ON THE MUTARE ROAD"
@@ -244,11 +244,11 @@ export default function HomePage() {
             </span>
           </div>
 
-          <div className="col-span-2 flex items-center gap-[22px] rounded-[32px] border border-[#E6E9E2] bg-white p-[26px]">
+          <div className="sm:col-span-2 flex flex-col items-start gap-5 rounded-[28px] border border-[#E6E9E2] bg-white p-6 sm:flex-row sm:items-center sm:gap-[22px] lg:rounded-[32px] lg:p-[26px]">
             <PhotoPlaceholder
               variant="card"
               label="LOW-BED MACHINERY"
-              className="flex h-[180px] w-[180px] shrink-0 items-center justify-center rounded-[24px] text-center"
+              className="flex h-[140px] w-full shrink-0 items-center justify-center rounded-[24px] text-center sm:h-[180px] sm:w-[180px]"
               labelClassName="text-[10px] px-0 bg-transparent"
             />
             <span className="flex flex-col gap-2.5">
@@ -302,16 +302,16 @@ export default function HomePage() {
       </div>
 
       {/* Four steps */}
-      <div className="bg-[#EFF8E5] px-[34px] py-[70px]">
-        <div className="flex items-end justify-between gap-10 pb-10">
-          <h2 className="m-0 max-w-[20ch] font-heading text-[50px] font-semibold leading-[1.02] tracking-[-0.03em] text-balance">
+      <div className="bg-[#EFF8E5] px-5 py-12 sm:px-8 lg:px-[34px] lg:py-[70px]">
+        <div className="flex flex-col gap-5 pb-8 sm:flex-row sm:items-end sm:justify-between sm:gap-10 lg:pb-10">
+          <h2 className="m-0 max-w-full font-heading text-[32px] font-semibold leading-[1.08] tracking-[-0.02em] text-balance sm:max-w-[20ch] sm:text-[40px] lg:text-[50px] lg:leading-[1.02] lg:tracking-[-0.03em]">
             Four steps from message to delivery note
           </h2>
-          <span className="rounded-full bg-white px-5 py-3 font-sans text-[13px] font-semibold">
+          <span className="w-fit rounded-full bg-white px-5 py-3 font-sans text-[13px] font-semibold">
             Most quotes inside 3 hours
           </span>
         </div>
-        <div className="grid grid-cols-4 gap-[18px]">
+        <div className="grid grid-cols-1 gap-[18px] sm:grid-cols-2 lg:grid-cols-4">
           {[
             {
               n: "01",
@@ -363,14 +363,14 @@ export default function HomePage() {
       </div>
 
       {/* Why clients stay */}
-      <div className="grid grid-cols-2 items-center gap-[34px] px-[34px] py-[74px]">
+      <div className="grid grid-cols-1 items-center gap-8 px-5 py-12 sm:px-8 lg:grid-cols-2 lg:gap-[34px] lg:px-[34px] lg:py-[74px]">
         <PhotoPlaceholder
           variant="neutral"
           label="PHOTO — LOADING AT THE NYAKAMETE YARD"
-          className="flex h-[480px] items-end rounded-[36px] p-[26px]"
+          className="flex h-[320px] items-end rounded-[28px] p-5 sm:h-[400px] sm:rounded-[36px] sm:p-[26px] lg:h-[480px]"
         >
-          <span className="absolute right-[26px] top-[26px] flex flex-col gap-1 rounded-[22px] bg-white px-[22px] py-[18px] text-right">
-            <span className="font-heading text-[30px] font-bold leading-none tracking-[-0.03em]">
+          <span className="absolute right-5 top-5 flex flex-col gap-1 rounded-[18px] bg-white px-4 py-3 text-right sm:right-[26px] sm:top-[26px] sm:rounded-[22px] sm:px-[22px] sm:py-[18px]">
+            <span className="font-heading text-2xl font-bold leading-none tracking-[-0.03em] sm:text-[30px]">
               12
             </span>
             <span className="font-sans text-xs leading-[1.3] text-[#646B65]">
@@ -380,19 +380,19 @@ export default function HomePage() {
             </span>
           </span>
         </PhotoPlaceholder>
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-5 lg:gap-6">
           <span className="w-fit rounded-full bg-[#EFF8E5] px-4 py-2.5 font-sans text-xs font-semibold tracking-[0.06em] text-[#3D8A14]">
             WHY CLIENTS STAY
           </span>
-          <h2 className="m-0 max-w-[22ch] font-heading text-[46px] font-semibold leading-[1.04] tracking-[-0.03em] text-balance">
+          <h2 className="m-0 max-w-full font-heading text-[32px] font-semibold leading-[1.08] tracking-[-0.02em] text-balance sm:text-[40px] lg:max-w-[22ch] lg:text-[46px] lg:leading-[1.04] lg:tracking-[-0.03em]">
             Zimbabwean roads, Zimbabwean crew
           </h2>
-          <p className="m-0 max-w-[46ch] font-sans text-base leading-[1.7] text-[#646B65] text-balance">
+          <p className="m-0 max-w-full font-sans text-sm leading-[1.7] text-[#646B65] text-balance sm:text-base lg:max-w-[46ch]">
             We know which weighbridge is slow, which detour floods in
             February and which farm gate needs a smaller rig. That&apos;s not
             something a booking app can tell you.
           </p>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {[
               "Satellite-tracked fleet",
               "100% Hazchem compliant",
@@ -413,13 +413,13 @@ export default function HomePage() {
       {/* FAQ */}
       <div
         id="b-faq"
-        className="grid grid-cols-[0.9fr_1.1fr] gap-[34px] px-[34px] pb-[74px]"
+        className="grid grid-cols-1 gap-8 px-5 pb-12 sm:px-8 lg:grid-cols-[0.9fr_1.1fr] lg:gap-[34px] lg:px-[34px] lg:pb-[74px]"
       >
-        <div className="flex flex-col gap-[22px]">
-          <h2 className="m-0 max-w-[18ch] font-heading text-[46px] font-semibold leading-[1.04] tracking-[-0.03em] text-balance">
+        <div className="flex flex-col gap-5 lg:gap-[22px]">
+          <h2 className="m-0 max-w-full font-heading text-[32px] font-semibold leading-[1.08] tracking-[-0.02em] text-balance sm:text-[40px] lg:max-w-[18ch] lg:text-[46px] lg:leading-[1.04] lg:tracking-[-0.03em]">
             Questions we get every week
           </h2>
-          <p className="m-0 max-w-[34ch] font-sans text-[15px] leading-[1.7] text-[#646B65] text-balance">
+          <p className="m-0 max-w-full font-sans text-sm leading-[1.7] text-[#646B65] text-balance sm:text-[15px] lg:max-w-[34ch]">
             Anything else, the dispatcher picks up: {COMPANY.whatsapp}.
           </p>
           <a
@@ -435,8 +435,8 @@ export default function HomePage() {
       </div>
 
       {/* Testimonials */}
-      <div className="px-[34px] pb-[74px]">
-        <div className="grid grid-cols-3 gap-[18px]">
+      <div className="px-5 pb-12 sm:px-8 lg:px-[34px] lg:pb-[74px]">
+        <div className="grid grid-cols-1 gap-[18px] sm:grid-cols-2 lg:grid-cols-3">
           <div className="flex flex-col gap-4.5 rounded-[28px] border border-[#E6E9E2] bg-white p-[30px]">
             <span className="font-sans text-sm font-medium text-[#1667C4]">
               ★★★★★

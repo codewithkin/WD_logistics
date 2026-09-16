@@ -32,7 +32,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${archivo.variable} ${bricolageGrotesque.variable} ${dmSans.variable}`}
     >
-      <body className="flex justify-center bg-[#EDEFEC] font-sans text-[#1E2320]">
+      <body className="flex justify-center overflow-x-hidden bg-[#EDEFEC] font-sans text-[#1E2320]">
         {children}
       </body>
     </html>

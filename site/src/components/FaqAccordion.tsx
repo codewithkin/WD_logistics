@@ -22,8 +22,8 @@ export function FaqAccordion({
             key={item.question}
             className={`flex flex-col gap-3 rounded-[20px] ${
               open
-                ? "bg-[#63C32E] px-[26px] py-6 text-[#15250A]"
-                : "border border-[#E6E9E2] bg-white px-[26px] py-[22px] text-[#333833]"
+                ? "bg-[#63C32E] px-5 py-5 text-[#15250A] sm:px-[26px] sm:py-6"
+                : "border border-[#E6E9E2] bg-white px-5 py-4 text-[#333833] sm:px-[26px] sm:py-[22px]"
             }`}
           >
             <button
