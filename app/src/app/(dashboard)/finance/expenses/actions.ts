@@ -5,6 +5,7 @@ import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { generateExpenseReportPDF } from "@/lib/reports/pdf-report-generator";
 import { notifyExpenseCreated, notifyExpenseUpdated, notifyExpenseDeleted } from "@/lib/notifications";
+import { debitAccountForExpense, creditAccountForExpense, InsufficientBalanceError } from "@/lib/accounts";
 
 export interface ExpenseFormData {
   categoryId: string;
@@ -28,50 +29,62 @@ export async function createExpense(data: ExpenseFormData): Promise<ExpenseActio
   const user = await requireRole(["admin", "supervisor", "staff"]);
 
   try {
-    // Get category name for notification
     const category = await prisma.expenseCategory.findUnique({
       where: { id: data.categoryId },
-      select: { name: true },
+      select: { name: true, defaultAccountId: true },
     });
 
-    const expense = await prisma.expense.create({
-      data: {
-        organizationId: user.organizationId,
-        categoryId: data.categoryId,
-        amount: data.amount,
-        date: data.date,
-        notes: data.notes,
-        isBusinessExpense: data.isBusinessExpense || false,
-        supplierId: data.isBusinessExpense ? data.supplierId : undefined,
-        truckExpenses: !data.isBusinessExpense && data.truckIds?.length
-          ? {
-              create: data.truckIds.map((truckId) => ({ truckId })),
-            }
-          : undefined,
-        tripExpenses: !data.isBusinessExpense && data.tripIds?.length
-          ? {
-              create: data.tripIds.map((tripId) => ({ tripId })),
-            }
-          : undefined,
-        driverExpenses: !data.isBusinessExpense && data.driverIds?.length
-          ? {
-              create: data.driverIds.map((driverId) => ({ driverId })),
-            }
-          : undefined,
-      },
-    });
-
-    // Update supplier balance if business expense with supplier
-    if (data.isBusinessExpense && data.supplierId) {
-      await prisma.supplier.update({
-        where: { id: data.supplierId },
+    const expense = await prisma.$transaction(async (tx) => {
+      const created = await tx.expense.create({
         data: {
-          balance: {
-            increment: data.amount,
-          },
+          organizationId: user.organizationId,
+          categoryId: data.categoryId,
+          amount: data.amount,
+          date: data.date,
+          notes: data.notes,
+          isBusinessExpense: data.isBusinessExpense || false,
+          supplierId: data.isBusinessExpense ? data.supplierId : undefined,
+          truckExpenses: !data.isBusinessExpense && data.truckIds?.length
+            ? {
+                create: data.truckIds.map((truckId) => ({ truckId })),
+              }
+            : undefined,
+          tripExpenses: !data.isBusinessExpense && data.tripIds?.length
+            ? {
+                create: data.tripIds.map((tripId) => ({ tripId })),
+              }
+            : undefined,
+          driverExpenses: !data.isBusinessExpense && data.driverIds?.length
+            ? {
+                create: data.driverIds.map((driverId) => ({ driverId })),
+              }
+            : undefined,
         },
       });
-    }
+
+      // Draw funds from the category's default account, if configured.
+      // Categories with no default account skip accounting entirely.
+      if (category?.defaultAccountId) {
+        await debitAccountForExpense(tx, {
+          accountId: category.defaultAccountId,
+          amount: data.amount,
+          expenseId: created.id,
+          description: data.notes || category.name,
+          date: data.date,
+          createdById: user.user.id,
+        });
+      }
+
+      // Update supplier balance if business expense with supplier
+      if (data.isBusinessExpense && data.supplierId) {
+        await tx.supplier.update({
+          where: { id: data.supplierId },
+          data: { balance: { increment: data.amount } },
+        });
+      }
+
+      return created;
+    });
 
     // Send admin notification
     notifyExpenseCreated(
@@ -87,11 +100,15 @@ export async function createExpense(data: ExpenseFormData): Promise<ExpenseActio
     ).catch((err) => console.error("Failed to send admin notification:", err));
 
     revalidatePath("/finance/expenses");
+    revalidatePath("/finance/accounts");
     if (data.supplierId) {
       revalidatePath(`/suppliers/${data.supplierId}`);
     }
     return { success: true, expense };
   } catch (error) {
+    if (error instanceof InsufficientBalanceError) {
+      return { success: false, error: error.message };
+    }
     console.error("Failed to create expense:", error);
     return { success: false, error: "Failed to create expense" };
   }
@@ -110,6 +127,7 @@ export async function updateExpense(id: string, data: ExpenseFormData): Promise<
         isBusinessExpense: true,
         supplierId: true,
         isPaid: true,
+        category: { select: { defaultAccountId: true } },
       },
     });
 
@@ -120,10 +138,33 @@ export async function updateExpense(id: string, data: ExpenseFormData): Promise<
     // Get category name for notification
     const category = await prisma.expenseCategory.findUnique({
       where: { id: data.categoryId },
-      select: { name: true },
+      select: { name: true, defaultAccountId: true },
     });
 
     await prisma.$transaction(async (tx) => {
+      // Reverse the old account impact, then apply the new one. Crediting
+      // back before debiting means a same-account edit (just the amount
+      // changed) nets out correctly instead of risking a false overdraft.
+      if (existing.category.defaultAccountId) {
+        await creditAccountForExpense(tx, {
+          accountId: existing.category.defaultAccountId,
+          amount: existing.amount,
+          expenseId: id,
+          description: "Expense updated (reversal)",
+          createdById: user.user.id,
+        });
+      }
+      if (category?.defaultAccountId) {
+        await debitAccountForExpense(tx, {
+          accountId: category.defaultAccountId,
+          amount: data.amount,
+          expenseId: id,
+          description: data.notes || category.name,
+          date: data.date,
+          createdById: user.user.id,
+        });
+      }
+
       // Handle supplier balance changes for unpaid expenses
       if (!existing.isPaid) {
         // If expense was linked to a supplier, decrement old supplier balance
@@ -215,8 +256,12 @@ export async function updateExpense(id: string, data: ExpenseFormData): Promise<
     if (data.supplierId) {
       revalidatePath(`/suppliers/${data.supplierId}`);
     }
+    revalidatePath("/finance/accounts");
     return { success: true };
   } catch (error) {
+    if (error instanceof InsufficientBalanceError) {
+      return { success: false, error: error.message };
+    }
     console.error("Failed to update expense:", error);
     return { success: false, error: "Failed to update expense" };
   }
@@ -228,14 +273,14 @@ export async function deleteExpense(id: string) {
   // Verify ownership and get details for notification and supplier balance
   const existing = await prisma.expense.findUnique({
     where: { id },
-    select: { 
+    select: {
       organizationId: true,
       notes: true,
       amount: true,
       isBusinessExpense: true,
       supplierId: true,
       isPaid: true,
-      category: { select: { name: true } },
+      category: { select: { name: true, defaultAccountId: true } },
     },
   });
 
@@ -243,17 +288,30 @@ export async function deleteExpense(id: string) {
     throw new Error("Expense not found");
   }
 
-  // If unpaid business expense with supplier, decrement supplier balance
-  if (existing.isBusinessExpense && existing.supplierId && !existing.isPaid) {
-    await prisma.supplier.update({
-      where: { id: existing.supplierId },
-      data: { balance: { decrement: existing.amount } },
-    });
-  }
+  await prisma.$transaction(async (tx) => {
+    // If unpaid business expense with supplier, decrement supplier balance
+    if (existing.isBusinessExpense && existing.supplierId && !existing.isPaid) {
+      await tx.supplier.update({
+        where: { id: existing.supplierId },
+        data: { balance: { decrement: existing.amount } },
+      });
+    }
 
-  await prisma.expense.delete({
-    where: { id },
+    // Credit the funds back to the account this expense drew from
+    if (existing.category.defaultAccountId) {
+      await creditAccountForExpense(tx, {
+        accountId: existing.category.defaultAccountId,
+        amount: existing.amount,
+        expenseId: id,
+        description: existing.notes || existing.category.name || "Expense deleted",
+        createdById: user.user.id,
+      });
+    }
+
+    await tx.expense.delete({ where: { id } });
   });
+
+  revalidatePath("/finance/accounts");
 
   // Send admin notification
   notifyExpenseDeleted(
