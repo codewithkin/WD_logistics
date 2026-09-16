@@ -13,15 +13,15 @@ export const metadata: Metadata = {
 export default function ContactPage() {
   return (
     <PageShell>
-      <div className="grid grid-cols-1 items-start gap-12 px-12 pt-16 pb-16 lg:grid-cols-[0.82fr_1.18fr]">
+      <div className="grid grid-cols-1 items-start gap-10 px-5 pt-10 pb-10 sm:px-8 sm:pt-14 lg:grid-cols-[0.82fr_1.18fr] lg:gap-12 lg:px-12 lg:pt-16 lg:pb-16">
         <div className="flex flex-col gap-4">
           <span className="font-sans text-xs font-semibold tracking-[0.14em] text-(--color-brand)">
             CONTACT US
           </span>
-          <h1 className="m-0 max-w-[16ch] font-sans text-[40px] leading-[1.1] font-semibold tracking-[-0.02em]">
+          <h1 className="m-0 max-w-[16ch] font-sans text-[32px] leading-[1.15] font-semibold tracking-[-0.02em] sm:text-[40px] sm:leading-[1.1]">
             Let&apos;s get it on the road.
           </h1>
-          <p className="m-0 max-w-[38ch] text-balance font-sans text-base leading-[1.7] text-(--color-muted)">
+          <p className="m-0 max-w-[38ch] text-balance font-sans text-[15px] leading-[1.6] text-(--color-muted) sm:text-base sm:leading-[1.7]">
             Fill in as much as you know — only your name and number are required. If you have the
             load details handy, add them and we&apos;ll come back with a price instead of
             questions.
@@ -32,7 +32,7 @@ export default function ContactPage() {
               href={COMPANY.whatsappHref}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-4 rounded-[6px] bg-(--color-accent) px-6 py-[22px] text-(--color-accent-ink)"
+              className="btn-cta flex items-center gap-4 rounded-[6px] bg-(--color-accent) px-6 py-[22px] text-(--color-accent-ink)"
             >
               <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[4px] bg-white/70 font-sans text-lg font-semibold">
                 ✆
@@ -107,8 +107,8 @@ export default function ContactPage() {
       </div>
 
       {/* Map */}
-      <div className="px-12 pb-16">
-        <div className="photo-placeholder flex h-[280px] items-end justify-between gap-5 rounded-[6px] p-5">
+      <div className="px-5 pb-10 sm:px-8 lg:px-12 lg:pb-16">
+        <div className="photo-placeholder flex h-[220px] flex-wrap items-end justify-between gap-4 rounded-[6px] p-5 sm:h-[280px]">
           <span className="rounded-[4px] bg-(--color-surface) px-3 py-2 font-mono text-[11px] leading-none tracking-[0.08em] text-(--color-label)">
             MAP — NYAKAMETE, MUTARE
           </span>

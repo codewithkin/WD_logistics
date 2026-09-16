@@ -36,7 +36,7 @@ export function EnquiryForm() {
   return (
     <form
       onSubmit={handleSubmit}
-      className="flex flex-col gap-8 rounded-[6px] border border-(--color-border) bg-(--color-surface) p-10"
+      className="flex flex-col gap-6 rounded-[6px] border border-(--color-border) bg-(--color-surface) p-6 sm:gap-8 sm:p-10"
     >
       <div className="flex flex-col gap-4">
         <div className="flex items-baseline justify-between gap-5">
@@ -168,7 +168,7 @@ export function EnquiryForm() {
         </span>
         <button
           type="submit"
-          className="rounded-[4px] bg-(--color-accent) px-7 py-3.5 font-sans text-sm font-semibold text-(--color-accent-ink)"
+          className="btn-cta rounded-[4px] bg-(--color-accent) px-7 py-3.5 font-sans text-sm font-semibold text-(--color-accent-ink)"
         >
           Send enquiry
         </button>

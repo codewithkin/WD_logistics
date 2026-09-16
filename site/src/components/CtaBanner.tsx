@@ -13,9 +13,9 @@ export function CtaBanner({
   secondaryHref?: string;
 }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-10 bg-(--color-accent) px-12 py-11 text-(--color-accent-ink)">
+    <div className="flex flex-col flex-wrap items-start justify-between gap-6 bg-(--color-accent) px-5 py-8 text-(--color-accent-ink) sm:px-8 sm:py-10 lg:flex-row lg:items-center lg:gap-10 lg:px-12 lg:py-11">
       <div className="flex flex-col gap-2">
-        <h2 className="m-0 max-w-[30ch] font-sans text-[28px] leading-[1.2] font-semibold tracking-[-0.02em] text-balance">
+        <h2 className="m-0 max-w-[30ch] text-balance font-sans text-2xl leading-[1.2] font-semibold tracking-[-0.02em] sm:text-[28px]">
           {heading}
         </h2>
         <p className="m-0 font-sans text-[15px] leading-[1.5] text-[rgba(21,37,10,0.8)]">
@@ -27,7 +27,7 @@ export function CtaBanner({
           href={COMPANY.whatsappHref}
           target="_blank"
           rel="noopener noreferrer"
-          className="rounded-[4px] bg-(--color-surface) px-6 py-3.5 font-sans text-sm font-semibold text-(--color-ink) hover:text-(--color-ink)"
+          className="btn-cta rounded-[4px] bg-(--color-surface) px-6 py-3.5 font-sans text-sm font-semibold text-(--color-ink) hover:text-(--color-ink)"
         >
           WhatsApp
         </a>

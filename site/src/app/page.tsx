@@ -45,26 +45,26 @@ export default function HomePage() {
   return (
     <PageShell>
       {/* Hero */}
-      <div className="grid grid-cols-1 items-center gap-12 px-12 pt-16 pb-[58px] lg:grid-cols-[1.05fr_0.95fr]">
-        <div className="flex flex-col gap-[22px]">
+      <div className="grid grid-cols-1 items-center gap-10 px-5 pt-10 pb-10 sm:px-8 sm:pt-14 lg:grid-cols-[1.05fr_0.95fr] lg:gap-12 lg:px-12 lg:pt-16 lg:pb-[58px]">
+        <div className="animate-fade-in-up flex flex-col gap-4 sm:gap-[22px]">
           <span className="font-sans text-xs font-semibold tracking-[0.14em] text-(--color-brand)">
             ROAD FREIGHT · ZIMBABWE &amp; SADC
           </span>
-          <h1 className="m-0 text-balance font-sans text-[46px] leading-[1.1] font-semibold tracking-[-0.02em]">
+          <h1 className="m-0 text-balance font-sans text-[32px] leading-[1.15] font-semibold tracking-[-0.02em] sm:text-[38px] lg:text-[46px] lg:leading-[1.1]">
             Loads moved across Zimbabwe, on the day we promised.
           </h1>
-          <p className="m-0 max-w-[50ch] text-balance font-sans text-base leading-[1.65] text-(--color-muted)">
+          <p className="m-0 max-w-[50ch] text-balance font-sans text-[15px] leading-[1.6] text-(--color-muted) sm:text-base sm:leading-[1.65]">
             WD Logistics runs short and long distance road freight from our Mutare base — across
             Zimbabwe and into the SADC region. Full loads, part loads and bulk, on
             satellite-tracked trucks. Send us the details on WhatsApp and we&apos;ll quote you
             today.
           </p>
-          <div className="flex items-center gap-2.5">
+          <div className="flex flex-wrap items-center gap-2.5">
             <a
               href={COMPANY.whatsappHref}
               target="_blank"
               rel="noopener noreferrer"
-              className="rounded-[4px] bg-(--color-accent) px-6 py-3.5 font-sans text-sm font-semibold text-(--color-accent-ink) hover:text-(--color-accent-ink)"
+              className="btn-cta rounded-[4px] bg-(--color-accent) px-6 py-3.5 font-sans text-sm font-semibold text-(--color-accent-ink) hover:text-(--color-accent-ink)"
             >
               WhatsApp
             </a>
@@ -75,7 +75,7 @@ export default function HomePage() {
               Contact us
             </Link>
           </div>
-          <div className="flex gap-9 border-t border-(--color-border) pt-5 font-sans text-sm text-(--color-muted)">
+          <div className="flex flex-wrap gap-6 border-t border-(--color-border) pt-5 font-sans text-sm text-(--color-muted) sm:gap-9">
             <span>
               <strong className="font-sans text-lg font-semibold text-(--color-ink)">10</strong>
               &nbsp; provinces covered
@@ -90,23 +90,23 @@ export default function HomePage() {
             </span>
           </div>
         </div>
-        <PhotoPlaceholder label="PHOTO — WD TRUCK ON THE HARARE ROAD" className="h-[380px]" />
+        <PhotoPlaceholder label="PHOTO — WD TRUCK ON THE HARARE ROAD" className="h-[240px] sm:h-[300px] lg:h-[380px]" />
       </div>
 
       {/* Services */}
-      <div id="services" className="px-12 pb-[60px]">
-        <h2 className="m-0 mb-2 font-sans text-[30px] leading-[1.15] font-semibold tracking-[-0.02em]">
+      <div id="services" className="px-5 pb-10 sm:px-8 sm:pb-14 lg:px-12 lg:pb-[60px]">
+        <h2 className="m-0 mb-2 font-sans text-2xl leading-[1.15] font-semibold tracking-[-0.02em] sm:text-[30px]">
           What we haul
         </h2>
-        <p className="m-0 mb-[30px] max-w-[56ch] text-balance font-sans text-[15px] leading-[1.6] text-(--color-muted)">
+        <p className="m-0 mb-6 max-w-[56ch] text-balance font-sans text-[15px] leading-[1.6] text-(--color-muted) sm:mb-[30px]">
           Three ways to move goods with us. Same drivers, same trucks, same dispatcher on the
           phone.
         </p>
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {SERVICES.map((service) => (
             <div
               key={service.title}
-              className="flex flex-col gap-2.5 rounded-[6px] border border-(--color-border) p-7"
+              className="flex flex-col gap-2.5 rounded-[6px] border border-(--color-border) p-6 sm:p-7"
             >
               <h3 className="m-0 font-sans text-[19px] leading-[1.25] font-semibold">
                 {service.title}
@@ -122,7 +122,7 @@ export default function HomePage() {
       {/* Why WD */}
       <div
         id="why"
-        className="grid grid-cols-1 gap-5 border-t border-b border-(--color-border) bg-(--color-surface-muted) px-12 py-11 sm:grid-cols-3"
+        className="grid grid-cols-1 gap-8 border-t border-b border-(--color-border) bg-(--color-surface-muted) px-5 py-10 sm:grid-cols-2 sm:gap-5 sm:px-8 sm:py-11 lg:grid-cols-3 lg:px-12"
       >
         {WHY_WD.map((item) => (
           <div key={item.number} className="flex flex-col gap-2">

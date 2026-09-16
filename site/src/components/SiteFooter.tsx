@@ -4,8 +4,8 @@ import { COMPANY, NAV_LINKS } from "@/lib/constants";
 
 export function SiteFooter() {
   return (
-    <div className="bg-(--color-surface) px-12 pt-11 pb-6">
-      <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
+    <div className="bg-(--color-surface) px-5 pt-10 pb-6 sm:px-8 lg:px-12 lg:pt-11">
+      <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 sm:gap-10 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
         <div className="flex flex-col gap-3.5">
           <Image
             src="/logo.jpg"

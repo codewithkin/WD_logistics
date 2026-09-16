@@ -51,3 +51,44 @@
     #e3e5e0 20px
   );
 }
+
+/* Restrained motion: a hero fade-in on load, and a hover lift on primary CTAs. */
+@layer utilities {
+  .animate-fade-in-up {
+    animation: fade-in-up 0.7s ease-out both;
+  }
+
+  .btn-cta {
+    transition:
+      transform 150ms ease-out,
+      filter 150ms ease-out;
+  }
+
+  .btn-cta:hover {
+    transform: translateY(-1px);
+    filter: brightness(0.96);
+  }
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in-up {
+    animation: none;
+  }
+
+  .btn-cta,
+  .btn-cta:hover {
+    transition: none;
+    transform: none;
+  }
+}
