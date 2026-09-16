@@ -372,7 +372,7 @@ export async function exportPaymentsPDF(options?: {
 
 export async function downloadPaymentReceiptPDF(paymentId: string) {
   const session = await requireRole(["admin", "supervisor"]);
-  const { generatePaymentReceiptPDF } = await import("@/lib/reports/pdf-report-generator");
+  const { generatePaymentReceiptPDF } = await import("@/lib/reports/receipt-generator");
 
   const payment = await prisma.payment.findFirst({
     where: {

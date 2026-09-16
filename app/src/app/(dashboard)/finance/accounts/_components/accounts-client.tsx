@@ -49,6 +49,29 @@ const ACCOUNT_ICONS: Record<string, typeof Banknote> = {
     petty_cash: Wallet,
 };
 
+// Cash carries the brand green, Bank is the one deliberately-sparing use of
+// blue, Petty Cash gets a distinct neutral-warm accent — matches the
+// gradient icon-badge + tinted-card pattern used on the main dashboard.
+const ACCOUNT_STYLES: Record<string, { bgGradient: string; iconGradient: string; textColor: string }> = {
+    cash: {
+        bgGradient: "linear-gradient(to bottom right, rgba(34, 197, 94, 0.1), rgba(16, 185, 129, 0.1))",
+        iconGradient: "linear-gradient(to bottom right, #22c55e, #10b981)",
+        textColor: "#16a34a",
+    },
+    bank: {
+        bgGradient: "linear-gradient(to bottom right, rgba(59, 130, 246, 0.1), rgba(34, 211, 238, 0.1))",
+        iconGradient: "linear-gradient(to bottom right, #3b82f6, #06b6d4)",
+        textColor: "#2563eb",
+    },
+    petty_cash: {
+        bgGradient: "linear-gradient(to bottom right, rgba(245, 158, 11, 0.1), rgba(249, 115, 22, 0.1))",
+        iconGradient: "linear-gradient(to bottom right, #f59e0b, #f97316)",
+        textColor: "#d97706",
+    },
+};
+
+const DEFAULT_ACCOUNT_STYLE = ACCOUNT_STYLES.cash;
+
 const TRANSFERABLE_TYPES: AccountType[] = ["cash", "petty_cash"];
 
 export function AccountsClient({ accounts, role }: AccountsClientProps) {
@@ -123,14 +146,29 @@ export function AccountsClient({ accounts, role }: AccountsClientProps) {
     return (
         <div className="space-y-6">
             <div className="grid gap-4 sm:grid-cols-3">
-                {accounts.map((account) => {
+                {accounts.map((account, index) => {
                     const Icon = ACCOUNT_ICONS[account.type] || Wallet;
+                    const style = ACCOUNT_STYLES[account.type] || DEFAULT_ACCOUNT_STYLE;
                     const canEditStarting = isAdmin && account._count.transactions === 0;
                     return (
-                        <Card key={account.id}>
-                            <CardHeader className="flex flex-row items-center justify-between pb-2">
-                                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                                    <Icon className="h-4 w-4" /> {account.name}
+                        <Card
+                            key={account.id}
+                            className="group hover:shadow-lg transition-all duration-300 hover:scale-105 animate-in fade-in slide-in-from-bottom-2 border-none relative overflow-hidden"
+                            style={{ animationDelay: `${index * 100}ms` }}
+                        >
+                            <div
+                                className="absolute inset-0 opacity-50 group-hover:opacity-70 transition-opacity duration-300"
+                                style={{ background: style.bgGradient }}
+                            />
+                            <CardHeader className="relative flex flex-row items-center justify-between pb-2">
+                                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                                    <div
+                                        className="p-1.5 rounded-lg shadow-lg transition-transform duration-300 group-hover:scale-110"
+                                        style={{ background: style.iconGradient }}
+                                    >
+                                        <Icon className="h-3.5 w-3.5 text-white" />
+                                    </div>
+                                    {account.name}
                                 </CardTitle>
                                 {canEditStarting && (
                                     <Dialog
@@ -175,8 +213,13 @@ export function AccountsClient({ accounts, role }: AccountsClientProps) {
                                     </Dialog>
                                 )}
                             </CardHeader>
-                            <CardContent>
-                                <p className="text-2xl font-bold">{formatCurrency(account.balance)}</p>
+                            <CardContent className="relative">
+                                <p
+                                    className="text-2xl font-bold transition-transform duration-300 group-hover:scale-105"
+                                    style={{ color: style.textColor }}
+                                >
+                                    {formatCurrency(account.balance)}
+                                </p>
                             </CardContent>
                         </Card>
                     );

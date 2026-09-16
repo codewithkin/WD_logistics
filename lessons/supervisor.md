@@ -1,3 +1,5 @@
+<img src="../app/public/logo.png" alt="WD Logistics" width="96" />
+
 # WD Logistics — Guide for Supervisors
 
 You run day-to-day operations: fleet, trips, customers, suppliers, and finance entries. You can create and edit records directly — no approval needed. The two things kept apart from you are financial reports and account/user management, which stay with admins.

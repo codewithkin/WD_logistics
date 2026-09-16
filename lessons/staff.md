@@ -1,3 +1,5 @@
+<img src="../app/public/logo.png" alt="WD Logistics" width="96" />
+
 # WD Logistics — Guide for Staff
 
 You have day-to-day access to the system: you can look up almost anything, and you can add new trips, expenses, and payments as they happen. You can't delete things or edit existing records yourself — those go through a quick approval step, explained below.

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { signIn } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
@@ -14,7 +15,7 @@ import {
     CardTitle,
 } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, AlertCircle, Truck } from "lucide-react";
+import { Loader2, AlertCircle } from "lucide-react";
 
 export default function SignInPage() {
     const router = useRouter();
@@ -51,10 +52,15 @@ export default function SignInPage() {
     return (
         <Card className="shadow-lg">
             <CardHeader className="space-y-1 text-center">
-                <div className="flex justify-center mb-4">
-                    <div className="w-16 h-16 bg-blue-600 rounded-xl flex items-center justify-center">
-                        <Truck className="h-8 w-8 text-white" />
-                    </div>
+                <div className="flex justify-center mb-2">
+                    <Image
+                        src="/logo.png"
+                        alt="WD Logistics"
+                        width={200}
+                        height={200}
+                        priority
+                        className="h-24 w-24 object-contain drop-shadow-sm"
+                    />
                 </div>
                 <CardTitle className="text-2xl font-bold">WD Logistics</CardTitle>
                 <CardDescription>

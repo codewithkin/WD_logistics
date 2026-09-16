@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -202,11 +203,18 @@ export function SidebarNavContent({ pendingEditRequests = 0, showExpenses = fals
         <div className="flex flex-col h-full">
             {/* Logo */}
             <div className="p-4 border-b">
-                <Link href="/dashboard" prefetch className="flex items-center gap-2 group" onClick={onNavigate}>
-                    <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg flex items-center justify-center shadow-lg shadow-green-500/25 transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3">
-                        <span className="text-white font-bold text-sm">WD</span>
-                    </div>
-                    <span className="font-bold text-lg group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors duration-300">WD Logistics</span>
+                <Link href="/dashboard" prefetch className="flex items-center group" onClick={onNavigate}>
+                    <Image
+                        src="/logo-mark.png"
+                        alt="WD Logistics"
+                        width={80}
+                        height={80}
+                        priority
+                        className="h-9 w-9 object-contain transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3"
+                    />
+                    <span className="font-bold text-lg group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors duration-300">
+                        WD Logistics
+                    </span>
                 </Link>
             </div>
 

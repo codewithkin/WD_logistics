@@ -1,3 +1,5 @@
+<img src="../app/public/logo.png" alt="WD Logistics" width="96" />
+
 # WD Logistics — Guide for Admins
 
 You have full access to the system — everything supervisors and staff can do, plus the things that need one person accountable for them: reports, user accounts, organization settings, and the AI assistant.
