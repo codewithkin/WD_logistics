@@ -7,6 +7,8 @@
 
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email";
+import { sendPushToUsers } from "@/lib/push";
+import { getTierConfig } from "@/lib/notification-tiers";
 
 const AGENT_URL = process.env.NEXT_PUBLIC_AGENT_URL || process.env.AGENT_URL || 'http://localhost:3001';
 const ADMIN_WHATSAPP_NUMBER = process.env.ADMIN_WHATSAPP_NUMBER;
@@ -46,19 +48,42 @@ async function sendWhatsAppMessage(phoneNumber: string, message: string): Promis
 }
 
 /**
- * Send WhatsApp notification to admin
+ * Notify admin(s) about an event, gated by notification-tiers.ts — replaces
+ * the old unconditional notifyAdminWhatsApp. Most of this file's "admin
+ * notified on creation" events are routine (tier 3/4), which no longer list
+ * "admin" in their tier config, so this is a no-op for them: this is the
+ * actual fix for "admin gets pinged on every driver/truck/invoice created".
+ * Only tier 1/2 events (or ones explicitly keeping WhatsApp, like document
+ * expiry) still reach admin, and even then via push+in-app by default —
+ * WhatsApp only where a tier explicitly lists it.
  */
-async function notifyAdminWhatsApp(message: string): Promise<void> {
-  if (!ADMIN_WHATSAPP_NUMBER) {
-    console.log('ADMIN_WHATSAPP_NUMBER not configured, skipping admin WhatsApp notification');
-    return;
+async function notifyAdminChannels(
+  tierKey: string,
+  organizationId: string,
+  whatsappMessage: string,
+  pushPayload: { title: string; body: string; url?: string }
+): Promise<void> {
+  const tierConfig = getTierConfig(tierKey);
+  if (!tierConfig.roles.includes("admin")) return;
+
+  if (tierConfig.channels.includes("whatsapp") && ADMIN_WHATSAPP_NUMBER) {
+    try {
+      await sendWhatsAppMessage(ADMIN_WHATSAPP_NUMBER, whatsappMessage);
+    } catch (error) {
+      console.error("Failed to send admin WhatsApp notification:", error);
+    }
   }
 
-  try {
-    await sendWhatsAppMessage(ADMIN_WHATSAPP_NUMBER, message);
-    console.log('✅ Admin WhatsApp notification sent');
-  } catch (error) {
-    console.error('Failed to send admin WhatsApp notification:', error);
+  if (tierConfig.channels.includes("webPush")) {
+    try {
+      const admins = await prisma.member.findMany({
+        where: { organizationId, role: "admin" },
+        select: { userId: true },
+      });
+      await sendPushToUsers(admins.map((a) => a.userId), pushPayload);
+    } catch (error) {
+      console.error("Failed to send admin push notification:", error);
+    }
   }
 }
 
@@ -553,8 +578,9 @@ export async function notifyAdminDriverCreated(
 
     if (!driver) return;
 
+    const driverName = `${driver.firstName} ${driver.lastName}`;
     const message = adminDriverCreatedTemplate({
-      driverName: `${driver.firstName} ${driver.lastName}`,
+      driverName,
       phone: driver.phone,
       whatsappNumber: driver.whatsappNumber,
       email: driver.email,
@@ -564,7 +590,11 @@ export async function notifyAdminDriverCreated(
       performedBy: performedBy.name,
     });
 
-    await notifyAdminWhatsApp(message);
+    await notifyAdminChannels("driver_created", organizationId, message, {
+      title: "New Driver Added",
+      body: `${driverName} was added by ${performedBy.name}`,
+      url: "/fleet/drivers",
+    });
   } catch (error) {
     console.error("Failed to notify admin about driver creation:", error);
   }
@@ -596,7 +626,11 @@ export async function notifyAdminTruckCreated(
       performedBy: performedBy.name,
     });
 
-    await notifyAdminWhatsApp(message);
+    await notifyAdminChannels("truck_created", organizationId, message, {
+      title: "New Truck Added",
+      body: `${truck.registrationNo} was added by ${performedBy.name}`,
+      url: "/fleet/trucks",
+    });
   } catch (error) {
     console.error("Failed to notify admin about truck creation:", error);
   }
@@ -644,7 +678,11 @@ export async function notifyAdminInvoiceCreated(
       performedBy: performedBy.name,
     });
 
-    await notifyAdminWhatsApp(message);
+    await notifyAdminChannels("invoice_created", organizationId, message, {
+      title: "New Invoice Created",
+      body: `Invoice ${invoice.invoiceNumber} for ${invoice.customer.name} created by ${performedBy.name}`,
+      url: `/finance/invoices/${invoice.id}`,
+    });
   } catch (error) {
     console.error("Failed to notify admin about invoice creation:", error);
   }
@@ -665,8 +703,9 @@ export async function notifyAdminEmployeeCreated(
 
     if (!employee) return;
 
+    const employeeName = `${employee.firstName} ${employee.lastName}`;
     const message = adminEmployeeCreatedTemplate({
-      employeeName: `${employee.firstName} ${employee.lastName}`,
+      employeeName,
       position: employee.position,
       department: employee.department,
       email: employee.email,
@@ -675,7 +714,11 @@ export async function notifyAdminEmployeeCreated(
       performedBy: performedBy.name,
     });
 
-    await notifyAdminWhatsApp(message);
+    await notifyAdminChannels("employee_created", organizationId, message, {
+      title: "New Employee Added",
+      body: `${employeeName} was added by ${performedBy.name}`,
+      url: "/employees",
+    });
   } catch (error) {
     console.error("Failed to notify admin about employee creation:", error);
   }
@@ -727,7 +770,18 @@ export async function notifyAdminPaymentReceived(
       performedBy: performedBy.name,
     });
 
-    await notifyAdminWhatsApp(message);
+    // A fully-paid invoice is genuinely core (cash landed) — tier 2. A
+    // partial payment is routine — tier 3, admin excluded entirely.
+    await notifyAdminChannels(
+      isFullyPaid ? "invoice_fully_paid" : "payment_created",
+      organizationId,
+      message,
+      {
+        title: isFullyPaid ? "Invoice Fully Paid" : "Payment Recorded",
+        body: `${payment.customer.name} paid $${payment.amount.toFixed(2)} on invoice ${invoice?.invoiceNumber || "N/A"}`,
+        url: `/finance/payments`,
+      }
+    );
   } catch (error) {
     console.error("Failed to notify admin about payment:", error);
   }
