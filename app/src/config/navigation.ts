@@ -20,6 +20,7 @@ import {
   CreditCard,
   MessageCircle,
   Wrench,
+  Boxes,
 } from "lucide-react";
 import { Role } from "@/lib/types";
 
@@ -106,6 +107,12 @@ export const navigationSections: NavSection[] = [
         href: "/maintenance",
         icon: Wrench,
         roles: ["admin", "supervisor", "workshop"],
+      },
+      {
+        title: "Inventory",
+        href: "/inventory",
+        icon: Boxes,
+        roles: ["admin", "supervisor"],
       },
     ],
   },

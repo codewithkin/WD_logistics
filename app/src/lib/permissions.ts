@@ -185,3 +185,21 @@ export function canViewAccountBalances(role: Role): boolean {
 export function canTransferFunds(role: Role): boolean {
   return role === "admin";
 }
+
+/**
+ * Inventory/warehouse: admin and supervisor can both see stock (quantities,
+ * items, categories), but only admin sees the dollar value breakdown
+ * (unit cost × quantity, per-category totals) — an explicit split matching
+ * the same admin-only financial visibility pattern used elsewhere.
+ */
+export function canViewInventory(role: Role): boolean {
+  return role === "admin" || role === "supervisor";
+}
+
+export function canViewInventoryValue(role: Role): boolean {
+  return role === "admin";
+}
+
+export function canManageInventory(role: Role): boolean {
+  return role === "admin" || role === "supervisor";
+}
