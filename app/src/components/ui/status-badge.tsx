@@ -267,6 +267,12 @@ const roleStatusConfig: Record<string, StatusConfig> = {
         textColor: "text-gray-600 dark:text-gray-400",
         icon: User,
     },
+    workshop: {
+        label: "Workshop",
+        bgColor: "bg-orange-100 dark:bg-orange-900/30",
+        textColor: "text-orange-700 dark:text-orange-400",
+        icon: Wrench,
+    },
 };
 
 // All config maps
