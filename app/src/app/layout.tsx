@@ -77,15 +77,13 @@ export const metadata: Metadata = {
       "AI-powered fleet management and logistics optimization for modern trucking companies.",
     images: ["/og-image.png"],
   },
-  icons: {
-    icon: [
-      { url: "/favicon.ico" },
-      { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
-      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
-    ],
-    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180" }],
+  // favicon.ico / icon0.svg / icon1.png / apple-icon.png / manifest.json live
+  // directly in src/app/ (Next.js file-convention icons) and are picked up
+  // automatically — don't also set `icons`/`manifest` here, since that would
+  // override the file-convention ones instead of layering on top of them.
+  appleWebApp: {
+    title: "WD System",
   },
-  manifest: "/site.webmanifest",
   metadataBase: new URL(process.env.BETTER_AUTH_URL || "http://localhost:3000"),
   verification: {
     google: "YOUR_GOOGLE_VERIFICATION_ID",
