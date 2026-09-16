@@ -77,6 +77,11 @@ ENV NEXT_PUBLIC_AGENT_URL=${NEXT_PUBLIC_AGENT_URL}
 ARG R2_PUBLIC_URL=""
 ENV R2_PUBLIC_URL=${R2_PUBLIC_URL}
 
+# Same reasoning as R2_PUBLIC_URL above — read by
+# src/lib/use-push-notifications.ts and baked into the client bundle.
+ARG NEXT_PUBLIC_VAPID_PUBLIC_KEY=""
+ENV NEXT_PUBLIC_VAPID_PUBLIC_KEY=${NEXT_PUBLIC_VAPID_PUBLIC_KEY}
+
 # `next build` re-runs `prisma generate` (package.json's "build" script), and
 # prisma.config.ts unconditionally reads process.env["DATABASE_URL"] — give
 # it a harmless placeholder so nothing that touches this value at build time

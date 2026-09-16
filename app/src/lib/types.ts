@@ -1,5 +1,5 @@
 // Role types
-export type Role = "admin" | "supervisor" | "staff";
+export type Role = "admin" | "supervisor" | "staff" | "workshop";
 
 // Status types
 export type TruckStatus = "active" | "in_service" | "in_repair" | "inactive" | "decommissioned";
@@ -88,6 +88,7 @@ export const ROLE_LABELS: Record<Role, string> = {
   admin: "Admin",
   supervisor: "Supervisor",
   staff: "Staff",
+  workshop: "Workshop",
 };
 
 // Status color mappings for badges

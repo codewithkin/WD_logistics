@@ -7,6 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { PushNotificationsCard } from "./push-notifications-card";
 
 interface NotificationPreferences {
     emailNotifications: boolean;
@@ -46,6 +47,8 @@ export function NotificationsSettings({ preferences: initialPreferences }: Notif
 
     return (
         <div className="space-y-6">
+            <PushNotificationsCard />
+
             <Card>
                 <CardHeader>
                     <CardTitle>Email Notifications</CardTitle>

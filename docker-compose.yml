@@ -56,6 +56,8 @@ services:
         # Must be a build arg, not just a runtime env var below — see
         # next.config.ts and app/Dockerfile's comment on this.
         R2_PUBLIC_URL: ${R2_PUBLIC_URL}
+        # Same reasoning — baked into the client bundle at build time.
+        NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${NEXT_PUBLIC_VAPID_PUBLIC_KEY}
     container_name: wd-logistics-app
     restart: unless-stopped
     ports:
@@ -102,6 +104,11 @@ services:
       R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:-}
       R2_BUCKET_NAME: ${R2_BUCKET_NAME:-}
       R2_PUBLIC_URL: ${R2_PUBLIC_URL:-}
+
+      # Native web push (see app/src/lib/push.ts)
+      NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${NEXT_PUBLIC_VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:admin@example.com}
 
       # WhatsApp (this app's own client — Settings -> WhatsApp; separate
       # from the agent's bot) + notification routing

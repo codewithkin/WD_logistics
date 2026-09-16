@@ -86,6 +86,37 @@ export const ROLE_PERMISSIONS = {
     canViewExpenses: false,
     canViewPerformanceMetrics: false,
   },
+  // Workshop: narrowest role. General app access is fail-closed by design —
+  // their only granted surface is the dedicated maintenance-requests feature,
+  // gated separately via its own requireRole() calls, not this map.
+  workshop: {
+    // User Management
+    canCreateUsers: false,
+    canEditUsers: false,
+    canDeleteUsers: false,
+
+    // Data Management
+    canCreate: false,
+    canEdit: false,
+    canDelete: false,
+
+    // Edit Requests
+    canApproveEditRequests: false,
+    canViewAllEditRequests: false,
+
+    // Reports
+    canViewReports: false,
+    canGenerateReports: false,
+
+    // Settings
+    canAccessSettings: false,
+
+    // Financial Data
+    canViewFinancials: false,
+    canViewRevenue: false,
+    canViewExpenses: false,
+    canViewPerformanceMetrics: false,
+  },
 } as const;
 
 export type RolePermissions = typeof ROLE_PERMISSIONS[Role];
