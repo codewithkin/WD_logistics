@@ -102,6 +102,20 @@ export const reportConfigs: Record<string, ReportConfig> = {
       { key: "profit", label: "Profit", type: "currency" },
     ],
   },
+  "account-ledger": {
+    id: "account-ledger",
+    name: "Account Ledger Report",
+    description: "Cash / Bank / Petty Cash: opening balance, usage, and remaining for the period",
+    periods: ["monthly", "quarterly", "yearly", "custom"],
+    formats: ["pdf", "csv"],
+    fields: [
+      { key: "accountName", label: "Account", type: "string" },
+      { key: "openingBalance", label: "Opening Balance", type: "currency" },
+      { key: "totalDebits", label: "Usage", type: "currency" },
+      { key: "totalCredits", label: "Credits", type: "currency" },
+      { key: "closingBalance", label: "Closing Balance", type: "currency" },
+    ],
+  },
   "truck-profitability": {
     id: "truck-profitability",
     name: "Truck Profitability Report",
@@ -126,6 +140,7 @@ export const reportTypeLabels: Record<string, string> = {
   customer_statement: "Customer Statement",
   trip_summary: "Trip Summary",
   truck_profitability: "Truck Profitability",
+  account_ledger: "Account Ledger",
 };
 
 export const periodLabels: Record<ReportPeriod, string> = {

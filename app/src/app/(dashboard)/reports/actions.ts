@@ -10,6 +10,7 @@ import {
   fetchCustomerStatementData,
   fetchTripSummaryData,
   fetchTruckProfitabilityData,
+  fetchAccountLedgerData,
   getCustomerList,
   getTruckList,
 } from "@/lib/reports/data-fetchers";
@@ -20,6 +21,7 @@ import {
   generateCustomerStatementCSV,
   generateTripSummaryCSV,
   generateTruckProfitabilityCSV,
+  generateAccountLedgerCSV,
 } from "@/lib/reports/csv-generator";
 import {
   generateProfitPerUnitPDF,
@@ -29,6 +31,7 @@ import {
   generateCustomerStatementPDF,
   generateDashboardSummaryPDF,
   generateTruckProfitabilityPDF,
+  generateAccountLedgerPDF,
 } from "@/lib/reports/pdf-report-generator";
 
 // Input validation schema
@@ -40,6 +43,7 @@ const generateReportSchema = z.object({
     "customer-statement",
     "trip-summary",
     "truck-profitability",
+    "account-ledger",
   ]),
   startDate: z.string(),
   endDate: z.string(),
@@ -286,6 +290,33 @@ export async function generateReport(
           fileExtension = "csv";
         }
         filename = `truck-profitability-${profitabilityData.truck.registrationNo.replace(/\s+/g, "-")}-${start.toISOString().split("T")[0]}-to-${end.toISOString().split("T")[0]}.${fileExtension}`;
+        break;
+      }
+
+      case "account-ledger": {
+        const ledgerData = await fetchAccountLedgerData(organizationId, start, end);
+
+        if (format === "pdf") {
+          const pdfBytes = generateAccountLedgerPDF({
+            accounts: ledgerData,
+            period: periodObj,
+          });
+          fileBuffer = pdfBytes;
+          mimeType = "application/pdf";
+          fileExtension = "pdf";
+        } else {
+          const meta = {
+            startDate: start.toISOString().split("T")[0],
+            endDate: end.toISOString().split("T")[0],
+            period,
+            generatedAt: new Date(),
+          };
+          const csvContent = generateAccountLedgerCSV(ledgerData, meta);
+          fileBuffer = Buffer.from(csvContent, "utf-8");
+          mimeType = "text/csv";
+          fileExtension = "csv";
+        }
+        filename = `account-ledger-${start.toISOString().split("T")[0]}-to-${end.toISOString().split("T")[0]}.${fileExtension}`;
         break;
       }
 
