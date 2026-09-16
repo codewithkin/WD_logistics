@@ -66,7 +66,7 @@ export function InventoryForm({ item, canSeeValue }: InventoryFormProps) {
             unit: item?.unit ?? "",
             quantity: item?.quantity ?? 0,
             minQuantity: item?.minQuantity ?? 5,
-            unitCost: item?.unitCost ?? undefined,
+            unitCost: item?.unitCost ?? 0,
             location: item?.location ?? "",
             supplier: item?.supplier ?? "",
             notes: item?.notes ?? "",
