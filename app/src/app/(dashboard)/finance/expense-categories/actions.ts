@@ -3,7 +3,6 @@
 import { requireRole } from "@/lib/session";
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
-
 export interface ExpenseCategoryFormData {
   name: string;
   description?: string;
@@ -11,6 +10,7 @@ export interface ExpenseCategoryFormData {
   isTrip: boolean;
   color?: string;
   icon?: string;
+  defaultAccountId?: string | null;
 }
 
 export async function createExpenseCategory(data: ExpenseCategoryFormData) {
@@ -39,6 +39,7 @@ export async function createExpenseCategory(data: ExpenseCategoryFormData) {
       isTrip: data.isTrip,
       color: data.color,
       icon: data.icon,
+      defaultAccountId: data.defaultAccountId || null,
     },
   });
 
@@ -83,6 +84,7 @@ export async function updateExpenseCategory(id: string, data: ExpenseCategoryFor
       isTrip: data.isTrip,
       color: data.color,
       icon: data.icon,
+      defaultAccountId: data.defaultAccountId || null,
     },
   });
 

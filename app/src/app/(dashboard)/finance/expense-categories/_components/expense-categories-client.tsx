@@ -34,6 +34,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 import { Plus, Pencil, Trash2, Truck, MapPin, Check, X } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -47,6 +54,7 @@ const categorySchema = z.object({
     isTruck: z.boolean(),
     isTrip: z.boolean(),
     color: z.string().optional(),
+    defaultAccountId: z.string().optional(),
 });
 
 interface Category {
@@ -56,13 +64,21 @@ interface Category {
     isTruck: boolean;
     isTrip: boolean;
     color: string | null;
+    defaultAccountId: string | null;
     _count: {
         expenses: number;
     };
 }
 
+interface Account {
+    id: string;
+    name: string;
+    type: string;
+}
+
 interface ExpenseCategoriesClientProps {
     categories: Category[];
+    accounts: Account[];
 }
 
 const predefinedColors = [
@@ -79,7 +95,7 @@ const predefinedColors = [
     "#71717a", // gray
 ];
 
-export function ExpenseCategoriesClient({ categories }: ExpenseCategoriesClientProps) {
+export function ExpenseCategoriesClient({ categories, accounts }: ExpenseCategoriesClientProps) {
     const router = useRouter();
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [editingCategory, setEditingCategory] = useState<Category | null>(null);
@@ -93,6 +109,7 @@ export function ExpenseCategoriesClient({ categories }: ExpenseCategoriesClientP
             isTruck: false,
             isTrip: false,
             color: predefinedColors[0],
+            defaultAccountId: undefined,
         },
     });
 
@@ -117,6 +134,7 @@ export function ExpenseCategoriesClient({ categories }: ExpenseCategoriesClientP
             isTruck: category.isTruck,
             isTrip: category.isTrip,
             color: category.color || predefinedColors[0],
+            defaultAccountId: category.defaultAccountId || undefined,
         });
     };
 
@@ -256,6 +274,34 @@ export function ExpenseCategoriesClient({ categories }: ExpenseCategoriesClientP
                     />
                 </div>
 
+                <FormField
+                    control={form.control}
+                    name="defaultAccountId"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Default Account</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="No default account" />
+                                    </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    {accounts.map((account) => (
+                                        <SelectItem key={account.id} value={account.id}>
+                                            {account.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <FormDescription>
+                                Expenses in this category will draw from this account, and are blocked if it can&apos;t cover the amount.
+                            </FormDescription>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+
                 <DialogFooter>
                     <Button type="submit">
                         {editingCategory ? "Update Category" : "Create Category"}
@@ -294,6 +340,7 @@ export function ExpenseCategoriesClient({ categories }: ExpenseCategoriesClientP
                             <TableHead>Name</TableHead>
                             <TableHead>Description</TableHead>
                             <TableHead>Types</TableHead>
+                            <TableHead>Account</TableHead>
                             <TableHead>Expenses</TableHead>
                             <TableHead className="w-[100px]">Actions</TableHead>
                         </TableRow>
@@ -301,7 +348,7 @@ export function ExpenseCategoriesClient({ categories }: ExpenseCategoriesClientP
                     <TableBody>
                         {categories.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={5} className="text-center text-muted-foreground">
+                                <TableCell colSpan={6} className="text-center text-muted-foreground">
                                     No categories found
                                 </TableCell>
                             </TableRow>
@@ -334,6 +381,11 @@ export function ExpenseCategoriesClient({ categories }: ExpenseCategoriesClientP
                                             )}
                                             {!category.isTruck && !category.isTrip && "-"}
                                         </div>
+                                    </TableCell>
+                                    <TableCell>
+                                        {accounts.find((a) => a.id === category.defaultAccountId)?.name || (
+                                            <span className="text-muted-foreground">-</span>
+                                        )}
                                     </TableCell>
                                     <TableCell>
                                         <Badge variant="outline">
