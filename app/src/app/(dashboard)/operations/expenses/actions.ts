@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, requireRole } from "@/lib/session";
 import { generateOperationsExpenseReportPDF } from "@/lib/reports/pdf-report-generator";
 import { notifyExpenseCreated, notifyExpenseUpdated, notifyExpenseDeleted } from "@/lib/notifications";
+import { debitAccountForExpense, creditAccountForExpense, InsufficientBalanceError } from "@/lib/accounts";
 
 export async function createExpense(data: {
   description?: string;
@@ -40,22 +41,38 @@ export async function createExpense(data: {
       }
     }
 
-    // Create expense with optional trip link
-    const expense = await prisma.expense.create({
-      data: {
-        organizationId: session.organizationId,
-        categoryId: data.categoryId,
-        amount: data.amount,
-        description: data.description,
-        date: data.date,
-        vendor: data.vendor,
-        reference: data.reference,
-        receiptUrl: data.receiptUrl,
-        notes: data.notes,
-        tripExpenses: data.tripId ? {
-          create: { tripId: data.tripId }
-        } : undefined,
-      },
+    // Create expense with optional trip link, and draw funds from the
+    // category's default account (if configured) atomically with it.
+    const expense = await prisma.$transaction(async (tx) => {
+      const created = await tx.expense.create({
+        data: {
+          organizationId: session.organizationId,
+          categoryId: data.categoryId,
+          amount: data.amount,
+          description: data.description,
+          date: data.date,
+          vendor: data.vendor,
+          reference: data.reference,
+          receiptUrl: data.receiptUrl,
+          notes: data.notes,
+          tripExpenses: data.tripId ? {
+            create: { tripId: data.tripId }
+          } : undefined,
+        },
+      });
+
+      if (category.defaultAccountId) {
+        await debitAccountForExpense(tx, {
+          accountId: category.defaultAccountId,
+          amount: data.amount,
+          expenseId: created.id,
+          description: data.description || category.name,
+          date: data.date,
+          createdById: session.user.id,
+        });
+      }
+
+      return created;
     });
 
     // Send admin notification
@@ -72,11 +89,15 @@ export async function createExpense(data: {
     ).catch((err) => console.error("Failed to send admin notification:", err));
 
     revalidatePath("/operations/expenses");
+    revalidatePath("/finance/accounts");
     if (data.tripId) {
       revalidatePath(`/operations/trips/${data.tripId}`);
     }
     return { success: true, expense };
   } catch (error) {
+    if (error instanceof InsufficientBalanceError) {
+      return { success: false, error: error.message };
+    }
     console.error("Failed to create expense:", error);
     return { success: false, error: "Failed to create expense" };
   }
@@ -101,9 +122,9 @@ export async function updateExpense(
   try {
     const expense = await prisma.expense.findFirst({
       where: { id, organizationId: session.organizationId },
-      include: { 
+      include: {
         tripExpenses: true,
-        category: { select: { name: true } },
+        category: { select: { name: true, defaultAccountId: true } },
       },
     });
 
@@ -111,20 +132,54 @@ export async function updateExpense(
       return { success: false, error: "Expense not found" };
     }
 
-    // Update the expense
-    const updatedExpense = await prisma.expense.update({
-      where: { id },
-      data: {
-        categoryId: data.categoryId,
-        amount: data.amount,
-        description: data.description,
-        date: data.date,
-        vendor: data.vendor,
-        reference: data.reference,
-        receiptUrl: data.receiptUrl,
-        notes: data.notes,
-      },
-      include: { category: { select: { name: true } } },
+    // Resolve the new category up front (if it's actually changing) so we
+    // know which account the new amount should draw from.
+    const newCategory = data.categoryId && data.categoryId !== expense.categoryId
+      ? await prisma.expenseCategory.findUnique({
+          where: { id: data.categoryId },
+          select: { name: true, defaultAccountId: true },
+        })
+      : expense.category;
+    const newAmount = data.amount ?? expense.amount;
+
+    const updatedExpense = await prisma.$transaction(async (tx) => {
+      // Reverse the old account impact, then apply the new one — see
+      // finance/expenses/actions.ts updateExpense for why this ordering
+      // avoids a false overdraft on a same-account edit.
+      if (expense.category.defaultAccountId) {
+        await creditAccountForExpense(tx, {
+          accountId: expense.category.defaultAccountId,
+          amount: expense.amount,
+          expenseId: id,
+          description: "Expense updated (reversal)",
+          createdById: session.user.id,
+        });
+      }
+      if (newCategory?.defaultAccountId) {
+        await debitAccountForExpense(tx, {
+          accountId: newCategory.defaultAccountId,
+          amount: newAmount,
+          expenseId: id,
+          description: data.description || newCategory.name,
+          date: data.date,
+          createdById: session.user.id,
+        });
+      }
+
+      return tx.expense.update({
+        where: { id },
+        data: {
+          categoryId: data.categoryId,
+          amount: data.amount,
+          description: data.description,
+          date: data.date,
+          vendor: data.vendor,
+          reference: data.reference,
+          receiptUrl: data.receiptUrl,
+          notes: data.notes,
+        },
+        include: { category: { select: { name: true } } },
+      });
     });
 
     // Handle trip link changes
@@ -160,8 +215,12 @@ export async function updateExpense(
     ).catch((err) => console.error("Failed to send admin notification:", err));
 
     revalidatePath("/operations/expenses");
+    revalidatePath("/finance/accounts");
     return { success: true, expense: updatedExpense };
   } catch (error) {
+    if (error instanceof InsufficientBalanceError) {
+      return { success: false, error: error.message };
+    }
     console.error("Failed to update expense:", error);
     return { success: false, error: "Failed to update expense" };
   }
@@ -173,9 +232,9 @@ export async function deleteExpense(id: string) {
   try {
     const expense = await prisma.expense.findFirst({
       where: { id, organizationId: session.organizationId },
-      include: { 
+      include: {
         tripExpenses: true,
-        category: { select: { name: true } },
+        category: { select: { name: true, defaultAccountId: true } },
       },
     });
 
@@ -183,8 +242,20 @@ export async function deleteExpense(id: string) {
       return { success: false, error: "Expense not found" };
     }
 
-    // Cascade delete will handle tripExpenses
-    await prisma.expense.delete({ where: { id } });
+    await prisma.$transaction(async (tx) => {
+      if (expense.category.defaultAccountId) {
+        await creditAccountForExpense(tx, {
+          accountId: expense.category.defaultAccountId,
+          amount: expense.amount,
+          expenseId: id,
+          description: expense.description || expense.category.name || "Expense deleted",
+          createdById: session.user.id,
+        });
+      }
+
+      // Cascade delete will handle tripExpenses
+      await tx.expense.delete({ where: { id } });
+    });
 
     // Send admin notification
     notifyExpenseDeleted(
@@ -194,6 +265,7 @@ export async function deleteExpense(id: string) {
     ).catch((err) => console.error("Failed to send admin notification:", err));
 
     revalidatePath("/operations/expenses");
+    revalidatePath("/finance/accounts");
     for (const te of expense.tripExpenses) {
       revalidatePath(`/operations/trips/${te.tripId}`);
     }
