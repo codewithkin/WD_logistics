@@ -48,7 +48,12 @@ import { toast } from "sonner";
 
 const expenseSchema = z.object({
     categoryId: z.string().min(1, "Category is required"),
-    amount: z.number().positive("Amount must be positive"),
+    // The amount <Input type="number"> hands react-hook-form a raw string on
+    // every keystroke — plain z.number() rejected it outright ("Expected
+    // number, received string"), which is why this field always errored.
+    // z.coerce.number() converts before validating, matching the pattern
+    // already used correctly in operations/expenses/_components/expense-form.tsx.
+    amount: z.coerce.number().positive("Amount must be positive"),
     date: z.date(),
     notes: z.string().optional(),
     isBusinessExpense: z.boolean(),
