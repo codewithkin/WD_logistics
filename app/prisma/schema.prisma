@@ -700,6 +700,7 @@ model InventoryItem {
   name           String
   sku            String?
   category       String?
+  unit           String?  // free-form unit label, e.g. "litre", "kg", "piece"
   quantity       Int      @default(0)
   minQuantity    Int      @default(5)
   unitCost       Float?
