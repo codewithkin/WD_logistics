@@ -7,6 +7,14 @@ import { TruckStatus } from "@/lib/types";
 import { generateTruckReportPDF, generateSingleTruckReportPDF } from "@/lib/reports/pdf-report-generator";
 import { notifyTruckCreated, notifyTruckUpdated, notifyTruckDeleted } from "@/lib/notifications";
 import { notifyAdminTruckCreated } from "@/lib/whatsapp-notifications";
+import { deleteFromR2, getKeyFromUrl } from "@/lib/r2";
+
+/** Best-effort cleanup — a failed delete shouldn't fail the caller's action. */
+async function cleanupR2Image(url: string | null | undefined) {
+  if (!url) return;
+  const key = await getKeyFromUrl(url);
+  if (key) await deleteFromR2(key);
+}
 
 export async function createTruck(data: {
   registrationNo: string;
@@ -124,6 +132,12 @@ export async function updateTruck(
       where: { id },
       data,
     });
+
+    // Clean up the old R2 object if the image was replaced or removed —
+    // otherwise every re-upload leaves the previous file orphaned in the bucket.
+    if (data.image !== undefined && truck.image && truck.image !== data.image) {
+      cleanupR2Image(truck.image).catch((err) => console.error("Failed to delete old truck image:", err));
+    }
 
     // Send admin notification
     notifyTruckUpdated(
@@ -246,6 +260,8 @@ export async function deleteTruck(id: string) {
     }
 
     await prisma.truck.delete({ where: { id } });
+
+    cleanupR2Image(truck.image).catch((err) => console.error("Failed to delete truck image:", err));
 
     // Send admin notification (email + in-app)
     notifyTruckDeleted(

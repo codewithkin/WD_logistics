@@ -53,6 +53,9 @@ services:
         NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
         NEXT_PUBLIC_AGENT_URL: ${NEXT_PUBLIC_AGENT_URL}
         DATABASE_URL: ${DATABASE_URL}
+        # Must be a build arg, not just a runtime env var below — see
+        # next.config.ts and app/Dockerfile's comment on this.
+        R2_PUBLIC_URL: ${R2_PUBLIC_URL}
     container_name: wd-logistics-app
     restart: unless-stopped
     ports:

@@ -69,6 +69,14 @@ ENV NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
 ARG NEXT_PUBLIC_AGENT_URL=http://localhost:3001
 ENV NEXT_PUBLIC_AGENT_URL=${NEXT_PUBLIC_AGENT_URL}
 
+# next.config.ts reads this to build next/image's remotePatterns — like the
+# NEXT_PUBLIC_* vars above, this is baked in at build time, not read from the
+# container's runtime environment, so it MUST be passed as a build-arg (not
+# just set in Coolify's/compose's runtime env vars) or uploaded images will
+# silently fail to render in production.
+ARG R2_PUBLIC_URL=""
+ENV R2_PUBLIC_URL=${R2_PUBLIC_URL}
+
 # `next build` re-runs `prisma generate` (package.json's "build" script), and
 # prisma.config.ts unconditionally reads process.env["DATABASE_URL"] — give
 # it a harmless placeholder so nothing that touches this value at build time

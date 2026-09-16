@@ -7,6 +7,14 @@ import { EmployeeStatus } from "@/lib/types";
 import { generateEmployeeReportPDF } from "@/lib/reports/pdf-report-generator";
 import { notifyEmployeeCreated, notifyEmployeeUpdated, notifyEmployeeDeleted } from "@/lib/notifications";
 import { notifyAdminEmployeeCreated } from "@/lib/whatsapp-notifications";
+import { deleteFromR2, getKeyFromUrl } from "@/lib/r2";
+
+/** Best-effort cleanup — a failed delete shouldn't fail the caller's action. */
+async function cleanupR2Image(url: string | null | undefined) {
+  if (!url) return;
+  const key = await getKeyFromUrl(url);
+  if (key) await deleteFromR2(key);
+}
 
 export async function createEmployee(data: {
   firstName: string;
@@ -117,6 +125,10 @@ export async function updateEmployee(
       data,
     });
 
+    if (data.image !== undefined && employee.image && employee.image !== data.image) {
+      cleanupR2Image(employee.image).catch((err) => console.error("Failed to delete old employee image:", err));
+    }
+
     // Send admin notification
     notifyEmployeeUpdated(
       {
@@ -154,6 +166,8 @@ export async function deleteEmployee(id: string) {
     }
 
     await prisma.employee.delete({ where: { id } });
+
+    cleanupR2Image(employee.image).catch((err) => console.error("Failed to delete employee image:", err));
 
     // Send admin notification
     notifyEmployeeDeleted(
