@@ -12,7 +12,7 @@ import { sendPushToUser } from "@/lib/push";
 import { getTierConfig, tierKeyFor } from "@/lib/notification-tiers";
 
 // Types for notification events
-export type NotificationEventType = "created" | "updated" | "deleted";
+export type NotificationEventType = "created" | "updated" | "deleted" | "fixed";
 
 export type NotificationEntityType =
   | "invoice"
@@ -21,6 +21,7 @@ export type NotificationEntityType =
   | "trip"
   | "truck"
   | "trailer"
+  | "maintenance_request"
   | "driver"
   | "customer"
   | "supplier"
@@ -97,6 +98,8 @@ function getActionVerb(eventType: NotificationEventType): string {
       return "updated";
     case "deleted":
       return "deleted";
+    case "fixed":
+      return "marked as fixed";
   }
 }
 
@@ -117,6 +120,8 @@ function getEntityTypeDisplay(entityType: NotificationEntityType): string {
       return "Truck";
     case "trailer":
       return "Trailer";
+    case "maintenance_request":
+      return "Maintenance Request";
     case "driver":
       return "Driver";
     case "customer":
@@ -147,6 +152,8 @@ function getEntityLink(entityType: NotificationEntityType, entityId: string): st
       return `/fleet/trucks/${entityId}`;
     case "trailer":
       return `/fleet/trailers/${entityId}`;
+    case "maintenance_request":
+      return `/maintenance`;
     case "driver":
       return `/fleet/drivers/${entityId}`;
     case "customer":
@@ -683,6 +690,25 @@ export async function notifyTrailerDeleted(
     performedBy,
     details: {
       registrationNo,
+    },
+  });
+}
+
+// Maintenance request notifications
+export async function notifyMaintenanceRequestFixed(
+  data: { id: string; truckRegistrationNo: string },
+  organizationId: string,
+  performedBy: { name: string; email: string; role: string }
+) {
+  return sendAdminNotification({
+    entityType: "maintenance_request",
+    eventType: "fixed",
+    entityId: data.id,
+    entityName: `Maintenance request for ${data.truckRegistrationNo}`,
+    organizationId,
+    performedBy,
+    details: {
+      truckRegistrationNo: data.truckRegistrationNo,
     },
   });
 }

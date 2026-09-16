@@ -64,6 +64,7 @@ export const NOTIFICATION_TIERS: Record<string, TierDefinition> = {
   document_expiry_advance: { tier: 2, channels: ["whatsapp", "webPush", "inApp"], roles: ["admin", "supervisor"] },
   invoice_fully_paid: { tier: 2, channels: ["webPush", "inApp"], roles: ["admin", "supervisor"] },
   edit_request_pending: { tier: 2, channels: ["webPush", "inApp"], roles: ["admin", "supervisor"] },
+  maintenance_request_fixed: { tier: 2, channels: ["webPush", "inApp"], roles: ["admin", "supervisor"] },
   low_stock: { tier: 2, channels: ["webPush", "inApp"], roles: ["supervisor"] },
 
   // ---- Tier 3: Standard (routine creations — admin excluded) ----
