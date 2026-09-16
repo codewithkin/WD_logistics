@@ -25,7 +25,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
-import { TrailerStatus, TRAILER_STATUS_LABELS } from "@/lib/types";
+import { TRAILER_STATUS_LABELS } from "@/lib/types";
 import { createTrailer, updateTrailer } from "../actions";
 import { toast } from "sonner";
 
