@@ -131,6 +131,16 @@ export interface TripSummaryData {
   profit: number;
 }
 
+export interface AccountLedgerData {
+  accountType: string;
+  accountName: string;
+  openingBalance: number;
+  totalDebits: number;
+  totalCredits: number;
+  closingBalance: number;
+  expenseBreakdown: Array<{ description: string; amount: number }>;
+}
+
 export interface TruckProfitabilityData {
   truck: { registrationNo: string; make: string; model: string };
   trips: number;
@@ -344,6 +354,42 @@ export function generateTripSummaryCSV(data: TripSummaryData[], meta: ReportMeta
   ].join(",");
 
   return `${metaInfo}\n${csvData}\n${totalsRow}`;
+}
+
+/**
+ * Generate Account Ledger CSV (one section per account: opening balance,
+ * total debits/credits, closing balance, and a spend breakdown)
+ */
+export function generateAccountLedgerCSV(data: AccountLedgerData[], meta: ReportMeta): string {
+  const metaInfo = [
+    `"WD Logistics - Account Ledger Report"`,
+    `"Period: ${meta.startDate} - ${meta.endDate}"`,
+    `"Generated: ${new Date().toISOString()}"`,
+    `""`,
+  ].join("\n");
+
+  const sections = data.map((account) => {
+    const header = [
+      `"${account.accountName}"`,
+      `""`,
+    ].join(",");
+    const summaryRows = [
+      [`"Opening Balance"`, `"${formatCurrency(account.openingBalance)}"`].join(","),
+      [`"Total Debits (usage)"`, `"${formatCurrency(account.totalDebits)}"`].join(","),
+      [`"Total Credits"`, `"${formatCurrency(account.totalCredits)}"`].join(","),
+      [`"Closing Balance"`, `"${formatCurrency(account.closingBalance)}"`].join(","),
+      `""`,
+    ].join("\n");
+
+    const breakdownHeader = [`"Description"`, `"Amount ($)"`].join(",");
+    const breakdownRows = account.expenseBreakdown
+      .map((b) => [`"${b.description.replace(/"/g, '""')}"`, `"${formatCurrency(b.amount)}"`].join(","))
+      .join("\n");
+
+    return `${header}\n${summaryRows}\n${breakdownHeader}\n${breakdownRows}`;
+  });
+
+  return `${metaInfo}\n${sections.join("\n\n")}`;
 }
 
 /**

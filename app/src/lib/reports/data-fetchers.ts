@@ -6,6 +6,7 @@ import type {
   CustomerStatementData,
   TripSummaryData,
   TruckProfitabilityData,
+  AccountLedgerData,
 } from "./csv-generator";
 
 /**
@@ -392,6 +393,71 @@ export async function fetchTruckProfitabilityData(
     profit,
     profitMargin: revenue > 0 ? (profit / revenue) * 100 : 0,
   };
+}
+
+/**
+ * Fetch Account Ledger data — a running ledger + P&L view for the three
+ * accounts (Cash/Bank/Petty Cash): opening balance -> usage -> remaining.
+ *
+ * Opening/closing balances are read from AccountTransaction.balanceAfter
+ * snapshots rather than re-summed, so they match the ledger exactly even
+ * as floating point amounts accumulate over time.
+ */
+export async function fetchAccountLedgerData(
+  organizationId: string,
+  startDate: Date,
+  endDate: Date
+): Promise<AccountLedgerData[]> {
+  const accounts = await prisma.financialAccount.findMany({
+    where: { organizationId },
+    orderBy: { type: "asc" },
+  });
+
+  const results: AccountLedgerData[] = [];
+
+  for (const account of accounts) {
+    const priorTx = await prisma.accountTransaction.findFirst({
+      where: { accountId: account.id, date: { lt: startDate } },
+      orderBy: { date: "desc" },
+    });
+    const openingBalance = priorTx?.balanceAfter ?? account.startingBalance;
+
+    const periodTx = await prisma.accountTransaction.findMany({
+      where: { accountId: account.id, date: { gte: startDate, lte: endDate } },
+      orderBy: { date: "asc" },
+    });
+
+    const totalDebits = periodTx
+      .filter((t) => t.type === "expense_debit" || t.type === "transfer_out")
+      .reduce((sum, t) => sum + t.amount, 0);
+    const totalCredits = periodTx
+      .filter((t) => t.type === "expense_credit" || t.type === "transfer_in")
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    const closingBalance = periodTx.length > 0
+      ? periodTx[periodTx.length - 1].balanceAfter
+      : openingBalance;
+
+    const breakdownMap = new Map<string, number>();
+    for (const t of periodTx.filter((t) => t.type === "expense_debit")) {
+      const key = t.description || "Expense";
+      breakdownMap.set(key, (breakdownMap.get(key) || 0) + t.amount);
+    }
+
+    results.push({
+      accountType: account.type,
+      accountName: account.name,
+      openingBalance,
+      totalDebits,
+      totalCredits,
+      closingBalance,
+      expenseBreakdown: Array.from(breakdownMap.entries())
+        .map(([description, amount]) => ({ description, amount }))
+        .sort((a, b) => b.amount - a.amount),
+    });
+  }
+
+  return results;
 }
 
 /**
