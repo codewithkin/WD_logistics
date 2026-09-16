@@ -161,10 +161,16 @@ export function TripForm({ trip, trucks, drivers, customers, showFinancials = tr
                 if (isEditing) {
                     router.push("/operations/trips");
                 } else {
-                    // Redirect to create invoice with prefilled data
+                    // Redirect to create invoice with prefilled data, linked
+                    // back to this trip. `amount`/`tripId` must match the
+                    // param names finance/invoices/new/page.tsx actually
+                    // reads — this previously sent "subtotal" (silently
+                    // ignored) and never sent tripId at all, so the invoice
+                    // amount never prefilled and never linked back to the trip.
                     const params = new URLSearchParams();
                     if (data.customerId) params.set("customerId", data.customerId);
-                    params.set("subtotal", data.revenue.toString());
+                    params.set("amount", data.revenue.toString());
+                    if (result.trip?.id) params.set("tripId", result.trip.id);
                     router.push(`/finance/invoices/new?${params.toString()}`);
                 }
             } else {
