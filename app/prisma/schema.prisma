@@ -34,6 +34,7 @@ model User {
   editRequestsApproved EditRequest[] @relation("ApprovedBy")
   notifications UserNotification[]
   accountTransactions AccountTransaction[]
+  pushSubscriptions PushSubscription[]
 
   @@map("user")
 }
@@ -759,4 +760,25 @@ model UserNotification {
   @@index([userId, isRead, isDismissed])
   @@index([organizationId, createdAt])
   @@map("user_notification")
+}
+
+// =============================================================================
+// NATIVE WEB PUSH
+// =============================================================================
+
+// One row per browser/device a user has opted into push notifications on —
+// see src/lib/push.ts. `endpoint` is the unique push service URL the
+// browser gave us; a user can have several (phone, laptop, etc).
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String   // subscription encryption key
+  auth      String   // subscription auth secret
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("push_subscription")
 }
