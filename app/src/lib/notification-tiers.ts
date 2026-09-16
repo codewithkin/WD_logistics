@@ -63,13 +63,21 @@ export const NOTIFICATION_TIERS: Record<string, TierDefinition> = {
   // not a routine "X was created" ping, so it's the deliberate exception.
   document_expiry_advance: { tier: 2, channels: ["whatsapp", "webPush", "inApp"], roles: ["admin", "supervisor"] },
   invoice_fully_paid: { tier: 2, channels: ["webPush", "inApp"], roles: ["admin", "supervisor"] },
-  edit_request_pending: { tier: 2, channels: ["webPush", "inApp"], roles: ["admin", "supervisor"] },
+  // Key must match tierKeyFor("edit_request", eventType) exactly — the
+  // convenience functions in notifications.ts fire "created"/"updated"
+  // events (never "pending"), so both are listed here explicitly. A
+  // mismatched key here silently falls through to DEFAULT_TIER
+  // (supervisor-only), which drops these for any org whose only
+  // reviewer is admin — confirmed via scripts/_dev-feature-test.ts.
+  edit_request_created: { tier: 2, channels: ["webPush", "inApp"], roles: ["admin", "supervisor"] },
+  edit_request_updated: { tier: 2, channels: ["webPush", "inApp"], roles: ["admin", "supervisor"] },
   maintenance_request_fixed: { tier: 2, channels: ["webPush", "inApp"], roles: ["admin", "supervisor"] },
   low_stock: { tier: 2, channels: ["webPush", "inApp"], roles: ["supervisor"] },
 
   // ---- Tier 3: Standard (routine creations — admin excluded) ----
   driver_created: { tier: 3, channels: ["webPush", "inApp"], roles: ["supervisor"] },
   truck_created: { tier: 3, channels: ["webPush", "inApp"], roles: ["supervisor"] },
+  trailer_created: { tier: 3, channels: ["webPush", "inApp"], roles: ["supervisor"] },
   customer_created: { tier: 3, channels: ["webPush", "inApp"], roles: ["supervisor"] },
   trip_created: { tier: 3, channels: ["webPush", "inApp"], roles: ["supervisor"] },
   invoice_created: { tier: 3, channels: ["webPush", "inApp"], roles: ["supervisor"] },
@@ -80,12 +88,14 @@ export const NOTIFICATION_TIERS: Record<string, TierDefinition> = {
   employee_created: { tier: 4, channels: ["inApp"], roles: ["supervisor"] },
   driver_updated: { tier: 4, channels: ["inApp"], roles: ["supervisor"] },
   truck_updated: { tier: 4, channels: ["inApp"], roles: ["supervisor"] },
+  trailer_updated: { tier: 4, channels: ["inApp"], roles: ["supervisor"] },
   customer_updated: { tier: 4, channels: ["inApp"], roles: ["supervisor"] },
   trip_updated: { tier: 4, channels: ["inApp"], roles: ["supervisor"] },
 
   // ---- Tier 5: Informational/audit (deletions, routine job runs) ----
   driver_deleted: { tier: 5, channels: ["inApp"], roles: [] },
   truck_deleted: { tier: 5, channels: ["inApp"], roles: [] },
+  trailer_deleted: { tier: 5, channels: ["inApp"], roles: [] },
   customer_deleted: { tier: 5, channels: ["inApp"], roles: [] },
   trip_deleted: { tier: 5, channels: ["inApp"], roles: [] },
   employee_deleted: { tier: 5, channels: ["inApp"], roles: [] },
