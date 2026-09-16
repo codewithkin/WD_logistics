@@ -1,21 +1,35 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useTransition } from "react";
 import { toast } from "sonner";
 import { generateReport } from "@/app/(dashboard)/reports/actions";
 import { exportDashboardPDF } from "@/app/(dashboard)/reports/actions";
-import { format, startOfMonth, endOfMonth, subMonths } from "date-fns";
+import { startOfMonth, endOfMonth, subMonths } from "date-fns";
 import { ReportsDashboard } from "./reports-dashboard";
+import type { ReactElement, ComponentProps } from "react";
+
+interface Report {
+  id: string;
+  type: string;
+  period: string;
+  startDate: Date;
+  endDate: Date;
+  format: string;
+  createdAt: Date;
+}
 
 interface ReportsClientProps {
   customers: { id: string; name: string }[];
   trucks: { id: string; registrationNo: string; make: string; model: string }[];
-  initialReports: { id: string }[];
-  dashboardContent: any;
+  initialReports: Report[];
+  dashboardContent: ReactElement<ComponentProps<typeof ReportsDashboard>, typeof ReportsDashboard>;
 }
 
 export function ReportsClient({
   dashboardContent,
+  customers,
+  trucks,
+  initialReports,
 }: ReportsClientProps) {
   const [isPending, startTransition] = useTransition();
 
@@ -91,20 +105,20 @@ export function ReportsClient({
   };
 
   // If dashboardContent is a React component (ReportsDashboard), clone it with additional props
-  const EnhancedDashboard = dashboardContent.type === ReportsDashboard
-    ? () => {
-      const Dashboard = dashboardContent.type as any;
-      return (
-        <Dashboard
-          {...dashboardContent.props}
-          onGeneratePDF={() => handleGenerateReport("pdf")}
-          onGenerateCSV={() => handleGenerateReport("csv")}
-          onExportDashboard={handleExportDashboard}
-          isGenerating={isPending}
-        />
-      );
-    }
-    : () => dashboardContent;
+  const enhancedDashboard = dashboardContent.type === ReportsDashboard
+    ? (
+      <ReportsDashboard
+        {...dashboardContent.props}
+        customers={customers}
+        trucks={trucks}
+        reports={initialReports}
+        onGeneratePDF={() => handleGenerateReport("pdf")}
+        onGenerateCSV={() => handleGenerateReport("csv")}
+        onExportDashboard={handleExportDashboard}
+        isGenerating={isPending}
+      />
+    )
+    : dashboardContent;
 
-  return <EnhancedDashboard />;
+  return enhancedDashboard;
 }

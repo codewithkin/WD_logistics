@@ -24,6 +24,8 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { ReportsTabs } from "./reports-tabs";
+import { ReportGenerator } from "./report-generator";
+import { ReportHistory } from "./report-history";
 
 interface OutstandingInvoice {
   id: string;
@@ -47,6 +49,17 @@ interface ExpenseCategory {
 }
 
 interface ReportsDashboardProps {
+  customers?: { id: string; name: string }[];
+  trucks?: { id: string; registrationNo: string; make: string; model: string }[];
+  reports?: {
+    id: string;
+    type: string;
+    period: string;
+    startDate: Date;
+    endDate: Date;
+    format: string;
+    createdAt: Date;
+  }[];
   data: {
     totalTrucks: number;
     activeTrucks: number;
@@ -74,7 +87,7 @@ interface ReportsDashboardProps {
   isGenerating?: boolean;
 }
 
-export function ReportsDashboard({ data, periodLabel = "This Month", initialTab = "overview", onGeneratePDF, onGenerateCSV, onExportDashboard, isGenerating = false }: ReportsDashboardProps) {
+export function ReportsDashboard({ data, periodLabel = "This Month", initialTab = "overview", onGeneratePDF, onGenerateCSV, onExportDashboard, isGenerating = false, customers = [], trucks = [], reports = [] }: ReportsDashboardProps) {
   const {
     totalTrucks,
     activeTrucks,
@@ -115,6 +128,7 @@ export function ReportsDashboard({ data, periodLabel = "This Month", initialTab 
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="financial">Financial</TabsTrigger>
           <TabsTrigger value="fleet">Fleet</TabsTrigger>
+          <TabsTrigger value="generate">Generate</TabsTrigger>
         </TabsList>
         {(onGeneratePDF || onGenerateCSV) && (
           <DropdownMenu>
@@ -573,6 +587,11 @@ export function ReportsDashboard({ data, periodLabel = "This Month", initialTab 
             </CardContent>
           </Card>
         </div>
+      </TabsContent>
+
+      <TabsContent value="generate" className="space-y-6">
+        <ReportGenerator customers={customers} trucks={trucks} />
+        <ReportHistory reports={reports} />
       </TabsContent>
     </ReportsTabs>
   );
