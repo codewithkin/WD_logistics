@@ -27,6 +27,54 @@ export interface ImageUploadProps {
 
 type UploadState = "idle" | "loading" | "uploading" | "success" | "error";
 
+const MAX_DIMENSION = 1600; // px, longest side
+const JPEG_QUALITY = 0.82;
+
+/**
+ * Resize to a max dimension and re-encode as JPEG before upload. A phone
+ * photo can easily be 3-4MB at 4000px+ wide — nothing this app displays
+ * needs more than MAX_DIMENSION px, so this cuts storage/bandwidth
+ * significantly with no visible quality loss in the UI. Falls back to the
+ * original file if canvas/image decoding fails for any reason (SVG-like
+ * edge cases, browser quirks) rather than blocking the upload.
+ */
+async function compressImage(file: File): Promise<File> {
+  // GIFs would lose animation if re-encoded through canvas — upload as-is.
+  if (file.type === "image/gif") return file;
+
+  try {
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.min(1, MAX_DIMENSION / Math.max(bitmap.width, bitmap.height));
+
+    // Already small enough and not worth re-encoding.
+    if (scale === 1 && file.size < 1024 * 1024) {
+      bitmap.close();
+      return file;
+    }
+
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(bitmap.width * scale);
+    canvas.height = Math.round(bitmap.height * scale);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      bitmap.close();
+      return file;
+    }
+    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close();
+
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, "image/jpeg", JPEG_QUALITY)
+    );
+    if (!blob || blob.size >= file.size) return file;
+
+    const newName = file.name.replace(/\.[^.]+$/, "") + ".jpg";
+    return new File([blob], newName, { type: "image/jpeg" });
+  } catch {
+    return file;
+  }
+}
+
 export function ImageUpload({
     value,
     onChange,
@@ -49,18 +97,30 @@ export function ImageUpload({
         auto: "min-h-40",
     };
 
-    const uploadFile = useCallback(async (file: File) => {
+    const uploadFile = useCallback(async (rawFile: File) => {
         // Validate file type
         const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
-        if (!allowedTypes.includes(file.type)) {
+        if (!allowedTypes.includes(rawFile.type)) {
             setError("Invalid file type. Allowed: JPEG, PNG, GIF, WebP");
             setState("error");
             return;
         }
 
-        // Validate file size (5MB max)
+        // Sanity cap on the ORIGINAL file, well above the 5MB target — this
+        // only exists to stop something absurd (a 100MB file) from hanging
+        // the browser during compression below. A modern phone photo can
+        // easily be 8-12MB before compression, which is why the real 5MB
+        // limit is checked AFTER compression, not before.
+        if (rawFile.size > 25 * 1024 * 1024) {
+            setError("File too large (over 25MB)");
+            setState("error");
+            return;
+        }
+
+        const file = await compressImage(rawFile);
+
         if (file.size > 5 * 1024 * 1024) {
-            setError("File too large. Maximum size is 5MB");
+            setError("File too large. Maximum size is 5MB, even after compression");
             setState("error");
             return;
         }
