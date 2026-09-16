@@ -67,7 +67,7 @@ import { format } from "date-fns";
 const inviteSchema = z.object({
     name: z.string().min(1, "Name is required"),
     email: z.string().email("Please enter a valid email"),
-    role: z.enum(["admin", "supervisor", "staff"]),
+    role: z.enum(["admin", "supervisor", "staff", "workshop"]),
 });
 
 type InviteData = z.infer<typeof inviteSchema>;
@@ -102,6 +102,7 @@ const roleColors: Record<string, string> = {
     admin: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
     supervisor: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
     staff: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400",
+    workshop: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400",
 };
 
 export function MembersSettings({
@@ -294,6 +295,7 @@ export function MembersSettings({
                                                             Supervisor
                                                         </SelectItem>
                                                         <SelectItem value="staff">Staff</SelectItem>
+                                                        <SelectItem value="workshop">Workshop</SelectItem>
                                                     </SelectContent>
                                                 </Select>
                                                 <FormMessage />
@@ -407,6 +409,14 @@ export function MembersSettings({
                                                         disabled={member.role === "staff"}
                                                     >
                                                         Make Staff
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuItem
+                                                        onClick={() =>
+                                                            handleRoleChange(member.id, "workshop")
+                                                        }
+                                                        disabled={member.role === "workshop"}
+                                                    >
+                                                        Make Workshop
                                                     </DropdownMenuItem>
                                                     <DropdownMenuItem
                                                         onClick={() => handleRemoveMember(member.id)}

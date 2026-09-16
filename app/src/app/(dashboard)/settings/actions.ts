@@ -198,6 +198,7 @@ export async function inviteMember(data: { email: string; role: string; name?: s
       admin: "Administrator",
       supervisor: "Supervisor",
       staff: "Staff Member",
+      workshop: "Workshop",
     }[data.role] || "Team Member";
 
     await sendEmail({
