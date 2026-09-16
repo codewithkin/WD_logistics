@@ -618,6 +618,55 @@ export function generateProfitPerUnitPDF(data: {
 }
 
 /**
+ * Generate a Truck Profitability Report PDF
+ */
+export function generateTruckProfitabilityPDF(data: {
+  truck: { registrationNo: string; make: string; model: string };
+  trips: number;
+  revenue: number;
+  expensesByCategory: Array<{ category: string; amount: number }>;
+  totalExpenses: number;
+  profit: number;
+  profitMargin: number;
+  period: { startDate: Date | string; endDate: Date | string };
+}): Uint8Array {
+  const config: ReportConfig = {
+    title: "Truck Profitability Report",
+    subtitle: `${data.truck.registrationNo} - ${data.truck.make} ${data.truck.model}`,
+    reportType: "truck-profitability",
+    period: data.period,
+    summary: [
+      { label: "Trips Completed", value: data.trips, format: "number" },
+      { label: "Revenue", value: data.revenue, format: "currency" },
+      { label: "Total Expenses", value: data.totalExpenses, format: "currency" },
+      { label: "Net Profit", value: data.profit, format: "currency" },
+      { label: "Profit Margin", value: data.profitMargin, format: "percentage" },
+    ],
+    sections: [
+      {
+        title: "Expense Breakdown by Category",
+        columns: [
+          { header: "Category", key: "category", align: "left" },
+          { header: "Amount", key: "amount", format: "currency", align: "right" },
+        ],
+        data: data.expensesByCategory,
+        showTotal: true,
+        totalLabel: "Total Expenses",
+        totalColumns: ["amount"],
+      },
+    ],
+    notes: [
+      "All amounts are in United States Dollars (USD).",
+      "Revenue is derived from completed trips assigned to this truck within the period.",
+      "Net Profit is calculated as Revenue minus Total Expenses across all categories.",
+    ],
+  };
+
+  const generator = new PDFReportGenerator(config);
+  return generator.generate();
+}
+
+/**
  * Generate a Trip Summary Report PDF
  */
 export function generateTripSummaryPDF(data: {
