@@ -1,10 +1,12 @@
 import { PageHeader } from "@/components/layout/page-header";
 import { ExpensesOverview } from "./_components/expenses-overview";
+import { AccountBalancesSummary } from "./_components/account-balances-summary";
 import prisma from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { getDateRangeFromParams } from "@/lib/period-utils";
 import { ExpensesPeriodSelector } from "./_components/expenses-period-selector";
-import { canViewExpensesPage } from "@/lib/permissions";
+import { canViewExpensesPage, canViewAccountBalances } from "@/lib/permissions";
+import { getAccounts } from "../accounts/actions";
 import { redirect } from "next/navigation";
 
 interface ExpensesPageProps {
@@ -93,6 +95,9 @@ export default async function ExpensesPage({ searchParams }: ExpensesPageProps) 
         },
     });
 
+    const showAccountBalances = canViewAccountBalances(user.role);
+    const accounts = showAccountBalances ? await getAccounts() : [];
+
     return (
         <div className="flex flex-col gap-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -102,6 +107,7 @@ export default async function ExpensesPage({ searchParams }: ExpensesPageProps) 
                 />
                 <ExpensesPeriodSelector />
             </div>
+            {showAccountBalances && <AccountBalancesSummary accounts={accounts} />}
             <ExpensesOverview categories={categories} expenses={expenses} periodLabel={dateRange.label} />
         </div>
     );
