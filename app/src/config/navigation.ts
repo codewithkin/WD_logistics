@@ -19,6 +19,7 @@ import {
   Wallet,
   CreditCard,
   MessageCircle,
+  Wrench,
 } from "lucide-react";
 import { Role } from "@/lib/types";
 
@@ -46,7 +47,7 @@ export const navigationSections: NavSection[] = [
         title: "Dashboard",
         href: "/dashboard",
         icon: LayoutDashboard,
-        roles: ["admin", "supervisor", "staff"],
+        roles: ["admin", "supervisor", "staff", "workshop"],
       },
     ],
   },
@@ -99,6 +100,12 @@ export const navigationSections: NavSection[] = [
             requiresShowExpenses: true,
           },
         ],
+      },
+      {
+        title: "Maintenance",
+        href: "/maintenance",
+        icon: Wrench,
+        roles: ["admin", "supervisor", "workshop"],
       },
     ],
   },
