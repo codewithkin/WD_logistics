@@ -131,6 +131,16 @@ export interface TripSummaryData {
   profit: number;
 }
 
+export interface TruckProfitabilityData {
+  truck: { registrationNo: string; make: string; model: string };
+  trips: number;
+  revenue: number;
+  expensesByCategory: Array<{ category: string; amount: number }>;
+  totalExpenses: number;
+  profit: number;
+  profitMargin: number;
+}
+
 export interface ReportMeta {
   startDate: string;
   endDate: string;
@@ -334,4 +344,39 @@ export function generateTripSummaryCSV(data: TripSummaryData[], meta: ReportMeta
   ].join(",");
 
   return `${metaInfo}\n${csvData}\n${totalsRow}`;
+}
+
+/**
+ * Generate Truck Profitability CSV
+ */
+export function generateTruckProfitabilityCSV(
+  data: TruckProfitabilityData,
+  meta: ReportMeta
+): string {
+  const columns: CSVColumn[] = [
+    { key: "category", label: "Expense Category" },
+    { key: "amount", label: "Amount ($)", format: (v) => formatCurrency(v as number) },
+  ];
+
+  const metaInfo = [
+    `"WD Logistics - Truck Profitability Report"`,
+    `"Truck: ${data.truck.registrationNo} - ${data.truck.make} ${data.truck.model}"`,
+    `"Period: ${meta.startDate} - ${meta.endDate}"`,
+    `"Generated: ${new Date().toISOString()}"`,
+    `""`,
+    `"Trips Completed: ${data.trips}"`,
+    `"Revenue: $${formatCurrency(data.revenue)}"`,
+    `""`,
+  ].join("\n");
+
+  const csvData = generateCSV(data.expensesByCategory, { columns });
+
+  const summaryRows = [
+    [`"TOTAL EXPENSES"`, `"${formatCurrency(data.totalExpenses)}"`].join(","),
+    [`""`, `""`].join(","),
+    [`"NET PROFIT"`, `"${formatCurrency(data.profit)}"`].join(","),
+    [`"PROFIT MARGIN"`, `"${formatPercentage(data.profitMargin)}"`].join(","),
+  ].join("\n");
+
+  return `${metaInfo}\n${csvData}\n${summaryRows}`;
 }

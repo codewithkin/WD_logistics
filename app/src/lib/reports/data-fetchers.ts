@@ -5,6 +5,7 @@ import type {
   ExpenseData,
   CustomerStatementData,
   TripSummaryData,
+  TruckProfitabilityData,
 } from "./csv-generator";
 
 /**
@@ -317,6 +318,80 @@ export async function fetchTripSummaryData(
       profit,
     };
   });
+}
+
+/**
+ * Fetch Truck Profitability data
+ * Revenue vs. expenses (broken down by category) for a single truck
+ */
+export async function fetchTruckProfitabilityData(
+  organizationId: string,
+  truckId: string,
+  startDate: Date,
+  endDate: Date
+): Promise<TruckProfitabilityData> {
+  const truck = await prisma.truck.findFirst({
+    where: { id: truckId, organizationId },
+    select: { registrationNo: true, make: true, model: true },
+  });
+
+  if (!truck) {
+    throw new Error("Truck not found");
+  }
+
+  const trips = await prisma.trip.findMany({
+    where: {
+      truckId,
+      status: "completed",
+      endDate: { gte: startDate, lte: endDate },
+    },
+    include: {
+      tripExpenses: {
+        include: { expense: { include: { category: true } } },
+      },
+    },
+  });
+
+  const truckExpenses = await prisma.truckExpense.findMany({
+    where: {
+      truckId,
+      expense: { date: { gte: startDate, lte: endDate } },
+    },
+    include: { expense: { include: { category: true } } },
+  });
+
+  const revenue = trips.reduce((sum, trip) => sum + trip.revenue, 0);
+
+  const categoryTotals = new Map<string, number>();
+  const addExpense = (categoryName: string, amount: number) => {
+    categoryTotals.set(categoryName, (categoryTotals.get(categoryName) || 0) + amount);
+  };
+
+  for (const trip of trips) {
+    for (const te of trip.tripExpenses) {
+      addExpense(te.expense.category.name, te.expense.amount);
+    }
+  }
+  for (const te of truckExpenses) {
+    addExpense(te.expense.category.name, te.expense.amount);
+  }
+
+  const expensesByCategory = Array.from(categoryTotals.entries())
+    .map(([category, amount]) => ({ category, amount }))
+    .sort((a, b) => b.amount - a.amount);
+
+  const totalExpenses = expensesByCategory.reduce((sum, c) => sum + c.amount, 0);
+  const profit = revenue - totalExpenses;
+
+  return {
+    truck,
+    trips: trips.length,
+    revenue,
+    expensesByCategory,
+    totalExpenses,
+    profit,
+    profitMargin: revenue > 0 ? (profit / revenue) * 100 : 0,
+  };
 }
 
 /**
