@@ -99,6 +99,7 @@ model Organization {
   members           Member[]
   invitations       Invitation[]
   trucks            Truck[]
+  trailers          Trailer[]
   drivers           Driver[]
   employees         Employee[]
   customers         Customer[]
@@ -187,14 +188,46 @@ model Truck {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
+  // Document expiry tracking — see api/cron/document-expiry-reminders
+  crossBorderInsuranceExpiration DateTime?
+  crossBorderPermitExpiration    DateTime?
+  vehicleLicenseExpiration       DateTime?
+  certificateOfFitnessExpiration DateTime?
+
   trips           Trip[]
   truckExpenses   TruckExpense[]
   partAllocations PartAllocation[]
   assignedDriver  Driver?  @relation("AssignedTruck")
+  assignedTrailer Trailer? @relation("AssignedTrailer")
 
   @@unique([organizationId, registrationNo])
   @@index([organizationId, status])
   @@map("truck")
+}
+
+model Trailer {
+  id                String    @id @default(cuid())
+  organizationId    String
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  registrationNo    String
+  make              String
+  model             String
+  year              Int
+  type              String?   // flatbed, reefer, tanker, container, curtainsider, etc.
+  status            String    @default("active") // active, in_service, in_repair, inactive, decommissioned
+  licenseNumber     String?
+  licenseExpiration DateTime?
+  image             String?
+  notes             String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  assignedTruckId   String?   @unique
+  assignedTruck     Truck?    @relation("AssignedTrailer", fields: [assignedTruckId], references: [id])
+
+  @@unique([organizationId, registrationNo])
+  @@index([organizationId, status])
+  @@map("trailer")
 }
 
 model TruckExpense {
