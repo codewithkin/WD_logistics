@@ -14,7 +14,7 @@ const r2PublicHostname = (() => {
 
 const nextConfig: NextConfig = {
   /* config options here */
-  reactCompiler: true,
+  reactCompiler: false,
   typescript: {
     ignoreBuildErrors: true
   },
