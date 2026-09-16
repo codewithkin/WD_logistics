@@ -16,6 +16,7 @@ import {
   Handshake,
   PackageOpen,
   Container,
+  Wallet,
   CreditCard,
   MessageCircle,
 } from "lucide-react";
@@ -138,6 +139,12 @@ export const navigationSections: NavSection[] = [
             title: "Expense Categories",
             href: "/finance/expense-categories",
             icon: Tags,
+            roles: ["admin", "supervisor"],
+          },
+          {
+            title: "Accounts",
+            href: "/finance/accounts",
+            icon: Wallet,
             roles: ["admin", "supervisor"],
           },
         ],
