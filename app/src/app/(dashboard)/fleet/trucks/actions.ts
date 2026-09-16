@@ -27,6 +27,10 @@ export async function createTruck(data: {
   tankCapacity?: number;
   image?: string;
   notes?: string;
+  crossBorderInsuranceExpiration?: Date;
+  crossBorderPermitExpiration?: Date;
+  vehicleLicenseExpiration?: Date;
+  certificateOfFitnessExpiration?: Date;
 }) {
   const session = await requireRole(["admin", "supervisor"]);
 
@@ -55,6 +59,10 @@ export async function createTruck(data: {
         tankCapacity: data.tankCapacity,
         image: data.image,
         notes: data.notes,
+        crossBorderInsuranceExpiration: data.crossBorderInsuranceExpiration,
+        crossBorderPermitExpiration: data.crossBorderPermitExpiration,
+        vehicleLicenseExpiration: data.vehicleLicenseExpiration,
+        certificateOfFitnessExpiration: data.certificateOfFitnessExpiration,
       },
     });
 
@@ -101,6 +109,10 @@ export async function updateTruck(
     tankCapacity?: number;
     image?: string;
     notes?: string;
+    crossBorderInsuranceExpiration?: Date;
+    crossBorderPermitExpiration?: Date;
+    vehicleLicenseExpiration?: Date;
+    certificateOfFitnessExpiration?: Date;
   }
 ) {
   const session = await requireRole(["admin", "supervisor"]);

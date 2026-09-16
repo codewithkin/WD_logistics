@@ -42,6 +42,10 @@ const truckSchema = z.object({
     currentMileage: numericString(z.number().min(0)),
     image: z.string().optional(),
     notes: z.string().optional(),
+    crossBorderInsuranceExpiration: z.string().optional().or(z.literal("")),
+    crossBorderPermitExpiration: z.string().optional().or(z.literal("")),
+    vehicleLicenseExpiration: z.string().optional().or(z.literal("")),
+    certificateOfFitnessExpiration: z.string().optional().or(z.literal("")),
 });
 
 type TruckFormData = z.infer<typeof truckSchema>;
@@ -57,6 +61,10 @@ interface TruckFormProps {
         currentMileage: number;
         image: string | null;
         notes: string | null;
+        crossBorderInsuranceExpiration: Date | null;
+        crossBorderPermitExpiration: Date | null;
+        vehicleLicenseExpiration: Date | null;
+        certificateOfFitnessExpiration: Date | null;
     };
 }
 
@@ -78,15 +86,27 @@ export function TruckForm({ truck }: TruckFormProps) {
             currentMileage: truck?.currentMileage ?? 0,
             image: truck?.image ?? "",
             notes: truck?.notes ?? "",
+            crossBorderInsuranceExpiration: truck?.crossBorderInsuranceExpiration ? truck.crossBorderInsuranceExpiration.toISOString().split("T")[0] : "",
+            crossBorderPermitExpiration: truck?.crossBorderPermitExpiration ? truck.crossBorderPermitExpiration.toISOString().split("T")[0] : "",
+            vehicleLicenseExpiration: truck?.vehicleLicenseExpiration ? truck.vehicleLicenseExpiration.toISOString().split("T")[0] : "",
+            certificateOfFitnessExpiration: truck?.certificateOfFitnessExpiration ? truck.certificateOfFitnessExpiration.toISOString().split("T")[0] : "",
         },
     });
 
     const onSubmit = async (data: TruckFormData) => {
         setIsLoading(true);
         try {
+            const submitData = {
+                ...data,
+                crossBorderInsuranceExpiration: data.crossBorderInsuranceExpiration ? new Date(data.crossBorderInsuranceExpiration) : undefined,
+                crossBorderPermitExpiration: data.crossBorderPermitExpiration ? new Date(data.crossBorderPermitExpiration) : undefined,
+                vehicleLicenseExpiration: data.vehicleLicenseExpiration ? new Date(data.vehicleLicenseExpiration) : undefined,
+                certificateOfFitnessExpiration: data.certificateOfFitnessExpiration ? new Date(data.certificateOfFitnessExpiration) : undefined,
+            };
+
             const result = isEditing
-                ? await updateTruck(truck.id, data)
-                : await createTruck(data);
+                ? await updateTruck(truck.id, submitData)
+                : await createTruck(submitData);
 
             if (result.success) {
                 toast.success(isEditing ? "Truck updated successfully" : "Truck created successfully");
@@ -225,6 +245,64 @@ export function TruckForm({ truck }: TruckFormProps) {
                         </FormItem>
                     )}
                 />
+
+                <div className="space-y-4">
+                    <h3 className="text-sm font-medium text-muted-foreground">Document Expiry Dates (Optional)</h3>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        <FormField
+                            control={form.control}
+                            name="crossBorderInsuranceExpiration"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Cross-Border Insurance Expiration</FormLabel>
+                                    <FormControl>
+                                        <Input type="date" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="crossBorderPermitExpiration"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Cross-Border Permit Expiration</FormLabel>
+                                    <FormControl>
+                                        <Input type="date" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="vehicleLicenseExpiration"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Vehicle License Expiration</FormLabel>
+                                    <FormControl>
+                                        <Input type="date" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="certificateOfFitnessExpiration"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Certificate of Fitness Expiration</FormLabel>
+                                    <FormControl>
+                                        <Input type="date" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                    </div>
+                </div>
 
                 <FormField
                     control={form.control}

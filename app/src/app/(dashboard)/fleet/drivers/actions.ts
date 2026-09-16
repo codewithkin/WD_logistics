@@ -18,6 +18,8 @@ export async function createDriver(data: {
   licenseExpiration?: Date;
   passportNumber?: string;
   passportExpiration?: Date;
+  defenseCertificateExpiration?: Date;
+  internationalDrivingPermitExpiration?: Date;
   status: DriverStatus;
   notes?: string;
   assignedTruckId?: string | null;
@@ -47,6 +49,8 @@ export async function createDriver(data: {
         licenseExpiration: data.licenseExpiration,
         passportNumber: data.passportNumber,
         passportExpiration: data.passportExpiration,
+        defenseCertificateExpiration: data.defenseCertificateExpiration,
+        internationalDrivingPermitExpiration: data.internationalDrivingPermitExpiration,
         status: data.status,
         notes: data.notes,
         assignedTruckId: data.assignedTruckId,
@@ -100,6 +104,8 @@ export async function updateDriver(
     licenseExpiration?: Date;
     passportNumber?: string;
     passportExpiration?: Date;
+    defenseCertificateExpiration?: Date;
+    internationalDrivingPermitExpiration?: Date;
     status?: DriverStatus;
     notes?: string;
     assignedTruckId?: string | null;
@@ -156,6 +162,8 @@ export async function updateDriver(
       licenseExpiration: data.licenseExpiration,
       passportNumber: data.passportNumber,
       passportExpiration: data.passportExpiration,
+      defenseCertificateExpiration: data.defenseCertificateExpiration,
+      internationalDrivingPermitExpiration: data.internationalDrivingPermitExpiration,
       status: data.status,
       notes: data.notes,
       assignedTruckId: data.assignedTruckId,

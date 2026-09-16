@@ -38,6 +38,8 @@ const driverSchema = z.object({
     licenseExpiration: z.string().optional().or(z.literal("")),
     passportNumber: z.string().optional().or(z.literal("")),
     passportExpiration: z.string().optional().or(z.literal("")),
+    defenseCertificateExpiration: z.string().optional().or(z.literal("")),
+    internationalDrivingPermitExpiration: z.string().optional().or(z.literal("")),
     status: z.enum(["active", "on_leave", "suspended", "terminated"]),
     notes: z.string().optional(),
     assignedTruckId: z.string().optional().nullable(),
@@ -62,6 +64,8 @@ interface DriverFormProps {
         licenseExpiration: Date | null;
         passportNumber: string | null;
         passportExpiration: Date | null;
+        defenseCertificateExpiration: Date | null;
+        internationalDrivingPermitExpiration: Date | null;
         status: string;
         notes: string | null;
         assignedTruckId: string | null;
@@ -88,6 +92,8 @@ export function DriverForm({ driver, availableTrucks, isSupervisor = false }: Dr
             licenseExpiration: driver?.licenseExpiration ? driver.licenseExpiration.toISOString().split("T")[0] : "",
             passportNumber: driver?.passportNumber ?? "",
             passportExpiration: driver?.passportExpiration ? driver.passportExpiration.toISOString().split("T")[0] : "",
+            defenseCertificateExpiration: driver?.defenseCertificateExpiration ? driver.defenseCertificateExpiration.toISOString().split("T")[0] : "",
+            internationalDrivingPermitExpiration: driver?.internationalDrivingPermitExpiration ? driver.internationalDrivingPermitExpiration.toISOString().split("T")[0] : "",
             status: (driver?.status as DriverFormData["status"]) ?? "active",
             notes: driver?.notes ?? "",
             assignedTruckId: driver?.assignedTruckId ?? null,
@@ -107,6 +113,8 @@ export function DriverForm({ driver, availableTrucks, isSupervisor = false }: Dr
                 licenseExpiration: data.licenseExpiration ? new Date(data.licenseExpiration) : undefined,
                 passportNumber: data.passportNumber || undefined,
                 passportExpiration: data.passportExpiration ? new Date(data.passportExpiration) : undefined,
+                defenseCertificateExpiration: data.defenseCertificateExpiration ? new Date(data.defenseCertificateExpiration) : undefined,
+                internationalDrivingPermitExpiration: data.internationalDrivingPermitExpiration ? new Date(data.internationalDrivingPermitExpiration) : undefined,
                 status: data.status,
                 notes: data.notes,
                 assignedTruckId: data.assignedTruckId,
@@ -295,6 +303,35 @@ export function DriverForm({ driver, availableTrucks, isSupervisor = false }: Dr
                         render={({ field }) => (
                             <FormItem>
                                 <FormLabel>Passport Expiration (Optional)</FormLabel>
+                                <FormControl>
+                                    <Input type="date" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                    <FormField
+                        control={form.control}
+                        name="defenseCertificateExpiration"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Defense Certificate Expiration (Optional)</FormLabel>
+                                <FormControl>
+                                    <Input type="date" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    <FormField
+                        control={form.control}
+                        name="internationalDrivingPermitExpiration"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>International Driving Permit (AA) Expiration (Optional)</FormLabel>
                                 <FormControl>
                                     <Input type="date" {...field} />
                                 </FormControl>
