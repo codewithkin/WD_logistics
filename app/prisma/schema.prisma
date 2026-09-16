@@ -35,6 +35,8 @@ model User {
   notifications UserNotification[]
   accountTransactions AccountTransaction[]
   pushSubscriptions PushSubscription[]
+  maintenanceRequestsReported MaintenanceRequest[] @relation("MaintenanceRequestReported")
+  maintenanceRequestsFixed    MaintenanceRequest[] @relation("MaintenanceRequestFixed")
 
   @@map("user")
 }
@@ -103,6 +105,7 @@ model Organization {
   trucks            Truck[]
   trailers          Trailer[]
   financialAccounts FinancialAccount[]
+  maintenanceRequests MaintenanceRequest[]
   drivers           Driver[]
   employees         Employee[]
   customers         Customer[]
@@ -197,11 +200,12 @@ model Truck {
   vehicleLicenseExpiration       DateTime?
   certificateOfFitnessExpiration DateTime?
 
-  trips           Trip[]
-  truckExpenses   TruckExpense[]
-  partAllocations PartAllocation[]
-  assignedDriver  Driver?  @relation("AssignedTruck")
-  assignedTrailer Trailer? @relation("AssignedTrailer")
+  trips                Trip[]
+  truckExpenses        TruckExpense[]
+  partAllocations      PartAllocation[]
+  assignedDriver       Driver?  @relation("AssignedTruck")
+  assignedTrailer      Trailer? @relation("AssignedTrailer")
+  maintenanceRequests  MaintenanceRequest[]
 
   @@unique([organizationId, registrationNo])
   @@index([organizationId, status])
@@ -231,6 +235,35 @@ model Trailer {
   @@unique([organizationId, registrationNo])
   @@index([organizationId, status])
   @@map("trailer")
+}
+
+// =============================================================================
+// MAINTENANCE REQUESTS (Workshop role)
+// =============================================================================
+
+model MaintenanceRequest {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  truckId        String
+  truck          Truck    @relation(fields: [truckId], references: [id])
+  notes          String
+  date           DateTime @default(now())
+  status         String   @default("open") // open, fixed
+
+  reportedById   String
+  reportedBy     User     @relation("MaintenanceRequestReported", fields: [reportedById], references: [id])
+
+  fixedById      String?
+  fixedBy        User?    @relation("MaintenanceRequestFixed", fields: [fixedById], references: [id])
+  fixedAt        DateTime?
+  fixedNotes     String?
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([organizationId, status])
+  @@map("maintenance_request")
 }
 
 model TruckExpense {
