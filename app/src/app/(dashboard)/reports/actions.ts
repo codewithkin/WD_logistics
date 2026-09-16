@@ -9,6 +9,7 @@ import {
   fetchExpenseData,
   fetchCustomerStatementData,
   fetchTripSummaryData,
+  fetchTruckProfitabilityData,
   getCustomerList,
   getTruckList,
 } from "@/lib/reports/data-fetchers";
@@ -18,6 +19,7 @@ import {
   generateExpenseCSV,
   generateCustomerStatementCSV,
   generateTripSummaryCSV,
+  generateTruckProfitabilityCSV,
 } from "@/lib/reports/csv-generator";
 import {
   generateProfitPerUnitPDF,
@@ -26,6 +28,7 @@ import {
   generateTripSummaryPDF,
   generateCustomerStatementPDF,
   generateDashboardSummaryPDF,
+  generateTruckProfitabilityPDF,
 } from "@/lib/reports/pdf-report-generator";
 
 // Input validation schema
@@ -36,6 +39,7 @@ const generateReportSchema = z.object({
     "expenses",
     "customer-statement",
     "trip-summary",
+    "truck-profitability",
   ]),
   startDate: z.string(),
   endDate: z.string(),
@@ -67,7 +71,7 @@ export async function generateReport(
     const { organizationId } = session;
 
     const validated = generateReportSchema.parse(input);
-    const { reportType, startDate, endDate, period, format, customerId } = validated;
+    const { reportType, startDate, endDate, period, format, customerId, truckId } = validated;
 
     const start = new Date(startDate);
     const end = new Date(endDate);
@@ -246,6 +250,42 @@ export async function generateReport(
           fileExtension = "csv";
         }
         filename = `trip-summary-${start.toISOString().split("T")[0]}-to-${end.toISOString().split("T")[0]}.${fileExtension}`;
+        break;
+      }
+
+      case "truck-profitability": {
+        if (!truckId) {
+          return { success: false, error: "Truck is required for truck profitability report" };
+        }
+
+        const profitabilityData = await fetchTruckProfitabilityData(
+          organizationId,
+          truckId,
+          start,
+          end
+        );
+
+        if (format === "pdf") {
+          const pdfBytes = generateTruckProfitabilityPDF({
+            ...profitabilityData,
+            period: periodObj,
+          });
+          fileBuffer = pdfBytes;
+          mimeType = "application/pdf";
+          fileExtension = "pdf";
+        } else {
+          const meta = {
+            startDate: start.toISOString().split("T")[0],
+            endDate: end.toISOString().split("T")[0],
+            period,
+            generatedAt: new Date(),
+          };
+          const csvContent = generateTruckProfitabilityCSV(profitabilityData, meta);
+          fileBuffer = Buffer.from(csvContent, "utf-8");
+          mimeType = "text/csv";
+          fileExtension = "csv";
+        }
+        filename = `truck-profitability-${profitabilityData.truck.registrationNo.replace(/\s+/g, "-")}-${start.toISOString().split("T")[0]}-to-${end.toISOString().split("T")[0]}.${fileExtension}`;
         break;
       }
 
