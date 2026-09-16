@@ -139,3 +139,18 @@ export function canEditDirectly(role: Role): boolean {
 export function canDeleteDirectly(role: Role): boolean {
   return role === "admin";
 }
+
+/**
+ * Check if user can view the three account balances (Cash/Bank/Petty Cash)
+ * on the expenses page. An explicit carve-out from canViewFinancialData:
+ * supervisors need this to record expenses sensibly even though they can't
+ * see revenue or the rest of the financial reports.
+ */
+export function canViewAccountBalances(role: Role): boolean {
+  return role === "admin" || role === "supervisor";
+}
+
+// Only admins can transfer funds between accounts (e.g. petty cash <-> cash)
+export function canTransferFunds(role: Role): boolean {
+  return role === "admin";
+}
