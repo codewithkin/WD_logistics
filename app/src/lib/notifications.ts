@@ -19,6 +19,7 @@ export type NotificationEntityType =
   | "expense"
   | "trip"
   | "truck"
+  | "trailer"
   | "driver"
   | "customer"
   | "supplier"
@@ -177,6 +178,8 @@ function getEntityTypeDisplay(entityType: NotificationEntityType): string {
       return "Trip";
     case "truck":
       return "Truck";
+    case "trailer":
+      return "Trailer";
     case "driver":
       return "Driver";
     case "customer":
@@ -205,6 +208,8 @@ function getEntityIcon(entityType: NotificationEntityType): string {
       return "🚚";
     case "truck":
       return "🚛";
+    case "trailer":
+      return "🚚";
     case "driver":
       return "👤";
     case "customer":
@@ -233,6 +238,8 @@ function getEntityLink(entityType: NotificationEntityType, entityId: string): st
       return `/operations/trips/${entityId}`;
     case "truck":
       return `/fleet/trucks/${entityId}`;
+    case "trailer":
+      return `/fleet/trailers/${entityId}`;
     case "driver":
       return `/fleet/drivers/${entityId}`;
     case "customer":
@@ -881,6 +888,78 @@ export async function notifyTruckDeleted(
     eventType: "deleted",
     entityId: "",
     entityName: `Truck ${registrationNo}`,
+    organizationId,
+    performedBy,
+    details: {
+      registrationNo,
+    },
+  });
+}
+
+// Trailer notifications
+export interface TrailerNotificationData {
+  id: string;
+  registrationNo: string;
+  make: string;
+  model: string;
+  year: number;
+  status: string;
+}
+
+export async function notifyTrailerCreated(
+  data: TrailerNotificationData,
+  organizationId: string,
+  performedBy: { name: string; email: string; role: string }
+) {
+  return sendAdminNotification({
+    entityType: "trailer",
+    eventType: "created",
+    entityId: data.id,
+    entityName: `Trailer ${data.registrationNo}`,
+    organizationId,
+    performedBy,
+    details: {
+      registrationNo: data.registrationNo,
+      make: data.make,
+      model: data.model,
+      year: data.year,
+      status: data.status,
+    },
+  });
+}
+
+export async function notifyTrailerUpdated(
+  data: TrailerNotificationData,
+  organizationId: string,
+  performedBy: { name: string; email: string; role: string }
+) {
+  return sendAdminNotification({
+    entityType: "trailer",
+    eventType: "updated",
+    entityId: data.id,
+    entityName: `Trailer ${data.registrationNo}`,
+    organizationId,
+    performedBy,
+    details: {
+      registrationNo: data.registrationNo,
+      make: data.make,
+      model: data.model,
+      year: data.year,
+      status: data.status,
+    },
+  });
+}
+
+export async function notifyTrailerDeleted(
+  registrationNo: string,
+  organizationId: string,
+  performedBy: { name: string; email: string; role: string }
+) {
+  return sendAdminNotification({
+    entityType: "trailer",
+    eventType: "deleted",
+    entityId: "",
+    entityName: `Trailer ${registrationNo}`,
     organizationId,
     performedBy,
     details: {
