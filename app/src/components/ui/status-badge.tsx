@@ -67,6 +67,9 @@ const truckStatusConfig: Record<string, StatusConfig> = {
     },
 };
 
+// Trailer statuses (same as truck)
+const trailerStatusConfig = truckStatusConfig;
+
 // Driver statuses
 const driverStatusConfig: Record<string, StatusConfig> = {
     active: {
@@ -269,6 +272,7 @@ const roleStatusConfig: Record<string, StatusConfig> = {
 // All config maps
 const statusConfigMap = {
     truck: truckStatusConfig,
+    trailer: trailerStatusConfig,
     driver: driverStatusConfig,
     employee: employeeStatusConfig,
     customer: customerStatusConfig,
@@ -332,6 +336,7 @@ export function StatusBadge({
 // Export configs for use elsewhere if needed
 export {
     truckStatusConfig,
+    trailerStatusConfig,
     driverStatusConfig,
     employeeStatusConfig,
     customerStatusConfig,

@@ -3,6 +3,7 @@ export type Role = "admin" | "supervisor" | "staff";
 
 // Status types
 export type TruckStatus = "active" | "in_service" | "in_repair" | "inactive" | "decommissioned";
+export type TrailerStatus = "active" | "in_service" | "in_repair" | "inactive" | "decommissioned";
 export type DriverStatus = "active" | "on_leave" | "suspended" | "terminated";
 export type EmployeeStatus = "active" | "on_leave" | "suspended" | "terminated";
 export type CustomerStatus = "active" | "inactive" | "suspended";
@@ -18,6 +19,14 @@ export type ReportFormat = "pdf" | "csv";
 
 // Label mappings
 export const TRUCK_STATUS_LABELS: Record<TruckStatus, string> = {
+  active: "Active",
+  in_service: "In Service",
+  in_repair: "In Repair",
+  inactive: "Inactive",
+  decommissioned: "Decommissioned",
+};
+
+export const TRAILER_STATUS_LABELS: Record<TrailerStatus, string> = {
   active: "Active",
   in_service: "In Service",
   in_repair: "In Repair",
@@ -83,6 +92,14 @@ export const ROLE_LABELS: Record<Role, string> = {
 
 // Status color mappings for badges
 export const TRUCK_STATUS_COLORS: Record<TruckStatus, "default" | "secondary" | "destructive" | "outline"> = {
+  active: "default",
+  in_service: "secondary",
+  in_repair: "destructive",
+  inactive: "outline",
+  decommissioned: "destructive",
+};
+
+export const TRAILER_STATUS_COLORS: Record<TrailerStatus, "default" | "secondary" | "destructive" | "outline"> = {
   active: "default",
   in_service: "secondary",
   in_repair: "destructive",
