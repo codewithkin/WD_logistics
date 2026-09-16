@@ -275,10 +275,27 @@ const roleStatusConfig: Record<string, StatusConfig> = {
     },
 };
 
+// Maintenance request statuses
+const maintenanceStatusConfig: Record<string, StatusConfig> = {
+    open: {
+        label: "Open",
+        bgColor: "bg-amber-100 dark:bg-amber-900/30",
+        textColor: "text-amber-700 dark:text-amber-400",
+        icon: Wrench,
+    },
+    fixed: {
+        label: "Fixed",
+        bgColor: "bg-emerald-100 dark:bg-emerald-900/30",
+        textColor: "text-emerald-700 dark:text-emerald-400",
+        icon: CheckCircle2,
+    },
+};
+
 // All config maps
 const statusConfigMap = {
     truck: truckStatusConfig,
     trailer: trailerStatusConfig,
+    maintenance: maintenanceStatusConfig,
     driver: driverStatusConfig,
     employee: employeeStatusConfig,
     customer: customerStatusConfig,
@@ -343,6 +360,7 @@ export function StatusBadge({
 export {
     truckStatusConfig,
     trailerStatusConfig,
+    maintenanceStatusConfig,
     driverStatusConfig,
     employeeStatusConfig,
     customerStatusConfig,

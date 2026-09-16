@@ -15,7 +15,7 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
@@ -43,7 +43,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { Plus, Wrench, CheckCircle2, Loader2 } from "lucide-react";
+import { Plus, Loader2 } from "lucide-react";
 import { Role } from "@/lib/types";
 import { createMaintenanceRequest, markMaintenanceRequestFixed } from "../actions";
 import { toast } from "sonner";
@@ -281,17 +281,7 @@ export function MaintenanceRequestsClient({ requests, trucks, role }: Maintenanc
                                             <TableCell>{format(request.date, "PPP")}</TableCell>
                                             <TableCell className="max-w-xs truncate">{request.notes}</TableCell>
                                             <TableCell>
-                                                {request.status === "fixed" ? (
-                                                    <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
-                                                        <CheckCircle2 className="mr-1 h-3 w-3" />
-                                                        Fixed
-                                                    </Badge>
-                                                ) : (
-                                                    <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-                                                        <Wrench className="mr-1 h-3 w-3" />
-                                                        Open
-                                                    </Badge>
-                                                )}
+                                                <StatusBadge status={request.status} type="maintenance" />
                                             </TableCell>
                                             <TableCell>{request.reportedBy.name}</TableCell>
                                             <TableCell>
