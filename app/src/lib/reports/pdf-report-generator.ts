@@ -667,6 +667,60 @@ export function generateTruckProfitabilityPDF(data: {
 }
 
 /**
+ * Generate an Account Ledger Report PDF — a running ledger and P&L view
+ * for Cash/Bank/Petty Cash: opening balance -> usage -> remaining, plus a
+ * spend breakdown, one section per account.
+ */
+export function generateAccountLedgerPDF(data: {
+  accounts: Array<{
+    accountName: string;
+    openingBalance: number;
+    totalDebits: number;
+    totalCredits: number;
+    closingBalance: number;
+    expenseBreakdown: Array<{ description: string; amount: number }>;
+  }>;
+  period: { startDate: Date | string; endDate: Date | string };
+}): Uint8Array {
+  const totalOpening = data.accounts.reduce((sum, a) => sum + a.openingBalance, 0);
+  const totalDebits = data.accounts.reduce((sum, a) => sum + a.totalDebits, 0);
+  const totalCredits = data.accounts.reduce((sum, a) => sum + a.totalCredits, 0);
+  const totalClosing = data.accounts.reduce((sum, a) => sum + a.closingBalance, 0);
+
+  const config: ReportConfig = {
+    title: "Account Ledger Report",
+    subtitle: "Cash / Bank / Petty Cash — Opening Balance, Usage, Remaining",
+    reportType: "account-ledger",
+    period: data.period,
+    summary: [
+      { label: "Combined Opening Balance", value: totalOpening, format: "currency" },
+      { label: "Combined Usage (Debits)", value: totalDebits, format: "currency" },
+      { label: "Combined Credits", value: totalCredits, format: "currency" },
+      { label: "Combined Closing Balance", value: totalClosing, format: "currency" },
+    ],
+    sections: data.accounts.map((account) => ({
+      title: `${account.accountName} — Opening ${account.openingBalance.toFixed(2)} -> Closing ${account.closingBalance.toFixed(2)}`,
+      columns: [
+        { header: "Description", key: "description", align: "left" },
+        { header: "Amount", key: "amount", format: "currency", align: "right" },
+      ],
+      data: account.expenseBreakdown,
+      showTotal: true,
+      totalLabel: "Total Usage",
+      totalColumns: ["amount"],
+    })),
+    notes: [
+      "All amounts are in United States Dollars (USD).",
+      "Revenue never touches these accounts — only expenses and transfers between Cash and Petty Cash do.",
+      "Opening/closing balances are exact ledger snapshots, not recomputed sums.",
+    ],
+  };
+
+  const generator = new PDFReportGenerator(config);
+  return generator.generate();
+}
+
+/**
  * Generate a Trip Summary Report PDF
  */
 export function generateTripSummaryPDF(data: {
