@@ -102,20 +102,18 @@ export const reportConfigs: Record<string, ReportConfig> = {
       { key: "profit", label: "Profit", type: "currency" },
     ],
   },
-  "truck-performance": {
-    id: "truck-performance",
-    name: "Truck Performance Report",
-    description: "Individual truck performance metrics and utilization",
-    periods: ["monthly", "quarterly"],
+  "truck-profitability": {
+    id: "truck-profitability",
+    name: "Truck Profitability Report",
+    description: "Revenue vs. expenses (fuel, spares, maintenance, etc.) for a single truck",
+    periods: ["monthly", "quarterly", "yearly", "custom"],
     formats: ["pdf", "csv"],
     fields: [
-      { key: "registrationNo", label: "Truck", type: "string" },
-      { key: "totalTrips", label: "Trips", type: "number" },
-      { key: "totalMileage", label: "Mileage", type: "number" },
+      { key: "category", label: "Expense Category", type: "string" },
+      { key: "amount", label: "Amount", type: "currency" },
       { key: "revenue", label: "Revenue", type: "currency" },
-      { key: "fuelCost", label: "Fuel Cost", type: "currency" },
-      { key: "maintenanceCost", label: "Maintenance", type: "currency" },
-      { key: "utilization", label: "Utilization %", type: "percentage" },
+      { key: "profit", label: "Net Profit", type: "currency" },
+      { key: "profitMargin", label: "Margin %", type: "percentage" },
     ],
     requiresTruck: true,
   },
@@ -127,7 +125,7 @@ export const reportTypeLabels: Record<string, string> = {
   expenses: "Expenses",
   customer_statement: "Customer Statement",
   trip_summary: "Trip Summary",
-  truck_performance: "Truck Performance",
+  truck_profitability: "Truck Profitability",
 };
 
 export const periodLabels: Record<ReportPeriod, string> = {
