@@ -266,6 +266,10 @@ model Driver {
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 
+  // Document expiry tracking — see api/cron/document-expiry-reminders
+  defenseCertificateExpiration          DateTime?
+  internationalDrivingPermitExpiration  DateTime?
+
   assignedTruckId String?   @unique
   assignedTruck   Truck?    @relation("AssignedTruck", fields: [assignedTruckId], references: [id])
   trips           Trip[]
