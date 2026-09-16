@@ -33,6 +33,7 @@ model User {
   editRequestsCreated EditRequest[] @relation("RequestedBy")
   editRequestsApproved EditRequest[] @relation("ApprovedBy")
   notifications UserNotification[]
+  accountTransactions AccountTransaction[]
 
   @@map("user")
 }
@@ -100,6 +101,7 @@ model Organization {
   invitations       Invitation[]
   trucks            Truck[]
   trailers          Trailer[]
+  financialAccounts FinancialAccount[]
   drivers           Driver[]
   employees         Employee[]
   customers         Customer[]
@@ -489,10 +491,54 @@ model ExpenseCategory {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
+  defaultAccountId String?
+  defaultAccount    FinancialAccount? @relation(fields: [defaultAccountId], references: [id])
+
   expenses       Expense[]
 
   @@unique([organizationId, name])
   @@map("expense_category")
+}
+
+// =============================================================================
+// THREE-ACCOUNT ACCOUNTING (Cash / Bank / Petty Cash)
+// =============================================================================
+// Revenue never touches these accounts — they track expense funding only.
+
+model FinancialAccount {
+  id              String   @id @default(cuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  type            String   // cash, bank, petty_cash
+  name            String
+  startingBalance Float    @default(0)
+  balance         Float    @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  categories      ExpenseCategory[]
+  transactions    AccountTransaction[]
+
+  @@unique([organizationId, type])
+  @@map("financial_account")
+}
+
+model AccountTransaction {
+  id            String   @id @default(cuid())
+  accountId     String
+  account       FinancialAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  type          String   // expense, transfer_in, transfer_out
+  amount        Float
+  balanceAfter  Float
+  expenseId     String?
+  description   String?
+  date          DateTime @default(now())
+  createdById   String
+  createdBy     User     @relation(fields: [createdById], references: [id])
+  createdAt     DateTime @default(now())
+
+  @@index([accountId, date])
+  @@map("account_transaction")
 }
 
 model Expense {
