@@ -70,6 +70,24 @@ async function applyEditToEntity(entityType: string, entityId: string, proposedD
       revalidatePath("/fleet/trucks");
       break;
 
+    case "trailer":
+      await prisma.trailer.update({
+        where: { id: entityId },
+        data: {
+          registrationNo: data.registrationNo as string | undefined,
+          make: data.make as string | undefined,
+          model: data.model as string | undefined,
+          year: data.year as number | undefined,
+          status: data.status as string | undefined,
+          type: data.type as string | undefined,
+          licenseNumber: data.licenseNumber as string | undefined,
+          licenseExpiration: data.licenseExpiration ? new Date(data.licenseExpiration as string) : undefined,
+          notes: data.notes as string | undefined,
+        },
+      });
+      revalidatePath("/fleet/trailers");
+      break;
+
     case "driver":
       await prisma.driver.update({
         where: { id: entityId },
