@@ -15,6 +15,7 @@ import {
   Tags,
   Handshake,
   PackageOpen,
+  Container,
   CreditCard,
   MessageCircle,
 } from "lucide-react";
@@ -61,6 +62,12 @@ export const navigationSections: NavSection[] = [
             title: "Trucks",
             href: "/fleet/trucks",
             icon: Truck,
+            roles: ["admin", "supervisor", "staff"],
+          },
+          {
+            title: "Trailers",
+            href: "/fleet/trailers",
+            icon: Container,
             roles: ["admin", "supervisor", "staff"],
           },
           {
