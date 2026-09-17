@@ -1,20 +1,16 @@
 /**
- * Cron Job: Truck & Driver Document Expiry Reminders
+ * Cron Job: Truck, Trailer & Driver Document Expiry Reminders
  *
  * GET /api/cron/document-expiry-reminders
  *
  * Meant to be called once daily by an external scheduler, same as
  * /api/cron/invoice-reminders.
  *
- * Tracks these document expiry dates:
- *   Truck:  cross-border insurance, cross-border permit, vehicle license,
- *           certificate of fitness
- *   Driver: defense certificate, international driving permit (AA)
- *
- * "Advance notification": fires at 30/14/7/3/1/0 days before expiry.
- * "Repeated notification": once a document is overdue, fires again every
- * 7 days until the expiry date on the record is updated (which naturally
- * stops it matching any checkpoint).
+ * Tracks every expiry field in EXPIRY_FIELDS (@/lib/expiry-reminders).
+ * Advance reminders use the days configured for that specific entity and
+ * document (the bell popover on the truck/trailer/driver forms), falling back
+ * to DEFAULT_REMINDER_DAYS when none are set. The expiry day itself and every
+ * 7 days after lapsing always send, until the date on the record is renewed.
  *
  * Sent via WhatsApp through the agent service, to the admin always, and
  * additionally to the driver's own WhatsApp number for driver-owned
@@ -24,20 +20,28 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { format } from "date-fns";
+import {
+  EXPIRY_FIELDS,
+  shouldSendExpiryReminder,
+  type ExpiryEntityType,
+} from "@/lib/expiry-reminders";
 
 const CRON_SECRET = process.env.CRON_SECRET;
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:3001";
 const ADMIN_WHATSAPP_NUMBER = process.env.ADMIN_WHATSAPP_NUMBER;
 
-// Days-before-expiry checkpoints for the advance warning.
-const ADVANCE_CHECKPOINTS = new Set([30, 14, 7, 3, 1, 0]);
+const ENTITY_LABELS: Record<ExpiryEntityType, string> = {
+  truck: "🚛 Truck",
+  trailer: "🚚 Trailer",
+  driver: "👤 Driver",
+};
 
 interface TrackedDocument {
   organizationId: string;
-  entityType: "truck" | "driver";
+  entityType: ExpiryEntityType;
   entityId: string;
   entityLabel: string;
-  documentType: string;
+  field: string;
   documentLabel: string;
   expiryDate: Date;
   driverPhone: string | null;
@@ -48,9 +52,26 @@ function daysUntil(date: Date, from: Date): number {
   return Math.floor((date.getTime() - from.getTime()) / msPerDay);
 }
 
-function shouldNotify(days: number): boolean {
-  if (ADVANCE_CHECKPOINTS.has(days)) return true;
-  return days < 0 && Math.abs(days) % 7 === 0;
+function collectDocuments(
+  entityType: ExpiryEntityType,
+  entity: Record<string, unknown> & { id: string; organizationId: string },
+  entityLabel: string,
+  driverPhone: string | null
+): TrackedDocument[] {
+  return EXPIRY_FIELDS[entityType].flatMap(({ field, label }) => {
+    const value = entity[field];
+    if (!(value instanceof Date)) return [];
+    return [{
+      organizationId: entity.organizationId,
+      entityType,
+      entityId: entity.id,
+      entityLabel,
+      field,
+      documentLabel: label,
+      expiryDate: value,
+      driverPhone,
+    }];
+  });
 }
 
 async function sendWhatsApp(organizationId: string, phoneNumber: string, message: string) {
@@ -75,51 +96,39 @@ export async function GET(request: NextRequest) {
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-    const [trucks, drivers, sentToday] = await Promise.all([
+    const [trucks, trailers, drivers, reminderRows, sentToday] = await Promise.all([
       prisma.truck.findMany({
         where: {
           status: { not: "decommissioned" },
-          OR: [
-            { crossBorderInsuranceExpiration: { not: null } },
-            { crossBorderPermitExpiration: { not: null } },
-            { vehicleLicenseExpiration: { not: null } },
-            { certificateOfFitnessExpiration: { not: null } },
-          ],
+          OR: EXPIRY_FIELDS.truck.map(({ field }) => ({ [field]: { not: null } })),
         },
-        select: {
-          id: true,
-          organizationId: true,
-          registrationNo: true,
-          crossBorderInsuranceExpiration: true,
-          crossBorderPermitExpiration: true,
-          vehicleLicenseExpiration: true,
-          certificateOfFitnessExpiration: true,
+      }),
+      prisma.trailer.findMany({
+        where: {
+          status: { not: "decommissioned" },
+          OR: EXPIRY_FIELDS.trailer.map(({ field }) => ({ [field]: { not: null } })),
         },
       }),
       prisma.driver.findMany({
         where: {
           status: { not: "terminated" },
-          OR: [
-            { defenseCertificateExpiration: { not: null } },
-            { internationalDrivingPermitExpiration: { not: null } },
-          ],
+          OR: EXPIRY_FIELDS.driver.map(({ field }) => ({ [field]: { not: null } })),
         },
-        select: {
-          id: true,
-          organizationId: true,
-          firstName: true,
-          lastName: true,
-          whatsappNumber: true,
-          phone: true,
-          defenseCertificateExpiration: true,
-          internationalDrivingPermitExpiration: true,
-        },
+      }),
+      prisma.expiryReminder.findMany({
+        select: { entityType: true, entityId: true, field: true, daysBefore: true },
       }),
       prisma.notification.findMany({
         where: { type: "document_expiry", createdAt: { gte: todayStart } },
         select: { metadata: true },
       }),
     ]);
+
+    const configuredDays = new Map<string, number[]>();
+    for (const row of reminderRows) {
+      const key = `${row.entityType}:${row.entityId}:${row.field}`;
+      configuredDays.set(key, [...(configuredDays.get(key) ?? []), row.daysBefore]);
+    }
 
     const alreadySentToday = new Set(
       sentToday.map((n) => {
@@ -128,59 +137,27 @@ export async function GET(request: NextRequest) {
       })
     );
 
-    const documents: TrackedDocument[] = [];
-
-    for (const truck of trucks) {
-      const fields: Array<[string, string, Date | null]> = [
-        ["cross_border_insurance", "Cross-Border Insurance", truck.crossBorderInsuranceExpiration],
-        ["cross_border_permit", "Cross-Border Permit", truck.crossBorderPermitExpiration],
-        ["vehicle_license", "Vehicle License", truck.vehicleLicenseExpiration],
-        ["certificate_of_fitness", "Certificate of Fitness", truck.certificateOfFitnessExpiration],
-      ];
-      for (const [documentType, documentLabel, expiryDate] of fields) {
-        if (!expiryDate) continue;
-        documents.push({
-          organizationId: truck.organizationId,
-          entityType: "truck",
-          entityId: truck.id,
-          entityLabel: truck.registrationNo,
-          documentType,
-          documentLabel,
-          expiryDate,
-          driverPhone: null,
-        });
-      }
-    }
-
-    for (const driver of drivers) {
-      const driverName = `${driver.firstName} ${driver.lastName}`;
-      const driverPhone = driver.whatsappNumber || driver.phone || null;
-      const fields: Array<[string, string, Date | null]> = [
-        ["defense_certificate", "Defense Certificate", driver.defenseCertificateExpiration],
-        ["international_driving_permit", "International Driving Permit (AA)", driver.internationalDrivingPermitExpiration],
-      ];
-      for (const [documentType, documentLabel, expiryDate] of fields) {
-        if (!expiryDate) continue;
-        documents.push({
-          organizationId: driver.organizationId,
-          entityType: "driver",
-          entityId: driver.id,
-          entityLabel: driverName,
-          documentType,
-          documentLabel,
-          expiryDate,
-          driverPhone,
-        });
-      }
-    }
+    const documents: TrackedDocument[] = [
+      ...trucks.flatMap((truck) => collectDocuments("truck", truck, truck.registrationNo, null)),
+      ...trailers.flatMap((trailer) => collectDocuments("trailer", trailer, trailer.registrationNo, null)),
+      ...drivers.flatMap((driver) =>
+        collectDocuments(
+          "driver",
+          driver,
+          `${driver.firstName} ${driver.lastName}`,
+          driver.whatsappNumber || driver.phone || null
+        )
+      ),
+    ];
 
     const results = { checked: documents.length, notified: 0, errors: [] as string[] };
 
     for (const doc of documents) {
       const days = daysUntil(doc.expiryDate, todayStart);
-      if (!shouldNotify(days)) continue;
+      const custom = configuredDays.get(`${doc.entityType}:${doc.entityId}:${doc.field}`) ?? [];
+      if (!shouldSendExpiryReminder(days, custom)) continue;
 
-      const key = `${doc.entityId}:${doc.documentType}:${days}`;
+      const key = `${doc.entityId}:${doc.field}:${days}`;
       if (alreadySentToday.has(key)) continue;
 
       const isOverdue = days < 0;
@@ -192,7 +169,7 @@ export async function GET(request: NextRequest) {
 
       const message = `📋 ${headline}
 
-${doc.entityType === "truck" ? "🚛 Truck" : "👤 Driver"}: *${doc.entityLabel}*
+${ENTITY_LABELS[doc.entityType]}: *${doc.entityLabel}*
 📅 Expiry date: ${format(doc.expiryDate, "PPP")}
 
 ${isOverdue ? "Please renew this as soon as possible." : "Please arrange renewal ahead of the expiry date."}`;
@@ -213,8 +190,8 @@ ${isOverdue ? "Please renew this as soon as possible." : "Please arrange renewal
         }
       }
 
-      // Log once per document/checkpoint even if it went to multiple
-      // recipients, so alreadySentToday's idempotency key stays correct.
+      // Log once per document/day even if it went to multiple recipients, so
+      // alreadySentToday's idempotency key stays correct on a re-run.
       await prisma.notification.create({
         data: {
           type: "document_expiry",
@@ -226,7 +203,7 @@ ${isOverdue ? "Please renew this as soon as possible." : "Please arrange renewal
             entityType: doc.entityType,
             entityId: doc.entityId,
             entityLabel: doc.entityLabel,
-            documentType: doc.documentType,
+            documentType: doc.field,
             daysUntil: days,
           },
         },

@@ -3,6 +3,7 @@ import { requireRole } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/layout/page-header";
 import { TrailerForm } from "../../_components/trailer-form";
+import { getExpiryReminders } from "@/lib/expiry-reminders-server";
 
 interface EditTrailerPageProps {
     params: Promise<{ id: string }>;
@@ -20,6 +21,8 @@ export default async function EditTrailerPage({ params }: EditTrailerPageProps) 
         notFound();
     }
 
+    const reminders = await getExpiryReminders(session.organizationId, "trailer", trailer.id);
+
     return (
         <div>
             <PageHeader
@@ -27,7 +30,7 @@ export default async function EditTrailerPage({ params }: EditTrailerPageProps) 
                 description={`Update details for ${trailer.registrationNo}`}
                 backHref={`/fleet/trailers/${trailer.id}`}
             />
-            <TrailerForm trailer={trailer} />
+            <TrailerForm trailer={trailer} reminders={reminders} />
         </div>
     );
 }

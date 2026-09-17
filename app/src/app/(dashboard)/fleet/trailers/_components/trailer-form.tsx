@@ -28,6 +28,8 @@ import { Loader2 } from "lucide-react";
 import { TRAILER_STATUS_LABELS } from "@/lib/types";
 import { createTrailer, updateTrailer } from "../actions";
 import { toast } from "sonner";
+import { ExpiryReminderPopover } from "@/components/fleet/expiry-reminder-popover";
+import type { ReminderDays } from "@/lib/expiry-reminders";
 
 // Helper for Zod 4 compatibility with react-hook-form
 const numericString = (schema: z.ZodNumber) =>
@@ -62,12 +64,14 @@ interface TrailerFormProps {
         image: string | null;
         notes: string | null;
     };
+    reminders?: ReminderDays;
 }
 
-export function TrailerForm({ trailer }: TrailerFormProps) {
+export function TrailerForm({ trailer, reminders: initialReminders }: TrailerFormProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
+    const [reminders, setReminders] = useState<ReminderDays>(initialReminders ?? {});
     const isEditing = !!trailer;
 
     const form = useForm<TrailerFormData>({
@@ -93,8 +97,8 @@ export function TrailerForm({ trailer }: TrailerFormProps) {
         setIsLoading(true);
         try {
             const result = isEditing
-                ? await updateTrailer(trailer.id, data)
-                : await createTrailer(data);
+                ? await updateTrailer(trailer.id, { ...data, reminders })
+                : await createTrailer({ ...data, reminders });
 
             if (result.success) {
                 toast.success(isEditing ? "Trailer updated successfully" : "Trailer created successfully");
@@ -231,7 +235,15 @@ export function TrailerForm({ trailer }: TrailerFormProps) {
                         name="licenseExpiration"
                         render={({ field }) => (
                             <FormItem>
-                                <FormLabel>License Expiration</FormLabel>
+                                <div className="flex items-center justify-between gap-2">
+                                    <FormLabel>License Expiration</FormLabel>
+                                    <ExpiryReminderPopover
+                                        documentLabel="Trailer License"
+                                        value={reminders.licenseExpiration ?? []}
+                                        onChange={(days) => setReminders((prev) => ({ ...prev, licenseExpiration: days }))}
+                                        disabled={isLoading}
+                                    />
+                                </div>
                                 <FormControl>
                                     <Input type="date" {...field} />
                                 </FormControl>

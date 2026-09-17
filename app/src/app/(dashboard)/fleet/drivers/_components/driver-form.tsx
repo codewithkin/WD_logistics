@@ -27,6 +27,8 @@ import { Loader2 } from "lucide-react";
 import { DriverStatus, DRIVER_STATUS_LABELS } from "@/lib/types";
 import { createDriver, updateDriver } from "../actions";
 import { toast } from "sonner";
+import { ExpiryReminderPopover } from "@/components/fleet/expiry-reminder-popover";
+import type { ReminderDays } from "@/lib/expiry-reminders";
 
 const driverSchema = z.object({
     firstName: z.string().min(1, "First name is required"),
@@ -72,12 +74,23 @@ interface DriverFormProps {
     };
     availableTrucks: Truck[];
     isSupervisor?: boolean;
+    reminders?: ReminderDays;
 }
 
-export function DriverForm({ driver, availableTrucks, isSupervisor = false }: DriverFormProps) {
+export function DriverForm({ driver, availableTrucks, isSupervisor = false, reminders: initialReminders }: DriverFormProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
+    const [reminders, setReminders] = useState<ReminderDays>(initialReminders ?? {});
     const isEditing = !!driver;
+
+    const reminderPopover = (field: string, documentLabel: string) => (
+        <ExpiryReminderPopover
+            documentLabel={documentLabel}
+            value={reminders[field] ?? []}
+            onChange={(days) => setReminders((prev) => ({ ...prev, [field]: days }))}
+            disabled={isLoading}
+        />
+    );
 
     const form = useForm<DriverFormData>({
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -118,6 +131,7 @@ export function DriverForm({ driver, availableTrucks, isSupervisor = false }: Dr
                 status: data.status,
                 notes: data.notes,
                 assignedTruckId: data.assignedTruckId,
+                reminders,
             };
 
             const result = isEditing
@@ -273,7 +287,10 @@ export function DriverForm({ driver, availableTrucks, isSupervisor = false }: Dr
                         name="licenseExpiration"
                         render={({ field }) => (
                             <FormItem>
-                                <FormLabel>License Expiration (Optional)</FormLabel>
+                                <div className="flex items-center justify-between gap-2">
+                                    <FormLabel>License Expiration (Optional)</FormLabel>
+                                    {reminderPopover("licenseExpiration", "Driver's License")}
+                                </div>
                                 <FormControl>
                                     <Input type="date" {...field} />
                                 </FormControl>
@@ -302,7 +319,10 @@ export function DriverForm({ driver, availableTrucks, isSupervisor = false }: Dr
                         name="passportExpiration"
                         render={({ field }) => (
                             <FormItem>
-                                <FormLabel>Passport Expiration (Optional)</FormLabel>
+                                <div className="flex items-center justify-between gap-2">
+                                    <FormLabel>Passport Expiration (Optional)</FormLabel>
+                                    {reminderPopover("passportExpiration", "Passport")}
+                                </div>
                                 <FormControl>
                                     <Input type="date" {...field} />
                                 </FormControl>
@@ -318,7 +338,10 @@ export function DriverForm({ driver, availableTrucks, isSupervisor = false }: Dr
                         name="defenseCertificateExpiration"
                         render={({ field }) => (
                             <FormItem>
-                                <FormLabel>Defense Certificate Expiration (Optional)</FormLabel>
+                                <div className="flex items-center justify-between gap-2">
+                                    <FormLabel>Defense Certificate Expiration (Optional)</FormLabel>
+                                    {reminderPopover("defenseCertificateExpiration", "Defense Certificate")}
+                                </div>
                                 <FormControl>
                                     <Input type="date" {...field} />
                                 </FormControl>
@@ -331,7 +354,10 @@ export function DriverForm({ driver, availableTrucks, isSupervisor = false }: Dr
                         name="internationalDrivingPermitExpiration"
                         render={({ field }) => (
                             <FormItem>
-                                <FormLabel>International Driving Permit (AA) Expiration (Optional)</FormLabel>
+                                <div className="flex items-center justify-between gap-2">
+                                    <FormLabel>International Driving Permit (AA) Expiration (Optional)</FormLabel>
+                                    {reminderPopover("internationalDrivingPermitExpiration", "International Driving Permit (AA)")}
+                                </div>
                                 <FormControl>
                                     <Input type="date" {...field} />
                                 </FormControl>

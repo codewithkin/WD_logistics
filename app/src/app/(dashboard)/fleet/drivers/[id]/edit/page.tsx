@@ -3,6 +3,7 @@ import { requireRole } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/layout/page-header";
 import { DriverForm } from "../../_components/driver-form";
+import { getExpiryReminders } from "@/lib/expiry-reminders-server";
 
 interface EditDriverPageProps {
     params: Promise<{ id: string }>;
@@ -33,6 +34,7 @@ export default async function EditDriverPage({ params }: EditDriverPageProps) {
     });
 
     const isSupervisor = session.role === "supervisor";
+    const reminders = await getExpiryReminders(session.organizationId, "driver", driver.id);
 
     return (
         <div>
@@ -41,7 +43,7 @@ export default async function EditDriverPage({ params }: EditDriverPageProps) {
                 description={`Update details for ${driver.firstName} ${driver.lastName}`}
                 backHref={`/fleet/drivers/${driver.id}`}
             />
-            <DriverForm driver={driver} availableTrucks={availableTrucks} isSupervisor={isSupervisor} />
+            <DriverForm driver={driver} availableTrucks={availableTrucks} isSupervisor={isSupervisor} reminders={reminders} />
         </div>
     );
 }

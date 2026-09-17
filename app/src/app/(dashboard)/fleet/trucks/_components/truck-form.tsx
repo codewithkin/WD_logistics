@@ -25,9 +25,11 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
-import { TruckStatus, TRUCK_STATUS_LABELS } from "@/lib/types";
+import { TRUCK_STATUS_LABELS } from "@/lib/types";
 import { createTruck, updateTruck } from "../actions";
 import { toast } from "sonner";
+import { ExpiryReminderPopover } from "@/components/fleet/expiry-reminder-popover";
+import { EXPIRY_FIELDS, type ReminderDays } from "@/lib/expiry-reminders";
 
 // Helper for Zod 4 compatibility with react-hook-form
 const numericString = (schema: z.ZodNumber) =>
@@ -66,12 +68,16 @@ interface TruckFormProps {
         vehicleLicenseExpiration: Date | null;
         certificateOfFitnessExpiration: Date | null;
     };
+    reminders?: ReminderDays;
 }
 
-export function TruckForm({ truck }: TruckFormProps) {
+type TruckExpiryField = Extract<keyof TruckFormData, `${string}Expiration`>;
+
+export function TruckForm({ truck, reminders: initialReminders }: TruckFormProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
+    const [reminders, setReminders] = useState<ReminderDays>(initialReminders ?? {});
     const isEditing = !!truck;
 
     const form = useForm<TruckFormData>({
@@ -102,6 +108,7 @@ export function TruckForm({ truck }: TruckFormProps) {
                 crossBorderPermitExpiration: data.crossBorderPermitExpiration ? new Date(data.crossBorderPermitExpiration) : undefined,
                 vehicleLicenseExpiration: data.vehicleLicenseExpiration ? new Date(data.vehicleLicenseExpiration) : undefined,
                 certificateOfFitnessExpiration: data.certificateOfFitnessExpiration ? new Date(data.certificateOfFitnessExpiration) : undefined,
+                reminders,
             };
 
             const result = isEditing
@@ -247,60 +254,39 @@ export function TruckForm({ truck }: TruckFormProps) {
                 />
 
                 <div className="space-y-4">
-                    <h3 className="text-sm font-medium text-muted-foreground">Document Expiry Dates (Optional)</h3>
+                    <div>
+                        <h3 className="text-sm font-medium text-muted-foreground">Document Expiry Dates (Optional)</h3>
+                        <p className="text-xs text-muted-foreground">
+                            Use the bell next to each date to choose when you get reminded.
+                        </p>
+                    </div>
                     <div className="grid gap-4 sm:grid-cols-2">
-                        <FormField
-                            control={form.control}
-                            name="crossBorderInsuranceExpiration"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Cross-Border Insurance Expiration</FormLabel>
-                                    <FormControl>
-                                        <Input type="date" {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="crossBorderPermitExpiration"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Cross-Border Permit Expiration</FormLabel>
-                                    <FormControl>
-                                        <Input type="date" {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="vehicleLicenseExpiration"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Vehicle License Expiration</FormLabel>
-                                    <FormControl>
-                                        <Input type="date" {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="certificateOfFitnessExpiration"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Certificate of Fitness Expiration</FormLabel>
-                                    <FormControl>
-                                        <Input type="date" {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
+                        {EXPIRY_FIELDS.truck.map(({ field: expiryField, label }) => (
+                            <FormField
+                                key={expiryField}
+                                control={form.control}
+                                name={expiryField as TruckExpiryField}
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <div className="flex items-center justify-between gap-2">
+                                            <FormLabel>{label} Expiration</FormLabel>
+                                            <ExpiryReminderPopover
+                                                documentLabel={label}
+                                                value={reminders[expiryField] ?? []}
+                                                onChange={(days) =>
+                                                    setReminders((prev) => ({ ...prev, [expiryField]: days }))
+                                                }
+                                                disabled={isLoading}
+                                            />
+                                        </div>
+                                        <FormControl>
+                                            <Input type="date" {...field} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        ))}
                     </div>
                 </div>
 

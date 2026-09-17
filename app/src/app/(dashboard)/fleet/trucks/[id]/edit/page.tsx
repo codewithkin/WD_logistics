@@ -3,6 +3,7 @@ import { requireRole } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/layout/page-header";
 import { TruckForm } from "../../_components/truck-form";
+import { getExpiryReminders } from "@/lib/expiry-reminders-server";
 
 interface EditTruckPageProps {
     params: Promise<{ id: string }>;
@@ -20,6 +21,8 @@ export default async function EditTruckPage({ params }: EditTruckPageProps) {
         notFound();
     }
 
+    const reminders = await getExpiryReminders(session.organizationId, "truck", truck.id);
+
     return (
         <div>
             <PageHeader
@@ -27,7 +30,7 @@ export default async function EditTruckPage({ params }: EditTruckPageProps) {
                 description={`Update details for ${truck.registrationNo}`}
                 backHref={`/fleet/trucks/${truck.id}`}
             />
-            <TruckForm truck={truck} />
+            <TruckForm truck={truck} reminders={reminders} />
         </div>
     );
 }

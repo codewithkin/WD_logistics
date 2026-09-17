@@ -8,6 +8,8 @@ import { generateTruckReportPDF, generateSingleTruckReportPDF } from "@/lib/repo
 import { notifyTruckCreated, notifyTruckUpdated, notifyTruckDeleted } from "@/lib/notifications";
 import { notifyAdminTruckCreated } from "@/lib/whatsapp-notifications";
 import { deleteFromR2, getKeyFromUrl } from "@/lib/r2";
+import type { ReminderDays } from "@/lib/expiry-reminders";
+import { deleteExpiryReminders, replaceExpiryReminders } from "@/lib/expiry-reminders-server";
 
 /** Best-effort cleanup — a failed delete shouldn't fail the caller's action. */
 async function cleanupR2Image(url: string | null | undefined) {
@@ -31,6 +33,7 @@ export async function createTruck(data: {
   crossBorderPermitExpiration?: Date;
   vehicleLicenseExpiration?: Date;
   certificateOfFitnessExpiration?: Date;
+  reminders?: ReminderDays;
 }) {
   const session = await requireRole(["admin", "supervisor"]);
 
@@ -46,24 +49,37 @@ export async function createTruck(data: {
       return { success: false, error: "A truck with this registration number already exists" };
     }
 
-    const truck = await prisma.truck.create({
-      data: {
-        organizationId: session.organizationId,
-        registrationNo: data.registrationNo,
-        make: data.make,
-        model: data.model,
-        year: data.year,
-        status: data.status,
-        currentMileage: data.currentMileage,
-        fuelType: data.fuelType,
-        tankCapacity: data.tankCapacity,
-        image: data.image,
-        notes: data.notes,
-        crossBorderInsuranceExpiration: data.crossBorderInsuranceExpiration,
-        crossBorderPermitExpiration: data.crossBorderPermitExpiration,
-        vehicleLicenseExpiration: data.vehicleLicenseExpiration,
-        certificateOfFitnessExpiration: data.certificateOfFitnessExpiration,
-      },
+    const truck = await prisma.$transaction(async (tx) => {
+      const created = await tx.truck.create({
+        data: {
+          organizationId: session.organizationId,
+          registrationNo: data.registrationNo,
+          make: data.make,
+          model: data.model,
+          year: data.year,
+          status: data.status,
+          currentMileage: data.currentMileage,
+          fuelType: data.fuelType,
+          tankCapacity: data.tankCapacity,
+          image: data.image,
+          notes: data.notes,
+          crossBorderInsuranceExpiration: data.crossBorderInsuranceExpiration,
+          crossBorderPermitExpiration: data.crossBorderPermitExpiration,
+          vehicleLicenseExpiration: data.vehicleLicenseExpiration,
+          certificateOfFitnessExpiration: data.certificateOfFitnessExpiration,
+        },
+      });
+
+      if (data.reminders) {
+        await replaceExpiryReminders(tx, {
+          organizationId: session.organizationId,
+          entityType: "truck",
+          entityId: created.id,
+          reminders: data.reminders,
+        });
+      }
+
+      return created;
     });
 
     // Send admin notification (email + in-app)
@@ -113,9 +129,11 @@ export async function updateTruck(
     crossBorderPermitExpiration?: Date;
     vehicleLicenseExpiration?: Date;
     certificateOfFitnessExpiration?: Date;
+    reminders?: ReminderDays;
   }
 ) {
   const session = await requireRole(["admin", "supervisor"]);
+  const { reminders, ...truckData } = data;
 
   try {
     const truck = await prisma.truck.findFirst({
@@ -140,9 +158,17 @@ export async function updateTruck(
       }
     }
 
-    const updatedTruck = await prisma.truck.update({
-      where: { id },
-      data,
+    const updatedTruck = await prisma.$transaction(async (tx) => {
+      const updated = await tx.truck.update({ where: { id }, data: truckData });
+      if (reminders) {
+        await replaceExpiryReminders(tx, {
+          organizationId: session.organizationId,
+          entityType: "truck",
+          entityId: id,
+          reminders,
+        });
+      }
+      return updated;
     });
 
     // Clean up the old R2 object if the image was replaced or removed —
@@ -271,7 +297,10 @@ export async function deleteTruck(id: string) {
       return { success: false, error: "Cannot delete truck with associated trips" };
     }
 
-    await prisma.truck.delete({ where: { id } });
+    await prisma.$transaction(async (tx) => {
+      await deleteExpiryReminders(tx, "truck", id);
+      await tx.truck.delete({ where: { id } });
+    });
 
     cleanupR2Image(truck.image).catch((err) => console.error("Failed to delete truck image:", err));
 

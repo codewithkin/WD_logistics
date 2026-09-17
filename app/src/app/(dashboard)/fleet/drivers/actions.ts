@@ -7,8 +7,11 @@ import { DriverStatus } from "@/lib/types";
 import { generateDriverReportPDF, generateSingleDriverReportPDF } from "@/lib/reports/pdf-report-generator";
 import { notifyDriverCreated, notifyDriverUpdated, notifyDriverDeleted } from "@/lib/notifications";
 import { notifyDriverWelcome, notifyAdminDriverCreated } from "@/lib/whatsapp-notifications";
+import type { ReminderDays } from "@/lib/expiry-reminders";
+import { deleteExpiryReminders, replaceExpiryReminders } from "@/lib/expiry-reminders-server";
 
 export async function createDriver(data: {
+  reminders?: ReminderDays;
   firstName: string;
   lastName: string;
   phone: string;
@@ -38,24 +41,37 @@ export async function createDriver(data: {
       return { success: false, error: "A driver with this license number already exists" };
     }
 
-    const driver = await prisma.driver.create({
-      data: {
-        firstName: data.firstName,
-        lastName: data.lastName,
-        phone: data.phone,
-        whatsappNumber: data.whatsappNumber,
-        email: data.email,
-        licenseNumber: data.licenseNumber,
-        licenseExpiration: data.licenseExpiration,
-        passportNumber: data.passportNumber,
-        passportExpiration: data.passportExpiration,
-        defenseCertificateExpiration: data.defenseCertificateExpiration,
-        internationalDrivingPermitExpiration: data.internationalDrivingPermitExpiration,
-        status: data.status,
-        notes: data.notes,
-        assignedTruckId: data.assignedTruckId,
-        organizationId: session.organizationId,
-      },
+    const driver = await prisma.$transaction(async (tx) => {
+      const created = await tx.driver.create({
+        data: {
+          firstName: data.firstName,
+          lastName: data.lastName,
+          phone: data.phone,
+          whatsappNumber: data.whatsappNumber,
+          email: data.email,
+          licenseNumber: data.licenseNumber,
+          licenseExpiration: data.licenseExpiration,
+          passportNumber: data.passportNumber,
+          passportExpiration: data.passportExpiration,
+          defenseCertificateExpiration: data.defenseCertificateExpiration,
+          internationalDrivingPermitExpiration: data.internationalDrivingPermitExpiration,
+          status: data.status,
+          notes: data.notes,
+          assignedTruckId: data.assignedTruckId,
+          organizationId: session.organizationId,
+        },
+      });
+
+      if (data.reminders) {
+        await replaceExpiryReminders(tx, {
+          organizationId: session.organizationId,
+          entityType: "driver",
+          entityId: created.id,
+          reminders: data.reminders,
+        });
+      }
+
+      return created;
     });
 
     // Send welcome message to driver (WhatsApp preferred, email backup)
@@ -109,6 +125,7 @@ export async function updateDriver(
     status?: DriverStatus;
     notes?: string;
     assignedTruckId?: string | null;
+    reminders?: ReminderDays;
   }
 ) {
   const session = await requireRole(["admin", "supervisor"]);
@@ -175,9 +192,17 @@ export async function updateDriver(
       updateData.lastName = data.lastName;
     }
 
-    const updatedDriver = await prisma.driver.update({
-      where: { id },
-      data: updateData,
+    const updatedDriver = await prisma.$transaction(async (tx) => {
+      const updated = await tx.driver.update({ where: { id }, data: updateData });
+      if (data.reminders) {
+        await replaceExpiryReminders(tx, {
+          organizationId: session.organizationId,
+          entityType: "driver",
+          entityId: id,
+          reminders: data.reminders,
+        });
+      }
+      return updated;
     });
 
     // Send admin notification
@@ -233,7 +258,10 @@ export async function deleteDriver(id: string) {
       });
     }
 
-    await prisma.driver.delete({ where: { id } });
+    await prisma.$transaction(async (tx) => {
+      await deleteExpiryReminders(tx, "driver", id);
+      await tx.driver.delete({ where: { id } });
+    });
 
     // Send admin notification (email + in-app)
     notifyDriverDeleted(

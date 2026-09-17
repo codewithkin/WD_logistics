@@ -6,6 +6,8 @@ import { requireAuth, requireRole } from "@/lib/session";
 import { TrailerStatus } from "@/lib/types";
 import { notifyTrailerCreated, notifyTrailerUpdated, notifyTrailerDeleted } from "@/lib/notifications";
 import { deleteFromR2, getKeyFromUrl } from "@/lib/r2";
+import type { ReminderDays } from "@/lib/expiry-reminders";
+import { deleteExpiryReminders, replaceExpiryReminders } from "@/lib/expiry-reminders-server";
 
 /** Best-effort cleanup — a failed delete shouldn't fail the caller's action. */
 async function cleanupR2Image(url: string | null | undefined) {
@@ -25,6 +27,7 @@ export async function createTrailer(data: {
   licenseExpiration?: string;
   image?: string;
   notes?: string;
+  reminders?: ReminderDays;
 }) {
   const session = await requireRole(["admin", "supervisor"]);
 
@@ -40,20 +43,33 @@ export async function createTrailer(data: {
       return { success: false, error: "A trailer with this registration number already exists" };
     }
 
-    const trailer = await prisma.trailer.create({
-      data: {
-        organizationId: session.organizationId,
-        registrationNo: data.registrationNo,
-        make: data.make,
-        model: data.model,
-        year: data.year,
-        status: data.status,
-        type: data.type,
-        licenseNumber: data.licenseNumber,
-        licenseExpiration: data.licenseExpiration ? new Date(data.licenseExpiration) : undefined,
-        image: data.image,
-        notes: data.notes,
-      },
+    const trailer = await prisma.$transaction(async (tx) => {
+      const created = await tx.trailer.create({
+        data: {
+          organizationId: session.organizationId,
+          registrationNo: data.registrationNo,
+          make: data.make,
+          model: data.model,
+          year: data.year,
+          status: data.status,
+          type: data.type,
+          licenseNumber: data.licenseNumber,
+          licenseExpiration: data.licenseExpiration ? new Date(data.licenseExpiration) : undefined,
+          image: data.image,
+          notes: data.notes,
+        },
+      });
+
+      if (data.reminders) {
+        await replaceExpiryReminders(tx, {
+          organizationId: session.organizationId,
+          entityType: "trailer",
+          entityId: created.id,
+          reminders: data.reminders,
+        });
+      }
+
+      return created;
     });
 
     notifyTrailerCreated(
@@ -91,9 +107,11 @@ export async function updateTrailer(
     licenseExpiration?: string;
     image?: string;
     notes?: string;
+    reminders?: ReminderDays;
   }
 ) {
   const session = await requireRole(["admin", "supervisor"]);
+  const { reminders, ...trailerData } = data;
 
   try {
     const trailer = await prisma.trailer.findFirst({
@@ -118,12 +136,23 @@ export async function updateTrailer(
       }
     }
 
-    const updatedTrailer = await prisma.trailer.update({
-      where: { id },
-      data: {
-        ...data,
-        licenseExpiration: data.licenseExpiration ? new Date(data.licenseExpiration) : undefined,
-      },
+    const updatedTrailer = await prisma.$transaction(async (tx) => {
+      const updated = await tx.trailer.update({
+        where: { id },
+        data: {
+          ...trailerData,
+          licenseExpiration: trailerData.licenseExpiration ? new Date(trailerData.licenseExpiration) : undefined,
+        },
+      });
+      if (reminders) {
+        await replaceExpiryReminders(tx, {
+          organizationId: session.organizationId,
+          entityType: "trailer",
+          entityId: id,
+          reminders,
+        });
+      }
+      return updated;
     });
 
     // Clean up the old R2 object if the image was replaced or removed —
@@ -249,7 +278,10 @@ export async function deleteTrailer(id: string) {
       return { success: false, error: "Trailer not found" };
     }
 
-    await prisma.trailer.delete({ where: { id } });
+    await prisma.$transaction(async (tx) => {
+      await deleteExpiryReminders(tx, "trailer", id);
+      await tx.trailer.delete({ where: { id } });
+    });
 
     cleanupR2Image(trailer.image).catch((err) => console.error("Failed to delete trailer image:", err));
 
