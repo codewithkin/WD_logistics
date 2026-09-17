@@ -9,6 +9,7 @@ export function PhotoBlock({
   style,
   priority,
   sizes = "(max-width: 768px) 100vw, 60vw",
+  zoom = true,
   children,
 }: {
   src: string;
@@ -18,17 +19,23 @@ export function PhotoBlock({
   style?: CSSProperties;
   priority?: boolean;
   sizes?: string;
+  /** Subtle scale-up on hover — purely decorative, never distorts aspect ratio
+      since it scales the whole `object-cover` image uniformly inside the
+      overflow-hidden wrapper. */
+  zoom?: boolean;
   children?: ReactNode;
 }) {
   return (
-    <div className={`relative overflow-hidden ${className}`} style={style}>
+    <div className={`group relative overflow-hidden ${className}`} style={style}>
       <Image
         src={src}
         alt={alt}
         fill
         priority={priority}
         sizes={sizes}
-        className={`object-cover ${imgClassName}`}
+        className={`object-cover ${
+          zoom ? "transition-transform duration-700 ease-out group-hover:scale-[1.06]" : ""
+        } ${imgClassName}`}
       />
       {/* `relative` here (not just a plain static div) matters: without it, this
           wrapper paints in the same layer as normal in-flow content, which sits

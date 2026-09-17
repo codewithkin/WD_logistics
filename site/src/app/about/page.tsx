@@ -2,10 +2,22 @@ import type { Metadata } from "next";
 import { Header } from "@/components/Header";
 import { PhotoBlock } from "@/components/PhotoBlock";
 import { CtaFooterSimple } from "@/components/CtaFooter";
-import { COMPANY } from "@/lib/site";
+import { Reveal } from "@/components/motion/Reveal";
+import { StaggerGroup, StaggerItem } from "@/components/motion/Stagger";
+import { COMPANY, DEFAULT_OG, SITE_URL } from "@/lib/site";
 
 export const metadata: Metadata = {
-  title: "About — WD Logistics",
+  title: "About WD Logistics | Wellington Dziruni's Trucking Company in Mutare",
+  description:
+    "WD Logistics (Pvt) Ltd is a Zimbabwean haulage company founded by Wellington Dziruni, running 12 trucks from a Mutare base across 10 provinces and into the SADC region. Read about our story and our values.",
+  alternates: { canonical: "/about" },
+  openGraph: {
+    ...DEFAULT_OG,
+    url: `${SITE_URL}/about`,
+    title: "About WD Logistics | Wellington Dziruni's Trucking Company in Mutare",
+    description:
+      "A Zimbabwean haulage company founded by Wellington Dziruni, running 12 trucks from Mutare across 10 provinces and into the SADC region.",
+  },
 };
 
 const PRINCIPLES = [
@@ -46,7 +58,7 @@ export default function AboutPage() {
 
       {/* Intro */}
       <div className="grid grid-cols-1 items-start gap-8 px-5 pb-8 pt-10 sm:px-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-end lg:gap-[34px] lg:px-[34px] lg:pb-11 lg:pt-14">
-        <div className="flex flex-col gap-4 lg:gap-[22px]">
+        <Reveal className="flex flex-col gap-4 lg:gap-[22px]">
           <span className="w-fit rounded-full bg-[#EFF8E5] px-4 py-2.5 font-sans text-xs font-semibold tracking-[0.06em] text-[#3D8A14]">
             ABOUT WD LOGISTICS
           </span>
@@ -59,43 +71,49 @@ export default function AboutPage() {
             rule: if we say it will be there Thursday, it is there Thursday.
             Twelve trucks later, the rule hasn&apos;t moved.
           </p>
-          <div className="flex flex-wrap gap-2.5">
-            <span className="rounded-full border border-[#E6E9E2] bg-white px-5 py-3.5 font-sans text-sm font-semibold">
+          <StaggerGroup className="flex flex-wrap gap-2.5" stagger={0.06}>
+            <StaggerItem y={10} className="rounded-full border border-[#E6E9E2] bg-white px-5 py-3.5 font-sans text-sm font-semibold">
               12 trucks
-            </span>
-            <span className="rounded-full border border-[#E6E9E2] bg-white px-5 py-3.5 font-sans text-sm font-semibold">
+            </StaggerItem>
+            <StaggerItem y={10} className="rounded-full border border-[#E6E9E2] bg-white px-5 py-3.5 font-sans text-sm font-semibold">
               10 provinces
-            </span>
-            <span className="rounded-full border border-[#E6E9E2] bg-white px-5 py-3.5 font-sans text-sm font-semibold">
+            </StaggerItem>
+            <StaggerItem y={10} className="rounded-full border border-[#E6E9E2] bg-white px-5 py-3.5 font-sans text-sm font-semibold">
               4,100+ loads
-            </span>
-            <span className="rounded-full bg-[#63C32E] px-5 py-3.5 font-sans text-sm font-semibold text-[#15250A]">
+            </StaggerItem>
+            <StaggerItem y={10} className="rounded-full bg-[#63C32E] px-5 py-3.5 font-sans text-sm font-semibold text-[#15250A]">
               Zimbabwe &amp; SADC
-            </span>
-          </div>
-        </div>
-        <PhotoBlock
-          src="/images/fleet-lineup-yard.jpg"
-          alt="WD Logistics fleet of trucks lined up at the yard in Mutare, Zimbabwe"
-          className="h-[240px] rounded-[28px] sm:h-[320px] sm:rounded-[36px] lg:h-[400px]"
-        />
+            </StaggerItem>
+          </StaggerGroup>
+        </Reveal>
+        <Reveal x={24} y={0} delay={0.1}>
+          <PhotoBlock
+            src="/images/fleet-lineup-yard.jpg"
+            alt="WD Logistics fleet of trucks lined up at the yard in Mutare, Zimbabwe"
+            className="h-[240px] rounded-[28px] sm:h-[320px] sm:rounded-[36px] lg:h-[400px]"
+          />
+        </Reveal>
       </div>
 
       {/* Photo grid */}
       <div className="px-5 pb-12 sm:px-8 lg:px-[34px] lg:pb-[70px]">
-        <div className="grid grid-cols-2 auto-rows-[160px] gap-3 sm:auto-rows-[200px] sm:gap-4 lg:grid-cols-4 lg:auto-rows-[220px] lg:gap-[18px]">
-          <PhotoBlock
-            src="/images/yard-under-shed.jpg"
-            alt="WD Logistics loading bay under the shed roof at the Mutare yard"
-            className="col-span-2 row-span-2 rounded-[24px] sm:rounded-[32px]"
-          />
-          <PhotoBlock
-            src="/images/truck-side-white-green-1.jpg"
-            alt="WD Logistics truck being tarped before departure"
-            className="rounded-[24px] sm:rounded-[32px]"
-            imgClassName="object-[center_20%]"
-          />
-          <div className="flex flex-col justify-between rounded-[24px] bg-[#63C32E] p-4 text-[#15250A] sm:rounded-[32px] sm:p-[26px]">
+        <StaggerGroup className="grid grid-cols-2 auto-rows-[160px] gap-3 sm:auto-rows-[200px] sm:gap-4 lg:grid-cols-4 lg:auto-rows-[220px] lg:gap-[18px]">
+          <StaggerItem className="col-span-2 row-span-2">
+            <PhotoBlock
+              src="/images/yard-under-shed.jpg"
+              alt="WD Logistics loading bay under the shed roof at the Mutare yard"
+              className="h-full rounded-[24px] sm:rounded-[32px]"
+            />
+          </StaggerItem>
+          <StaggerItem>
+            <PhotoBlock
+              src="/images/truck-side-white-green-1.jpg"
+              alt="WD Logistics truck being tarped before departure"
+              className="h-full rounded-[24px] sm:rounded-[32px]"
+              imgClassName="object-[center_20%]"
+            />
+          </StaggerItem>
+          <StaggerItem className="flex flex-col justify-between rounded-[24px] bg-[#63C32E] p-4 text-[#15250A] transition-transform duration-300 hover:-translate-y-1.5 sm:rounded-[32px] sm:p-[26px]">
             <span className="font-mono text-[10px] font-semibold tracking-[0.12em] sm:text-[11px]">
               ON THE ROAD
             </span>
@@ -103,26 +121,30 @@ export default function AboutPage() {
               Every trip is planned the night before — route, weighbridge
               stops, fuel and a back-up driver.
             </span>
-          </div>
-          <PhotoBlock
-            src="/images/truck-side-white-green-2.jpg"
-            alt="WD Logistics truck offloading at a customer site"
-            className="col-span-2 rounded-[24px] sm:rounded-[32px]"
-            imgClassName="object-[center_20%]"
-          />
-        </div>
+          </StaggerItem>
+          <StaggerItem className="col-span-2">
+            <PhotoBlock
+              src="/images/truck-side-white-green-2.jpg"
+              alt="WD Logistics truck offloading at a customer site"
+              className="h-full rounded-[24px] sm:rounded-[32px]"
+              imgClassName="object-[center_20%]"
+            />
+          </StaggerItem>
+        </StaggerGroup>
       </div>
 
       {/* Founder quote */}
       <div className="bg-[#EFF8E5] px-5 py-12 sm:px-8 lg:px-[34px] lg:py-[70px]">
         <div className="grid grid-cols-1 items-center gap-8 lg:grid-cols-[0.85fr_1.15fr] lg:gap-10">
-          <PhotoBlock
-            src="/images/truck-side-blue.jpg"
-            alt="WD Logistics truck cab, ready for the road"
-            className="h-[260px] rounded-[28px] sm:h-[360px] sm:rounded-[36px] lg:h-[440px]"
-            imgClassName="object-[center_25%]"
-          />
-          <div className="flex flex-col gap-5 lg:gap-[26px]">
+          <Reveal x={-24} y={0}>
+            <PhotoBlock
+              src="/images/truck-side-blue.jpg"
+              alt="WD Logistics truck cab, ready for the road"
+              className="h-[260px] rounded-[28px] sm:h-[360px] sm:rounded-[36px] lg:h-[440px]"
+              imgClassName="object-[center_25%]"
+            />
+          </Reveal>
+          <Reveal x={24} y={0} delay={0.1} className="flex flex-col gap-5 lg:gap-[26px]">
             <span className="w-fit rounded-full bg-white px-4 py-2.5 font-sans text-xs font-semibold tracking-[0.06em] text-[#3D8A14]">
               FROM THE FOUNDER
             </span>
@@ -144,20 +166,22 @@ export default function AboutPage() {
                 Founder, WD Logistics
               </span>
             </span>
-          </div>
+          </Reveal>
         </div>
       </div>
 
       {/* How we work */}
       <div className="px-5 py-12 sm:px-8 lg:px-[34px] lg:py-[70px]">
-        <h2 className="m-0 mb-6 max-w-full font-heading text-[28px] font-semibold leading-[1.1] tracking-[-0.02em] text-balance sm:text-[36px] lg:mb-[34px] lg:max-w-[24ch] lg:text-[46px] lg:leading-[1.04] lg:tracking-[-0.03em]">
-          How we work, in four sentences
-        </h2>
-        <div className="grid grid-cols-1 gap-[18px] sm:grid-cols-2 lg:grid-cols-4">
+        <Reveal>
+          <h2 className="m-0 mb-6 max-w-full font-heading text-[28px] font-semibold leading-[1.1] tracking-[-0.02em] text-balance sm:text-[36px] lg:mb-[34px] lg:max-w-[24ch] lg:text-[46px] lg:leading-[1.04] lg:tracking-[-0.03em]">
+            How we work, in four sentences
+          </h2>
+        </Reveal>
+        <StaggerGroup className="grid grid-cols-1 gap-[18px] sm:grid-cols-2 lg:grid-cols-4">
           {PRINCIPLES.map((p) => (
-            <div
+            <StaggerItem
               key={p.label}
-              className={`flex flex-col gap-3.5 rounded-[28px] p-7 ${p.bg}`}
+              className={`flex flex-col gap-3.5 rounded-[28px] p-7 transition-transform duration-300 hover:-translate-y-1.5 ${p.bg}`}
             >
               <span
                 className={`font-mono text-xs font-semibold tracking-[0.12em] ${p.labelColor}`}
@@ -167,22 +191,24 @@ export default function AboutPage() {
               <span className={`font-sans text-base leading-[1.6] text-balance ${p.text}`}>
                 {p.body}
               </span>
-            </div>
+            </StaggerItem>
           ))}
-        </div>
+        </StaggerGroup>
       </div>
 
-      <CtaFooterSimple
-        heading="Got a load that needs moving this week?"
-        secondaryLabel="Contact us"
-        secondaryHref="/contact"
-        bottomText={
-          <>
-            {COMPANY.address} · {COMPANY.email}
-            <br />© {COMPANY.year} {COMPANY.name} · {COMPANY.domain}
-          </>
-        }
-      />
+      <Reveal y={32}>
+        <CtaFooterSimple
+          heading="Got a load that needs moving this week?"
+          secondaryLabel="Contact us"
+          secondaryHref="/contact"
+          bottomText={
+            <>
+              {COMPANY.address} · {COMPANY.email}
+              <br />© {COMPANY.year} {COMPANY.name} · {COMPANY.domain}
+            </>
+          }
+        />
+      </Reveal>
     </div>
   );
 }

@@ -3,10 +3,22 @@ import { Header } from "@/components/Header";
 import { PhotoBlock } from "@/components/PhotoBlock";
 import { CtaFooterSimple } from "@/components/CtaFooter";
 import { EnquiryForm } from "@/components/EnquiryForm";
-import { COMPANY } from "@/lib/site";
+import { Reveal } from "@/components/motion/Reveal";
+import { StaggerGroup, StaggerItem } from "@/components/motion/Stagger";
+import { COMPANY, DEFAULT_OG, SITE_URL } from "@/lib/site";
 
 export const metadata: Metadata = {
-  title: "Contact us — WD Logistics",
+  title: "Contact WD Logistics | Freight Transport & Haulage Quotes in Zimbabwe",
+  description:
+    "Get a same-day freight quote from WD Logistics. Call or WhatsApp +263 77 450 8908, email operations@wd-logistics.co.zw, or visit our yard at 1 Tameside Close, Nyakamete, Mutare, Zimbabwe.",
+  alternates: { canonical: "/contact" },
+  openGraph: {
+    ...DEFAULT_OG,
+    url: `${SITE_URL}/contact`,
+    title: "Contact WD Logistics | Freight Transport & Haulage Quotes in Zimbabwe",
+    description:
+      "Call or WhatsApp +263 77 450 8908 for a same-day freight quote, or visit our yard at 1 Tameside Close, Nyakamete, Mutare, Zimbabwe.",
+  },
 };
 
 export default function ContactPage() {
@@ -15,7 +27,7 @@ export default function ContactPage() {
       <Header />
 
       <div className="grid grid-cols-1 items-start gap-8 px-5 pb-12 pt-10 sm:px-8 lg:grid-cols-[0.82fr_1.18fr] lg:gap-[34px] lg:px-[34px] lg:pb-[70px] lg:pt-14">
-        <div className="flex flex-col gap-4 lg:gap-[18px]">
+        <Reveal x={-24} y={0} className="flex flex-col gap-4 lg:gap-[18px]">
           <span className="w-fit rounded-full bg-[#EFF8E5] px-4 py-2.5 font-sans text-xs font-semibold tracking-[0.06em] text-[#3D8A14]">
             CONTACT US
           </span>
@@ -28,8 +40,8 @@ export default function ContactPage() {
             we&apos;ll come back with a price instead of questions.
           </p>
 
-          <div className="flex flex-col gap-3 pt-1.5">
-            <div className="flex items-center gap-4 rounded-[26px] bg-[#63C32E] px-6 py-[22px] text-[#15250A]">
+          <StaggerGroup className="flex flex-col gap-3 pt-1.5" stagger={0.07}>
+            <StaggerItem y={14} className="flex items-center gap-4 rounded-[26px] bg-[#63C32E] px-6 py-[22px] text-[#15250A] transition-transform duration-300 hover:-translate-y-1">
               <span className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-full bg-white/70 font-sans text-lg font-semibold">
                 ✆
               </span>
@@ -44,8 +56,8 @@ export default function ContactPage() {
                   Office: {COMPANY.office}
                 </span>
               </span>
-            </div>
-            <div className="flex items-center gap-4 rounded-[26px] border border-[#E6E9E2] bg-white px-6 py-[22px]">
+            </StaggerItem>
+            <StaggerItem y={14} className="flex items-center gap-4 rounded-[26px] border border-[#E6E9E2] bg-white px-6 py-[22px] transition-transform duration-300 hover:-translate-y-1">
               <span className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-full bg-[#EFF8E5] font-sans text-lg font-semibold text-[#3D8A14]">
                 ✉
               </span>
@@ -57,8 +69,8 @@ export default function ContactPage() {
                   {COMPANY.email}
                 </span>
               </span>
-            </div>
-            <div className="flex items-center gap-4 rounded-[26px] border border-[#E6E9E2] bg-white px-6 py-[22px]">
+            </StaggerItem>
+            <StaggerItem y={14} className="flex items-center gap-4 rounded-[26px] border border-[#E6E9E2] bg-white px-6 py-[22px] transition-transform duration-300 hover:-translate-y-1">
               <span className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-full bg-[#EFF8E5] font-sans text-lg font-semibold text-[#1667C4]">
                 ⌖
               </span>
@@ -72,8 +84,8 @@ export default function ContactPage() {
                   Nyakamete, Mutare
                 </span>
               </span>
-            </div>
-            <div className="flex items-center justify-between gap-4 rounded-[26px] bg-[#F3F4F0] px-6 py-5">
+            </StaggerItem>
+            <StaggerItem y={14} className="flex items-center justify-between gap-4 rounded-[26px] bg-[#F3F4F0] px-6 py-5">
               <span className="font-sans text-sm font-medium leading-[1.4] text-[#4A5149]">
                 Office hours
               </span>
@@ -82,20 +94,22 @@ export default function ContactPage() {
                 <br />
                 Sat 08:00–13:00
               </span>
-            </div>
-            <div className="flex items-center gap-3 rounded-[26px] bg-[#1E2320] px-6 py-[18px] text-white">
+            </StaggerItem>
+            <StaggerItem y={14} className="flex items-center gap-3 rounded-[26px] bg-[#1E2320] px-6 py-[18px] text-white">
               <span className="h-[9px] w-[9px] rounded-full bg-[#8FD94F]" />
               <span className="font-sans text-sm font-medium leading-[1.4] text-[#CFD5CB]">
                 Dispatch line answers 24/7 for loads already on the road
               </span>
-            </div>
-          </div>
-        </div>
+            </StaggerItem>
+          </StaggerGroup>
+        </Reveal>
 
-        <EnquiryForm />
+        <Reveal x={24} y={0} delay={0.1}>
+          <EnquiryForm />
+        </Reveal>
       </div>
 
-      <div className="px-5 pb-12 sm:px-8 lg:px-[34px] lg:pb-[70px]">
+      <Reveal className="px-5 pb-12 sm:px-8 lg:px-[34px] lg:pb-[70px]">
         <PhotoBlock
           src="/images/yard-under-shed.jpg"
           alt="The WD Logistics yard and workshop at Nyakamete, Mutare"
@@ -105,24 +119,26 @@ export default function ContactPage() {
             href="https://www.google.com/maps/search/?api=1&query=Nyakamete+Mutare+Zimbabwe"
             target="_blank"
             rel="noopener noreferrer"
-            className="absolute bottom-4 right-4 rounded-full bg-[#1E2320] px-[22px] py-3.5 font-sans text-[13px] font-bold text-white sm:bottom-6 sm:right-6"
+            className="absolute bottom-4 right-4 rounded-full bg-[#1E2320] px-[22px] py-3.5 font-sans text-[13px] font-bold text-white transition-transform duration-200 hover:scale-[1.05] active:scale-[0.98] sm:bottom-6 sm:right-6"
           >
             Open in Maps →
           </a>
         </PhotoBlock>
-      </div>
+      </Reveal>
 
-      <CtaFooterSimple
-        heading="Rather just talk? The dispatcher is on the line."
-        secondaryLabel="Call the yard"
-        secondaryHref={COMPANY.officeHref}
-        bottomText={
-          <>
-            Home · About · Contact us
-            <br />© {COMPANY.year} {COMPANY.name} · {COMPANY.domain}
-          </>
-        }
-      />
+      <Reveal y={32}>
+        <CtaFooterSimple
+          heading="Rather just talk? The dispatcher is on the line."
+          secondaryLabel="Call the yard"
+          secondaryHref={COMPANY.officeHref}
+          bottomText={
+            <>
+              Home · About · Contact us
+              <br />© {COMPANY.year} {COMPANY.name} · {COMPANY.domain}
+            </>
+          }
+        />
+      </Reveal>
     </div>
   );
 }

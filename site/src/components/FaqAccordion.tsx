@@ -20,10 +20,10 @@ export function FaqAccordion({
         return (
           <div
             key={item.question}
-            className={`flex flex-col gap-3 rounded-[20px] ${
+            className={`flex flex-col gap-3 rounded-[20px] transition-colors duration-300 ${
               open
                 ? "bg-[#63C32E] px-5 py-5 text-[#15250A] sm:px-[26px] sm:py-6"
-                : "border border-[#E6E9E2] bg-white px-5 py-4 text-[#333833] sm:px-[26px] sm:py-[22px]"
+                : "border border-[#E6E9E2] bg-white px-5 py-4 text-[#333833] transition-shadow hover:shadow-[0_8px_24px_rgba(30,35,32,.06)] sm:px-[26px] sm:py-[22px]"
             }`}
           >
             <button
@@ -34,15 +34,23 @@ export function FaqAccordion({
               }`}
             >
               <span>{item.question}</span>
-              <span className={`font-bold ${open ? "" : "text-[#3D8A14]"}`}>
+              <span
+                className={`inline-block font-bold transition-transform duration-300 ${
+                  open ? "rotate-180" : "text-[#3D8A14]"
+                }`}
+              >
                 {open ? "−" : "+"}
               </span>
             </button>
-            {open ? (
-              <p className="m-0 max-w-[56ch] font-sans text-sm leading-[1.7] text-[#15250A]/80 text-balance">
+            <div
+              className={`grid overflow-hidden transition-[grid-template-rows,opacity] duration-300 ease-out ${
+                open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+              }`}
+            >
+              <p className="m-0 min-h-0 max-w-[56ch] overflow-hidden font-sans text-sm leading-[1.7] text-[#15250A]/80 text-balance">
                 {item.answer}
               </p>
-            ) : null}
+            </div>
           </div>
         );
       })}

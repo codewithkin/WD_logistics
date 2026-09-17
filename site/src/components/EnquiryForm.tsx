@@ -1,6 +1,9 @@
 "use client";
 
+import { AnimatePresence, motion } from "motion/react";
 import { useState, type FormEvent } from "react";
+
+const easeOut = [0.16, 1, 0.3, 1] as const;
 
 const FIELD_CLASS =
   "rounded-2xl border border-[#E6E9E2] bg-[#F7F8F5] px-[18px] py-4 font-sans text-sm text-[#1E2320] placeholder:text-[#868C86] outline-none transition-colors focus:border-[#63C32E] focus:bg-white";
@@ -38,36 +41,51 @@ export function EnquiryForm() {
     setSubmitted(true);
   }
 
-  if (submitted) {
-    return (
-      <div className="flex flex-col items-start gap-4 rounded-[40px] border border-[#E6E9E2] bg-white p-[38px] shadow-[0_24px_60px_rgba(30,35,32,.07)]">
-        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[#EFF8E5] font-sans text-xl font-bold text-[#3D8A14]">
-          ✓
-        </span>
-        <span className="font-heading text-2xl font-semibold">
-          Enquiry received
-        </span>
-        <p className="m-0 max-w-[46ch] font-sans text-[15px] leading-[1.7] text-[#646B65]">
-          Thanks — we&apos;ll reply on WhatsApp within working hours, usually
-          inside three hours. For anything urgent, message the dispatch line
-          directly.
-        </p>
-        <button
-          type="button"
-          onClick={() => setSubmitted(false)}
-          className="rounded-full bg-[#63C32E] px-6 py-3.5 font-sans text-sm font-bold text-[#15250A]"
-        >
-          Send another enquiry
-        </button>
-      </div>
-    );
-  }
-
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="flex flex-col gap-[30px] rounded-[40px] border border-[#E6E9E2] bg-white p-[38px] shadow-[0_24px_60px_rgba(30,35,32,.07)]"
-    >
+    <AnimatePresence mode="wait" initial={false}>
+      {submitted ? (
+        <motion.div
+          key="success"
+          initial={{ opacity: 0, y: 16, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: -8, scale: 0.98 }}
+          transition={{ duration: 0.45, ease: easeOut }}
+          className="flex flex-col items-start gap-4 rounded-[40px] border border-[#E6E9E2] bg-white p-[38px] shadow-[0_24px_60px_rgba(30,35,32,.07)]"
+        >
+          <motion.span
+            initial={{ scale: 0.4, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 0.4, delay: 0.1, ease: easeOut }}
+            className="flex h-12 w-12 items-center justify-center rounded-full bg-[#EFF8E5] font-sans text-xl font-bold text-[#3D8A14]"
+          >
+            ✓
+          </motion.span>
+          <span className="font-heading text-2xl font-semibold">
+            Enquiry received
+          </span>
+          <p className="m-0 max-w-[46ch] font-sans text-[15px] leading-[1.7] text-[#646B65]">
+            Thanks — we&apos;ll reply on WhatsApp within working hours, usually
+            inside three hours. For anything urgent, message the dispatch line
+            directly.
+          </p>
+          <button
+            type="button"
+            onClick={() => setSubmitted(false)}
+            className="rounded-full bg-[#63C32E] px-6 py-3.5 font-sans text-sm font-bold text-[#15250A] transition-transform duration-200 hover:scale-[1.04] active:scale-[0.98]"
+          >
+            Send another enquiry
+          </button>
+        </motion.div>
+      ) : (
+        <motion.form
+          key="form"
+          onSubmit={handleSubmit}
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          transition={{ duration: 0.4, ease: easeOut }}
+          className="flex flex-col gap-[30px] rounded-[40px] border border-[#E6E9E2] bg-white p-[38px] shadow-[0_24px_60px_rgba(30,35,32,.07)]"
+        >
       <div className="flex flex-col gap-4">
         <div className="flex items-baseline justify-between gap-5">
           <span className="font-heading text-2xl font-semibold tracking-[-0.02em]">
@@ -139,6 +157,8 @@ export function EnquiryForm() {
           Send enquiry →
         </button>
       </div>
-    </form>
+        </motion.form>
+      )}
+    </AnimatePresence>
   );
 }

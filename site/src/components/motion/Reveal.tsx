@@ -8,6 +8,7 @@ type RevealProps = {
   className?: string;
   delay?: number;
   y?: number;
+  x?: number;
   duration?: number;
   as?: "div" | "span";
 };
@@ -19,14 +20,16 @@ export function Reveal({
   className,
   delay = 0,
   y = 28,
+  x = 0,
   duration = 0.7,
   as = "div",
 }: RevealProps) {
   const variants: Variants = {
-    hidden: { opacity: 0, y },
+    hidden: { opacity: 0, y, x },
     visible: {
       opacity: 1,
       y: 0,
+      x: 0,
       transition: { duration, delay, ease: easeOut },
     },
   };
