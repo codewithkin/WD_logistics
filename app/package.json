@@ -14,7 +14,8 @@
     "db:studio": "prisma studio",
     "db:seed": "bun prisma/seed.ts",
     "db:seed:admin": "bun prisma/ensure-admin.mjs",
-    "test:inventory": "bun scripts/tests/test-inventory.mjs"
+    "test:inventory": "bun scripts/tests/test-inventory.mjs",
+    "test:trails": "bun scripts/tests/test-trails-and-reminders.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.967.0",
