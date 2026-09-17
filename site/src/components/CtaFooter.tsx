@@ -32,13 +32,13 @@ const PrimaryButtons = ({
       href={COMPANY.whatsappHref}
       target="_blank"
       rel="noopener noreferrer"
-      className="rounded-full bg-white px-5 py-3.5 font-sans text-sm font-bold text-[#1E2320] sm:px-7 sm:py-[17px] sm:text-[15px]"
+      className="rounded-full bg-white px-5 py-3.5 font-sans text-sm font-bold text-[#1E2320] transition-transform duration-200 hover:scale-[1.04] active:scale-[0.98] sm:px-7 sm:py-[17px] sm:text-[15px]"
     >
       WhatsApp {COMPANY.whatsapp}
     </a>
     <Link
       href={secondaryHref}
-      className="rounded-full border border-[#15250A]/35 px-5 py-3.5 font-sans text-sm font-semibold text-[#15250A] sm:px-7 sm:py-[17px] sm:text-[15px]"
+      className="rounded-full border border-[#15250A]/35 px-5 py-3.5 font-sans text-sm font-semibold text-[#15250A] transition-transform duration-200 hover:scale-[1.04] active:scale-[0.98] sm:px-7 sm:py-[17px] sm:text-[15px]"
     >
       {secondaryLabel}
     </Link>
@@ -101,7 +101,7 @@ export function CtaFooterFull({
           <span className="shrink-0 text-left font-sans text-xs leading-[1.5] text-[#15250A]/[.78] sm:text-right sm:text-[13px]">
             © {COMPANY.year} {COMPANY.name}
             <br />
-            {COMPANY.domain} · Harare, Zimbabwe
+            {COMPANY.domain} · Mutare, Zimbabwe
           </span>
         </div>
       </div>
