@@ -34,10 +34,11 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { PaginationControls } from "@/components/ui/pagination-controls";
 import { usePagination } from "@/hooks/use-pagination";
-import { MoreHorizontal, Eye, Pencil, Trash2, Search } from "lucide-react";
+import { MoreHorizontal, Eye, Pencil, Trash2, Search, PackageMinus, PackagePlus } from "lucide-react";
 import { Role } from "@/lib/types";
 import { deleteInventoryItem } from "../actions";
 import { toast } from "sonner";
+import { StockMovementDialog, type StockDialogMode } from "./stock-movement-dialog";
 
 interface InventoryItem {
     id: string;
@@ -62,6 +63,7 @@ export function InventoryTable({ items, role, canSeeValue }: InventoryTableProps
     const [search, setSearch] = useState("");
     const [deleteId, setDeleteId] = useState<string | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [stockAction, setStockAction] = useState<{ mode: StockDialogMode; item: InventoryItem } | null>(null);
 
     const canEdit = role === "admin" || role === "supervisor";
     const canDelete = role === "admin";
@@ -195,12 +197,25 @@ export function InventoryTable({ items, role, canSeeValue }: InventoryTableProps
                                                             </Link>
                                                         </DropdownMenuItem>
                                                         {canEdit && (
-                                                            <DropdownMenuItem asChild>
-                                                                <Link href={`/inventory/${item.id}/edit`}>
-                                                                    <Pencil className="mr-2 h-4 w-4" />
-                                                                    Edit
-                                                                </Link>
-                                                            </DropdownMenuItem>
+                                                            <>
+                                                                <DropdownMenuItem
+                                                                    onClick={() => setStockAction({ mode: "out", item })}
+                                                                    disabled={item.quantity === 0}
+                                                                >
+                                                                    <PackageMinus className="mr-2 h-4 w-4" />
+                                                                    Take Out Stock
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem onClick={() => setStockAction({ mode: "in", item })}>
+                                                                    <PackagePlus className="mr-2 h-4 w-4" />
+                                                                    Add Stock
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem asChild>
+                                                                    <Link href={`/inventory/${item.id}/edit`}>
+                                                                        <Pencil className="mr-2 h-4 w-4" />
+                                                                        Edit
+                                                                    </Link>
+                                                                </DropdownMenuItem>
+                                                            </>
                                                         )}
                                                         {canDelete && (
                                                             <>
@@ -242,6 +257,13 @@ export function InventoryTable({ items, role, canSeeValue }: InventoryTableProps
                     goToNextPage={pagination.goToNextPage}
                 />
             </CardContent>
+
+            <StockMovementDialog
+                mode={stockAction?.mode ?? "out"}
+                item={stockAction?.item ?? null}
+                open={!!stockAction}
+                onOpenChange={(open) => !open && setStockAction(null)}
+            />
 
             <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
                 <AlertDialogContent>

@@ -13,10 +13,12 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
-import { Pencil, MapPin, Truck as TruckIcon, DollarSign, Boxes } from "lucide-react";
+import { Pencil, MapPin, Truck as TruckIcon, DollarSign, Boxes, History } from "lucide-react";
 import { format } from "date-fns";
 import { canViewInventoryValue, canManageInventory } from "@/lib/permissions";
 import { AllocatePartDialog } from "../_components/allocate-part-dialog";
+import { StockActions } from "../_components/stock-actions";
+import { StockMovementsTable } from "../_components/stock-movements-table";
 
 interface InventoryItemDetailPageProps {
     params: Promise<{ id: string }>;
@@ -36,6 +38,10 @@ export default async function InventoryItemDetailPage({ params }: InventoryItemD
                     truck: { select: { registrationNo: true, make: true, model: true } },
                     allocatedBy: { select: { firstName: true, lastName: true } },
                 },
+            },
+            movements: {
+                orderBy: { createdAt: "desc" },
+                include: { performedBy: { select: { name: true } } },
             },
         },
     });
@@ -75,14 +81,18 @@ export default async function InventoryItemDetailPage({ params }: InventoryItemD
         <div className="space-y-6">
             <PageHeader
                 title={item.name}
-                description="Inventory item details and allocation history"
+                description="Stock levels and a full record of what came in and went out"
                 backHref="/inventory"
                 action={
                     canManage
                         ? { label: "Edit Item", href: `/inventory/${item.id}/edit`, icon: Pencil }
                         : undefined
                 }
-            />
+            >
+                {canManage && (
+                    <StockActions item={{ id: item.id, name: item.name, quantity: item.quantity, unit: item.unit }} />
+                )}
+            </PageHeader>
 
             <div className="grid gap-6 md:grid-cols-2">
                 <Card>
@@ -191,6 +201,25 @@ export default async function InventoryItemDetailPage({ params }: InventoryItemD
                     </CardContent>
                 </Card>
             )}
+
+            <Card>
+                <CardHeader>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                        <History className="h-5 w-5" /> Stock History
+                    </CardTitle>
+                    <p className="text-sm text-muted-foreground">
+                        Every time stock came in or went out — when, where, why, and who recorded it.
+                    </p>
+                </CardHeader>
+                <CardContent>
+                    <StockMovementsTable
+                        movements={item.movements.map((m) => ({
+                            ...m,
+                            inventoryItem: { id: item.id, name: item.name, unit: item.unit },
+                        }))}
+                    />
+                </CardContent>
+            </Card>
 
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
