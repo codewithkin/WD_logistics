@@ -4,12 +4,12 @@ import { COMPANY, NAV_LINKS } from "@/lib/constants";
 
 export function SiteFooter() {
   return (
-    <div className="bg-(--color-surface) px-5 pt-10 pb-6 sm:px-8 lg:px-12 lg:pt-11">
+    <footer className="bg-(--color-surface) px-5 pt-10 pb-6 sm:px-8 lg:px-12 lg:pt-11">
       <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 sm:gap-10 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
         <div className="flex flex-col gap-3.5">
           <Image
             src="/logo.jpg"
-            alt="WD Logistics"
+            alt="WD Logistics logo"
             width={200}
             height={111}
             className="block h-[38px] w-auto self-start"
@@ -64,9 +64,9 @@ export function SiteFooter() {
       </div>
 
       <div className="mt-8 flex flex-wrap justify-between gap-6 border-t border-(--color-border) pt-5 font-sans text-[13px] text-(--color-faint)">
-        <span>© 2026 {COMPANY.name}. Harare, Zimbabwe.</span>
+        <span>© 2026 {COMPANY.name}. Mutare, Zimbabwe.</span>
         <span>wd-logistics.co.zw</span>
       </div>
-    </div>
+    </footer>
   );
 }

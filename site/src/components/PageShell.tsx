@@ -5,7 +5,7 @@ export function PageShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="w-[1320px] max-w-full bg-(--color-surface) text-(--color-ink)">
       <SiteHeader />
-      {children}
+      <main>{children}</main>
       <SiteFooter />
     </div>
   );

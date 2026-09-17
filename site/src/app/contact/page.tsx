@@ -2,12 +2,33 @@ import type { Metadata } from "next";
 import { PageShell } from "@/components/PageShell";
 import { CtaBanner } from "@/components/CtaBanner";
 import { EnquiryForm } from "@/components/EnquiryForm";
-import { COMPANY } from "@/lib/constants";
+import { COMPANY, DEFAULT_OG_IMAGE, SITE_URL } from "@/lib/constants";
+
+const TITLE = "Contact WD Logistics | Request a Freight Quote in Mutare, Zimbabwe";
+const DESCRIPTION =
+  "Get in touch with WD Logistics for road freight and haulage quotes across Zimbabwe and the SADC region. WhatsApp +263 77 450 8908, call the Mutare yard, or send an enquiry.";
 
 export const metadata: Metadata = {
-  title: "Contact us",
-  description:
-    "Tell WD Logistics the load and the route on WhatsApp, phone or the enquiry form and we'll come back with a price the same day.",
+  title: { absolute: TITLE },
+  description: DESCRIPTION,
+  alternates: {
+    canonical: "/contact",
+  },
+  openGraph: {
+    type: "website",
+    locale: "en_ZW",
+    siteName: "WD Logistics",
+    url: `${SITE_URL}/contact`,
+    title: TITLE,
+    description: DESCRIPTION,
+    images: [DEFAULT_OG_IMAGE],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: TITLE,
+    description: DESCRIPTION,
+    images: [DEFAULT_OG_IMAGE.url],
+  },
 };
 
 export default function ContactPage() {
@@ -34,7 +55,10 @@ export default function ContactPage() {
               rel="noopener noreferrer"
               className="btn-cta flex items-center gap-4 rounded-[6px] bg-(--color-accent) px-6 py-[22px] text-(--color-accent-ink)"
             >
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[4px] bg-white/70 font-sans text-lg font-semibold">
+              <span
+                aria-hidden="true"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[4px] bg-white/70 font-sans text-lg font-semibold"
+              >
                 ✆
               </span>
               <span className="flex flex-col gap-1">
@@ -54,7 +78,10 @@ export default function ContactPage() {
               href={`mailto:${COMPANY.email}`}
               className="flex items-center gap-4 rounded-[6px] border border-(--color-border) bg-(--color-surface) px-6 py-[22px]"
             >
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[4px] bg-(--color-surface-muted) font-sans text-lg font-semibold text-(--color-brand)">
+              <span
+                aria-hidden="true"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[4px] bg-(--color-surface-muted) font-sans text-lg font-semibold text-(--color-brand)"
+              >
                 ✉
               </span>
               <span className="flex flex-col gap-1">
@@ -68,7 +95,10 @@ export default function ContactPage() {
             </a>
 
             <div className="flex items-center gap-4 rounded-[6px] border border-(--color-border) bg-(--color-surface) px-6 py-[22px]">
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[4px] bg-(--color-surface-muted) font-sans text-lg font-semibold text-[#1667c4]">
+              <span
+                aria-hidden="true"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[4px] bg-(--color-surface-muted) font-sans text-lg font-semibold text-[#1667c4]"
+              >
                 ⌖
               </span>
               <span className="flex flex-col gap-1">

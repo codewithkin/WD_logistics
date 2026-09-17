@@ -21,7 +21,7 @@ export function SiteHeader() {
         >
           <Image
             src="/logo.jpg"
-            alt="WD Logistics"
+            alt="WD Logistics logo"
             width={200}
             height={111}
             priority

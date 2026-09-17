@@ -2,11 +2,33 @@ import type { Metadata } from "next";
 import { PageShell } from "@/components/PageShell";
 import { PhotoImage } from "@/components/PhotoImage";
 import { CtaBanner } from "@/components/CtaBanner";
+import { DEFAULT_OG_IMAGE, SITE_URL } from "@/lib/constants";
+
+const TITLE = "About WD Logistics | Wellington Dziruni's Trucking Company in Zimbabwe";
+const DESCRIPTION =
+  "Founded by Wellington Dziruni, WD Logistics is a Mutare-based haulage company running 12 trucks across Zimbabwe and the SADC region. Read our story, fleet and values.";
 
 export const metadata: Metadata = {
-  title: "About",
-  description:
-    "WD Logistics started with one truck on the Mutare–Harare run. Twelve trucks later, the rule hasn't moved: if we say Thursday, it's Thursday.",
+  title: { absolute: TITLE },
+  description: DESCRIPTION,
+  alternates: {
+    canonical: "/about",
+  },
+  openGraph: {
+    type: "website",
+    locale: "en_ZW",
+    siteName: "WD Logistics",
+    url: `${SITE_URL}/about`,
+    title: TITLE,
+    description: DESCRIPTION,
+    images: [DEFAULT_OG_IMAGE],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: TITLE,
+    description: DESCRIPTION,
+    images: [DEFAULT_OG_IMAGE.url],
+  },
 };
 
 const STATS = ["12 trucks", "10 provinces", "4,100+ loads", "Zimbabwe & SADC"];
