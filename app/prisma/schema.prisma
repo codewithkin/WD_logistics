@@ -37,6 +37,7 @@ model User {
   pushSubscriptions PushSubscription[]
   maintenanceRequestsReported MaintenanceRequest[] @relation("MaintenanceRequestReported")
   maintenanceRequestsFixed    MaintenanceRequest[] @relation("MaintenanceRequestFixed")
+  stockMovements              StockMovement[]
 
   @@map("user")
 }
@@ -118,6 +119,8 @@ model Organization {
   inventoryItems    InventoryItem[]
   reports           Report[]
   notifications     UserNotification[]
+  expiryReminders   ExpiryReminder[]
+  stockMovements    StockMovement[]
 
   @@map("organization")
 }
@@ -312,6 +315,25 @@ model Driver {
   driverExpenses  DriverExpense[]
 
   @@map("driver")
+}
+
+// User-configured "remind me N days before" for a single expiry field on a
+// single truck/trailer/driver. No row for a field means the cron job's default
+// schedule applies. entityId is polymorphic (no FK) — the owning entity's
+// delete action removes its rows.
+model ExpiryReminder {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  entityType     String   // truck, trailer, driver
+  entityId       String
+  field          String   // expiry field name, e.g. vehicleLicenseExpiration
+  daysBefore     Int
+  createdAt      DateTime @default(now())
+
+  @@unique([entityType, entityId, field, daysBefore])
+  @@index([entityType, entityId])
+  @@map("expiry_reminder")
 }
 
 // =============================================================================
@@ -561,7 +583,7 @@ model AccountTransaction {
   id            String   @id @default(cuid())
   accountId     String
   account       FinancialAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  type          String   // expense, transfer_in, transfer_out
+  type          String   // expense_debit, expense_credit, transfer_in, transfer_out, deposit, withdrawal
   amount        Float
   balanceAfter  Float
   expenseId     String?
@@ -711,9 +733,34 @@ model InventoryItem {
   updatedAt      DateTime @updatedAt
 
   allocations    PartAllocation[]
+  movements      StockMovement[]
 
   @@unique([organizationId, sku])
   @@map("inventory_item")
+}
+
+// Paper trail for every change to an item's quantity: stock received, stock
+// taken out (including truck allocations), and manual corrections made via
+// the edit form. quantity is always positive; type gives the direction.
+model StockMovement {
+  id              String   @id @default(cuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  inventoryItemId String
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+  type            String   // in, out, adjustment
+  quantity        Int
+  quantityBefore  Int
+  quantityAfter   Int
+  destination     String?  // where it went (out) or came from (in)
+  reason          String?
+  performedById   String
+  performedBy     User     @relation(fields: [performedById], references: [id])
+  createdAt       DateTime @default(now())
+
+  @@index([organizationId, createdAt])
+  @@index([inventoryItemId, createdAt])
+  @@map("stock_movement")
 }
 
 model PartAllocation {
