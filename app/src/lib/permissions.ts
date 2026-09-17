@@ -186,6 +186,12 @@ export function canTransferFunds(role: Role): boolean {
   return role === "admin";
 }
 
+// Recording money handed in or taken out. Every entry is logged against the
+// person who recorded it, which is what makes it safe to open to supervisors.
+export function canRecordAccountMovements(role: Role): boolean {
+  return role === "admin" || role === "supervisor";
+}
+
 /**
  * Inventory/warehouse: admin and supervisor can both see stock (quantities,
  * items, categories), but only admin sees the dollar value breakdown

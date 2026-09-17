@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { ACCOUNT_TYPES, AccountType, InsufficientBalanceError } from "@/lib/accounts";
-import { ensureAccountsExist, transferFunds } from "@/lib/accounts-server";
+import { ensureAccountsExist, recordManualMovement, transferFunds } from "@/lib/accounts-server";
 
 export async function getAccounts() {
   const session = await requireRole(["admin", "supervisor"]);
@@ -65,6 +65,57 @@ export async function transferFundsAction(data: {
     }
     console.error("Failed to transfer funds:", error);
     return { success: false, error: "Failed to transfer funds" };
+  }
+
+  revalidatePath("/finance/accounts");
+  revalidatePath("/finance/expenses");
+  return { success: true };
+}
+
+export async function recordAccountMovementAction(data: {
+  accountType: AccountType;
+  direction: "deposit" | "withdrawal";
+  amount: number;
+  description: string;
+}) {
+  const session = await requireRole(["admin", "supervisor"]);
+
+  const amount = Math.round(data.amount * 100) / 100;
+  const description = data.description.trim();
+
+  if (!ACCOUNT_TYPES.includes(data.accountType)) {
+    return { success: false, error: "Unknown account" };
+  }
+  if (data.direction !== "deposit" && data.direction !== "withdrawal") {
+    return { success: false, error: "Choose money in or money out" };
+  }
+  if (!(amount > 0)) {
+    return { success: false, error: "Amount must be greater than zero" };
+  }
+  if (description.length < 3) {
+    return { success: false, error: "Add a short note saying what this money is for" };
+  }
+
+  await ensureAccountsExist(session.organizationId);
+
+  const account = await prisma.financialAccount.findUniqueOrThrow({
+    where: { organizationId_type: { organizationId: session.organizationId, type: data.accountType } },
+  });
+
+  try {
+    await recordManualMovement({
+      accountId: account.id,
+      type: data.direction,
+      amount,
+      description,
+      createdById: session.user.id,
+    });
+  } catch (error) {
+    if (error instanceof InsufficientBalanceError) {
+      return { success: false, error: error.message };
+    }
+    console.error("Failed to record account movement:", error);
+    return { success: false, error: "Failed to record this entry" };
   }
 
   revalidatePath("/finance/accounts");

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { isDebitTransaction } from "@/lib/accounts";
 import type {
   ProfitPerUnitData,
   RevenueData,
@@ -428,10 +429,10 @@ export async function fetchAccountLedgerData(
     });
 
     const totalDebits = periodTx
-      .filter((t) => t.type === "expense_debit" || t.type === "transfer_out")
+      .filter((t) => isDebitTransaction(t.type))
       .reduce((sum, t) => sum + t.amount, 0);
     const totalCredits = periodTx
-      .filter((t) => t.type === "expense_credit" || t.type === "transfer_in")
+      .filter((t) => !isDebitTransaction(t.type))
       .reduce((sum, t) => sum + t.amount, 0);
 
     const closingBalance = periodTx.length > 0

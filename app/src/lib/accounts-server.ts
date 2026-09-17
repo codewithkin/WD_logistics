@@ -4,6 +4,7 @@ import {
   ACCOUNT_TYPES,
   ACCOUNT_TYPE_LABELS,
   InsufficientBalanceError,
+  isDebitTransaction,
   type AccountType,
   type AccountTransactionType,
 } from "@/lib/accounts";
@@ -55,7 +56,7 @@ async function recordAccountMovement(
     createdById: string;
   }
 ) {
-  const isDebit = params.type === "expense_debit" || params.type === "transfer_out";
+  const isDebit = isDebitTransaction(params.type);
 
   if (isDebit) {
     const account = await tx.financialAccount.findUniqueOrThrow({ where: { id: params.accountId } });
@@ -99,6 +100,21 @@ export async function creditAccountForExpense(
   params: { accountId: string; amount: number; expenseId?: string; description?: string; date?: Date; createdById: string }
 ) {
   return recordAccountMovement(tx, { ...params, type: "expense_credit" });
+}
+
+/**
+ * Records money handed into (deposit) or taken out of (withdrawal) an account
+ * outside of expenses/transfers, e.g. cash given to a supervisor for petty
+ * cash. Withdrawals throw InsufficientBalanceError if they would overdraw.
+ */
+export async function recordManualMovement(params: {
+  accountId: string;
+  type: "deposit" | "withdrawal";
+  amount: number;
+  description: string;
+  createdById: string;
+}) {
+  return prisma.$transaction((tx) => recordAccountMovement(tx, params));
 }
 
 /**
