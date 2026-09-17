@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { format } from "date-fns";
+import { LocalDateTime } from "@/components/ui/local-date-time";
 import {
     Table,
     TableBody,
@@ -125,8 +125,8 @@ export function StockMovementsTable({ movements, showItem = false, emptyMessage 
                                 return (
                                     <TableRow key={m.id}>
                                         <TableCell className="whitespace-nowrap">
-                                            <div className="font-medium">{format(new Date(m.createdAt), "MMM d, yyyy")}</div>
-                                            <div className="text-xs text-muted-foreground">{format(new Date(m.createdAt), "h:mm a")}</div>
+                                            <LocalDateTime date={m.createdAt} pattern="MMM d, yyyy" className="block font-medium" />
+                                            <LocalDateTime date={m.createdAt} pattern="h:mm a" className="block text-xs text-muted-foreground" />
                                         </TableCell>
                                         {showItem && (
                                             <TableCell className="font-medium">

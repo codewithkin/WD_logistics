@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { formatDistanceToNow } from "date-fns";
+import { LocalDateTime } from "@/components/ui/local-date-time";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -300,9 +300,13 @@ export function AccountsClient({
                                     </span>
                                 </div>
                                 <p className="text-xs text-muted-foreground">
-                                    {account.lastActivity
-                                        ? `Last activity ${formatDistanceToNow(new Date(account.lastActivity), { addSuffix: true })}`
-                                        : "No activity yet"}
+                                    {account.lastActivity ? (
+                                        <>
+                                            Last activity <LocalDateTime date={account.lastActivity} pattern="relative" />
+                                        </>
+                                    ) : (
+                                        "No activity yet"
+                                    )}
                                 </p>
                                 {canRecord && (
                                     <div className="flex gap-2 pt-1">

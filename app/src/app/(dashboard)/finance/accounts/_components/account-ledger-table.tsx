@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { format } from "date-fns";
+import { LocalDateTime } from "@/components/ui/local-date-time";
 import {
     Table,
     TableBody,
@@ -196,8 +196,8 @@ export function AccountLedgerTable({ transactions, accountFilter, onAccountFilte
                                 return (
                                     <TableRow key={t.id}>
                                         <TableCell className="whitespace-nowrap">
-                                            <div className="font-medium">{format(new Date(t.date), "MMM d, yyyy")}</div>
-                                            <div className="text-xs text-muted-foreground">{format(new Date(t.date), "h:mm a")}</div>
+                                            <LocalDateTime date={t.date} pattern="MMM d, yyyy" className="block font-medium" />
+                                            <LocalDateTime date={t.date} pattern="h:mm a" className="block text-xs text-muted-foreground" />
                                         </TableCell>
                                         <TableCell className="whitespace-nowrap">
                                             <span className="inline-flex items-center gap-2">
