@@ -15,7 +15,7 @@ export const COMPANY = {
 
 // NOTE: placeholder production domain — confirm and update once real DNS/hosting
 // is set up for the marketing site.
-export const SITE_URL = "https://www.wd-logistics.co.zw";
+export const SITE_URL = "https://wd-logistics.co.zw";
 
 // Shared OpenGraph fields, pulled into a constant so every page can spread it
 // into its own `openGraph` object — Next.js metadata merging *replaces* the
