@@ -1,4 +1,4 @@
-export const SITE_URL = "https://www.wd-logistics.co.zw";
+export const SITE_URL = "https://wd-logistics.co.zw";
 
 // Next.js does not deep-merge `openGraph`/`twitter` between a layout's metadata
 // and a page's metadata — a page that sets its own `openGraph` replaces the
