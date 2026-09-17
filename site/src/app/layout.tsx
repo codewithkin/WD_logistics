@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Archivo, Bricolage_Grotesque, DM_Sans } from "next/font/google";
+import { PageTransition } from "@/components/motion/PageTransition";
 import "./globals.css";
 
 const archivo = Archivo({
@@ -33,7 +34,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${archivo.variable} ${bricolageGrotesque.variable} ${dmSans.variable}`}
     >
       <body className="flex justify-center overflow-x-hidden bg-[#EDEFEC] font-sans text-[#1E2320]">
-        {children}
+        <PageTransition>{children}</PageTransition>
       </body>
     </html>
   );
