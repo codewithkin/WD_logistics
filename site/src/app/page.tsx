@@ -90,7 +90,7 @@ const FAQS = [
 
 export default function HomePage() {
   return (
-    <div className="w-[1320px] max-w-full bg-[#FBFCFB] text-[#1E2320]">
+    <div className="mx-auto w-full max-w-[1320px] bg-[#FBFCFB] text-[#1E2320]">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
