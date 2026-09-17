@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Header } from "@/components/Header";
-import { PhotoPlaceholder } from "@/components/PhotoPlaceholder";
+import { PhotoBlock } from "@/components/PhotoBlock";
 import { CtaFooterSimple } from "@/components/CtaFooter";
 import { COMPANY } from "@/lib/site";
 
@@ -74,26 +74,26 @@ export default function AboutPage() {
             </span>
           </div>
         </div>
-        <PhotoPlaceholder
-          variant="neutral"
-          label="PHOTO — FLEET LINED UP AT THE YARD"
-          className="flex h-[240px] items-end rounded-[28px] p-5 sm:h-[320px] sm:rounded-[36px] sm:p-6 lg:h-[400px]"
+        <PhotoBlock
+          src="/images/fleet-lineup-yard.jpg"
+          alt="WD Logistics fleet of trucks lined up at the yard in Mutare, Zimbabwe"
+          className="h-[240px] rounded-[28px] sm:h-[320px] sm:rounded-[36px] lg:h-[400px]"
         />
       </div>
 
       {/* Photo grid */}
       <div className="px-5 pb-12 sm:px-8 lg:px-[34px] lg:pb-[70px]">
         <div className="grid grid-cols-2 auto-rows-[160px] gap-3 sm:auto-rows-[200px] sm:gap-4 lg:grid-cols-4 lg:auto-rows-[220px] lg:gap-[18px]">
-          <PhotoPlaceholder
-            variant="card"
-            label="PHOTO — LOADING BAY, GRANITESIDE"
-            className="col-span-2 row-span-2 flex items-end rounded-[24px] p-4 sm:rounded-[32px] sm:p-6"
+          <PhotoBlock
+            src="/images/yard-under-shed.jpg"
+            alt="WD Logistics loading bay under the shed roof at the Mutare yard"
+            className="col-span-2 row-span-2 rounded-[24px] sm:rounded-[32px]"
           />
-          <PhotoPlaceholder
-            variant="card"
-            label="TARPING A LOAD"
-            className="flex items-end rounded-[24px] p-3 sm:rounded-[32px] sm:p-[22px]"
-            labelClassName="text-[10px] px-[13px] py-2"
+          <PhotoBlock
+            src="/images/truck-side-white-green-1.jpg"
+            alt="WD Logistics truck being tarped before departure"
+            className="rounded-[24px] sm:rounded-[32px]"
+            imgClassName="object-[center_20%]"
           />
           <div className="flex flex-col justify-between rounded-[24px] bg-[#63C32E] p-4 text-[#15250A] sm:rounded-[32px] sm:p-[26px]">
             <span className="font-mono text-[10px] font-semibold tracking-[0.12em] sm:text-[11px]">
@@ -104,11 +104,11 @@ export default function AboutPage() {
               stops, fuel and a back-up driver.
             </span>
           </div>
-          <PhotoPlaceholder
-            variant="card"
-            label="PHOTO — TIPPER OFFLOADING AT SITE"
-            className="col-span-2 flex items-end rounded-[24px] p-3 sm:rounded-[32px] sm:p-[22px]"
-            labelClassName="text-[10px] px-[13px] py-2"
+          <PhotoBlock
+            src="/images/truck-side-white-green-2.jpg"
+            alt="WD Logistics truck offloading at a customer site"
+            className="col-span-2 rounded-[24px] sm:rounded-[32px]"
+            imgClassName="object-[center_20%]"
           />
         </div>
       </div>
@@ -116,10 +116,11 @@ export default function AboutPage() {
       {/* Founder quote */}
       <div className="bg-[#EFF8E5] px-5 py-12 sm:px-8 lg:px-[34px] lg:py-[70px]">
         <div className="grid grid-cols-1 items-center gap-8 lg:grid-cols-[0.85fr_1.15fr] lg:gap-10">
-          <PhotoPlaceholder
-            variant="tint"
-            label="PHOTO — TRUCK CAB, ROAD AHEAD"
-            className="flex h-[260px] items-end rounded-[28px] p-5 sm:h-[360px] sm:rounded-[36px] sm:p-6 lg:h-[440px]"
+          <PhotoBlock
+            src="/images/truck-side-blue.jpg"
+            alt="WD Logistics truck cab, ready for the road"
+            className="h-[260px] rounded-[28px] sm:h-[360px] sm:rounded-[36px] lg:h-[440px]"
+            imgClassName="object-[center_25%]"
           />
           <div className="flex flex-col gap-5 lg:gap-[26px]">
             <span className="w-fit rounded-full bg-white px-4 py-2.5 font-sans text-xs font-semibold tracking-[0.06em] text-[#3D8A14]">

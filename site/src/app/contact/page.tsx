@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Header } from "@/components/Header";
-import { PhotoPlaceholder } from "@/components/PhotoPlaceholder";
+import { PhotoBlock } from "@/components/PhotoBlock";
 import { CtaFooterSimple } from "@/components/CtaFooter";
 import { EnquiryForm } from "@/components/EnquiryForm";
 import { COMPANY } from "@/lib/site";
@@ -96,20 +96,20 @@ export default function ContactPage() {
       </div>
 
       <div className="px-5 pb-12 sm:px-8 lg:px-[34px] lg:pb-[70px]">
-        <PhotoPlaceholder
-          variant="neutral"
-          label="MAP — NYAKAMETE, MUTARE"
-          className="flex h-[220px] flex-col items-start justify-end gap-4 rounded-[28px] p-5 sm:h-[300px] sm:flex-row sm:items-end sm:justify-between sm:gap-5 sm:rounded-[36px] sm:p-6"
+        <PhotoBlock
+          src="/images/yard-under-shed.jpg"
+          alt="The WD Logistics yard and workshop at Nyakamete, Mutare"
+          className="h-[220px] rounded-[28px] sm:h-[300px] sm:rounded-[36px]"
         >
           <a
             href="https://www.google.com/maps/search/?api=1&query=Nyakamete+Mutare+Zimbabwe"
             target="_blank"
             rel="noopener noreferrer"
-            className="rounded-full bg-[#1E2320] px-[22px] py-3.5 font-sans text-[13px] font-bold text-white"
+            className="absolute bottom-4 right-4 rounded-full bg-[#1E2320] px-[22px] py-3.5 font-sans text-[13px] font-bold text-white sm:bottom-6 sm:right-6"
           >
             Open in Maps →
           </a>
-        </PhotoPlaceholder>
+        </PhotoBlock>
       </div>
 
       <CtaFooterSimple

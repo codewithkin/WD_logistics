@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Header } from "@/components/Header";
-import { PhotoPlaceholder } from "@/components/PhotoPlaceholder";
+import { PhotoBlock } from "@/components/PhotoBlock";
 import { CtaFooterFull } from "@/components/CtaFooter";
 import { FaqAccordion } from "@/components/FaqAccordion";
 import { COMPANY } from "@/lib/site";
@@ -53,12 +53,15 @@ export default function HomePage() {
 
       {/* Hero */}
       <div className="px-5 pt-5 sm:px-8 lg:px-[34px] lg:pt-[26px]">
-        <PhotoPlaceholder
-          variant="neutral"
+        <PhotoBlock
+          src="/images/fleet-lineup-yard.jpg"
+          alt="The WD Logistics fleet of trucks lined up in the yard in Mutare, Zimbabwe"
+          priority
+          sizes="100vw"
           className="flex min-h-0 flex-col justify-between gap-8 rounded-[28px] p-6 sm:rounded-[32px] sm:p-8 lg:min-h-[800px] lg:rounded-[40px] lg:p-[46px]"
-          label=""
         >
-          <div className="flex flex-col items-start justify-between gap-8 lg:flex-row lg:gap-10">
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/25 via-black/0 to-black/10" />
+          <div className="relative flex flex-col items-start justify-between gap-8 lg:flex-row lg:gap-10">
             <div className="flex max-w-full flex-col gap-5 lg:max-w-[640px] lg:gap-6">
               <span className="inline-flex w-fit items-center gap-2.5 rounded-full bg-white px-4 py-2.5 font-sans text-[11px] font-semibold tracking-[0.06em] sm:text-xs">
                 <span className="h-[7px] w-[7px] rounded-full bg-[#1667C4]" />
@@ -111,10 +114,7 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div className="flex flex-col items-start gap-4 lg:flex-row lg:items-end lg:justify-between lg:gap-6">
-            <span className="inline-flex items-center gap-2 rounded-full bg-white/90 px-3.5 py-2 font-mono text-[10px] tracking-[0.08em] text-[#6A716B] sm:text-[11px]">
-              HERO PHOTO — LOADED TRAILER, WIDE CROP
-            </span>
+          <div className="relative flex flex-col items-start gap-4 lg:flex-row lg:items-end lg:justify-end lg:gap-6">
             <div className="flex w-full flex-col gap-4 rounded-[24px] bg-white p-5 shadow-[0_20px_50px_rgba(30,35,32,.18)] sm:rounded-[28px] sm:p-6 lg:w-[430px]">
               <span className="font-heading text-base font-bold">
                 Get a same-day quote
@@ -156,7 +156,7 @@ export default function HomePage() {
               </a>
             </div>
           </div>
-        </PhotoPlaceholder>
+        </PhotoBlock>
       </div>
 
       {/* Route ticker */}
@@ -186,11 +186,11 @@ export default function HomePage() {
 
         <div className="grid grid-cols-1 gap-[18px] sm:grid-cols-2 lg:grid-cols-4">
           <div className="sm:col-span-2 flex flex-col gap-[18px] rounded-[28px] border border-[#E6E9E2] bg-white p-6 lg:rounded-[32px] lg:p-[26px]">
-            <PhotoPlaceholder
-              variant="card"
-              label="PHOTO — SUPERLINK ON THE MUTARE ROAD"
-              className="flex h-[210px] items-center justify-center rounded-[22px]"
-              labelClassName="text-[10px] px-0 bg-transparent"
+            <PhotoBlock
+              src="/images/truck-side-blue.jpg"
+              alt="WD Logistics superlink truck cab, side profile"
+              className="h-[210px] rounded-[22px]"
+              imgClassName="object-[center_30%]"
             />
             <div className="flex items-end justify-between gap-6">
               <span className="flex flex-col gap-2.5">
@@ -227,11 +227,11 @@ export default function HomePage() {
           </div>
 
           <div className="flex flex-col gap-4 rounded-[32px] border border-[#E6E9E2] bg-white p-[26px]">
-            <PhotoPlaceholder
-              variant="card"
-              label="TIPPER TRUCK"
-              className="flex h-[120px] items-center justify-center rounded-[20px]"
-              labelClassName="text-[10px] px-0 bg-transparent"
+            <PhotoBlock
+              src="/images/truck-side-white-green-2.jpg"
+              alt="WD Logistics tipper truck, side profile"
+              className="h-[120px] rounded-[20px]"
+              imgClassName="object-[center_25%]"
             />
             <span className="flex flex-col gap-2.5">
               <span className="font-heading text-2xl font-semibold leading-[1.1] tracking-[-0.02em]">
@@ -245,11 +245,11 @@ export default function HomePage() {
           </div>
 
           <div className="sm:col-span-2 flex flex-col items-start gap-5 rounded-[28px] border border-[#E6E9E2] bg-white p-6 sm:flex-row sm:items-center sm:gap-[22px] lg:rounded-[32px] lg:p-[26px]">
-            <PhotoPlaceholder
-              variant="card"
-              label="LOW-BED MACHINERY"
-              className="flex h-[140px] w-full shrink-0 items-center justify-center rounded-[24px] text-center sm:h-[180px] sm:w-[180px]"
-              labelClassName="text-[10px] px-0 bg-transparent"
+            <PhotoBlock
+              src="/images/truck-side-white-green-1.jpg"
+              alt="WD Logistics low-bed truck for machinery and abnormal loads"
+              className="h-[140px] w-full shrink-0 rounded-[24px] sm:h-[180px] sm:w-[180px]"
+              imgClassName="object-[center_25%]"
             />
             <span className="flex flex-col gap-2.5">
               <span className="font-heading text-[26px] font-semibold leading-[1.1] tracking-[-0.02em]">
@@ -364,10 +364,10 @@ export default function HomePage() {
 
       {/* Why clients stay */}
       <div className="grid grid-cols-1 items-center gap-8 px-5 py-12 sm:px-8 lg:grid-cols-2 lg:gap-[34px] lg:px-[34px] lg:py-[74px]">
-        <PhotoPlaceholder
-          variant="neutral"
-          label="PHOTO — LOADING AT THE NYAKAMETE YARD"
-          className="flex h-[320px] items-end rounded-[28px] p-5 sm:h-[400px] sm:rounded-[36px] sm:p-[26px] lg:h-[480px]"
+        <PhotoBlock
+          src="/images/yard-under-shed.jpg"
+          alt="WD Logistics trucks parked under the loading shed at the Nyakamete yard, Mutare"
+          className="h-[320px] rounded-[28px] sm:h-[400px] sm:rounded-[36px] lg:h-[480px]"
         >
           <span className="absolute right-5 top-5 flex flex-col gap-1 rounded-[18px] bg-white px-4 py-3 text-right sm:right-[26px] sm:top-[26px] sm:rounded-[22px] sm:px-[22px] sm:py-[18px]">
             <span className="font-heading text-2xl font-bold leading-none tracking-[-0.03em] sm:text-[30px]">
@@ -379,7 +379,7 @@ export default function HomePage() {
               WD fleet
             </span>
           </span>
-        </PhotoPlaceholder>
+        </PhotoBlock>
         <div className="flex flex-col gap-5 lg:gap-6">
           <span className="w-fit rounded-full bg-[#EFF8E5] px-4 py-2.5 font-sans text-xs font-semibold tracking-[0.06em] text-[#3D8A14]">
             WHY CLIENTS STAY
