@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { PageShell } from "@/components/PageShell";
-import { PhotoPlaceholder } from "@/components/PhotoPlaceholder";
+import { PhotoImage } from "@/components/PhotoImage";
 import { CtaBanner } from "@/components/CtaBanner";
 import { COMPANY } from "@/lib/constants";
 
@@ -90,7 +90,13 @@ export default function HomePage() {
             </span>
           </div>
         </div>
-        <PhotoPlaceholder label="PHOTO — WD TRUCK ON THE HARARE ROAD" className="h-[240px] sm:h-[300px] lg:h-[380px]" />
+        <PhotoImage
+          src="/images/truck-side-white-green-2.jpg"
+          alt="White and green WD Logistics truck, side profile, at the company yard"
+          className="h-[240px] sm:h-[300px] lg:h-[380px]"
+          sizes="(min-width: 1024px) 45vw, 100vw"
+          priority
+        />
       </div>
 
       {/* Services */}

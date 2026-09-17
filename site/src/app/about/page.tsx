@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { PageShell } from "@/components/PageShell";
-import { PhotoPlaceholder } from "@/components/PhotoPlaceholder";
+import { PhotoImage } from "@/components/PhotoImage";
 import { CtaBanner } from "@/components/CtaBanner";
 
 export const metadata: Metadata = {
@@ -62,17 +62,30 @@ export default function AboutPage() {
             ))}
           </div>
         </div>
-        <PhotoPlaceholder label="PHOTO — FLEET LINED UP AT THE YARD" className="h-[240px] sm:h-[300px] lg:h-[380px]" />
+        <PhotoImage
+          src="/images/fleet-lineup-yard.jpg"
+          alt="Five WD Logistics trucks lined up in the company yard in Mutare, Zimbabwe"
+          className="h-[240px] sm:h-[300px] lg:h-[380px]"
+          sizes="(min-width: 1024px) 45vw, 100vw"
+          priority
+        />
       </div>
 
       {/* Photo gallery */}
       <div className="px-5 pb-10 sm:px-8 sm:pb-14 lg:px-12 lg:pb-[60px]">
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:grid-rows-2 lg:grid-cols-4">
-          <PhotoPlaceholder
-            label="PHOTO — LOADING BAY, GRANITESIDE"
+          <PhotoImage
+            src="/images/yard-under-shed.jpg"
+            alt="WD Logistics trucks parked under the workshop shed at the Nyakamete yard"
             className="h-[220px] sm:col-span-2 sm:row-span-2 sm:h-full lg:col-span-2"
+            sizes="(min-width: 1024px) 45vw, (min-width: 640px) 50vw, 100vw"
           />
-          <PhotoPlaceholder label="TARPING A LOAD" className="h-[140px] sm:h-full" />
+          <PhotoImage
+            src="/images/truck-side-blue.jpg"
+            alt="Blue WD Logistics MAN TGX truck, side profile, parked in the yard"
+            className="h-[140px] sm:h-full"
+            sizes="(min-width: 1024px) 22vw, (min-width: 640px) 25vw, 100vw"
+          />
           <div className="flex h-[140px] flex-col justify-between rounded-[6px] bg-(--color-accent) p-5 text-(--color-accent-ink) sm:h-full">
             <span className="font-mono text-[11px] font-semibold tracking-[0.12em]">
               ON THE ROAD
@@ -82,16 +95,23 @@ export default function AboutPage() {
               back-up driver.
             </span>
           </div>
-          <PhotoPlaceholder
-            label="PHOTO — TIPPER OFFLOADING AT SITE"
+          <PhotoImage
+            src="/images/truck-side-white-green-1.jpg"
+            alt="White and green WD Logistics MAN truck, side profile, parked in the yard"
             className="h-[140px] sm:col-span-2 sm:h-full"
+            sizes="(min-width: 1024px) 45vw, (min-width: 640px) 50vw, 100vw"
           />
         </div>
       </div>
 
       {/* Founder */}
       <div className="grid grid-cols-1 items-center gap-8 border-t border-b border-(--color-border) bg-(--color-surface-muted) px-5 py-12 sm:px-8 lg:grid-cols-[0.85fr_1.15fr] lg:gap-10 lg:px-12 lg:py-16">
-        <PhotoPlaceholder label="PHOTO — TRUCK CAB, ROAD AHEAD" className="h-[240px] sm:h-[300px] lg:h-[380px]" />
+        <PhotoImage
+          src="/images/truck-side-white-green-2.jpg"
+          alt="White and green WD Logistics truck, side profile view"
+          className="h-[240px] sm:h-[300px] lg:h-[380px]"
+          sizes="(min-width: 1024px) 38vw, 100vw"
+        />
         <div className="flex flex-col gap-6">
           <span className="w-fit rounded-[4px] border border-(--color-border-strong) bg-(--color-surface) px-[14px] py-2 font-sans text-xs font-semibold tracking-[0.06em] text-(--color-brand)">
             FROM THE FOUNDER
