@@ -23,7 +23,7 @@ import { PaginationControls } from "@/components/ui/pagination-controls";
 import { usePagination } from "@/hooks/use-pagination";
 import { ArrowDownLeft, ArrowUpRight, Search, SlidersHorizontal } from "lucide-react";
 import { STOCK_MOVEMENT_LABELS, type StockMovementType } from "@/lib/inventory";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 
 export interface StockMovementRow {
     id: string;
@@ -33,9 +33,22 @@ export interface StockMovementRow {
     quantityAfter: number;
     destination: string | null;
     reason: string | null;
+    /** Unit cost stamped at the time of the movement; null on older rows. */
+    unitCost: number | null;
     createdAt: Date;
     performedBy: { name: string };
-    inventoryItem: { id: string; name: string; unit: string | null };
+    inventoryItem: { id: string; name: string; unit: string | null; unitCost: number | null };
+}
+
+/**
+ * What this movement was worth. Prefers the cost stamped on the movement
+ * itself; movements recorded before that column existed fall back to the
+ * item's current cost, which is the best guess available for them.
+ */
+function movementValue(m: StockMovementRow): number | null {
+    const unitCost = m.unitCost ?? m.inventoryItem.unitCost;
+    if (unitCost == null) return null;
+    return unitCost * m.quantity;
 }
 
 const TYPE_STYLES: Record<StockMovementType, { className: string; icon: typeof ArrowUpRight; sign: string }> = {
@@ -47,10 +60,12 @@ const TYPE_STYLES: Record<StockMovementType, { className: string; icon: typeof A
 interface StockMovementsTableProps {
     movements: StockMovementRow[];
     showItem?: boolean;
+    /** Money values are admin-only, same rule as the rest of the Inventory pages. */
+    showValue?: boolean;
     emptyMessage?: string;
 }
 
-export function StockMovementsTable({ movements, showItem = false, emptyMessage = "No stock movements recorded yet" }: StockMovementsTableProps) {
+export function StockMovementsTable({ movements, showItem = false, showValue = false, emptyMessage = "No stock movements recorded yet" }: StockMovementsTableProps) {
     const [search, setSearch] = useState("");
     const [typeFilter, setTypeFilter] = useState<"all" | StockMovementType>("all");
 
@@ -68,7 +83,7 @@ export function StockMovementsTable({ movements, showItem = false, emptyMessage 
 
     const pagination = usePagination({ defaultPageSize: 10, totalItems: filtered.length });
     const rows = filtered.slice(pagination.startIndex, pagination.endIndex);
-    const columnCount = showItem ? 7 : 6;
+    const columnCount = 6 + (showItem ? 1 : 0) + (showValue ? 1 : 0);
 
     return (
         <div className="space-y-4">
@@ -102,6 +117,7 @@ export function StockMovementsTable({ movements, showItem = false, emptyMessage 
                             <TableHead className="whitespace-nowrap">When</TableHead>
                             {showItem && <TableHead>Item</TableHead>}
                             <TableHead>Movement</TableHead>
+                            {showValue && <TableHead className="text-right whitespace-nowrap">Value</TableHead>}
                             <TableHead className="text-right whitespace-nowrap">Stock</TableHead>
                             <TableHead>Where</TableHead>
                             <TableHead className="min-w-40">Why</TableHead>
@@ -146,6 +162,26 @@ export function StockMovementsTable({ movements, showItem = false, emptyMessage 
                                                 </span>
                                             </div>
                                         </TableCell>
+                                        {showValue && (() => {
+                                            const value = movementValue(m);
+                                            return (
+                                                <TableCell className="text-right whitespace-nowrap">
+                                                    {value == null ? (
+                                                        <span className="text-muted-foreground">—</span>
+                                                    ) : (
+                                                        <span
+                                                            className={cn(
+                                                                "font-semibold",
+                                                                type === "in" && "text-green-600 dark:text-green-400",
+                                                                type === "out" && "text-amber-600 dark:text-amber-400"
+                                                            )}
+                                                        >
+                                                            {sign}{formatCurrency(value)}
+                                                        </span>
+                                                    )}
+                                                </TableCell>
+                                            );
+                                        })()}
                                         <TableCell className="text-right whitespace-nowrap text-muted-foreground">
                                             {m.quantityBefore} → <span className="font-medium text-foreground">{m.quantityAfter}</span>
                                         </TableCell>

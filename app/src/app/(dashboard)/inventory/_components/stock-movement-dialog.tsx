@@ -17,18 +17,20 @@ import {
 import { ArrowRight, Loader2, PackageMinus, PackagePlus } from "lucide-react";
 import { addStock, takeOutStock } from "../actions";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 
 export type StockDialogMode = "out" | "in";
 
 interface StockMovementDialogProps {
     mode: StockDialogMode;
-    item: { id: string; name: string; quantity: number; unit: string | null } | null;
+    item: { id: string; name: string; quantity: number; unit: string | null; unitCost: number | null } | null;
     open: boolean;
     onOpenChange: (open: boolean) => void;
+    /** Money values are admin-only, same rule as the rest of the Inventory pages. */
+    showValue?: boolean;
 }
 
-export function StockMovementDialog({ mode, item, open, onOpenChange }: StockMovementDialogProps) {
+export function StockMovementDialog({ mode, item, open, onOpenChange, showValue = false }: StockMovementDialogProps) {
     const router = useRouter();
     const [quantity, setQuantity] = useState("1");
     const [destination, setDestination] = useState("");
@@ -53,6 +55,9 @@ export function StockMovementDialog({ mode, item, open, onOpenChange }: StockMov
     const isWholeNumber = Number.isInteger(parsed) && parsed > 0;
     const resulting = isWholeNumber ? item.quantity + (isOut ? -parsed : parsed) : null;
     const exceedsStock = isOut && isWholeNumber && parsed > item.quantity;
+    // What this movement is worth, so "18 L out" also reads as "-$55.00".
+    const movementValue =
+        showValue && item.unitCost != null && isWholeNumber ? item.unitCost * parsed : null;
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -82,10 +87,11 @@ export function StockMovementDialog({ mode, item, open, onOpenChange }: StockMov
                 : await addStock({ inventoryItemId: item.id, quantity: parsed, source: destination, reason });
 
             if (result.success) {
+                const valueSuffix = movementValue != null ? ` — ${formatCurrency(movementValue)}` : "";
                 toast.success(
                     isOut
-                        ? `Took out ${parsed} ${unit} of ${item.name}`
-                        : `Added ${parsed} ${unit} of ${item.name}`
+                        ? `Took out ${parsed} ${unit} of ${item.name}${valueSuffix}`
+                        : `Added ${parsed} ${unit} of ${item.name}${valueSuffix}`
                 );
                 onOpenChange(false);
                 router.refresh();
@@ -147,6 +153,24 @@ export function StockMovementDialog({ mode, item, open, onOpenChange }: StockMov
                             </div>
                         </div>
                     </div>
+
+                    {showValue && (
+                        <div className="flex items-center justify-between rounded-lg border px-3 py-2 text-sm">
+                            <span className="text-muted-foreground">
+                                {isOut ? "Value going out" : "Value coming in"}
+                            </span>
+                            {movementValue == null || exceedsStock ? (
+                                <span className="text-muted-foreground">
+                                    {item.unitCost == null ? "No unit cost recorded" : "—"}
+                                </span>
+                            ) : (
+                                <span className={cn("font-semibold", isOut ? "text-amber-600" : "text-green-600")}>
+                                    {isOut ? "−" : "+"}
+                                    {formatCurrency(movementValue)}
+                                </span>
+                            )}
+                        </div>
+                    )}
 
                     <div className="space-y-2">
                         <Label htmlFor="stock-quantity">Quantity ({unit})</Label>

@@ -90,7 +90,10 @@ export default async function InventoryItemDetailPage({ params }: InventoryItemD
                 }
             >
                 {canManage && (
-                    <StockActions item={{ id: item.id, name: item.name, quantity: item.quantity, unit: item.unit }} />
+                    <StockActions
+                        item={{ id: item.id, name: item.name, quantity: item.quantity, unit: item.unit, unitCost: item.unitCost }}
+                        showValue={canSeeValue}
+                    />
                 )}
             </PageHeader>
 
@@ -215,8 +218,9 @@ export default async function InventoryItemDetailPage({ params }: InventoryItemD
                     <StockMovementsTable
                         movements={item.movements.map((m) => ({
                             ...m,
-                            inventoryItem: { id: item.id, name: item.name, unit: item.unit },
+                            inventoryItem: { id: item.id, name: item.name, unit: item.unit, unitCost: item.unitCost },
                         }))}
+                        showValue={canSeeValue}
                     />
                 </CardContent>
             </Card>
@@ -231,6 +235,8 @@ export default async function InventoryItemDetailPage({ params }: InventoryItemD
                             inventoryItemId={item.id}
                             availableQuantity={item.quantity}
                             unit={item.unit}
+                            unitCost={item.unitCost}
+                            showValue={canSeeValue}
                             trucks={trucks}
                             employees={employees}
                         />

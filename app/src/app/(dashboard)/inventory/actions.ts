@@ -59,9 +59,23 @@ async function recordMovement(
     destination?: string;
     reason?: string;
     performedById: string;
+    /** Pass explicitly when the caller already knows the cost being applied. */
+    unitCost?: number | null;
   }
 ) {
-  await tx.stockMovement.create({ data });
+  // Stamp the unit cost onto the movement so the money value of a past
+  // movement doesn't silently change when the item is repriced later.
+  const unitCost =
+    data.unitCost !== undefined
+      ? data.unitCost
+      : (
+          await tx.inventoryItem.findUnique({
+            where: { id: data.inventoryItemId },
+            select: { unitCost: true },
+          })
+        )?.unitCost ?? null;
+
+  await tx.stockMovement.create({ data: { ...data, unitCost } });
 }
 
 /**

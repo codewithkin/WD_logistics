@@ -35,6 +35,7 @@ import {
 import { Loader2, PackageMinus } from "lucide-react";
 import { allocatePart } from "../actions";
 import { toast } from "sonner";
+import { formatCurrency } from "@/lib/utils";
 
 const allocateSchema = z.object({
     truckId: z.string().min(1, "Select a truck"),
@@ -49,16 +50,21 @@ interface AllocatePartDialogProps {
     inventoryItemId: string;
     availableQuantity: number;
     unit: string | null;
+    unitCost?: number | null;
     trucks: { id: string; registrationNo: string; make: string; model: string }[];
     employees: { id: string; firstName: string; lastName: string }[];
+    /** Money values are admin-only, same rule as the rest of the Inventory pages. */
+    showValue?: boolean;
 }
 
 export function AllocatePartDialog({
     inventoryItemId,
     availableQuantity,
     unit,
+    unitCost = null,
     trucks,
     employees,
+    showValue = false,
 }: AllocatePartDialogProps) {
     const router = useRouter();
     const [open, setOpen] = useState(false);
@@ -84,7 +90,13 @@ export function AllocatePartDialog({
             });
 
             if (result.success) {
-                toast.success("Part allocated successfully");
+                // Say what actually left the warehouse, and what it was worth.
+                const truck = trucks.find((t) => t.id === data.truckId);
+                const value = showValue && unitCost != null ? unitCost * data.quantity : null;
+                toast.success(
+                    `Allocated ${data.quantity} ${unit || "units"}${truck ? ` to ${truck.registrationNo}` : ""}` +
+                        (value != null ? ` — ${formatCurrency(value)}` : "")
+                );
                 setOpen(false);
                 form.reset();
                 router.refresh();

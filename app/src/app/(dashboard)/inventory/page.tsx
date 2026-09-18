@@ -37,7 +37,7 @@ export default async function InventoryPage() {
             take: STOCK_HISTORY_LIMIT,
             include: {
                 performedBy: { select: { name: true } },
-                inventoryItem: { select: { id: true, name: true, unit: true } },
+                inventoryItem: { select: { id: true, name: true, unit: true, unitCost: true } },
             },
         }),
     ]);
@@ -107,7 +107,7 @@ export default async function InventoryPage() {
                                 Everything that came into or went out of the warehouse
                                 {movements.length === STOCK_HISTORY_LIMIT && ` (latest ${STOCK_HISTORY_LIMIT} movements)`}.
                             </p>
-                            <StockMovementsTable movements={movements} showItem />
+                            <StockMovementsTable movements={movements} showItem showValue={canSeeValue} />
                         </CardContent>
                     </Card>
                 </TabsContent>

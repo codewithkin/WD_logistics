@@ -6,10 +6,12 @@ import { PackageMinus, PackagePlus } from "lucide-react";
 import { StockMovementDialog, type StockDialogMode } from "./stock-movement-dialog";
 
 interface StockActionsProps {
-    item: { id: string; name: string; quantity: number; unit: string | null };
+    item: { id: string; name: string; quantity: number; unit: string | null; unitCost: number | null };
+    /** Money values are admin-only, same rule as the rest of the Inventory pages. */
+    showValue?: boolean;
 }
 
-export function StockActions({ item }: StockActionsProps) {
+export function StockActions({ item, showValue = false }: StockActionsProps) {
     const [mode, setMode] = useState<StockDialogMode | null>(null);
 
     return (
@@ -31,6 +33,7 @@ export function StockActions({ item }: StockActionsProps) {
             <StockMovementDialog
                 mode={mode ?? "out"}
                 item={item}
+                showValue={showValue}
                 open={mode !== null}
                 onOpenChange={(open) => !open && setMode(null)}
             />

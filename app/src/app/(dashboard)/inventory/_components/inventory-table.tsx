@@ -261,6 +261,7 @@ export function InventoryTable({ items, role, canSeeValue }: InventoryTableProps
             <StockMovementDialog
                 mode={stockAction?.mode ?? "out"}
                 item={stockAction?.item ?? null}
+                showValue={canSeeValue}
                 open={!!stockAction}
                 onOpenChange={(open) => !open && setStockAction(null)}
             />
