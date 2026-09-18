@@ -13,6 +13,8 @@ import {
   fetchAccountLedgerData,
   getCustomerList,
   getTruckList,
+  getTrailerList,
+  getTripList,
 } from "@/lib/reports/data-fetchers";
 import {
   generateProfitPerUnitCSV,
@@ -44,6 +46,9 @@ const generateReportSchema = z.object({
     "trip-summary",
     "truck-profitability",
     "account-ledger",
+    "truck-expenses",
+    "trailer-expenses",
+    "trip-expenses",
   ]),
   startDate: z.string(),
   endDate: z.string(),
@@ -51,6 +56,8 @@ const generateReportSchema = z.object({
   format: z.enum(["pdf", "csv"]),
   customerId: z.string().optional(),
   truckId: z.string().optional(),
+  trailerId: z.string().optional(),
+  tripId: z.string().optional(),
 });
 
 export type GenerateReportInput = z.infer<typeof generateReportSchema>;
@@ -75,7 +82,7 @@ export async function generateReport(
     const { organizationId } = session;
 
     const validated = generateReportSchema.parse(input);
-    const { reportType, startDate, endDate, period, format, customerId, truckId } = validated;
+    const { reportType, startDate, endDate, period, format, customerId, truckId, trailerId, tripId } = validated;
 
     const start = new Date(startDate);
     const end = new Date(endDate);
@@ -317,6 +324,79 @@ export async function generateReport(
           fileExtension = "csv";
         }
         filename = `account-ledger-${start.toISOString().split("T")[0]}-to-${end.toISOString().split("T")[0]}.${fileExtension}`;
+        break;
+      }
+
+      // Expenses-only variants. They share one implementation because the
+      // only thing that differs is which entity the expenses hang off; the
+      // combined revenue-vs-expenses reports live in their own cases above.
+      case "truck-expenses":
+      case "trailer-expenses":
+      case "trip-expenses": {
+        const scope =
+          reportType === "truck-expenses"
+            ? { truckId }
+            : reportType === "trailer-expenses"
+              ? { trailerId }
+              : { tripId };
+
+        const scopeId = scope.truckId ?? scope.trailerId ?? scope.tripId;
+        if (!scopeId) {
+          const what =
+            reportType === "truck-expenses"
+              ? "truck"
+              : reportType === "trailer-expenses"
+                ? "trailer"
+                : "trip";
+          return { success: false, error: `Please choose a ${what} for this report.` };
+        }
+
+        const data = await fetchExpenseData(organizationId, start, end, scope);
+
+        if (data.length === 0) {
+          return {
+            success: false,
+            error: "No expenses were recorded for that selection in this period.",
+          };
+        }
+
+        if (format === "pdf") {
+          const pdfBytes = generateExpenseReportPDF({
+            expenses: data.map((e) => ({
+              date: e.date,
+              category: e.category,
+              description: e.description,
+              amount: e.amount,
+            })),
+            byCategory: Object.values(
+              data.reduce<Record<string, { category: string; amount: number; count: number }>>(
+                (acc, e) => {
+                  const bucket = (acc[e.category] ??= { category: e.category, amount: 0, count: 0 });
+                  bucket.amount += e.amount;
+                  bucket.count += 1;
+                  return acc;
+                },
+                {}
+              )
+            ).sort((a, b) => b.amount - a.amount),
+            period: periodObj,
+          });
+          fileBuffer = pdfBytes;
+          mimeType = "application/pdf";
+          fileExtension = "pdf";
+        } else {
+          const meta = {
+            startDate: start.toISOString().split("T")[0],
+            endDate: end.toISOString().split("T")[0],
+            period,
+            generatedAt: new Date(),
+          };
+          const csvContent = generateExpenseCSV(data, meta);
+          fileBuffer = Buffer.from(csvContent, "utf-8");
+          mimeType = "text/csv";
+          fileExtension = "csv";
+        }
+        filename = `${reportType}-${start.toISOString().split("T")[0]}-to-${end.toISOString().split("T")[0]}.${fileExtension}`;
         break;
       }
 

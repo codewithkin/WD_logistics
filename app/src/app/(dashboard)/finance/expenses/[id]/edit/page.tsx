@@ -18,7 +18,7 @@ export default async function EditExpensePage({ params }: EditExpensePageProps) 
         redirect("/dashboard");
     }
 
-    const [expense, categories, trucks, trips, drivers, suppliers] = await Promise.all([
+    const [expense, categories, trucks, trailers, trips, drivers, suppliers] = await Promise.all([
         prisma.expense.findUnique({
             where: {
                 id,
@@ -28,6 +28,11 @@ export default async function EditExpensePage({ params }: EditExpensePageProps) 
                 truckExpenses: {
                     select: {
                         truckId: true,
+                    },
+                },
+                trailerExpenses: {
+                    select: {
+                        trailerId: true,
                     },
                 },
                 tripExpenses: {
@@ -58,6 +63,21 @@ export default async function EditExpensePage({ params }: EditExpensePageProps) 
             },
         }),
         prisma.truck.findMany({
+            where: {
+                organizationId: user.organizationId,
+                status: { in: ["active", "in_service"] },
+            },
+            select: {
+                id: true,
+                registrationNo: true,
+                make: true,
+                model: true,
+            },
+            orderBy: {
+                registrationNo: "asc",
+            },
+        }),
+        prisma.trailer.findMany({
             where: {
                 organizationId: user.organizationId,
                 status: { in: ["active", "in_service"] },
@@ -146,6 +166,7 @@ export default async function EditExpensePage({ params }: EditExpensePageProps) 
                 <ExpenseForm
                     categories={categories}
                     trucks={trucks}
+                    trailers={trailers}
                     trips={trips}
                     drivers={drivers}
                     suppliers={suppliers}

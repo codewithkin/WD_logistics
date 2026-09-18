@@ -24,7 +24,7 @@ export default async function NewExpensePage({ searchParams }: NewExpensePagePro
         redirect("/dashboard");
     }
 
-    const [categories, trucks, trips, drivers, suppliers] = await Promise.all([
+    const [categories, trucks, trailers, trips, drivers, suppliers] = await Promise.all([
         prisma.expenseCategory.findMany({
             where: {
                 organizationId: user.organizationId,
@@ -41,6 +41,21 @@ export default async function NewExpensePage({ searchParams }: NewExpensePagePro
             },
         }),
         prisma.truck.findMany({
+            where: {
+                organizationId: user.organizationId,
+                status: { in: ["active", "in_service"] },
+            },
+            select: {
+                id: true,
+                registrationNo: true,
+                make: true,
+                model: true,
+            },
+            orderBy: {
+                registrationNo: "asc",
+            },
+        }),
+        prisma.trailer.findMany({
             where: {
                 organizationId: user.organizationId,
                 status: { in: ["active", "in_service"] },
@@ -132,6 +147,7 @@ export default async function NewExpensePage({ searchParams }: NewExpensePagePro
                 <ExpenseForm
                     categories={categories}
                     trucks={trucks}
+                    trailers={trailers}
                     trips={trips}
                     drivers={drivers}
                     suppliers={suppliers}

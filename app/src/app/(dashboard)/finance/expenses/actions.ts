@@ -30,6 +30,7 @@ export interface ExpenseFormData {
   date: Date;
   notes?: string;
   truckIds?: string[];
+  trailerIds?: string[];
   tripIds?: string[];
   driverIds?: string[];
   isBusinessExpense?: boolean;
@@ -78,6 +79,11 @@ export async function createExpense(data: ExpenseFormData): Promise<ExpenseActio
           truckExpenses: !data.isBusinessExpense && data.truckIds?.length
             ? {
                 create: data.truckIds.map((truckId) => ({ truckId })),
+              }
+            : undefined,
+          trailerExpenses: !data.isBusinessExpense && data.trailerIds?.length
+            ? {
+                create: data.trailerIds.map((trailerId) => ({ trailerId })),
               }
             : undefined,
           tripExpenses: !data.isBusinessExpense && data.tripIds?.length
@@ -242,6 +248,7 @@ export async function updateExpense(id: string, data: ExpenseFormData): Promise<
       // Clear associations if now a business expense
       if (data.isBusinessExpense) {
         await tx.truckExpense.deleteMany({ where: { expenseId: id } });
+        await tx.trailerExpense.deleteMany({ where: { expenseId: id } });
         await tx.tripExpense.deleteMany({ where: { expenseId: id } });
         await tx.driverExpense.deleteMany({ where: { expenseId: id } });
       } else {
@@ -251,6 +258,16 @@ export async function updateExpense(id: string, data: ExpenseFormData): Promise<
           if (data.truckIds.length > 0) {
             await tx.truckExpense.createMany({
               data: data.truckIds.map((truckId) => ({ truckId, expenseId: id })),
+            });
+          }
+        }
+
+        // Update trailer associations
+        if (data.trailerIds !== undefined) {
+          await tx.trailerExpense.deleteMany({ where: { expenseId: id } });
+          if (data.trailerIds.length > 0) {
+            await tx.trailerExpense.createMany({
+              data: data.trailerIds.map((trailerId) => ({ trailerId, expenseId: id })),
             });
           }
         }

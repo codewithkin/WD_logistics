@@ -122,10 +122,17 @@ export async function fetchRevenueData(
  * Fetch Expense data
  * Gets all expenses with category and truck information
  */
+/**
+ * @param scope narrows the report to one truck, trailer or trip. Without it
+ *              this returns every expense in the period, as it always has —
+ *              which is why there was no way to run an expenses-only report
+ *              for a single truck before.
+ */
 export async function fetchExpenseData(
   organizationId: string,
   startDate: Date,
-  endDate: Date
+  endDate: Date,
+  scope?: { truckId?: string; trailerId?: string; tripId?: string }
 ): Promise<ExpenseData[]> {
   const expenses = await prisma.expense.findMany({
     where: {
@@ -134,12 +141,20 @@ export async function fetchExpenseData(
         gte: startDate,
         lte: endDate,
       },
+      ...(scope?.truckId ? { truckExpenses: { some: { truckId: scope.truckId } } } : {}),
+      ...(scope?.trailerId ? { trailerExpenses: { some: { trailerId: scope.trailerId } } } : {}),
+      ...(scope?.tripId ? { tripExpenses: { some: { tripId: scope.tripId } } } : {}),
     },
     include: {
       category: { select: { name: true } },
       truckExpenses: {
         include: {
           truck: { select: { registrationNo: true } },
+        },
+      },
+      trailerExpenses: {
+        include: {
+          trailer: { select: { registrationNo: true } },
         },
       },
       tripExpenses: {
@@ -153,6 +168,7 @@ export async function fetchExpenseData(
 
   return expenses.map((expense) => {
     const truck = expense.truckExpenses[0]?.truck;
+    const trailer = expense.trailerExpenses[0]?.trailer;
     const trip = expense.tripExpenses[0]?.trip;
 
     return {
@@ -160,6 +176,7 @@ export async function fetchExpenseData(
       category: expense.category.name,
       description: expense.description || "-",
       truck: truck?.registrationNo || "-",
+      trailer: trailer?.registrationNo || "-",
       trip: trip ? `${trip.originCity} → ${trip.destinationCity}` : "-",
       amount: expense.amount,
     };
@@ -480,5 +497,30 @@ export async function getTruckList(organizationId: string) {
     where: { organizationId, status: "active" },
     select: { id: true, registrationNo: true, make: true, model: true },
     orderBy: { registrationNo: "asc" },
+  });
+}
+
+/** Trailer picker options for the report generator. */
+export async function getTrailerList(organizationId: string) {
+  return prisma.trailer.findMany({
+    where: { organizationId, status: "active" },
+    select: { id: true, registrationNo: true, make: true, model: true },
+    orderBy: { registrationNo: "asc" },
+  });
+}
+
+/** Trip picker options for the report generator. */
+export async function getTripList(organizationId: string) {
+  return prisma.trip.findMany({
+    where: { organizationId },
+    select: {
+      id: true,
+      originCity: true,
+      destinationCity: true,
+      scheduledDate: true,
+      truck: { select: { registrationNo: true } },
+    },
+    orderBy: { scheduledDate: "desc" },
+    take: 200,
   });
 }

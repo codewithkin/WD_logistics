@@ -173,7 +173,7 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
     .sort((a, b) => b.amount - a.amount);
 
   // Get data for report generator
-  const [customers, trucks, reports] = await Promise.all([
+  const [customers, trucks, trailers, reportTrips, reports] = await Promise.all([
     prisma.customer.findMany({
       where: { organizationId, status: "active" },
       select: { id: true, name: true },
@@ -183,6 +183,23 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
       where: { organizationId, status: "active" },
       select: { id: true, registrationNo: true, make: true, model: true },
       orderBy: { registrationNo: "asc" },
+    }),
+    prisma.trailer.findMany({
+      where: { organizationId, status: "active" },
+      select: { id: true, registrationNo: true, make: true, model: true },
+      orderBy: { registrationNo: "asc" },
+    }),
+    prisma.trip.findMany({
+      where: { organizationId },
+      select: {
+        id: true,
+        originCity: true,
+        destinationCity: true,
+        scheduledDate: true,
+        truck: { select: { registrationNo: true } },
+      },
+      orderBy: { scheduledDate: "desc" },
+      take: 200,
     }),
     prisma.report.findMany({
       where: { organizationId },
@@ -227,6 +244,8 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
       <ReportsClient
         customers={customers}
         trucks={trucks}
+        trailers={trailers}
+        reportTrips={reportTrips}
         initialReports={reports}
         dashboardContent={<ReportsDashboard data={dashboardData} periodLabel={dateRange.label} initialTab={currentTab} initialReportType={params.type} />}
       />

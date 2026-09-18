@@ -18,6 +18,8 @@ export interface ReportConfig {
   fields: ReportField[];
   requiresCustomer?: boolean;
   requiresTruck?: boolean;
+  requiresTrailer?: boolean;
+  requiresTrip?: boolean;
 }
 
 export const reportConfigs: Record<string, ReportConfig> = {
@@ -130,6 +132,52 @@ export const reportConfigs: Record<string, ReportConfig> = {
       { key: "profitMargin", label: "Margin %", type: "percentage" },
     ],
     requiresTruck: true,
+  },
+  // Expenses-only counterparts to the combined revenue-vs-expenses reports
+  // above. truck-profitability and trip-summary both mix in revenue; these
+  // answer "what did this unit cost me" on its own. Trailers only ever get
+  // this variant — they carry no revenue in the data model.
+  "truck-expenses": {
+    id: "truck-expenses",
+    name: "Truck Expenses (Expenses Only)",
+    description: "Every expense recorded against a single truck, with no revenue side",
+    periods: ["daily", "weekly", "monthly", "quarterly", "yearly", "custom"],
+    formats: ["pdf", "csv"],
+    fields: [
+      { key: "date", label: "Date", type: "date" },
+      { key: "category", label: "Category", type: "string" },
+      { key: "description", label: "Description", type: "string" },
+      { key: "amount", label: "Amount", type: "currency" },
+    ],
+    requiresTruck: true,
+  },
+  "trailer-expenses": {
+    id: "trailer-expenses",
+    name: "Trailer Expenses (Expenses Only)",
+    description: "Every expense recorded against a single trailer",
+    periods: ["daily", "weekly", "monthly", "quarterly", "yearly", "custom"],
+    formats: ["pdf", "csv"],
+    fields: [
+      { key: "date", label: "Date", type: "date" },
+      { key: "category", label: "Category", type: "string" },
+      { key: "description", label: "Description", type: "string" },
+      { key: "amount", label: "Amount", type: "currency" },
+    ],
+    requiresTrailer: true,
+  },
+  "trip-expenses": {
+    id: "trip-expenses",
+    name: "Trip Expenses (Expenses Only)",
+    description: "Every expense recorded against a single trip, with no revenue side",
+    periods: ["daily", "weekly", "monthly", "quarterly", "yearly", "custom"],
+    formats: ["pdf", "csv"],
+    fields: [
+      { key: "date", label: "Date", type: "date" },
+      { key: "category", label: "Category", type: "string" },
+      { key: "description", label: "Description", type: "string" },
+      { key: "amount", label: "Amount", type: "currency" },
+    ],
+    requiresTrip: true,
   },
 };
 

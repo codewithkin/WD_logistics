@@ -105,6 +105,7 @@ export interface ExpenseData {
   category: string;
   description: string;
   truck: string;
+  trailer: string;
   trip: string;
   amount: number;
 }
@@ -253,6 +254,7 @@ export function generateExpenseCSV(data: ExpenseData[], meta: ReportMeta): strin
     { key: "category", label: "Category" },
     { key: "description", label: "Description" },
     { key: "truck", label: "Truck" },
+    { key: "trailer", label: "Trailer" },
     { key: "trip", label: "Trip" },
     { key: "amount", label: "Amount ($)", format: (v) => formatCurrency(v as number) },
   ];

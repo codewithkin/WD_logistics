@@ -58,6 +58,8 @@ const reportFormSchema = z.object({
     format: z.enum(["pdf", "csv"]),
     customerId: z.string().optional(),
     truckId: z.string().optional(),
+    trailerId: z.string().optional(),
+    tripId: z.string().optional(),
 });
 
 type ReportFormValues = z.infer<typeof reportFormSchema>;
@@ -65,6 +67,8 @@ type ReportFormValues = z.infer<typeof reportFormSchema>;
 interface ReportGeneratorProps {
     customers?: { id: string; name: string }[];
     trucks?: { id: string; registrationNo: string; make: string; model: string }[];
+    trailers?: { id: string; registrationNo: string; make: string; model: string }[];
+    trips?: { id: string; originCity: string; destinationCity: string; scheduledDate: Date; truck: { registrationNo: string } | null }[];
     /**
      * Report type to open pre-selected, from the `?type=` search param. Set
      * when the user arrived here from a "Generate this report" button or the
@@ -78,6 +82,8 @@ interface ReportGeneratorProps {
 export function ReportGenerator({
     customers = [],
     trucks = [],
+    trailers = [],
+    trips = [],
     initialReportType,
     onReportGenerated,
 }: ReportGeneratorProps) {
@@ -171,6 +177,8 @@ export function ReportGenerator({
                     format: values.format,
                     customerId: values.customerId,
                     truckId: values.truckId,
+                    trailerId: values.trailerId,
+                    tripId: values.tripId,
                 };
 
                 const result = await generateReport(input);
@@ -360,6 +368,61 @@ export function ReportGenerator({
                                                 {trucks.map((truck) => (
                                                     <SelectItem key={truck.id} value={truck.id}>
                                                         {truck.registrationNo} - {truck.make} {truck.model}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        )}
+
+                        {reportConfig?.requiresTrailer && (
+                            <FormField
+                                control={form.control}
+                                name="trailerId"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Trailer</FormLabel>
+                                        <Select onValueChange={field.onChange} value={field.value}>
+                                            <FormControl>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select trailer" />
+                                                </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                {trailers.map((trailer) => (
+                                                    <SelectItem key={trailer.id} value={trailer.id}>
+                                                        {trailer.registrationNo} - {trailer.make} {trailer.model}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        )}
+
+                        {reportConfig?.requiresTrip && (
+                            <FormField
+                                control={form.control}
+                                name="tripId"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Trip</FormLabel>
+                                        <Select onValueChange={field.onChange} value={field.value}>
+                                            <FormControl>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select trip" />
+                                                </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                {trips.map((trip) => (
+                                                    <SelectItem key={trip.id} value={trip.id}>
+                                                        {trip.originCity} → {trip.destinationCity}
+                                                        {trip.truck ? ` (${trip.truck.registrationNo})` : ""}
                                                     </SelectItem>
                                                 ))}
                                             </SelectContent>

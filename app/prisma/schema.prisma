@@ -235,6 +235,8 @@ model Trailer {
   assignedTruckId   String?   @unique
   assignedTruck     Truck?    @relation("AssignedTrailer", fields: [assignedTruckId], references: [id])
 
+  trailerExpenses   TrailerExpense[]
+
   @@unique([organizationId, registrationNo])
   @@index([organizationId, status])
   @@map("trailer")
@@ -278,6 +280,17 @@ model TruckExpense {
 
   @@unique([truckId, expenseId])
   @@map("truck_expense")
+}
+
+model TrailerExpense {
+  id        String   @id @default(cuid())
+  trailerId String
+  trailer   Trailer  @relation(fields: [trailerId], references: [id], onDelete: Cascade)
+  expenseId String
+  expense   Expense  @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+
+  @@unique([trailerId, expenseId])
+  @@map("trailer_expense")
 }
 
 // =============================================================================
@@ -618,9 +631,10 @@ model Expense {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  truckExpenses  TruckExpense[]
-  tripExpenses   TripExpense[]
-  driverExpenses DriverExpense[]
+  truckExpenses   TruckExpense[]
+  trailerExpenses TrailerExpense[]
+  tripExpenses    TripExpense[]
+  driverExpenses  DriverExpense[]
 
   @@index([organizationId, date])
   @@index([categoryId])

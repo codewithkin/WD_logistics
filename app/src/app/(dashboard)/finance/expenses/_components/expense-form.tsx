@@ -41,7 +41,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { createExpense, updateExpense, type ExpenseFormData } from "../actions";
-import { Loader2, ChevronsUpDown, X, Truck, User, MapPin, AlertCircle, Building2 } from "lucide-react";
+import { Loader2, ChevronsUpDown, X, Truck, Container, User, MapPin, AlertCircle, Building2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { showAlert } from "@/components/ui/custom-alert";
 import { toast } from "sonner";
@@ -59,21 +59,23 @@ const expenseSchema = z.object({
     isBusinessExpense: z.boolean(),
     supplierId: z.string().optional(),
     truckIds: z.array(z.string()).optional(),
+    trailerIds: z.array(z.string()).optional(),
     tripIds: z.array(z.string()).optional(),
     driverIds: z.array(z.string()).optional(),
 }).refine(
     (data) => {
-        // Business expenses don't need truck/trip/driver association
+        // Business expenses don't need truck/trailer/trip/driver association
         if (data.isBusinessExpense) {
             return true;
         }
         const hasTruck = data.truckIds && data.truckIds.length > 0;
+        const hasTrailer = data.trailerIds && data.trailerIds.length > 0;
         const hasTrip = data.tripIds && data.tripIds.length > 0;
         const hasDriver = data.driverIds && data.driverIds.length > 0;
-        return hasTruck || hasTrip || hasDriver;
+        return hasTruck || hasTrailer || hasTrip || hasDriver;
     },
     {
-        message: "You must associate this expense with at least one truck, trip, or driver",
+        message: "You must associate this expense with at least one truck, trailer, trip, or driver",
         path: ["truckIds"], // This will show the error on the associations section
     }
 );
@@ -87,6 +89,13 @@ interface ExpenseCategory {
 }
 
 interface Truck {
+    id: string;
+    registrationNo: string;
+    make: string;
+    model: string;
+}
+
+interface Trailer {
     id: string;
     registrationNo: string;
     make: string;
@@ -123,6 +132,7 @@ interface Supplier {
 interface ExpenseFormProps {
     categories: ExpenseCategory[];
     trucks: Truck[];
+    trailers: Trailer[];
     trips: Trip[];
     drivers: Driver[];
     suppliers: Supplier[];
@@ -138,6 +148,7 @@ interface ExpenseFormProps {
         isBusinessExpense: boolean;
         supplierId: string | null;
         truckExpenses: Array<{ truckId: string }>;
+        trailerExpenses?: Array<{ trailerId: string }>;
         tripExpenses: Array<{ tripId: string }>;
         driverExpenses: Array<{ driverId: string }>;
     };
@@ -148,18 +159,23 @@ interface ExpenseFormProps {
     prefilledIsBusinessExpense?: boolean;
 }
 
-export function ExpenseForm({ categories, trucks, trips, drivers, suppliers, expense, prefilledTripId, prefilledTruckId, prefilledDriverId, prefilledSupplierId, prefilledIsBusinessExpense }: ExpenseFormProps) {
+export function ExpenseForm({ categories, trucks, trailers, trips, drivers, suppliers, expense, prefilledTripId, prefilledTruckId, prefilledDriverId, prefilledSupplierId, prefilledIsBusinessExpense }: ExpenseFormProps) {
     const router = useRouter();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [truckSearchOpen, setTruckSearchOpen] = useState(false);
     const [truckSearch, setTruckSearch] = useState("");
+    const [trailerSearchOpen, setTrailerSearchOpen] = useState(false);
+    const [trailerSearch, setTrailerSearch] = useState("");
     const [tripSearchOpen, setTripSearchOpen] = useState(false);
     const [tripSearch, setTripSearch] = useState("");
     const [driverSearchOpen, setDriverSearchOpen] = useState(false);
     const [driverSearch, setDriverSearch] = useState("");
 
     const form = useForm<z.infer<typeof expenseSchema>>({
-        resolver: zodResolver(expenseSchema),
+        // `as any` because z.coerce.number() on `amount` makes the schema's
+        // input type (unknown) differ from its output type (number), which
+        // zodResolver's generics reject. Same cast as report-generator.tsx.
+        resolver: zodResolver(expenseSchema) as any,
         defaultValues: {
             categoryId: expense?.categoryId || "",
             amount: expense?.amount || 0,
@@ -168,6 +184,7 @@ export function ExpenseForm({ categories, trucks, trips, drivers, suppliers, exp
             isBusinessExpense: expense?.isBusinessExpense ?? prefilledIsBusinessExpense ?? false,
             supplierId: expense?.supplierId || prefilledSupplierId || "",
             truckIds: expense?.truckExpenses.map(te => te.truckId) || (prefilledTruckId ? [prefilledTruckId] : []),
+            trailerIds: expense?.trailerExpenses?.map(te => te.trailerId) || [],
             tripIds: expense?.tripExpenses.map(te => te.tripId) || (prefilledTripId ? [prefilledTripId] : []),
             driverIds: expense?.driverExpenses?.map(de => de.driverId) || (prefilledDriverId ? [prefilledDriverId] : []),
         },
@@ -187,6 +204,18 @@ export function ExpenseForm({ categories, trucks, trips, drivers, suppliers, exp
                 truck.model.toLowerCase().includes(search)
         );
     }, [trucks, truckSearch]);
+
+    // Filter trailers based on search
+    const filteredTrailers = useMemo(() => {
+        if (!trailerSearch) return trailers;
+        const search = trailerSearch.toLowerCase();
+        return trailers.filter(
+            trailer =>
+                trailer.registrationNo.toLowerCase().includes(search) ||
+                trailer.make.toLowerCase().includes(search) ||
+                trailer.model.toLowerCase().includes(search)
+        );
+    }, [trailers, trailerSearch]);
 
     // Filter drivers based on search
     const filteredDrivers = useMemo(() => {
@@ -246,6 +275,7 @@ export function ExpenseForm({ categories, trucks, trips, drivers, suppliers, exp
                 isBusinessExpense: values.isBusinessExpense,
                 supplierId: values.isBusinessExpense ? values.supplierId : undefined,
                 truckIds: values.isBusinessExpense ? [] : values.truckIds,
+                trailerIds: values.isBusinessExpense ? [] : values.trailerIds,
                 tripIds: values.isBusinessExpense ? [] : values.tripIds,
                 driverIds: values.isBusinessExpense ? [] : values.driverIds,
             };
@@ -397,7 +427,7 @@ export function ExpenseForm({ categories, trucks, trips, drivers, suppliers, exp
                     )}
 
                     {!isBusinessExpense && (
-                        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
                             {/* Truck Association */}
                             <FormField
                                 control={form.control}
@@ -481,6 +511,100 @@ export function ExpenseForm({ categories, trucks, trips, drivers, suppliers, exp
                                                         <Badge key={truckId} variant="secondary" className="text-xs">
                                                             {truck.registrationNo}
                                                             <button type="button" className="ml-1" onClick={() => field.onChange(field.value?.filter(id => id !== truckId))}>
+                                                                <X className="h-3 w-3" />
+                                                            </button>
+                                                        </Badge>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </FormItem>
+                                )}
+                            />
+
+                            {/* Trailer Association */}
+                            <FormField
+                                control={form.control}
+                                name="trailerIds"
+                                render={({ field }) => (
+                                    <FormItem className="flex flex-col">
+                                        <FormLabel className="flex items-center gap-2">
+                                            <Container className="h-4 w-4" />
+                                            Trailer
+                                        </FormLabel>
+                                        <Popover open={trailerSearchOpen} onOpenChange={setTrailerSearchOpen}>
+                                            <PopoverTrigger asChild>
+                                                <FormControl>
+                                                    <Button
+                                                        variant="outline"
+                                                        role="combobox"
+                                                        aria-expanded={trailerSearchOpen}
+                                                        className={cn(
+                                                            "w-full justify-between",
+                                                            field.value?.length && "border-primary",
+                                                            !field.value?.length && "text-muted-foreground"
+                                                        )}
+                                                    >
+                                                        {field.value?.length
+                                                            ? `${field.value.length} selected`
+                                                            : "Select trailers..."}
+                                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                    </Button>
+                                                </FormControl>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                                                <Command shouldFilter={false}>
+                                                    <CommandInput
+                                                        placeholder="Search trailers..."
+                                                        value={trailerSearch}
+                                                        onValueChange={setTrailerSearch}
+                                                    />
+                                                    <CommandList>
+                                                        <CommandEmpty>No trailers found.</CommandEmpty>
+                                                        <CommandGroup>
+                                                            {filteredTrailers.map((trailer) => {
+                                                                const isSelected = field.value?.includes(trailer.id);
+                                                                return (
+                                                                    <CommandItem
+                                                                        key={trailer.id}
+                                                                        value={trailer.id}
+                                                                        onSelect={() => {
+                                                                            if (isSelected) {
+                                                                                field.onChange(field.value?.filter(id => id !== trailer.id));
+                                                                            } else {
+                                                                                field.onChange([...(field.value || []), trailer.id]);
+                                                                            }
+                                                                        }}
+                                                                    >
+                                                                        <div className={cn(
+                                                                            "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
+                                                                            isSelected ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible"
+                                                                        )}>
+                                                                            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                                                                <path d="M5 13l4 4L19 7" />
+                                                                            </svg>
+                                                                        </div>
+                                                                        <div className="flex flex-col">
+                                                                            <span className="font-medium">{trailer.registrationNo}</span>
+                                                                            <span className="text-xs text-muted-foreground">{trailer.make} {trailer.model}</span>
+                                                                        </div>
+                                                                    </CommandItem>
+                                                                );
+                                                            })}
+                                                        </CommandGroup>
+                                                    </CommandList>
+                                                </Command>
+                                            </PopoverContent>
+                                        </Popover>
+                                        {field.value && field.value.length > 0 && (
+                                            <div className="flex flex-wrap gap-1 mt-2">
+                                                {field.value.map((trailerId) => {
+                                                    const trailer = trailers.find(t => t.id === trailerId);
+                                                    if (!trailer) return null;
+                                                    return (
+                                                        <Badge key={trailerId} variant="secondary" className="text-xs">
+                                                            {trailer.registrationNo}
+                                                            <button type="button" className="ml-1" onClick={() => field.onChange(field.value?.filter(id => id !== trailerId))}>
                                                                 <X className="h-3 w-3" />
                                                             </button>
                                                         </Badge>
