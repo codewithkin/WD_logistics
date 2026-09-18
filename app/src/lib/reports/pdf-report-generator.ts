@@ -2246,3 +2246,275 @@ export function generateSingleInvoicePDF(data: {
 // generatePaymentReceiptPDF in ./receipt-generator.ts, not this class —
 // customer-facing receipts get a colored, logo-bearing template distinct
 // from these internal reports' plain black-and-white "accounting" style.
+/**
+ * Generate a Fleet Trailer Report PDF (the trailer list)
+ *
+ * Trailers carry no revenue and no expenses in this data model — they attach
+ * to a truck, not to trips — so unlike the truck report this is purely a
+ * registration, licensing and assignment summary.
+ */
+export function generateTrailerReportPDF(data: {
+  trailers: Array<{
+    registrationNo: string;
+    make: string;
+    model: string;
+    year: number;
+    type: string;
+    status: string;
+    licenseNumber: string;
+    licenseExpiration: string;
+    assignedTruck: string;
+  }>;
+  analytics: {
+    totalTrailers: number;
+    activeTrailers: number;
+    assignedTrailers: number;
+    expiringLicenses: number;
+  };
+  period: { startDate: Date | string; endDate: Date | string };
+}): Uint8Array {
+  const config: ReportConfig = {
+    title: "Fleet Trailer Report",
+    subtitle: "Trailer Inventory, Licensing & Assignment",
+    reportType: "trailer-report",
+    period: data.period,
+    summary: [
+      { label: "Total Trailers", value: data.analytics.totalTrailers, format: "number" },
+      { label: "Active Trailers", value: data.analytics.activeTrailers, format: "number" },
+      { label: "Assigned to a Truck", value: data.analytics.assignedTrailers, format: "number" },
+      { label: "Licences Expiring Soon", value: data.analytics.expiringLicenses, format: "number" },
+    ],
+    sections: [
+      {
+        title: "Trailer Details",
+        columns: [
+          { header: "Reg. No.", key: "registrationNo", align: "left" },
+          { header: "Make/Model", key: "makeModel", align: "left" },
+          { header: "Year", key: "year", align: "center" },
+          { header: "Type", key: "type", align: "left" },
+          { header: "Status", key: "status", align: "center" },
+          { header: "Licence No.", key: "licenseNumber", align: "left" },
+          { header: "Licence Expires", key: "licenseExpiration", align: "center" },
+          { header: "Assigned Truck", key: "assignedTruck", align: "left" },
+        ],
+        data: data.trailers.map((t) => ({
+          registrationNo: t.registrationNo,
+          makeModel: `${t.make} ${t.model}`,
+          year: t.year,
+          type: t.type,
+          status: t.status.replace(/_/g, " "),
+          licenseNumber: t.licenseNumber,
+          licenseExpiration: t.licenseExpiration,
+          assignedTruck: t.assignedTruck,
+        })),
+      },
+    ],
+    notes: [
+      "Trailers are assigned to trucks, not to drivers.",
+      "Revenue and expenses are tracked against the towing truck and the trip, not the trailer.",
+      "\"Licences Expiring Soon\" counts licences that expire within 30 days of the report date.",
+    ],
+  };
+
+  const generator = new PDFReportGenerator(config);
+  return generator.generate();
+}
+
+/**
+ * Generate a Single Trailer Report PDF (for an individual trailer's page)
+ */
+export function generateSingleTrailerReportPDF(data: {
+  trailer: {
+    registrationNo: string;
+    make: string;
+    model: string;
+    year: number;
+    type: string;
+    status: string;
+    licenseNumber: string;
+    licenseExpiration: string;
+    assignedTruck: string;
+    notes: string;
+  };
+}): Uint8Array {
+  const config: ReportConfig = {
+    title: "Trailer Report",
+    subtitle: `${data.trailer.make} ${data.trailer.model} (${data.trailer.registrationNo})`,
+    reportType: "single-trailer-report",
+    period: {
+      startDate: new Date(new Date().setMonth(new Date().getMonth() - 1)),
+      endDate: new Date(),
+    },
+    summary: [
+      { label: "Status", value: data.trailer.status, format: "text" },
+      { label: "Type", value: data.trailer.type, format: "text" },
+      { label: "Assigned Truck", value: data.trailer.assignedTruck, format: "text" },
+    ],
+    sections: [
+      {
+        title: "Trailer Information",
+        columns: [
+          { header: "Field", key: "field", align: "left" },
+          { header: "Value", key: "value", align: "left" },
+        ],
+        data: [
+          { field: "Registration No.", value: data.trailer.registrationNo },
+          { field: "Make", value: data.trailer.make },
+          { field: "Model", value: data.trailer.model },
+          { field: "Year", value: data.trailer.year },
+          { field: "Type", value: data.trailer.type },
+          { field: "Status", value: data.trailer.status },
+          { field: "Licence Number", value: data.trailer.licenseNumber },
+          { field: "Licence Expiration", value: data.trailer.licenseExpiration },
+          { field: "Assigned Truck", value: data.trailer.assignedTruck },
+        ],
+      },
+    ],
+    notes: data.trailer.notes
+      ? ["Trailer Notes:", data.trailer.notes]
+      : ["This report contains trailer information as of the report date."],
+  };
+
+  const generator = new PDFReportGenerator(config);
+  return generator.generate();
+}
+
+/**
+ * Generate a Single Customer Report PDF (for an individual customer's page).
+ *
+ * The PDF counterpart of generateCustomerDetailReportWord — the detail page
+ * previously offered no export at all, and the list page's row menu only ever
+ * offered Word.
+ */
+export function generateSingleCustomerReportPDF(data: {
+  customer: {
+    name: string;
+    email: string;
+    phone: string;
+    address: string;
+    status: string;
+    balance: number;
+  };
+  summary: {
+    totalTrips: number;
+    totalInvoiced: number;
+    totalPaid: number;
+    totalOwed: number;
+  };
+  trips: Array<{
+    tripNumber: string;
+    route: string;
+    date: string;
+    status: string;
+    fare: number;
+  }>;
+  invoices: Array<{
+    invoiceNumber: string;
+    issueDate: string;
+    dueDate: string;
+    status: string;
+    total: number;
+    balance: number;
+  }>;
+  payments: Array<{
+    paymentDate: string;
+    invoiceNumber: string;
+    method: string;
+    reference: string;
+    amount: number;
+  }>;
+}): Uint8Array {
+  const config: ReportConfig = {
+    title: "Customer Report",
+    subtitle: data.customer.name,
+    reportType: "single-customer-report",
+    period: {
+      startDate: new Date(new Date().setMonth(new Date().getMonth() - 1)),
+      endDate: new Date(),
+    },
+    summary: [
+      { label: "Total Trips", value: data.summary.totalTrips, format: "number" },
+      { label: "Total Invoiced", value: data.summary.totalInvoiced, format: "currency" },
+      { label: "Total Paid", value: data.summary.totalPaid, format: "currency" },
+      { label: "Outstanding", value: data.summary.totalOwed, format: "currency" },
+    ],
+    sections: [
+      {
+        title: "Customer Information",
+        columns: [
+          { header: "Field", key: "field", align: "left" },
+          { header: "Value", key: "value", align: "left" },
+        ],
+        data: [
+          { field: "Name", value: data.customer.name },
+          { field: "Email", value: data.customer.email },
+          { field: "Phone", value: data.customer.phone },
+          { field: "Address", value: data.customer.address },
+          { field: "Status", value: data.customer.status },
+        ],
+      },
+      ...(data.trips.length > 0
+        ? [
+            {
+              title: "Trips",
+              columns: [
+                { header: "Trip #", key: "tripNumber", align: "left" as const },
+                { header: "Route", key: "route", align: "left" as const },
+                { header: "Date", key: "date", align: "center" as const },
+                { header: "Status", key: "status", align: "center" as const },
+                { header: "Fare", key: "fare", format: "currency" as const, align: "right" as const },
+              ],
+              data: data.trips as unknown as Record<string, unknown>[],
+              showTotal: true,
+              totalLabel: "Total Fares",
+              totalColumns: ["fare"],
+            },
+          ]
+        : []),
+      ...(data.invoices.length > 0
+        ? [
+            {
+              title: "Invoices",
+              columns: [
+                { header: "Invoice #", key: "invoiceNumber", align: "left" as const },
+                { header: "Issued", key: "issueDate", align: "center" as const },
+                { header: "Due", key: "dueDate", align: "center" as const },
+                { header: "Status", key: "status", align: "center" as const },
+                { header: "Total", key: "total", format: "currency" as const, align: "right" as const },
+                { header: "Balance", key: "balance", format: "currency" as const, align: "right" as const },
+              ],
+              data: data.invoices as unknown as Record<string, unknown>[],
+              showTotal: true,
+              totalLabel: "Totals",
+              totalColumns: ["total", "balance"],
+            },
+          ]
+        : []),
+      ...(data.payments.length > 0
+        ? [
+            {
+              title: "Payments",
+              columns: [
+                { header: "Date", key: "paymentDate", align: "center" as const },
+                { header: "Invoice #", key: "invoiceNumber", align: "left" as const },
+                { header: "Method", key: "method", align: "left" as const },
+                { header: "Reference", key: "reference", align: "left" as const },
+                { header: "Amount", key: "amount", format: "currency" as const, align: "right" as const },
+              ],
+              data: data.payments as unknown as Record<string, unknown>[],
+              showTotal: true,
+              totalLabel: "Total Paid",
+              totalColumns: ["amount"],
+            },
+          ]
+        : []),
+    ],
+    notes: [
+      "A negative balance means the customer owes money to the company.",
+      "Figures reflect the customer's full history, not a single reporting period.",
+    ],
+  };
+
+  const generator = new PDFReportGenerator(config);
+  return generator.generate();
+}

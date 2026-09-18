@@ -10,6 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { Pencil, Mail, Phone, MapPin, User, FileText, DollarSign, Truck } from "lucide-react";
 import { format } from "date-fns";
 import { canViewFinancialData } from "@/lib/permissions";
+import { ExportCustomerButton } from "./_components/export-customer-button";
 
 interface CustomerDetailPageProps {
     params: Promise<{ id: string }>;
@@ -51,20 +52,23 @@ export default async function CustomerDetailPage({ params }: CustomerDetailPageP
 
     return (
         <div>
-            <PageHeader
-                title={customer.name}
-                description="Customer details"
-                backHref="/customers"
-                action={
-                    canEdit
-                        ? {
-                            label: "Edit Customer",
-                            href: `/customers/${customer.id}/edit`,
-                            icon: Pencil,
-                        }
-                        : undefined
-                }
-            />
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <PageHeader
+                    title={customer.name}
+                    description="Customer details"
+                    backHref="/customers"
+                    action={
+                        canEdit
+                            ? {
+                                label: "Edit Customer",
+                                href: `/customers/${customer.id}/edit`,
+                                icon: Pencil,
+                            }
+                            : undefined
+                    }
+                />
+                <ExportCustomerButton customerId={customer.id} customerName={customer.name} />
+            </div>
 
             <div className="grid gap-6 md:grid-cols-2">
                 <Card>

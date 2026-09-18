@@ -41,9 +41,10 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { PaginationControls } from "@/components/ui/pagination-controls";
 import { usePagination } from "@/hooks/use-pagination";
-import { MoreHorizontal, Eye, Pencil, Trash2, Search, FileEdit } from "lucide-react";
+import { MoreHorizontal, Eye, Pencil, Trash2, Search, FileEdit, FileText, FileSpreadsheet, Loader2 } from "lucide-react";
+import { ExportOptionsDialog, type ExportScope } from "@/components/ui/export-options-dialog";
 import { Role, TRAILER_STATUS_LABELS } from "@/lib/types";
-import { deleteTrailer, requestEditTrailer } from "../actions";
+import { deleteTrailer, requestEditTrailer, exportTrailersPDF } from "../actions";
 import { toast } from "sonner";
 
 interface Trailer {
@@ -71,6 +72,9 @@ export function TrailersTable({ trailers, role }: TrailersTableProps) {
     const [statusFilter, setStatusFilter] = useState<string>("all");
     const [deleteId, setDeleteId] = useState<string | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [exportDialogOpen, setExportDialogOpen] = useState(false);
+    const [exportFormat, setExportFormat] = useState<"pdf" | "csv">("pdf");
+    const [isExporting, setIsExporting] = useState(false);
 
     const canEdit = role === "admin" || role === "supervisor";
     const canDelete = role === "admin";
@@ -124,6 +128,64 @@ export function TrailersTable({ trailers, role }: TrailersTableProps) {
         }
     };
 
+    const handleExportConfirm = async (scope: ExportScope) => {
+        setIsExporting(true);
+        try {
+            const trailerIds = scope === "current-page"
+                ? paginatedTrailers.map((t) => t.id)
+                : filteredTrailers.map((t) => t.id);
+
+            const result = await exportTrailersPDF({ trailerIds });
+
+            if (result.success) {
+                const byteCharacters = atob(result.pdf);
+                const byteNumbers = new Array(byteCharacters.length);
+                for (let i = 0; i < byteCharacters.length; i++) {
+                    byteNumbers[i] = byteCharacters.charCodeAt(i);
+                }
+                const blob = new Blob([new Uint8Array(byteNumbers)], { type: "application/pdf" });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = result.filename || "trailer-report.pdf";
+                a.click();
+                window.URL.revokeObjectURL(url);
+                toast.success("Report exported successfully");
+            } else {
+                toast.error(result.error || "Failed to generate report");
+            }
+        } catch {
+            toast.error("An error occurred while exporting");
+        } finally {
+            setIsExporting(false);
+        }
+    };
+
+    const handleExportCSV = (scope: ExportScope) => {
+        const dataToExport = scope === "current-page" ? paginatedTrailers : filteredTrailers;
+
+        const escapeCSV = (value: string) =>
+            /[",\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
+
+        const rows = dataToExport.map((trailer) => [
+            escapeCSV(trailer.registrationNo),
+            escapeCSV(`${trailer.make} ${trailer.model}`),
+            trailer.year,
+            escapeCSV(trailer.type || "N/A"),
+            escapeCSV(TRAILER_STATUS_LABELS[trailer.status as keyof typeof TRAILER_STATUS_LABELS] || trailer.status),
+            escapeCSV(trailer.assignedTruck?.registrationNo || "Unassigned"),
+        ].join(","));
+
+        const csv = ["Registration No,Make/Model,Year,Type,Status,Assigned Truck", ...rows].join("\n");
+        const url = window.URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `trailers-${new Date().toISOString().split("T")[0]}.csv`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+        toast.success("CSV exported successfully");
+    };
+
     return (
         <Card>
             <CardContent className="p-6">
@@ -137,19 +199,53 @@ export function TrailersTable({ trailers, role }: TrailersTableProps) {
                             className="pl-9"
                         />
                     </div>
-                    <Select value={statusFilter} onValueChange={setStatusFilter}>
-                        <SelectTrigger className="w-[180px]">
-                            <SelectValue placeholder="Filter by status" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">All Statuses</SelectItem>
-                            {Object.entries(TRAILER_STATUS_LABELS).map(([value, label]) => (
-                                <SelectItem key={value} value={value}>
-                                    {label}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                    <div className="flex gap-2 items-center flex-wrap">
+                        <Select value={statusFilter} onValueChange={setStatusFilter}>
+                            <SelectTrigger className="w-[180px]">
+                                <SelectValue placeholder="Filter by status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All Statuses</SelectItem>
+                                {Object.entries(TRAILER_STATUS_LABELS).map(([value, label]) => (
+                                    <SelectItem key={value} value={value}>
+                                        {label}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="outline" size="sm" disabled={isExporting}>
+                                    {isExporting ? (
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    ) : (
+                                        <FileText className="mr-2 h-4 w-4" />
+                                    )}
+                                    Export Report
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuItem
+                                    onClick={() => {
+                                        setExportFormat("pdf");
+                                        setExportDialogOpen(true);
+                                    }}
+                                >
+                                    <FileText className="mr-2 h-4 w-4" />
+                                    Export as PDF
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                    onClick={() => {
+                                        setExportFormat("csv");
+                                        setExportDialogOpen(true);
+                                    }}
+                                >
+                                    <FileSpreadsheet className="mr-2 h-4 w-4" />
+                                    Export as CSV
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
                 </div>
 
                 <div className="rounded-md border">
@@ -276,6 +372,17 @@ export function TrailersTable({ trailers, role }: TrailersTableProps) {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+
+            <ExportOptionsDialog
+                open={exportDialogOpen}
+                onOpenChange={setExportDialogOpen}
+                currentPageCount={paginatedTrailers.length}
+                totalCount={filteredTrailers.length}
+                onExport={(scope) =>
+                    exportFormat === "csv" ? handleExportCSV(scope) : handleExportConfirm(scope)
+                }
+                isLoading={isExporting}
+            />
         </Card>
     );
 }

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, requireRole } from "@/lib/session";
-import { generateCustomerReportPDF } from "@/lib/reports/pdf-report-generator";
+import { generateCustomerReportPDF, generateSingleCustomerReportPDF } from "@/lib/reports/pdf-report-generator";
 import { generateCustomerDetailReportWord } from "@/lib/reports/word-report-generator";
 import { notifyCustomerCreated, notifyCustomerUpdated, notifyCustomerDeleted } from "@/lib/notifications";
 import { handleActionError } from "@/lib/error-messages";
@@ -344,5 +344,110 @@ export async function exportCustomerDetailWord(customerId: string) {
     };
   } catch (error) {
     return handleActionError(error, "Failed to generate Word report", "Failed to export customer Word report");
+  }
+}
+
+/**
+ * Export one customer as a PDF, from their detail page.
+ *
+ * The PDF counterpart of exportCustomerDetailWord — before this the detail
+ * page had no export at all, and Word was the only single-customer format
+ * anywhere.
+ */
+export async function exportCustomerDetailPDF(customerId: string) {
+  const session = await requireAuth();
+
+  try {
+    const customer = await prisma.customer.findFirst({
+      where: { id: customerId, organizationId: session.organizationId },
+      include: {
+        trips: {
+          orderBy: { scheduledDate: "desc" },
+          select: {
+            originCity: true,
+            destinationCity: true,
+            status: true,
+            scheduledDate: true,
+            revenue: true,
+          },
+        },
+        invoices: {
+          orderBy: { issueDate: "desc" },
+          select: {
+            invoiceNumber: true,
+            issueDate: true,
+            dueDate: true,
+            total: true,
+            balance: true,
+            status: true,
+          },
+        },
+        payments: {
+          orderBy: { paymentDate: "desc" },
+          select: {
+            amount: true,
+            paymentDate: true,
+            method: true,
+            reference: true,
+            invoice: { select: { invoiceNumber: true } },
+          },
+        },
+      },
+    });
+
+    if (!customer) {
+      return { success: false as const, error: "Customer not found" };
+    }
+
+    const asDate = (d: Date | null) => (d ? d.toISOString().split("T")[0]! : "—");
+
+    const pdfBytes = generateSingleCustomerReportPDF({
+      customer: {
+        name: customer.name,
+        email: customer.email || "—",
+        phone: customer.phone || "—",
+        address: customer.address || "—",
+        status: customer.status,
+        balance: customer.balance,
+      },
+      summary: {
+        totalTrips: customer.trips.length,
+        totalInvoiced: customer.invoices.reduce((sum, inv) => sum + inv.total, 0),
+        totalPaid: customer.payments.reduce((sum, pay) => sum + pay.amount, 0),
+        totalOwed: Math.abs(Math.min(customer.balance, 0)),
+      },
+      trips: customer.trips.map((t, index) => ({
+        tripNumber: `TRP-${String(index + 1).padStart(4, "0")}`,
+        route: `${t.originCity} → ${t.destinationCity}`,
+        date: asDate(t.scheduledDate),
+        status: t.status.replace(/_/g, " "),
+        fare: t.revenue,
+      })),
+      invoices: customer.invoices.map((inv) => ({
+        invoiceNumber: inv.invoiceNumber,
+        issueDate: asDate(inv.issueDate),
+        dueDate: asDate(inv.dueDate),
+        status: inv.status.replace(/_/g, " "),
+        total: inv.total,
+        balance: inv.balance,
+      })),
+      payments: customer.payments.map((p) => ({
+        paymentDate: asDate(p.paymentDate),
+        invoiceNumber: p.invoice?.invoiceNumber || "—",
+        method: p.method || "—",
+        reference: p.reference || "—",
+        amount: p.amount,
+      })),
+    });
+
+    const sanitizedName = customer.name.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
+
+    return {
+      success: true as const,
+      pdf: Buffer.from(pdfBytes).toString("base64"),
+      filename: `customer-report-${sanitizedName}-${new Date().toISOString().split("T")[0]}.pdf`,
+    };
+  } catch (error) {
+    return handleActionError(error, "Failed to generate PDF report", "Failed to export customer PDF");
   }
 }

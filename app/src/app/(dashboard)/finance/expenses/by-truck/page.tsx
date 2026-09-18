@@ -9,6 +9,7 @@ import Link from "next/link";
 import { ArrowLeft, Truck, Calendar } from "lucide-react";
 import { canViewExpensesPage } from "@/lib/permissions";
 import { redirect } from "next/navigation";
+import { ExportTruckExpensesButton } from "./_components/export-truck-expenses-button";
 
 export default async function ExpensesByTruckPage() {
     const user = await requireRole(["admin", "supervisor"]);
@@ -73,9 +74,14 @@ export default async function ExpensesByTruckPage() {
                         Back to Expenses
                     </Button>
                 </Link>
-                <div className="text-sm">
-                    <span className="text-muted-foreground">Total: </span>
-                    <span className="text-2xl font-bold">{formatCurrency(grandTotal)}</span>
+                <div className="flex items-center gap-4">
+                    <div className="text-sm">
+                        <span className="text-muted-foreground">Total: </span>
+                        <span className="text-2xl font-bold">{formatCurrency(grandTotal)}</span>
+                    </div>
+                    {trucksWithTotals.length > 0 && (
+                        <ExportTruckExpensesButton label="Export All" size="default" />
+                    )}
                 </div>
             </div>
 
@@ -100,13 +106,16 @@ export default async function ExpensesByTruckPage() {
                                             {truck.make} {truck.model} ({truck.year}) • {truck.status}
                                         </CardDescription>
                                     </div>
-                                    <div className="text-right">
-                                        <div className="text-2xl font-bold">
-                                            {formatCurrency(truck.total)}
+                                    <div className="flex items-start gap-4">
+                                        <div className="text-right">
+                                            <div className="text-2xl font-bold">
+                                                {formatCurrency(truck.total)}
+                                            </div>
+                                            <div className="text-sm text-muted-foreground">
+                                                {truck.expenseCount} {truck.expenseCount === 1 ? "expense" : "expenses"}
+                                            </div>
                                         </div>
-                                        <div className="text-sm text-muted-foreground">
-                                            {truck.expenseCount} {truck.expenseCount === 1 ? "expense" : "expenses"}
-                                        </div>
+                                        <ExportTruckExpensesButton truckId={truck.id} />
                                     </div>
                                 </div>
                             </CardHeader>

@@ -552,3 +552,75 @@ export async function exportExpensesPDF() {
   }
 }
 
+
+/**
+ * Export the expenses recorded against one truck (or every truck) as a PDF.
+ *
+ * Backs the export buttons on finance/expenses/by-truck, which listed each
+ * truck's expenses and per-truck totals on screen but offered no way to take
+ * any of it away.
+ */
+export async function exportTruckExpensesPDF(truckId?: string) {
+  const session = await requireRole(["admin", "supervisor"]);
+
+  try {
+    const truckExpenses = await prisma.truckExpense.findMany({
+      where: {
+        expense: { organizationId: session.organizationId },
+        ...(truckId ? { truckId } : {}),
+      },
+      include: {
+        truck: { select: { registrationNo: true, make: true, model: true } },
+        expense: { include: { category: { select: { name: true } } } },
+      },
+      orderBy: { expense: { date: "desc" } },
+    });
+
+    if (truckExpenses.length === 0) {
+      return { success: false as const, error: "There are no truck expenses to export yet." };
+    }
+
+    // One truck: the category column is enough. All trucks: lead the
+    // description with the registration so rows stay attributable.
+    const expenses = truckExpenses.map((te) => ({
+      date: te.expense.date,
+      category: te.expense.category.name,
+      description: truckId
+        ? te.expense.description || "-"
+        : `${te.truck.registrationNo} — ${te.expense.description || "No description"}`,
+      amount: te.expense.amount,
+      reference: te.expense.vendor || te.expense.reference || undefined,
+    }));
+
+    const byCategory = Object.values(
+      expenses.reduce<Record<string, { category: string; amount: number; count: number }>>(
+        (acc, e) => {
+          const bucket = (acc[e.category] ??= { category: e.category, amount: 0, count: 0 });
+          bucket.amount += e.amount;
+          bucket.count += 1;
+          return acc;
+        },
+        {}
+      )
+    ).sort((a, b) => b.amount - a.amount);
+
+    const dates = truckExpenses.map((te) => te.expense.date.getTime());
+    const pdfBytes = generateExpenseReportPDF({
+      expenses,
+      byCategory,
+      period: { startDate: new Date(Math.min(...dates)), endDate: new Date(Math.max(...dates)) },
+    });
+
+    const label = truckId
+      ? truckExpenses[0]!.truck.registrationNo.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase()
+      : "all-trucks";
+
+    return {
+      success: true as const,
+      pdf: Buffer.from(pdfBytes).toString("base64"),
+      filename: `truck-expenses-${label}-${new Date().toISOString().split("T")[0]}.pdf`,
+    };
+  } catch (error) {
+    return handleActionError(error, "Failed to generate PDF report", "Failed to export truck expenses PDF");
+  }
+}

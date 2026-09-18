@@ -9,6 +9,7 @@ import { Separator } from "@/components/ui/separator";
 import { Pencil, Truck as TruckIcon, FileText, IdCard } from "lucide-react";
 import { format } from "date-fns";
 import { AssignTruck } from "./_components/assign-truck";
+import { ExportTrailerButton } from "./_components/export-trailer-button";
 
 interface TrailerDetailPageProps {
     params: Promise<{ id: string }>;
@@ -49,6 +50,7 @@ export default async function TrailerDetailPage({ params }: TrailerDetailPagePro
                             : undefined
                     }
                 />
+                <ExportTrailerButton trailerId={trailer.id} trailerName={trailer.registrationNo} />
             </div>
 
             <div className="grid gap-6 md:grid-cols-2">

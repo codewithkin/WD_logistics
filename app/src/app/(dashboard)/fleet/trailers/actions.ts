@@ -8,6 +8,9 @@ import { notifyTrailerCreated, notifyTrailerUpdated, notifyTrailerDeleted } from
 import { deleteFromR2, getKeyFromUrl } from "@/lib/r2";
 import type { ReminderDays } from "@/lib/expiry-reminders";
 import { deleteExpiryReminders, replaceExpiryReminders } from "@/lib/expiry-reminders-server";
+import { Prisma } from "@/generated/prisma/client";
+import { handleActionError } from "@/lib/error-messages";
+import { generateTrailerReportPDF, generateSingleTrailerReportPDF } from "@/lib/reports/pdf-report-generator";
 
 /** Best-effort cleanup — a failed delete shouldn't fail the caller's action. */
 async function cleanupR2Image(url: string | null | undefined) {
@@ -340,5 +343,109 @@ export async function requestEditTrailer(trailerId: string) {
   } catch (error) {
     console.error("Failed to create edit request:", error);
     return { success: false, error: "Failed to submit edit request" };
+  }
+}
+
+/**
+ * Export the trailer list as a PDF. Mirrors exportTrucksPDF in
+ * fleet/trucks/actions.ts; trailers have no revenue or expenses in this data
+ * model, so this is a registration/licensing/assignment summary only.
+ */
+export async function exportTrailersPDF(options?: { trailerIds?: string[] }) {
+  const session = await requireAuth();
+
+  try {
+    const where: Prisma.TrailerWhereInput = { organizationId: session.organizationId };
+    if (options?.trailerIds && options.trailerIds.length > 0) {
+      where.id = { in: options.trailerIds };
+    }
+
+    const trailers = await prisma.trailer.findMany({
+      where,
+      include: { assignedTruck: { select: { registrationNo: true } } },
+      orderBy: { registrationNo: "asc" },
+    });
+
+    const soon = new Date();
+    soon.setDate(soon.getDate() + 30);
+
+    const pdfBytes = generateTrailerReportPDF({
+      trailers: trailers.map((trailer) => ({
+        registrationNo: trailer.registrationNo,
+        make: trailer.make,
+        model: trailer.model,
+        year: trailer.year,
+        type: trailer.type || "N/A",
+        status: trailer.status,
+        licenseNumber: trailer.licenseNumber || "N/A",
+        licenseExpiration: trailer.licenseExpiration
+          ? trailer.licenseExpiration.toISOString().split("T")[0]!
+          : "N/A",
+        assignedTruck: trailer.assignedTruck?.registrationNo || "Unassigned",
+      })),
+      analytics: {
+        totalTrailers: trailers.length,
+        activeTrailers: trailers.filter((t) => t.status === "active").length,
+        assignedTrailers: trailers.filter((t) => t.assignedTruckId).length,
+        expiringLicenses: trailers.filter(
+          (t) => t.licenseExpiration && t.licenseExpiration <= soon
+        ).length,
+      },
+      period: {
+        startDate: new Date(new Date().setMonth(new Date().getMonth() - 1)),
+        endDate: new Date(),
+      },
+    });
+
+    return {
+      success: true as const,
+      pdf: Buffer.from(pdfBytes).toString("base64"),
+      filename: `trailer-report-${new Date().toISOString().split("T")[0]}.pdf`,
+    };
+  } catch (error) {
+    return handleActionError(error, "Failed to generate PDF report", "Failed to export trailers PDF");
+  }
+}
+
+/** Export one trailer's details as a PDF, from its detail page. */
+export async function exportSingleTrailerReport(trailerId: string) {
+  const session = await requireAuth();
+
+  try {
+    const trailer = await prisma.trailer.findFirst({
+      where: { id: trailerId, organizationId: session.organizationId },
+      include: { assignedTruck: { select: { registrationNo: true, make: true, model: true } } },
+    });
+
+    if (!trailer) {
+      return { success: false as const, error: "Trailer not found" };
+    }
+
+    const pdfBytes = generateSingleTrailerReportPDF({
+      trailer: {
+        registrationNo: trailer.registrationNo,
+        make: trailer.make,
+        model: trailer.model,
+        year: trailer.year,
+        type: trailer.type || "N/A",
+        status: trailer.status,
+        licenseNumber: trailer.licenseNumber || "N/A",
+        licenseExpiration: trailer.licenseExpiration
+          ? trailer.licenseExpiration.toISOString().split("T")[0]!
+          : "N/A",
+        assignedTruck: trailer.assignedTruck
+          ? `${trailer.assignedTruck.registrationNo} (${trailer.assignedTruck.make} ${trailer.assignedTruck.model})`
+          : "Unassigned",
+        notes: trailer.notes || "",
+      },
+    });
+
+    return {
+      success: true as const,
+      pdf: Buffer.from(pdfBytes).toString("base64"),
+      filename: `trailer-report-${trailer.registrationNo.replace(/\s+/g, "-").toLowerCase()}-${new Date().toISOString().split("T")[0]}.pdf`,
+    };
+  } catch (error) {
+    return handleActionError(error, "Failed to generate PDF report", "Failed to export trailer report");
   }
 }
