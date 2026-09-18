@@ -92,16 +92,17 @@ export async function POST(request: Request) {
       },
     });
 
-    // Send credentials email if new user was created
+    // Send credentials email if new user was created. The account already
+    // exists at this point, so a failed send shouldn't fail the request —
+    // fall back to handing the password back for manual sharing instead.
     if (isNewUser && generatedPassword) {
-      const emailResult = await sendUserCredentials(email, generatedPassword, role);
-      
-      if (!emailResult.success) {
-        console.warn("User created but email failed to send");
-        // Return success with warning and credentials for manual sharing
+      try {
+        await sendUserCredentials(email, generatedPassword, role);
+      } catch (emailError) {
+        console.warn("User created but email failed to send:", emailError);
         revalidatePath("/users");
-        return NextResponse.json({ 
-          success: true, 
+        return NextResponse.json({
+          success: true,
           member,
           warning: "User created but email failed to send. Please share credentials manually.",
           credentials: { email, password: generatedPassword }

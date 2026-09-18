@@ -45,12 +45,28 @@ export interface SendEmailOptions {
   html?: string;
 }
 
-export async function sendEmail(options: SendEmailOptions) {
+/**
+ * Sends an email, or throws if it couldn't be sent.
+ *
+ * This used to swallow every failure and always resolve with
+ * `{ success: false, error }` — which meant a `try/catch` around a call to
+ * this function (or its `send*Email` wrappers below) never actually caught
+ * anything, and a `.catch(...)` on a fire-and-forget call never fired
+ * either. In production that showed up as invoice/receipt/reminder emails
+ * silently failing to send (an unreachable SMTP host) while every caller —
+ * cron job, "resend invoice" button, payment-confirmation notifier — kept
+ * reporting success. Throwing here makes those already-correct try/catch
+ * blocks work the way they were written to. If you're adding a new caller
+ * that needs to keep going (and tell the user) even when the email fails,
+ * wrap the call in a local try/catch — see sendSupervisorCredentials's
+ * caller in users/actions.ts for the pattern.
+ */
+export async function sendEmail(options: SendEmailOptions): Promise<{ success: true; messageId: string }> {
   const { to, subject, text, html } = options;
 
   if (!process.env.SMTP_HOST) {
     console.warn("SMTP_HOST is not configured; skipping email to", to);
-    return { success: false, error: "Email is not configured" };
+    throw new Error("Email is not configured");
   }
 
   const mailOptions = {
@@ -77,7 +93,7 @@ export async function sendEmail(options: SendEmailOptions) {
     return { success: true, messageId: info.messageId };
   } catch (error) {
     console.error("❌ Failed to send email:", error);
-    return { success: false, error: error instanceof Error ? error.message : "Failed to send email" };
+    throw error instanceof Error ? error : new Error("Failed to send email");
   }
 }
 

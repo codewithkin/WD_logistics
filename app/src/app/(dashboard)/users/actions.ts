@@ -198,21 +198,22 @@ export async function createSupervisor(data: { email: string; name: string }) {
       },
     });
 
-    // Send credentials via email
-    const emailResult = await sendSupervisorCredentials(data.email, password);
-    
     // Send admin notification
     notifySupervisorCreated(
       { email: data.email, name: data.name },
       session.organizationId,
       { name: session.user.name, email: session.user.email, role: session.role }
     ).catch((err) => console.error("Failed to send admin notification:", err));
-    
-    if (!emailResult.success) {
-      console.warn("User created but email failed to send");
-      // Still return success since user was created
-      return { 
-        success: true, 
+
+    // Send credentials via email. The user account already exists at this
+    // point, so a failed send shouldn't be reported as a failed operation —
+    // fall back to handing the password back for manual sharing instead.
+    try {
+      await sendSupervisorCredentials(data.email, password);
+    } catch (emailError) {
+      console.warn("User created but email failed to send:", emailError);
+      return {
+        success: true,
         member: { userId: user.id },
         warning: "User created but email failed to send. Please share credentials manually.",
         credentials: { email: data.email, password } // Return for manual sharing
@@ -267,10 +268,14 @@ export async function resetUserPassword(memberId: string) {
       select: { name: true },
     });
 
-    // Send email with new password
+    // Send email with new password. The password is already changed in the
+    // DB by this point, so a failed send shouldn't be reported as a failed
+    // reset — fall back to handing it back for the admin to share manually.
     const appUrl = process.env.BETTER_AUTH_URL || "http://localhost:3000";
-    await sendEmail({
-      to: member.user.email,
+    let emailFailed = false;
+    try {
+      await sendEmail({
+        to: member.user.email,
       subject: `Your Password Has Been Reset - ${organization?.name || "WD Logistics"}`,
       text: `
 Hello ${member.user.name},
@@ -332,12 +337,18 @@ ${organization?.name || "WD Logistics"} Team
   </div>
 </body>
 </html>
-      `.trim(),
-    });
+        `.trim(),
+      });
+    } catch (emailError) {
+      console.warn("Password reset but email failed to send:", emailError);
+      emailFailed = true;
+    }
 
-    return { 
-      success: true, 
-      message: "Password reset successfully",
+    return {
+      success: true,
+      message: emailFailed
+        ? "Password reset, but the notification email failed to send. Share the new password manually."
+        : "Password reset successfully",
       newPassword, // Return for admin to share manually if needed
       userEmail: member.user.email,
       userName: member.user.name,

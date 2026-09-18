@@ -192,7 +192,10 @@ export async function inviteMember(data: { email: string; role: string; name?: s
       select: { name: true },
     });
 
-    // Send credentials email
+    // Send credentials email. The user account already exists at this
+    // point, so a failed send shouldn't be reported as a failed invite —
+    // the password is returned in the response either way, for the admin
+    // to share manually if the email didn't go out.
     const appUrl = process.env.BETTER_AUTH_URL || "http://localhost:3000";
     const roleLabel = {
       admin: "Administrator",
@@ -201,7 +204,9 @@ export async function inviteMember(data: { email: string; role: string; name?: s
       workshop: "Workshop",
     }[data.role] || "Team Member";
 
-    await sendEmail({
+    let emailFailed = false;
+    try {
+      await sendEmail({
       to: data.email,
       subject: `Welcome to ${organization?.name || "WD Logistics"} - Your Account Credentials`,
       text: `
@@ -262,11 +267,21 @@ ${organization?.name || "WD Logistics"} Team
   </div>
 </body>
 </html>
-      `.trim(),
-    });
+        `.trim(),
+      });
+    } catch (emailError) {
+      console.warn("Member created but email failed to send:", emailError);
+      emailFailed = true;
+    }
 
     revalidatePath("/settings");
-    return { success: true, message: "User created and invitation sent", password };
+    return {
+      success: true,
+      message: emailFailed
+        ? "User created, but the invitation email failed to send. Share the password manually."
+        : "User created and invitation sent",
+      password,
+    };
   } catch (error) {
     console.error("Failed to invite member:", error);
     return { success: false, error: "Failed to invite member" };
