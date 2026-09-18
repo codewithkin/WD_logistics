@@ -8,7 +8,7 @@ import { getDateRangeFromParams } from "@/lib/period-utils";
 import { ReportsPeriodSelector } from "./_components/reports-period-selector";
 
 interface ReportsPageProps {
-  searchParams: Promise<{ period?: string; from?: string; to?: string; tab?: string }>;
+  searchParams: Promise<{ period?: string; from?: string; to?: string; tab?: string; type?: string }>;
 }
 
 export default async function ReportsPage({ searchParams }: ReportsPageProps) {
@@ -228,7 +228,7 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
         customers={customers}
         trucks={trucks}
         initialReports={reports}
-        dashboardContent={<ReportsDashboard data={dashboardData} periodLabel={dateRange.label} initialTab={currentTab} />}
+        dashboardContent={<ReportsDashboard data={dashboardData} periodLabel={dateRange.label} initialTab={currentTab} initialReportType={params.type} />}
       />
     </div>
   );

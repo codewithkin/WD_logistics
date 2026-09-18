@@ -1,12 +1,12 @@
+"use client";
+
+// Rendered through ReportsClient, which hands it the onGeneratePDF /
+// onGenerateCSV / onExportDashboard callbacks. Without this directive the
+// server rendered it directly, function props could never reach it, and the
+// Generate button and Report History silently disappeared.
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   TrendingUp,
   TrendingDown,
@@ -24,6 +24,8 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { ReportsTabs } from "./reports-tabs";
+import { GenerateReportLink } from "./generate-report-link";
+import { ReportsGenerateMenu } from "./reports-generate-menu";
 import { ReportGenerator } from "./report-generator";
 import { ReportHistory } from "./report-history";
 
@@ -81,13 +83,16 @@ interface ReportsDashboardProps {
   };
   periodLabel?: string;
   initialTab?: string;
-  onGeneratePDF?: () => void;
-  onGenerateCSV?: () => void;
+  /** From `?type=` — opens the Generate tab's form pre-selected. */
+  initialReportType?: string;
+  /** Generates a specific report type; the active tab decides which. */
+  onGeneratePDF?: (reportType: string) => void;
+  onGenerateCSV?: (reportType: string) => void;
   onExportDashboard?: () => void;
   isGenerating?: boolean;
 }
 
-export function ReportsDashboard({ data, periodLabel = "This Month", initialTab = "overview", onGeneratePDF, onGenerateCSV, onExportDashboard, isGenerating = false, customers = [], trucks = [], reports = [] }: ReportsDashboardProps) {
+export function ReportsDashboard({ data, periodLabel = "This Month", initialTab = "overview", initialReportType, onGeneratePDF, onGenerateCSV, onExportDashboard, isGenerating = false, customers = [], trucks = [], reports = [] }: ReportsDashboardProps) {
   const {
     totalTrucks,
     activeTrucks,
@@ -130,44 +135,13 @@ export function ReportsDashboard({ data, periodLabel = "This Month", initialTab 
           <TabsTrigger value="fleet">Fleet</TabsTrigger>
           <TabsTrigger value="generate">Generate</TabsTrigger>
         </TabsList>
-        {(onGeneratePDF || onGenerateCSV) && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button disabled={isGenerating}>
-                {isGenerating ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Download className="mr-2 h-4 w-4" />
-                )}
-                Generate
-                <ChevronDown className="ml-2 h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {onExportDashboard && (
-                <>
-                  <DropdownMenuItem onClick={onExportDashboard}>
-                    <FileText className="mr-2 h-4 w-4" />
-                    Export Dashboard Summary
-                  </DropdownMenuItem>
-                  <div className="my-2 h-px bg-border" />
-                </>
-              )}
-              {onGeneratePDF && (
-                <DropdownMenuItem onClick={onGeneratePDF}>
-                  <FileText className="mr-2 h-4 w-4" />
-                  Generate PDF Report
-                </DropdownMenuItem>
-              )}
-              {onGenerateCSV && (
-                <DropdownMenuItem onClick={onGenerateCSV}>
-                  <FileSpreadsheet className="mr-2 h-4 w-4" />
-                  Generate CSV Report
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
+        <ReportsGenerateMenu
+          activeTab={initialTab}
+          onGeneratePDF={onGeneratePDF}
+          onGenerateCSV={onGenerateCSV}
+          onExportDashboard={onExportDashboard}
+          isGenerating={isGenerating}
+        />
       </div>
 
       <TabsContent value="overview" className="space-y-6">
@@ -269,8 +243,9 @@ export function ReportsDashboard({ data, periodLabel = "This Month", initialTab 
 
         <div className="grid gap-6 md:grid-cols-2">
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0">
               <CardTitle>Top Customers by Revenue</CardTitle>
+              <GenerateReportLink reportType="revenue" />
             </CardHeader>
             <CardContent>
               {topCustomersByRevenue.length === 0 ? (
@@ -299,8 +274,9 @@ export function ReportsDashboard({ data, periodLabel = "This Month", initialTab 
           </Card>
 
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0">
               <CardTitle>Expenses by Category</CardTitle>
+              <GenerateReportLink reportType="expenses" />
             </CardHeader>
             <CardContent>
               {expensesWithCategories.length === 0 ? (
@@ -400,8 +376,9 @@ export function ReportsDashboard({ data, periodLabel = "This Month", initialTab 
         </div>
 
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
             <CardTitle>Outstanding Invoices</CardTitle>
+            <GenerateReportLink reportType="revenue" />
           </CardHeader>
           <CardContent>
             {outstandingInvoices.length === 0 ? (
@@ -498,8 +475,9 @@ export function ReportsDashboard({ data, periodLabel = "This Month", initialTab 
 
         <div className="grid gap-6 md:grid-cols-2">
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0">
               <CardTitle>Fleet Utilization</CardTitle>
+              <GenerateReportLink reportType="profit-per-unit" />
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
@@ -560,8 +538,9 @@ export function ReportsDashboard({ data, periodLabel = "This Month", initialTab 
           </Card>
 
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0">
               <CardTitle>Trip Statistics</CardTitle>
+              <GenerateReportLink reportType="trip-summary" />
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
@@ -590,7 +569,7 @@ export function ReportsDashboard({ data, periodLabel = "This Month", initialTab 
       </TabsContent>
 
       <TabsContent value="generate" className="space-y-6">
-        <ReportGenerator customers={customers} trucks={trucks} />
+        <ReportGenerator customers={customers} trucks={trucks} initialReportType={initialReportType} />
         <ReportHistory reports={reports} />
       </TabsContent>
     </ReportsTabs>

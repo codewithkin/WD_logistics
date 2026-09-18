@@ -65,12 +65,20 @@ type ReportFormValues = z.infer<typeof reportFormSchema>;
 interface ReportGeneratorProps {
     customers?: { id: string; name: string }[];
     trucks?: { id: string; registrationNo: string; make: string; model: string }[];
+    /**
+     * Report type to open pre-selected, from the `?type=` search param. Set
+     * when the user arrived here from a "Generate this report" button or the
+     * Generate menu, so they don't land on a blank form and have to hunt for
+     * the report they just clicked.
+     */
+    initialReportType?: string;
     onReportGenerated?: () => void;
 }
 
 export function ReportGenerator({
     customers = [],
     trucks = [],
+    initialReportType,
     onReportGenerated,
 }: ReportGeneratorProps) {
     const [isPending, startTransition] = useTransition();
@@ -86,11 +94,24 @@ export function ReportGenerator({
         to: endOfMonth(subMonths(now, 1)),
     };
 
+    // Only honour a type that actually exists, so a stale or hand-edited
+    // ?type= in the URL leaves a blank form rather than a broken one.
+    const presetReportType =
+        initialReportType && initialReportType in reportConfigs ? initialReportType : "";
+    // Pre-selecting a type but no period would leave the form unsubmittable
+    // until the user noticed the empty period box, so pick the config's
+    // default period too.
+    const presetPeriod = presetReportType
+        ? (reportConfigs[presetReportType]!.periods.includes("monthly")
+            ? "monthly"
+            : reportConfigs[presetReportType]!.periods[0] ?? "")
+        : "";
+
     const form = useForm<ReportFormValues>({
         resolver: zodResolver(reportFormSchema) as any,
         defaultValues: {
-            reportType: "",
-            period: "",
+            reportType: presetReportType,
+            period: presetPeriod,
             dateRange: defaultDateRange,
             format: "pdf",
         },

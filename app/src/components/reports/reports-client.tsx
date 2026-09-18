@@ -1,8 +1,8 @@
 "use client";
 
-import { useTransition } from "react";
+import { cloneElement, useTransition } from "react";
 import { toast } from "sonner";
-import { generateReport } from "@/app/(dashboard)/reports/actions";
+import { generateReport, type GenerateReportInput } from "@/app/(dashboard)/reports/actions";
 import { exportDashboardPDF } from "@/app/(dashboard)/reports/actions";
 import { startOfMonth, endOfMonth, subMonths } from "date-fns";
 import { ReportsDashboard } from "./reports-dashboard";
@@ -33,7 +33,9 @@ export function ReportsClient({
 }: ReportsClientProps) {
   const [isPending, startTransition] = useTransition();
 
-  const handleGenerateReport = (format: "pdf" | "csv") => {
+  // reportType comes from whichever tab the user is on — it used to be
+  // hardcoded to "revenue" regardless.
+  const handleGenerateReport = (format: "pdf" | "csv", reportType: string) => {
     const now = new Date();
     const startDate = startOfMonth(subMonths(now, 1));
     const endDate = endOfMonth(subMonths(now, 1));
@@ -41,7 +43,8 @@ export function ReportsClient({
     startTransition(async () => {
       try {
         const result = await generateReport({
-          reportType: "revenue",
+          // Always a reportConfigs key — the menu only ever offers those.
+          reportType: reportType as GenerateReportInput["reportType"],
           startDate: startDate.toISOString(),
           endDate: endDate.toISOString(),
           period: "monthly",
@@ -104,21 +107,19 @@ export function ReportsClient({
     });
   };
 
-  // If dashboardContent is a React component (ReportsDashboard), clone it with additional props
-  const enhancedDashboard = dashboardContent.type === ReportsDashboard
-    ? (
-      <ReportsDashboard
-        {...dashboardContent.props}
-        customers={customers}
-        trucks={trucks}
-        reports={initialReports}
-        onGeneratePDF={() => handleGenerateReport("pdf")}
-        onGenerateCSV={() => handleGenerateReport("csv")}
-        onExportDashboard={handleExportDashboard}
-        isGenerating={isPending}
-      />
-    )
-    : dashboardContent;
-
-  return enhancedDashboard;
+  // dashboardContent is built on the server, so its `type` is a client
+  // reference, never identical to the ReportsDashboard function imported
+  // here. The old `dashboardContent.type === ReportsDashboard` check
+  // therefore always failed and silently dropped every prop below — which is
+  // why the Generate button never appeared and Report History was always
+  // empty. cloneElement doesn't care about type identity.
+  return cloneElement(dashboardContent, {
+    customers,
+    trucks,
+    reports: initialReports,
+    onGeneratePDF: (reportType: string) => handleGenerateReport("pdf", reportType),
+    onGenerateCSV: (reportType: string) => handleGenerateReport("csv", reportType),
+    onExportDashboard: handleExportDashboard,
+    isGenerating: isPending,
+  });
 }
