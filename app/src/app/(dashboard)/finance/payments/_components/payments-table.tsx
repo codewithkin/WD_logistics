@@ -123,7 +123,7 @@ export function PaymentsTable({ payments, role, showFinancials = true }: Payment
                 endDate: new Date(),
             });
 
-            if (result.success && result.pdf) {
+            if (result.success) {
                 const byteCharacters = atob(result.pdf);
                 const byteNumbers = new Array(byteCharacters.length);
                 for (let i = 0; i < byteCharacters.length; i++) {
@@ -153,7 +153,7 @@ export function PaymentsTable({ payments, role, showFinancials = true }: Payment
         setDownloadingReceiptId(paymentId);
         try {
             const result = await downloadPaymentReceiptPDF(paymentId);
-            if (result.success && result.data) {
+            if (result.success) {
                 const byteCharacters = atob(result.data);
                 const byteNumbers = new Array(byteCharacters.length);
                 for (let i = 0; i < byteCharacters.length; i++) {

@@ -7,6 +7,7 @@ import { PaymentMethod } from "@/lib/types";
 import { generatePaymentReportPDF } from "@/lib/reports/pdf-report-generator";
 import { notifyPaymentCreated, notifyPaymentUpdated, notifyPaymentDeleted } from "@/lib/notifications";
 import { notifyInvoiceFullyPaid, notifyAdminPaymentReceived } from "@/lib/whatsapp-notifications";
+import { handleActionError } from "@/lib/error-messages";
 
 export async function createPayment(data: {
   invoiceId?: string;
@@ -27,7 +28,7 @@ export async function createPayment(data: {
     });
 
     if (!customer) {
-      return { success: false, error: "Customer not found" };
+      return { success: false as const, error: "Customer not found" };
     }
 
     let invoice = null;
@@ -40,11 +41,11 @@ export async function createPayment(data: {
       });
 
       if (!invoice) {
-        return { success: false, error: "Invoice not found" };
+        return { success: false as const, error: "Invoice not found" };
       }
 
       if (data.amount > invoice.balance) {
-        return { success: false, error: `Payment amount exceeds balance of $${invoice.balance}` };
+        return { success: false as const, error: `Payment amount exceeds balance of $${invoice.balance}` };
       }
     }
 
@@ -121,10 +122,9 @@ export async function createPayment(data: {
     if (data.invoiceId) {
       revalidatePath(`/finance/invoices/${data.invoiceId}`);
     }
-    return { success: true, payment };
+    return { success: true as const, payment };
   } catch (error) {
-    console.error("Failed to create payment:", error);
-    return { success: false, error: "Failed to create payment" };
+    return handleActionError(error, "Failed to create payment");
   }
 }
 
@@ -158,7 +158,7 @@ export async function updatePayment(
     // Verify organization access via invoice or customer
     const orgId = payment?.invoice?.organizationId || payment?.customer?.organizationId;
     if (!payment || orgId !== session.organizationId) {
-      return { success: false, error: "Payment not found" };
+      return { success: false as const, error: "Payment not found" };
     }
 
     const amountDiff = (data.amount ?? payment.amount) - payment.amount;
@@ -223,10 +223,9 @@ export async function updatePayment(
     if (payment.invoiceId) {
       revalidatePath(`/finance/invoices/${payment.invoiceId}`);
     }
-    return { success: true, payment: updatedPayment };
+    return { success: true as const, payment: updatedPayment };
   } catch (error) {
-    console.error("Failed to update payment:", error);
-    return { success: false, error: "Failed to update payment" };
+    return handleActionError(error, "Failed to update payment");
   }
 }
 
@@ -251,7 +250,7 @@ export async function deletePayment(id: string) {
     // Verify organization access via invoice or customer
     const orgId = payment?.invoice?.organizationId || payment?.customer?.organizationId;
     if (!payment || orgId !== session.organizationId) {
-      return { success: false, error: "Payment not found" };
+      return { success: false as const, error: "Payment not found" };
     }
 
     await prisma.payment.delete({ where: { id } });
@@ -285,10 +284,9 @@ export async function deletePayment(id: string) {
     if (payment.invoiceId) {
       revalidatePath(`/finance/invoices/${payment.invoiceId}`);
     }
-    return { success: true };
+    return { success: true as const };
   } catch (error) {
-    console.error("Failed to delete payment:", error);
-    return { success: false, error: "Failed to delete payment" };
+    return handleActionError(error, "Failed to delete payment");
   }
 }
 
@@ -360,13 +358,12 @@ export async function exportPaymentsPDF(options?: {
     });
 
     return {
-      success: true,
+      success: true as const,
       pdf: Buffer.from(pdfBytes).toString("base64"),
       filename: `payments-report-${new Date().toISOString().split("T")[0]}.pdf`,
     };
   } catch (error) {
-    console.error("Failed to export payments PDF:", error);
-    return { success: false, error: "Failed to generate PDF report" };
+    return handleActionError(error, "Failed to generate PDF report", "Failed to export payments PDF");
   }
 }
 
@@ -391,7 +388,7 @@ export async function downloadPaymentReceiptPDF(paymentId: string) {
   });
 
   if (!payment) {
-    return { success: false, error: "Payment not found" };
+    return { success: false as const, error: "Payment not found" };
   }
 
   const organization = await prisma.organization.findUnique({
@@ -430,7 +427,7 @@ export async function downloadPaymentReceiptPDF(paymentId: string) {
   const base64 = Buffer.from(pdfBytes).toString("base64");
   const receiptNumber = `RCP-${payment.id.slice(-8).toUpperCase()}`;
   return {
-    success: true,
+    success: true as const,
     data: base64,
     filename: `${receiptNumber}.pdf`,
   };

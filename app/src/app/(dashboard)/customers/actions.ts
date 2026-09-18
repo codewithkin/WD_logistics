@@ -6,6 +6,7 @@ import { requireAuth, requireRole } from "@/lib/session";
 import { generateCustomerReportPDF } from "@/lib/reports/pdf-report-generator";
 import { generateCustomerDetailReportWord } from "@/lib/reports/word-report-generator";
 import { notifyCustomerCreated, notifyCustomerUpdated, notifyCustomerDeleted } from "@/lib/notifications";
+import { handleActionError } from "@/lib/error-messages";
 
 export async function createCustomer(data: {
   name: string;
@@ -42,10 +43,9 @@ export async function createCustomer(data: {
     ).catch((err) => console.error("Failed to send admin notification:", err));
 
     revalidatePath("/customers");
-    return { success: true, customer };
+    return { success: true as const, customer };
   } catch (error) {
-    console.error("Failed to create customer:", error);
-    return { success: false, error: "Failed to create customer" };
+    return handleActionError(error, "Failed to create customer");
   }
 }
 
@@ -69,7 +69,7 @@ export async function updateCustomer(
     });
 
     if (!customer) {
-      return { success: false, error: "Customer not found" };
+      return { success: false as const, error: "Customer not found" };
     }
 
     const updatedCustomer = await prisma.customer.update({
@@ -93,10 +93,9 @@ export async function updateCustomer(
 
     revalidatePath("/customers");
     revalidatePath(`/customers/${id}`);
-    return { success: true, customer: updatedCustomer };
+    return { success: true as const, customer: updatedCustomer };
   } catch (error) {
-    console.error("Failed to update customer:", error);
-    return { success: false, error: "Failed to update customer" };
+    return handleActionError(error, "Failed to update customer");
   }
 }
 
@@ -114,12 +113,12 @@ export async function deleteCustomer(id: string) {
     });
 
     if (!customer) {
-      return { success: false, error: "Customer not found" };
+      return { success: false as const, error: "Customer not found" };
     }
 
     if (customer._count.trips > 0 || customer._count.invoices > 0) {
       return {
-        success: false,
+        success: false as const,
         error: "Cannot delete customer with associated trips or invoices",
       };
     }
@@ -134,10 +133,9 @@ export async function deleteCustomer(id: string) {
     ).catch((err) => console.error("Failed to send admin notification:", err));
 
     revalidatePath("/customers");
-    return { success: true };
+    return { success: true as const };
   } catch (error) {
-    console.error("Failed to delete customer:", error);
-    return { success: false, error: "Failed to delete customer" };
+    return handleActionError(error, "Failed to delete customer");
   }
 }
 
@@ -219,13 +217,12 @@ export async function exportCustomersPDF(options?: {
     });
 
     return {
-      success: true,
+      success: true as const,
       pdf: Buffer.from(pdfBytes).toString("base64"),
       filename: `customer-report-${new Date().toISOString().split("T")[0]}.pdf`,
     };
   } catch (error) {
-    console.error("Failed to export customers PDF:", error);
-    return { success: false, error: "Failed to generate PDF report" };
+    return handleActionError(error, "Failed to generate PDF report", "Failed to export customers PDF");
   }
 }
 
@@ -284,7 +281,7 @@ export async function exportCustomerDetailWord(customerId: string) {
     });
 
     if (!customer) {
-      return { success: false, error: "Customer not found" };
+      return { success: false as const, error: "Customer not found" };
     }
 
     // Get organization name
@@ -341,12 +338,11 @@ export async function exportCustomerDetailWord(customerId: string) {
     const sanitizedName = customer.name.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
     
     return {
-      success: true,
+      success: true as const,
       doc: Buffer.from(docBytes).toString("base64"),
       filename: `customer-report-${sanitizedName}-${new Date().toISOString().split("T")[0]}.docx`,
     };
   } catch (error) {
-    console.error("Failed to export customer Word report:", error);
-    return { success: false, error: "Failed to generate Word report" };
+    return handleActionError(error, "Failed to generate Word report", "Failed to export customer Word report");
   }
 }

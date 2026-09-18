@@ -7,6 +7,7 @@ import { requireRole } from "@/lib/session";
 import { sendPushToUsers } from "@/lib/push";
 import { getTierConfig } from "@/lib/notification-tiers";
 import { InsufficientStockError, type StockMovementType } from "@/lib/inventory";
+import { handleActionError } from "@/lib/error-messages";
 
 export interface InventoryItemInput {
   name: string;
@@ -122,7 +123,7 @@ export async function createInventoryItem(data: InventoryItemInput) {
         where: { sku: data.sku, organizationId: session.organizationId },
       });
       if (existing) {
-        return { success: false, error: "An item with this SKU already exists" };
+        return { success: false as const, error: "An item with this SKU already exists" };
       }
     }
 
@@ -155,10 +156,9 @@ export async function createInventoryItem(data: InventoryItemInput) {
     await maybeSendLowStockAlert(session.organizationId, item, null);
 
     revalidateInventory();
-    return { success: true, item };
+    return { success: true as const, item };
   } catch (error) {
-    console.error("Failed to create inventory item:", error);
-    return { success: false, error: "Failed to create inventory item" };
+    return handleActionError(error, "Failed to create inventory item");
   }
 }
 
@@ -171,7 +171,7 @@ export async function updateInventoryItem(id: string, data: Partial<InventoryIte
     });
 
     if (!item) {
-      return { success: false, error: "Item not found" };
+      return { success: false as const, error: "Item not found" };
     }
 
     if (data.sku && data.sku !== item.sku) {
@@ -179,7 +179,7 @@ export async function updateInventoryItem(id: string, data: Partial<InventoryIte
         where: { sku: data.sku, organizationId: session.organizationId, NOT: { id } },
       });
       if (existing) {
-        return { success: false, error: "An item with this SKU already exists" };
+        return { success: false as const, error: "An item with this SKU already exists" };
       }
     }
 
@@ -205,10 +205,9 @@ export async function updateInventoryItem(id: string, data: Partial<InventoryIte
     await maybeSendLowStockAlert(session.organizationId, updatedItem, item.quantity);
 
     revalidateInventory(id);
-    return { success: true, item: updatedItem };
+    return { success: true as const, item: updatedItem };
   } catch (error) {
-    console.error("Failed to update inventory item:", error);
-    return { success: false, error: "Failed to update inventory item" };
+    return handleActionError(error, "Failed to update inventory item");
   }
 }
 
@@ -223,13 +222,13 @@ export async function takeOutStock(data: {
   const destination = data.destination.trim();
   const reason = data.reason.trim();
   if (!validQuantity(data.quantity)) {
-    return { success: false, error: "Quantity must be a whole number greater than zero" };
+    return { success: false as const, error: "Quantity must be a whole number greater than zero" };
   }
   if (!destination) {
-    return { success: false, error: "Say where the stock is going" };
+    return { success: false as const, error: "Say where the stock is going" };
   }
   if (!reason) {
-    return { success: false, error: "Say why the stock is being taken out" };
+    return { success: false as const, error: "Say why the stock is being taken out" };
   }
 
   try {
@@ -252,13 +251,12 @@ export async function takeOutStock(data: {
     await maybeSendLowStockAlert(session.organizationId, updated, before);
 
     revalidateInventory(data.inventoryItemId);
-    return { success: true, item: updated };
+    return { success: true as const, item: updated };
   } catch (error) {
     if (error instanceof InsufficientStockError) {
-      return { success: false, error: error.message };
+      return { success: false as const, error: error.message };
     }
-    console.error("Failed to take out stock:", error);
-    return { success: false, error: "Failed to take out stock" };
+    return handleActionError(error, "Failed to take out stock");
   }
 }
 
@@ -271,7 +269,7 @@ export async function addStock(data: {
   const session = await requireRole(["admin", "supervisor"]);
 
   if (!validQuantity(data.quantity)) {
-    return { success: false, error: "Quantity must be a whole number greater than zero" };
+    return { success: false as const, error: "Quantity must be a whole number greater than zero" };
   }
 
   try {
@@ -302,10 +300,9 @@ export async function addStock(data: {
     });
 
     revalidateInventory(data.inventoryItemId);
-    return { success: true, item: updated };
+    return { success: true as const, item: updated };
   } catch (error) {
-    console.error("Failed to add stock:", error);
-    return { success: false, error: "Failed to add stock" };
+    return handleActionError(error, "Failed to add stock");
   }
 }
 
@@ -319,20 +316,19 @@ export async function deleteInventoryItem(id: string) {
     });
 
     if (!item) {
-      return { success: false, error: "Item not found" };
+      return { success: false as const, error: "Item not found" };
     }
 
     if (item._count.allocations > 0) {
-      return { success: false, error: "Cannot delete an item with existing allocations" };
+      return { success: false as const, error: "Cannot delete an item with existing allocations" };
     }
 
     await prisma.inventoryItem.delete({ where: { id } });
 
     revalidateInventory();
-    return { success: true };
+    return { success: true as const };
   } catch (error) {
-    console.error("Failed to delete inventory item:", error);
-    return { success: false, error: "Failed to delete inventory item" };
+    return handleActionError(error, "Failed to delete inventory item");
   }
 }
 
@@ -346,7 +342,7 @@ export async function allocatePart(data: {
   const session = await requireRole(["admin", "supervisor"]);
 
   if (!validQuantity(data.quantity)) {
-    return { success: false, error: "Quantity must be a whole number greater than zero" };
+    return { success: false as const, error: "Quantity must be a whole number greater than zero" };
   }
 
   try {
@@ -355,7 +351,7 @@ export async function allocatePart(data: {
       prisma.employee.findFirst({ where: { id: data.allocatedById, organizationId: session.organizationId } }),
     ]);
     if (!truck || !employee) {
-      return { success: false, error: "Truck or employee not found" };
+      return { success: false as const, error: "Truck or employee not found" };
     }
 
     const { before, updated } = await prisma.$transaction(async (tx) => {
@@ -378,12 +374,11 @@ export async function allocatePart(data: {
     await maybeSendLowStockAlert(session.organizationId, updated, before);
 
     revalidateInventory(data.inventoryItemId);
-    return { success: true };
+    return { success: true as const };
   } catch (error) {
     if (error instanceof InsufficientStockError) {
-      return { success: false, error: error.message };
+      return { success: false as const, error: error.message };
     }
-    console.error("Failed to allocate part:", error);
-    return { success: false, error: "Failed to allocate part" };
+    return handleActionError(error, "Failed to allocate part");
   }
 }

@@ -8,6 +8,7 @@ import { sendInvoiceEmail, sendCreditInvoiceReminderEmail } from "@/lib/email";
 import { generateInvoiceReportPDF } from "@/lib/reports/pdf-report-generator";
 import { notifyInvoiceCreated, notifyInvoiceUpdated, notifyInvoiceDeleted } from "@/lib/notifications";
 import { notifyAdminInvoiceCreated } from "@/lib/whatsapp-notifications";
+import { handleActionError } from "@/lib/error-messages";
 
 export async function createInvoice(data: {
   customerId: string;
@@ -165,10 +166,9 @@ export async function createInvoice(data: {
     if (data.tripId) {
       revalidatePath(`/operations/trips/${data.tripId}`);
     }
-    return { success: true, invoice };
+    return { success: true as const, invoice };
   } catch (error) {
-    console.error("Failed to create invoice:", error);
-    return { success: false, error: "Failed to create invoice" };
+    return handleActionError(error, "Failed to create invoice");
   }
 }
 
@@ -197,7 +197,7 @@ export async function updateInvoice(
     });
 
     if (!invoice) {
-      return { success: false, error: "Invoice not found" };
+      return { success: false as const, error: "Invoice not found" };
     }
 
     if (data.invoiceNumber && data.invoiceNumber !== invoice.invoiceNumber) {
@@ -210,7 +210,7 @@ export async function updateInvoice(
       });
 
       if (existingInvoice) {
-        return { success: false, error: "An invoice with this number already exists" };
+        return { success: false as const, error: "An invoice with this number already exists" };
       }
     }
 
@@ -249,10 +249,9 @@ export async function updateInvoice(
 
     revalidatePath("/finance/invoices");
     revalidatePath(`/finance/invoices/${id}`);
-    return { success: true, invoice: updatedInvoice };
+    return { success: true as const, invoice: updatedInvoice };
   } catch (error) {
-    console.error("Failed to update invoice:", error);
-    return { success: false, error: "Failed to update invoice" };
+    return handleActionError(error, "Failed to update invoice");
   }
 }
 
@@ -271,11 +270,11 @@ export async function deleteInvoice(id: string) {
     });
 
     if (!invoice) {
-      return { success: false, error: "Invoice not found" };
+      return { success: false as const, error: "Invoice not found" };
     }
 
     if (invoice._count.payments > 0) {
-      return { success: false, error: "Cannot delete invoice with associated payments" };
+      return { success: false as const, error: "Cannot delete invoice with associated payments" };
     }
 
     await prisma.invoice.delete({ where: { id } });
@@ -289,10 +288,9 @@ export async function deleteInvoice(id: string) {
     ).catch((err) => console.error("Failed to send admin notification:", err));
 
     revalidatePath("/finance/invoices");
-    return { success: true };
+    return { success: true as const };
   } catch (error) {
-    console.error("Failed to delete invoice:", error);
-    return { success: false, error: "Failed to delete invoice" };
+    return handleActionError(error, "Failed to delete invoice");
   }
 }
 
@@ -378,13 +376,12 @@ export async function exportInvoicesPDF(options?: {
     });
 
     return {
-      success: true,
+      success: true as const,
       pdf: Buffer.from(pdfBytes).toString("base64"),
       filename: `invoices-report-${new Date().toISOString().split("T")[0]}.pdf`,
     };
   } catch (error) {
-    console.error("Failed to export invoices PDF:", error);
-    return { success: false, error: "Failed to generate PDF report" };
+    return handleActionError(error, "Failed to generate PDF report", "Failed to export invoices PDF");
   }
 }
 
@@ -416,11 +413,11 @@ export async function sendInvoiceToCustomer(invoiceId: string) {
     });
 
     if (!invoice) {
-      return { success: false, error: "Invoice not found" };
+      return { success: false as const, error: "Invoice not found" };
     }
 
     if (!invoice.customer.email) {
-      return { success: false, error: "Customer does not have an email address" };
+      return { success: false as const, error: "Customer does not have an email address" };
     }
 
     // Get organization name
@@ -470,10 +467,9 @@ export async function sendInvoiceToCustomer(invoiceId: string) {
       notes: invoice.notes || undefined,
     });
 
-    return { success: true, message: "Invoice sent successfully" };
+    return { success: true as const, message: "Invoice sent successfully" };
   } catch (error) {
-    console.error("Failed to send invoice email:", error);
-    return { success: false, error: "Failed to send invoice email" };
+    return handleActionError(error, "Failed to send invoice email");
   }
 }
 
@@ -501,7 +497,7 @@ export async function downloadSingleInvoicePDF(invoiceId: string) {
   });
 
   if (!invoice) {
-    return { success: false, error: "Invoice not found" };
+    return { success: false as const, error: "Invoice not found" };
   }
 
   const organization = await prisma.organization.findUnique({
@@ -551,7 +547,7 @@ export async function downloadSingleInvoicePDF(invoiceId: string) {
   // Convert to base64 for transfer
   const base64 = Buffer.from(pdfBytes).toString("base64");
   return {
-    success: true,
+    success: true as const,
     data: base64,
     filename: `${invoice.invoiceNumber}.pdf`,
   };

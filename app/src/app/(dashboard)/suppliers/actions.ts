@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, requireRole } from "@/lib/session";
 import { notifySupplierCreated, notifySupplierUpdated, notifySupplierDeleted } from "@/lib/notifications";
+import { handleActionError } from "@/lib/error-messages";
 
 export async function createSupplier(data: {
   name: string;
@@ -42,10 +43,9 @@ export async function createSupplier(data: {
     ).catch((err) => console.error("Failed to send admin notification:", err));
 
     revalidatePath("/suppliers");
-    return { success: true, supplier };
+    return { success: true as const, supplier };
   } catch (error) {
-    console.error("Failed to create supplier:", error);
-    return { success: false, error: "Failed to create supplier" };
+    return handleActionError(error, "Failed to create supplier");
   }
 }
 
@@ -71,7 +71,7 @@ export async function updateSupplier(
     });
 
     if (!supplier) {
-      return { success: false, error: "Supplier not found" };
+      return { success: false as const, error: "Supplier not found" };
     }
 
     const updatedSupplier = await prisma.supplier.update({
@@ -95,10 +95,9 @@ export async function updateSupplier(
 
     revalidatePath("/suppliers");
     revalidatePath(`/suppliers/${id}`);
-    return { success: true, supplier: updatedSupplier };
+    return { success: true as const, supplier: updatedSupplier };
   } catch (error) {
-    console.error("Failed to update supplier:", error);
-    return { success: false, error: "Failed to update supplier" };
+    return handleActionError(error, "Failed to update supplier");
   }
 }
 
@@ -114,12 +113,12 @@ export async function deleteSupplier(id: string) {
     });
 
     if (!supplier) {
-      return { success: false, error: "Supplier not found" };
+      return { success: false as const, error: "Supplier not found" };
     }
 
     if (supplier._count.expenses > 0) {
       return {
-        success: false,
+        success: false as const,
         error: "Cannot delete supplier with associated expenses",
       };
     }
@@ -134,10 +133,9 @@ export async function deleteSupplier(id: string) {
     ).catch((err) => console.error("Failed to send admin notification:", err));
 
     revalidatePath("/suppliers");
-    return { success: true };
+    return { success: true as const };
   } catch (error) {
-    console.error("Failed to delete supplier:", error);
-    return { success: false, error: "Failed to delete supplier" };
+    return handleActionError(error, "Failed to delete supplier");
   }
 }
 
@@ -150,7 +148,7 @@ export async function updateSupplierBalance(id: string, amount: number) {
     });
 
     if (!supplier) {
-      return { success: false, error: "Supplier not found" };
+      return { success: false as const, error: "Supplier not found" };
     }
 
     const updatedSupplier = await prisma.supplier.update({
@@ -162,10 +160,9 @@ export async function updateSupplierBalance(id: string, amount: number) {
 
     revalidatePath("/suppliers");
     revalidatePath(`/suppliers/${id}`);
-    return { success: true, supplier: updatedSupplier };
+    return { success: true as const, supplier: updatedSupplier };
   } catch (error) {
-    console.error("Failed to update supplier balance:", error);
-    return { success: false, error: "Failed to update supplier balance" };
+    return handleActionError(error, "Failed to update supplier balance");
   }
 }
 
@@ -179,11 +176,11 @@ export async function markExpenseAsPaid(expenseId: string) {
     });
 
     if (!expense) {
-      return { success: false, error: "Expense not found" };
+      return { success: false as const, error: "Expense not found" };
     }
 
     if (expense.isPaid) {
-      return { success: false, error: "Expense is already paid" };
+      return { success: false as const, error: "Expense is already paid" };
     }
 
     // Update expense as paid
@@ -213,10 +210,9 @@ export async function markExpenseAsPaid(expenseId: string) {
     if (expense.supplierId) {
       revalidatePath(`/suppliers/${expense.supplierId}`);
     }
-    return { success: true };
+    return { success: true as const };
   } catch (error) {
-    console.error("Failed to mark expense as paid:", error);
-    return { success: false, error: "Failed to mark expense as paid" };
+    return handleActionError(error, "Failed to mark expense as paid");
   }
 }
 
@@ -263,12 +259,11 @@ export async function getSupplierOwingReport(supplierId?: string) {
     );
 
     return {
-      success: true,
+      success: true as const,
       suppliers: suppliersWithOwing,
       grandTotalOwing,
     };
   } catch (error) {
-    console.error("Failed to get supplier owing report:", error);
-    return { success: false, error: "Failed to get supplier owing report" };
+    return handleActionError(error, "Failed to get supplier owing report");
   }
 }

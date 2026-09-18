@@ -154,7 +154,7 @@ export function InvoicesTable({ invoices, role, showFinancials = true }: Invoice
                 endDate: new Date(),
             });
 
-            if (result.success && result.pdf) {
+            if (result.success) {
                 const byteCharacters = atob(result.pdf);
                 const byteNumbers = new Array(byteCharacters.length);
                 for (let i = 0; i < byteCharacters.length; i++) {

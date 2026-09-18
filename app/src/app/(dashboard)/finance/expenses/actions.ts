@@ -7,6 +7,7 @@ import { generateExpenseReportPDF } from "@/lib/reports/pdf-report-generator";
 import { notifyExpenseCreated, notifyExpenseUpdated, notifyExpenseDeleted } from "@/lib/notifications";
 import { InsufficientBalanceError } from "@/lib/accounts";
 import { debitAccountForExpense, creditAccountForExpense } from "@/lib/accounts-server";
+import { handleActionError } from "@/lib/error-messages";
 
 /**
  * Thrown when a supplier picked in the form no longer exists by the time the
@@ -134,13 +135,12 @@ export async function createExpense(data: ExpenseFormData): Promise<ExpenseActio
     if (data.supplierId) {
       revalidatePath(`/suppliers/${data.supplierId}`);
     }
-    return { success: true, expense };
+    return { success: true as const, expense };
   } catch (error) {
     if (error instanceof InsufficientBalanceError || error instanceof SupplierNotFoundError) {
-      return { success: false, error: error.message };
+      return { success: false as const, error: error.message };
     }
-    console.error("Failed to create expense:", error);
-    return { success: false, error: "Failed to create expense" };
+    return handleActionError(error, "Failed to create expense");
   }
 }
 
@@ -162,7 +162,7 @@ export async function updateExpense(id: string, data: ExpenseFormData): Promise<
     });
 
     if (!existing || existing.organizationId !== user.organizationId) {
-      return { success: false, error: "Expense not found" };
+      return { success: false as const, error: "Expense not found" };
     }
 
     // Get category name for notification
@@ -299,13 +299,12 @@ export async function updateExpense(id: string, data: ExpenseFormData): Promise<
       revalidatePath(`/suppliers/${data.supplierId}`);
     }
     revalidatePath("/finance/accounts");
-    return { success: true };
+    return { success: true as const };
   } catch (error) {
     if (error instanceof InsufficientBalanceError || error instanceof SupplierNotFoundError) {
-      return { success: false, error: error.message };
+      return { success: false as const, error: error.message };
     }
-    console.error("Failed to update expense:", error);
-    return { success: false, error: "Failed to update expense" };
+    return handleActionError(error, "Failed to update expense");
   }
 }
 
@@ -543,17 +542,13 @@ export async function exportExpensesPDF() {
     const base64 = Buffer.from(pdfBytes).toString("base64");
 
     return {
-      success: true,
+      success: true as const,
       data: base64,
       filename: `expenses-report-${new Date().toISOString().split("T")[0]}.pdf`,
       mimeType: "application/pdf",
     };
   } catch (error) {
-    console.error("Failed to generate PDF:", error);
-    return {
-      success: false,
-      error: "Failed to generate PDF report",
-    };
+    return handleActionError(error, "Failed to generate PDF report", "Failed to generate PDF");
   }
 }
 

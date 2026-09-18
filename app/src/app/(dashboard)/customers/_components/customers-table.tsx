@@ -120,7 +120,7 @@ export function CustomersTable({ customers, role, periodLabel = "This Month" }: 
                 endDate: new Date(),
             });
 
-            if (result.success && result.pdf) {
+            if (result.success) {
                 const byteCharacters = atob(result.pdf);
                 const byteNumbers = new Array(byteCharacters.length);
                 for (let i = 0; i < byteCharacters.length; i++) {
@@ -151,7 +151,7 @@ export function CustomersTable({ customers, role, periodLabel = "This Month" }: 
         try {
             const result = await exportCustomerDetailWord(customerId);
 
-            if (result.success && result.doc) {
+            if (result.success) {
                 const byteCharacters = atob(result.doc);
                 const byteNumbers = new Array(byteCharacters.length);
                 for (let i = 0; i < byteCharacters.length; i++) {

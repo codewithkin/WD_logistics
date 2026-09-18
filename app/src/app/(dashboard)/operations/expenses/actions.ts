@@ -7,6 +7,7 @@ import { generateOperationsExpenseReportPDF } from "@/lib/reports/pdf-report-gen
 import { notifyExpenseCreated, notifyExpenseUpdated, notifyExpenseDeleted } from "@/lib/notifications";
 import { InsufficientBalanceError } from "@/lib/accounts";
 import { debitAccountForExpense, creditAccountForExpense } from "@/lib/accounts-server";
+import { handleActionError } from "@/lib/error-messages";
 
 export async function createExpense(data: {
   description?: string;
@@ -28,7 +29,7 @@ export async function createExpense(data: {
     });
 
     if (!category) {
-      return { success: false, error: "Category not found" };
+      return { success: false as const, error: "Category not found" };
     }
 
     // If linking to a trip, validate it exists
@@ -38,7 +39,7 @@ export async function createExpense(data: {
       });
 
       if (!trip) {
-        return { success: false, error: "Trip not found" };
+        return { success: false as const, error: "Trip not found" };
       }
     }
 
@@ -94,13 +95,12 @@ export async function createExpense(data: {
     if (data.tripId) {
       revalidatePath(`/operations/trips/${data.tripId}`);
     }
-    return { success: true, expense };
+    return { success: true as const, expense };
   } catch (error) {
     if (error instanceof InsufficientBalanceError) {
-      return { success: false, error: error.message };
+      return { success: false as const, error: error.message };
     }
-    console.error("Failed to create expense:", error);
-    return { success: false, error: "Failed to create expense" };
+    return handleActionError(error, "Failed to create expense");
   }
 }
 
@@ -130,7 +130,7 @@ export async function updateExpense(
     });
 
     if (!expense) {
-      return { success: false, error: "Expense not found" };
+      return { success: false as const, error: "Expense not found" };
     }
 
     // Resolve the new category up front (if it's actually changing) so we
@@ -217,13 +217,12 @@ export async function updateExpense(
 
     revalidatePath("/operations/expenses");
     revalidatePath("/finance/accounts");
-    return { success: true, expense: updatedExpense };
+    return { success: true as const, expense: updatedExpense };
   } catch (error) {
     if (error instanceof InsufficientBalanceError) {
-      return { success: false, error: error.message };
+      return { success: false as const, error: error.message };
     }
-    console.error("Failed to update expense:", error);
-    return { success: false, error: "Failed to update expense" };
+    return handleActionError(error, "Failed to update expense");
   }
 }
 
@@ -240,7 +239,7 @@ export async function deleteExpense(id: string) {
     });
 
     if (!expense) {
-      return { success: false, error: "Expense not found" };
+      return { success: false as const, error: "Expense not found" };
     }
 
     await prisma.$transaction(async (tx) => {
@@ -270,10 +269,9 @@ export async function deleteExpense(id: string) {
     for (const te of expense.tripExpenses) {
       revalidatePath(`/operations/trips/${te.tripId}`);
     }
-    return { success: true };
+    return { success: true as const };
   } catch (error) {
-    console.error("Failed to delete expense:", error);
-    return { success: false, error: "Failed to delete expense" };
+    return handleActionError(error, "Failed to delete expense");
   }
 }
 
@@ -351,16 +349,12 @@ export async function exportOperationsExpensesPDF(options?: { categoryId?: strin
       : `operations-expenses-report-${now.toISOString().split("T")[0]}.pdf`;
 
     return {
-      success: true,
+      success: true as const,
       data: base64,
       filename,
       mimeType: "application/pdf",
     };
   } catch (error) {
-    console.error("Failed to generate PDF:", error);
-    return {
-      success: false,
-      error: "Failed to generate PDF report",
-    };
+    return handleActionError(error, "Failed to generate PDF report", "Failed to generate PDF");
   }
 }

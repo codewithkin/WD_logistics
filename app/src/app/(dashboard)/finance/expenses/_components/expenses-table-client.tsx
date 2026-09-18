@@ -184,7 +184,7 @@ export function ExpensesTableClient({ expenses }: ExpensesTableProps) {
         const handleExportPDF = async () => {
             try {
                 const result = await exportExpensesPDF();
-                if (result.success && result.data) {
+                if (result.success) {
                     // Convert base64 to blob
                     const byteCharacters = atob(result.data);
                     const byteNumbers = new Array(byteCharacters.length);
@@ -266,7 +266,7 @@ export function ExpensesTableClient({ expenses }: ExpensesTableProps) {
 
             if (exportType === "pdf") {
                 const result = await exportExpensesPDF();
-                if (result.success && result.data) {
+                if (result.success) {
                     // Convert base64 to blob
                     const byteCharacters = atob(result.data);
                     const byteNumbers = new Array(byteCharacters.length);
