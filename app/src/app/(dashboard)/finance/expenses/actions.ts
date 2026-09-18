@@ -8,6 +8,21 @@ import { notifyExpenseCreated, notifyExpenseUpdated, notifyExpenseDeleted } from
 import { InsufficientBalanceError } from "@/lib/accounts";
 import { debitAccountForExpense, creditAccountForExpense } from "@/lib/accounts-server";
 
+/**
+ * Thrown when a supplier picked in the form no longer exists by the time the
+ * expense is actually saved — most commonly because someone deleted that
+ * supplier while this form was open in another tab. Without this check,
+ * Prisma throws a raw "Foreign key constraint violated on the constraint:
+ * expense_supplierId_fkey" straight from the database, which is meaningless
+ * to a user.
+ */
+class SupplierNotFoundError extends Error {
+  constructor() {
+    super("The selected supplier no longer exists — it may have been deleted. Please refresh the page and choose another supplier.");
+    this.name = "SupplierNotFoundError";
+  }
+}
+
 export interface ExpenseFormData {
   categoryId: string;
   amount: number;
@@ -36,6 +51,20 @@ export async function createExpense(data: ExpenseFormData): Promise<ExpenseActio
     });
 
     const expense = await prisma.$transaction(async (tx) => {
+      // Re-validate the supplier right before writing — it was only fetched
+      // once, server-side, when the form loaded, so it may have since been
+      // deleted by another user. Catching that here turns a raw Prisma FK
+      // violation into a message the user can actually act on.
+      if (data.isBusinessExpense && data.supplierId) {
+        const supplier = await tx.supplier.findFirst({
+          where: { id: data.supplierId, organizationId: user.organizationId },
+          select: { id: true },
+        });
+        if (!supplier) {
+          throw new SupplierNotFoundError();
+        }
+      }
+
       const created = await tx.expense.create({
         data: {
           organizationId: user.organizationId,
@@ -107,7 +136,7 @@ export async function createExpense(data: ExpenseFormData): Promise<ExpenseActio
     }
     return { success: true, expense };
   } catch (error) {
-    if (error instanceof InsufficientBalanceError) {
+    if (error instanceof InsufficientBalanceError || error instanceof SupplierNotFoundError) {
       return { success: false, error: error.message };
     }
     console.error("Failed to create expense:", error);
@@ -143,6 +172,18 @@ export async function updateExpense(id: string, data: ExpenseFormData): Promise<
     });
 
     await prisma.$transaction(async (tx) => {
+      // Re-validate the (possibly newly-selected) supplier before writing —
+      // see the identical check in createExpense for why.
+      if (data.isBusinessExpense && data.supplierId) {
+        const supplier = await tx.supplier.findFirst({
+          where: { id: data.supplierId, organizationId: user.organizationId },
+          select: { id: true },
+        });
+        if (!supplier) {
+          throw new SupplierNotFoundError();
+        }
+      }
+
       // Reverse the old account impact, then apply the new one. Crediting
       // back before debiting means a same-account edit (just the amount
       // changed) nets out correctly instead of risking a false overdraft.
@@ -260,7 +301,7 @@ export async function updateExpense(id: string, data: ExpenseFormData): Promise<
     revalidatePath("/finance/accounts");
     return { success: true };
   } catch (error) {
-    if (error instanceof InsufficientBalanceError) {
+    if (error instanceof InsufficientBalanceError || error instanceof SupplierNotFoundError) {
       return { success: false, error: error.message };
     }
     console.error("Failed to update expense:", error);
