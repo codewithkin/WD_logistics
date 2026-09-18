@@ -123,7 +123,7 @@ export default function NotFound() {
 
                 {/* Action Buttons */}
                 <motion.div
-                    className="flex flex-col sm:flex-row gap-4 justify-center mt-12"
+                    className="flex flex-wrap items-center justify-center gap-4 mt-12"
                     variants={item}
                 >
                     <motion.div

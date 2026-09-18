@@ -67,7 +67,7 @@ export default async function ExpensesByTruckPage() {
                 description="View all expenses assigned to each truck"
             />
 
-            <div className="flex justify-between items-center">
+            <div className="flex flex-wrap items-center justify-between gap-4">
                 <Link href="/finance/expenses">
                     <Button variant="outline">
                         <ArrowLeft className="mr-2 h-4 w-4" />
