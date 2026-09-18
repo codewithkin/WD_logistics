@@ -41,7 +41,9 @@ export default function SignInPage() {
                 return;
             }
 
-            router.push("/dashboard");
+            // "/" resolves the right landing page for the user's role
+            // (workshop lands on /maintenance, everyone else on /dashboard).
+            router.push("/");
             router.refresh();
         } catch (err) {
             setError("An unexpected error occurred. Please try again.");

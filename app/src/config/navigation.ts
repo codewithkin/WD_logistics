@@ -48,7 +48,8 @@ export const navigationSections: NavSection[] = [
         title: "Dashboard",
         href: "/dashboard",
         icon: LayoutDashboard,
-        roles: ["admin", "supervisor", "staff", "workshop"],
+        // No "workshop": maintenance requests are their only relevant screen.
+        roles: ["admin", "supervisor", "staff"],
       },
     ],
   },

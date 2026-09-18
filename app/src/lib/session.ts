@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Role } from "@/lib/types";
+import { getLandingPath } from "@/lib/landing";
 import { redirect } from "next/navigation";
 
 export interface ServerSession {
@@ -69,7 +70,9 @@ export async function requireRole(allowedRoles: Role[]): Promise<ServerSession> 
   const session = await requireAuth();
   
   if (!allowedRoles.includes(session.role)) {
-    redirect("/dashboard");
+    // Bounce to the role's own landing page, not a hardcoded /dashboard —
+    // workshop users can't see the dashboard, so that would strand them.
+    redirect(getLandingPath(session.role));
   }
   
   return session;

@@ -9,6 +9,7 @@ import { navigationSections, NavItem, NavSection } from "@/config/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useSession } from "@/components/providers/session-provider";
+import { getLandingPath } from "@/lib/landing";
 import { ChevronDown, ChevronRight, LogOut } from "lucide-react";
 import { signOut } from "@/lib/auth-client";
 import {
@@ -203,7 +204,7 @@ export function SidebarNavContent({ pendingEditRequests = 0, showExpenses = fals
         <div className="flex flex-col h-full">
             {/* Logo */}
             <div className="p-4 border-b">
-                <Link href="/dashboard" prefetch className="flex items-center group" onClick={onNavigate}>
+                <Link href={getLandingPath(role)} prefetch className="flex items-center group" onClick={onNavigate}>
                     <Image
                         src="/logo-mark.png"
                         alt="WD Logistics"

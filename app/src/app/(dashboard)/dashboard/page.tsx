@@ -1,4 +1,4 @@
-import { requireAuth } from "@/lib/session";
+import { requireRole } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/layout/page-header";
 import { DashboardStats } from "./_components/dashboard-stats";
@@ -27,7 +27,9 @@ interface DashboardPageProps {
 
 export default async function DashboardPage({ searchParams }: DashboardPageProps) {
     const params = await searchParams;
-    const session = await requireAuth();
+    // Every role except workshop — hiding the nav link isn't enough, workshop
+    // users must not be able to reach /dashboard by typing the URL either.
+    const session = await requireRole(["admin", "supervisor", "staff"]);
     const { role, organizationId } = session;
 
     // Get date range from URL params
