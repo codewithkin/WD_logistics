@@ -1,5 +1,6 @@
 export const COMPANY = {
   name: "WD Logistics (Pvt) Ltd",
+  motto: "Efficiency in Motion",
   founder: "Wellington Dziruni",
   address: "1 Tameside Close, Nyakamete, Mutare",
   addressFull: "1 Tameside Close, Nyakamete, Mutare, Zimbabwe",
@@ -17,6 +18,16 @@ export const COMPANY = {
 // is set up for the marketing site.
 export const SITE_URL = "https://wd-logistics.co.zw";
 
+// The SADC countries WD runs in. Single source of truth: the home-page route
+// ticker, the JSON-LD `areaServed` and the coverage copy all read from here.
+export const COUNTRIES = [
+  "ZIMBABWE",
+  "ZAMBIA",
+  "MOZAMBIQUE",
+  "DR CONGO",
+  "SOUTH AFRICA",
+];
+
 // Shared OpenGraph fields, pulled into a constant so every page can spread it
 // into its own `openGraph` object — Next.js metadata merging *replaces* the
 // whole `openGraph` object (not a deep merge) whenever a page defines one, so
@@ -31,7 +42,7 @@ export const DEFAULT_OG = {
       url: "/images/truck-side-blue.jpg",
       width: 1200,
       height: 800,
-      alt: "A WD Logistics truck on the road in Zimbabwe",
+      alt: "A WD Logistics truck on the road in the SADC region",
     },
   ],
 };

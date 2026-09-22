@@ -35,8 +35,12 @@ a {
   }
 }
 
+/* The ticker row holds two identical halves and scrolls exactly one of them out
+   of view, so the loop is seamless. Duration is tuned to the row's width: the
+   country list repeats four times per half (see TICKER in app/page.tsx), which
+   is about twice the old route list, hence twice the old 28s. */
 .animate-marquee {
-  animation: marquee 28s linear infinite;
+  animation: marquee 56s linear infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {

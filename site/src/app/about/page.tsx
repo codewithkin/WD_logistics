@@ -9,14 +9,14 @@ import { COMPANY, DEFAULT_OG, SITE_URL } from "@/lib/site";
 export const metadata: Metadata = {
   title: "About WD Logistics | Wellington Dziruni's Trucking Company in Mutare",
   description:
-    "WD Logistics (Pvt) Ltd is a Zimbabwean haulage company founded by Wellington Dziruni, running 12 trucks from a Mutare base across 10 provinces and into the SADC region. Read about our story and our values.",
+    "WD Logistics (Pvt) Ltd is a haulage company founded by Wellington Dziruni, running 12 trucks from a Mutare base across the SADC region. Read about our story and our values.",
   alternates: { canonical: "/about" },
   openGraph: {
     ...DEFAULT_OG,
     url: `${SITE_URL}/about`,
     title: "About WD Logistics | Wellington Dziruni's Trucking Company in Mutare",
     description:
-      "A Zimbabwean haulage company founded by Wellington Dziruni, running 12 trucks from Mutare across 10 provinces and into the SADC region.",
+      "A haulage company founded by Wellington Dziruni, running 12 trucks from Mutare across the SADC region.",
   },
 };
 
@@ -45,7 +45,7 @@ const PRINCIPLES = [
   {
     label: "LOCAL",
     labelColor: "text-[#3D8A14]",
-    body: "Mutare-based, Zimbabwean drivers, and cross-border runs we have done for years.",
+    body: "Mutare-based crew, drivers who know the corridors, and cross-border runs we have done for years.",
     bg: "bg-white border border-[#E6E9E2]",
     text: "text-[#333833]",
   },
@@ -76,20 +76,20 @@ export default function AboutPage() {
               12 trucks
             </StaggerItem>
             <StaggerItem y={10} className="rounded-full border border-[#E6E9E2] bg-white px-5 py-3.5 font-sans text-sm font-semibold">
-              10 provinces
+              5 countries
             </StaggerItem>
             <StaggerItem y={10} className="rounded-full border border-[#E6E9E2] bg-white px-5 py-3.5 font-sans text-sm font-semibold">
               4,100+ loads
             </StaggerItem>
             <StaggerItem y={10} className="rounded-full bg-[#63C32E] px-5 py-3.5 font-sans text-sm font-semibold text-[#15250A]">
-              Zimbabwe &amp; SADC
+              SADC region
             </StaggerItem>
           </StaggerGroup>
         </Reveal>
         <Reveal x={24} y={0} delay={0.1}>
           <PhotoBlock
             src="/images/fleet-lineup-yard.jpg"
-            alt="WD Logistics fleet of trucks lined up at the yard in Mutare, Zimbabwe"
+            alt="WD Logistics fleet of trucks lined up at the yard in Mutare"
             className="h-[240px] rounded-[28px] sm:h-[320px] sm:rounded-[36px] lg:h-[400px]"
           />
         </Reveal>
@@ -151,7 +151,7 @@ export default function AboutPage() {
             <p className="m-0 max-w-full font-heading text-2xl font-semibold leading-[1.28] tracking-[-0.015em] text-balance sm:text-[30px] lg:max-w-[40ch] lg:text-[38px] lg:leading-[1.22] lg:tracking-[-0.025em]">
               &ldquo;I grew up watching goods sit in yards because someone
               didn&apos;t phone back. WD exists so that never happens to a
-              Zimbabwean business again.&rdquo;
+              client of ours again.&rdquo;
             </p>
             <p className="m-0 max-w-full font-sans text-sm leading-[1.7] text-[#4A5149] text-balance sm:text-base lg:max-w-[52ch]">
               &ldquo;We are deliberately small enough that I still know every

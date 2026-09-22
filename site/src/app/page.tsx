@@ -6,19 +6,19 @@ import { CtaFooterFull } from "@/components/CtaFooter";
 import { FaqAccordion } from "@/components/FaqAccordion";
 import { Reveal } from "@/components/motion/Reveal";
 import { StaggerGroup, StaggerItem } from "@/components/motion/Stagger";
-import { COMPANY, DEFAULT_OG, SITE_URL } from "@/lib/site";
+import { COMPANY, COUNTRIES, DEFAULT_OG, SITE_URL } from "@/lib/site";
 
 export const metadata: Metadata = {
-  title: "WD Logistics | Trucking & Freight Logistics Company in Mutare, Zimbabwe",
+  title: `WD Logistics | ${COMPANY.motto} — Road Freight Across the SADC Region`,
   description:
-    "WD Logistics (Pvt) Ltd is a trucking and haulage company based in Mutare, Zimbabwe, founded by Wellington Dziruni. Full loads, part loads, bulk & tipper and abnormal loads across Zimbabwe and the SADC region — same-day quotes on WhatsApp.",
+    "WD Logistics (Pvt) Ltd is a trucking and haulage company founded by Wellington Dziruni, running from its Mutare base across the SADC region. Full loads, part loads, bulk & tipper and abnormal loads — same-day quotes on WhatsApp.",
   alternates: { canonical: "/" },
   openGraph: {
     ...DEFAULT_OG,
     url: SITE_URL,
-    title: "WD Logistics | Trucking & Freight Logistics Company in Mutare, Zimbabwe",
+    title: `WD Logistics | ${COMPANY.motto} — Road Freight Across the SADC Region`,
     description:
-      "Trucking and haulage across Zimbabwe and the SADC region, based in Mutare. Full loads, part loads, bulk & tipper and abnormal loads — same-day quotes on WhatsApp.",
+      "Road freight across the SADC region from our Mutare base. Full loads, part loads, bulk & tipper and abnormal loads — same-day quotes on WhatsApp.",
   },
 };
 
@@ -43,22 +43,23 @@ const ORGANIZATION_JSON_LD = {
     addressLocality: "Mutare",
     addressCountry: "ZW",
   },
-  areaServed: ["Zimbabwe", "SADC region"],
+  slogan: COMPANY.motto,
+  areaServed: [
+    "Zimbabwe",
+    "Zambia",
+    "Mozambique",
+    "Democratic Republic of the Congo",
+    "South Africa",
+    "SADC region",
+  ],
   sameAs: [COMPANY.whatsappHref],
 };
 
-const ROUTES = [
-  "MUTARE",
-  "HARARE",
-  "FORBES BORDER",
-  "BULAWAYO",
-  "BEITBRIDGE",
-  "MASVINGO",
-  "GWERU",
-  "CHIRUNDU",
-  "SADC REGION",
-  "MUTARE",
-];
+// The ticker scrolls one half of the row out of view (translateX(-50%)), so each
+// half has to be wider than the widest viewport or a gap appears at the loop
+// point. Five short country names aren't enough on a 1920px screen, so the list
+// is repeated before it's doubled.
+const TICKER = Array.from({ length: 4 }, () => COUNTRIES).flat();
 
 const FAQS = [
   {
@@ -99,76 +100,82 @@ export default function HomePage() {
       />
       <Header />
 
-      {/* Hero */}
+      {/* Hero — the photo carries no text on purpose: the fleet line-up is the
+          first thing a visitor should see, uninterrupted, at every width. All
+          copy sits in the band below it. */}
       <div className="px-5 pt-5 sm:px-8 lg:px-[34px] lg:pt-[26px]">
         <PhotoBlock
           src="/images/fleet-lineup-yard.jpg"
-          alt="The WD Logistics fleet of trucks lined up in the yard in Mutare, Zimbabwe"
+          alt="The WD Logistics fleet of trucks lined up in the yard at the Mutare base"
           priority
           sizes="100vw"
-          className="flex min-h-0 flex-col justify-between gap-8 rounded-[28px] p-6 sm:rounded-[32px] sm:p-8 lg:min-h-[800px] lg:rounded-[40px] lg:p-[46px]"
+          imgClassName="object-[50%_36%] sm:object-[50%_38%] lg:object-[50%_40%]"
+          className="h-[46vh] min-h-[240px] rounded-[28px] sm:h-[360px] sm:rounded-[32px] lg:h-[520px] lg:rounded-[40px]"
         >
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/25 via-black/0 to-black/10" />
-          <div className="relative flex flex-col items-start justify-between gap-8 lg:flex-row lg:gap-10">
-            <Reveal className="relative flex max-w-full flex-col gap-5 lg:max-w-[640px] lg:gap-6" y={20}>
-              <span className="inline-flex w-fit items-center gap-2.5 rounded-full bg-white px-4 py-2.5 font-sans text-[11px] font-semibold tracking-[0.06em] sm:text-xs">
-                <span className="h-[7px] w-[7px] rounded-full bg-[#1667C4]" />
-                ROAD FREIGHT · ZIMBABWE &amp; SADC
-              </span>
-              <h1 className="m-0 font-heading text-[40px] font-semibold leading-[1.05] tracking-[-0.03em] text-balance sm:text-[56px] lg:text-[74px] lg:leading-[0.98] lg:tracking-[-0.035em]">
-                Zimbabwe&apos;s
-                <br />
-                load, moved
-                <br />
-                <span className="italic text-[#3D8A14]">on time.</span>
-              </h1>
-              <p className="m-0 max-w-full rounded-[20px] bg-white/85 px-5 py-4 font-sans text-sm leading-[1.6] text-[#333833] text-balance sm:max-w-[44ch] sm:px-[22px] sm:py-[18px] sm:text-base">
-                Short and long distance haulage from our Mutare base — across
-                Zimbabwe and into the SADC region. Satellite tracking on every
-                truck, one dispatcher, a quote the same day.
-              </p>
-              <div className="flex flex-wrap items-center gap-3">
-                <a
-                  href={COMPANY.whatsappHref}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="rounded-full bg-[#63C32E] px-6 py-4 font-sans text-sm font-bold text-[#15250A] transition-transform duration-200 hover:scale-[1.04] active:scale-[0.98] sm:px-7 sm:py-[17px] sm:text-[15px]"
-                >
-                  WhatsApp us →
-                </a>
-                <Link
-                  href="/contact"
-                  className="rounded-full bg-white px-6 py-4 font-sans text-sm font-semibold text-[#1E2320] transition-transform duration-200 hover:scale-[1.04] active:scale-[0.98] sm:px-7 sm:py-[17px] sm:text-[15px]"
-                >
-                  Contact us
-                </Link>
-              </div>
-            </Reveal>
+          <Reveal
+            className="absolute left-5 top-5 sm:left-6 sm:top-6 lg:left-8 lg:top-8"
+            y={16}
+          >
+            <span className="inline-flex w-fit items-center gap-2.5 rounded-full bg-white px-4 py-2.5 font-sans text-[11px] font-semibold tracking-[0.06em] sm:text-xs">
+              <span className="h-[7px] w-[7px] rounded-full bg-[#1667C4]" />
+              ROAD FREIGHT · SADC REGION
+            </span>
+          </Reveal>
+        </PhotoBlock>
+      </div>
 
-            <Reveal
-              className="relative flex w-full flex-row items-center justify-between gap-3 lg:w-auto lg:flex-col lg:items-end"
-              y={20}
-              delay={0.15}
+      <div className="grid grid-cols-1 gap-8 px-5 pt-7 sm:px-8 lg:grid-cols-[1.15fr_0.85fr] lg:gap-[34px] lg:px-[34px] lg:pt-10">
+        <Reveal className="flex flex-col gap-5 lg:gap-6" y={20}>
+          <h1 className="m-0 font-heading text-[44px] font-semibold leading-[1.02] tracking-[-0.03em] text-balance sm:text-[60px] lg:text-[80px] lg:leading-[0.96] lg:tracking-[-0.035em]">
+            Efficiency
+            <br />
+            <span className="italic text-[#3D8A14]">in Motion.</span>
+          </h1>
+          <p className="m-0 max-w-full font-sans text-sm leading-[1.7] text-[#333833] text-balance sm:max-w-[48ch] sm:text-base">
+            Short and long distance haulage from our Mutare base — across
+            Zimbabwe, Zambia, Mozambique, DR Congo and South Africa. Satellite
+            tracking on every truck, one dispatcher, a quote the same day.
+          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <a
+              href={COMPANY.whatsappHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-full bg-[#63C32E] px-6 py-4 font-sans text-sm font-bold text-[#15250A] transition-transform duration-200 hover:scale-[1.04] active:scale-[0.98] sm:px-7 sm:py-[17px] sm:text-[15px]"
             >
-              <span className="flex flex-col gap-1 rounded-[20px] bg-white px-5 py-4 text-right sm:rounded-[24px] sm:px-[26px] sm:py-5">
-                <span className="font-heading text-2xl font-bold leading-none tracking-[-0.03em] sm:text-[34px]">
-                  4,100+
-                </span>
-                <span className="font-sans text-[11px] leading-[1.4] text-[#646B65] sm:text-xs">
-                  loads delivered
-                  <br />
-                  across Zimbabwe
-                </span>
-              </span>
-              <span className="flex items-center gap-2.5 rounded-full bg-[#1667C4] px-4 py-3 font-sans text-xs font-semibold text-white sm:px-5 sm:py-3.5 sm:text-[13px]">
-                98% on-time
-              </span>
-            </Reveal>
+              WhatsApp us →
+            </a>
+            <Link
+              href="/contact"
+              className="rounded-full border border-[#D9DED6] bg-white px-6 py-4 font-sans text-sm font-semibold text-[#1E2320] transition-transform duration-200 hover:scale-[1.04] active:scale-[0.98] sm:px-7 sm:py-[17px] sm:text-[15px]"
+            >
+              Contact us
+            </Link>
           </div>
+          <Reveal
+            className="flex flex-row flex-wrap items-center gap-3"
+            y={16}
+            delay={0.15}
+          >
+            <span className="flex flex-col gap-1 rounded-[20px] border border-[#E6E9E2] bg-white px-5 py-4 sm:rounded-[24px] sm:px-[26px] sm:py-5">
+              <span className="font-heading text-2xl font-bold leading-none tracking-[-0.03em] sm:text-[34px]">
+                4,100+
+              </span>
+              <span className="font-sans text-[11px] leading-[1.4] text-[#646B65] sm:text-xs">
+                loads delivered
+                <br />
+                across the SADC region
+              </span>
+            </span>
+            <span className="flex items-center gap-2.5 rounded-full bg-[#1667C4] px-4 py-3 font-sans text-xs font-semibold text-white sm:px-5 sm:py-3.5 sm:text-[13px]">
+              98% on-time
+            </span>
+          </Reveal>
+        </Reveal>
 
-          <div className="relative flex flex-col items-start gap-4 lg:flex-row lg:items-end lg:justify-end lg:gap-6">
+        <div className="flex flex-col items-start gap-4 lg:items-end">
             <Reveal
-              className="flex w-full flex-col gap-4 rounded-[24px] bg-white p-5 shadow-[0_20px_50px_rgba(30,35,32,.18)] sm:rounded-[28px] sm:p-6 lg:w-[430px]"
+              className="flex w-full flex-col gap-4 rounded-[24px] border border-[#E6E9E2] bg-white p-5 shadow-[0_20px_50px_rgba(30,35,32,.10)] sm:rounded-[28px] sm:p-6 lg:w-[430px]"
               y={24}
               delay={0.25}
             >
@@ -211,17 +218,16 @@ export default function HomePage() {
                 Send on WhatsApp
               </a>
             </Reveal>
-          </div>
-        </PhotoBlock>
+        </div>
       </div>
 
-      {/* Route ticker */}
+      {/* Country ticker */}
       <div className="my-8 overflow-hidden bg-[#1E2320] py-4 text-white lg:my-[34px] lg:py-[18px]">
         <div className="animate-marquee flex w-max items-center gap-6 whitespace-nowrap font-heading text-sm font-semibold tracking-[0.02em] sm:gap-[34px] sm:text-[15px]">
-          {[...ROUTES, ...ROUTES].map((route, i) => (
-            <span key={`${route}-${i}`} className="flex items-center gap-6 sm:gap-[34px]">
+          {[...TICKER, ...TICKER].map((country, i) => (
+            <span key={`${country}-${i}`} className="flex items-center gap-6 sm:gap-[34px]">
               <span className="text-[#8FD94F]">✳</span>
-              <span>{route}</span>
+              <span>{country}</span>
             </span>
           ))}
         </div>
@@ -443,7 +449,7 @@ export default function HomePage() {
             WHY CLIENTS STAY
           </span>
           <h2 className="m-0 max-w-full font-heading text-[32px] font-semibold leading-[1.08] tracking-[-0.02em] text-balance sm:text-[40px] lg:max-w-[22ch] lg:text-[46px] lg:leading-[1.04] lg:tracking-[-0.03em]">
-            Zimbabwean roads, Zimbabwean crew
+            SADC roads, one crew that knows them
           </h2>
           <p className="m-0 max-w-full font-sans text-sm leading-[1.7] text-[#646B65] text-balance sm:text-base lg:max-w-[46ch]">
             We know which weighbridge is slow, which detour floods in
@@ -546,11 +552,11 @@ export default function HomePage() {
             </span>
             <span className="flex flex-col gap-2">
               <span className="font-heading text-[60px] font-bold leading-none tracking-[-0.04em]">
-                10/10
+                5
               </span>
               <span className="font-sans text-[15px] leading-[1.6] text-[#CFD5CB] text-balance">
-                provinces served from our Mutare base, plus cross-border work
-                into the SADC region.
+                SADC countries served from our Mutare base — Zimbabwe, Zambia,
+                Mozambique, DR Congo and South Africa.
               </span>
             </span>
             <Link

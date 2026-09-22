@@ -26,32 +26,34 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
     template: "%s",
-    default:
-      "WD Logistics | Trucking & Freight Logistics Company in Mutare, Zimbabwe",
+    default: `WD Logistics | ${COMPANY.motto} — Road Freight Across the SADC Region`,
   },
   description:
-    "WD Logistics (Pvt) Ltd — road freight and haulage across Zimbabwe and the SADC region, based in Mutare. Full loads, part loads, bulk & tipper, and abnormal loads.",
+    "WD Logistics (Pvt) Ltd — road freight and haulage across the SADC region, run from our Mutare base. Full loads, part loads, bulk & tipper, and abnormal loads.",
   authors: [{ name: COMPANY.founder }],
   keywords: [
     "WD Logistics",
     "Wellington Dziruni",
-    "logistics company Zimbabwe",
+    "SADC haulage",
+    "cross-border trucking",
     "trucking company Mutare",
-    "freight transport Zimbabwe",
-    "haulage Zimbabwe",
+    "freight transport Zambia",
+    "freight transport Mozambique",
+    "haulage DR Congo",
+    "haulage South Africa",
   ],
   openGraph: {
     ...DEFAULT_OG,
     url: SITE_URL,
-    title: "WD Logistics | Trucking & Freight Logistics Company in Mutare, Zimbabwe",
+    title: `WD Logistics | ${COMPANY.motto} — Road Freight Across the SADC Region`,
     description:
-      "Road freight and haulage across Zimbabwe and the SADC region, based in Mutare. Full loads, part loads, bulk & tipper, and abnormal loads — same-day quotes on WhatsApp.",
+      "Road freight and haulage across the SADC region, run from our Mutare base. Full loads, part loads, bulk & tipper, and abnormal loads — same-day quotes on WhatsApp.",
   },
   twitter: {
     card: "summary_large_image",
-    title: "WD Logistics | Trucking & Freight Logistics Company in Mutare, Zimbabwe",
+    title: `WD Logistics | ${COMPANY.motto} — Road Freight Across the SADC Region`,
     description:
-      "Road freight and haulage across Zimbabwe and the SADC region, based in Mutare. Same-day quotes on WhatsApp.",
+      "Road freight and haulage across the SADC region, run from our Mutare base. Same-day quotes on WhatsApp.",
     images: ["/images/truck-side-blue.jpg"],
   },
 };

@@ -8,9 +8,9 @@ import { StaggerGroup, StaggerItem } from "@/components/motion/Stagger";
 import { COMPANY, DEFAULT_OG, SITE_URL } from "@/lib/site";
 
 export const metadata: Metadata = {
-  title: "Contact WD Logistics | Freight Transport & Haulage Quotes in Zimbabwe",
+  title: "Contact WD Logistics | Freight Transport & Haulage Quotes Across SADC",
   description:
-    "Get a same-day freight quote from WD Logistics. Call or WhatsApp +263 77 450 8908, email operations@wd-logistics.co.zw, or visit our yard at 1 Tameside Close, Nyakamete, Mutare, Zimbabwe.",
+    "Get a same-day freight quote from WD Logistics for any SADC route. Call or WhatsApp +263 77 450 8908, email operations@wd-logistics.co.zw, or visit our yard at 1 Tameside Close, Nyakamete, Mutare.",
   alternates: { canonical: "/contact" },
   openGraph: {
     ...DEFAULT_OG,

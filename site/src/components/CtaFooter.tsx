@@ -95,8 +95,23 @@ export function CtaFooterFull({
         </div>
 
         <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-end sm:justify-between sm:gap-6">
-          <span className="max-w-full font-heading text-[8vw] font-bold leading-[0.82] tracking-[-0.04em] text-[#15250A] sm:text-[64px] lg:text-[118px] lg:tracking-[-0.05em]">
-            WD&nbsp;LOGISTICS
+          {/* The WD comes straight from the logo artwork (letters only — no
+              Africa outline, no "LOGISTICS" lockup); the word beside it is set
+              in the heading face. The mark keeps its brand green/blue, so it
+              sits on a white plate to stay legible on the green card. */}
+          <span className="flex max-w-full items-center gap-3 sm:gap-4 lg:gap-5">
+            <span className="inline-flex items-center rounded-[14px] bg-white px-3 py-2 sm:rounded-[18px] sm:px-4 sm:py-2.5 lg:rounded-[22px] lg:px-6 lg:py-4">
+              <Image
+                src="/images/wd-mark.svg"
+                alt="WD"
+                width={189}
+                height={99}
+                className="h-[9vw] w-auto sm:h-[44px] lg:h-[82px]"
+              />
+            </span>
+            <span className="font-heading text-[8vw] font-bold leading-[0.82] tracking-[-0.04em] text-[#15250A] sm:text-[52px] lg:text-[96px] lg:tracking-[-0.05em]">
+              LOGISTICS
+            </span>
           </span>
           <span className="shrink-0 text-left font-sans text-xs leading-[1.5] text-[#15250A]/[.78] sm:text-right sm:text-[13px]">
             © {COMPANY.year} {COMPANY.name}
