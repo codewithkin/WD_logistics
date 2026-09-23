@@ -96,12 +96,24 @@ export interface EntityPickerProps {
   value?: string | null;
   onChange: (id: string | null) => void;
   /**
+   * Called alongside onChange with the whole chosen row, including its `data`
+   * bag. Use it where picking one record should prefill others — choosing an
+   * invoice on a payment form, say.
+   */
+  onSelect?: (option: EntityOption | null) => void;
+  /**
    * What to show on the trigger before the picker has loaded the record — the
    * label the parent already knows. Avoids a flash of "Select a truck…" when
    * editing an existing record.
    */
   initialLabel?: string;
   initialDescription?: string;
+  /**
+   * The already-chosen record in full. Equivalent to initialLabel +
+   * initialDescription, and the shape a server page can build straight from a
+   * Prisma include. Takes precedence when both are given.
+   */
+  initialSelected?: EntityOption;
   /** Allows a "None" choice and a clear button. */
   clearable?: boolean;
   /** Label used for the clear option, e.g. "No customer". */
@@ -128,8 +140,10 @@ export function EntityPicker({
   kind,
   value,
   onChange,
+  onSelect,
   initialLabel,
   initialDescription,
+  initialSelected,
   clearable = false,
   clearLabel,
   placeholder,
@@ -148,35 +162,39 @@ export function EntityPicker({
   // The label of the current selection, so the trigger reads as a record and
   // not as an opaque cuid. Seeded from the parent, then kept up to date by
   // whatever the user picks.
-  const [selected, setSelected] = React.useState<EntityOption | null>(
-    value && initialLabel
-      ? { id: value, label: initialLabel, description: initialDescription }
-      : null,
-  );
+  const seed = React.useMemo<EntityOption | null>(() => {
+    if (!value) return null;
+    if (initialSelected && initialSelected.id === value) return initialSelected;
+    if (initialLabel)
+      return { id: value, label: initialLabel, description: initialDescription };
+    return null;
+  }, [value, initialSelected, initialLabel, initialDescription]);
+
+  const [selected, setSelected] = React.useState<EntityOption | null>(seed);
 
   // If the form resets or the parent swaps the value, drop a stale label
   // rather than showing the wrong record's name.
   React.useEffect(() => {
-    if (!value) {
-      setSelected(null);
-    } else if (selected?.id !== value) {
-      setSelected((prev) =>
-        prev?.id === value
-          ? prev
-          : initialLabel
-            ? { id: value, label: initialLabel, description: initialDescription }
-            : null,
-      );
-    }
-    // `selected` is intentionally excluded: this only reacts to the parent.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value, initialLabel, initialDescription]);
+    setSelected((prev) => (prev?.id === value ? prev : seed));
+  }, [value, seed]);
 
   const handlePick = (option: EntityOption | null) => {
     setSelected(option);
     onChange(option?.id ?? null);
+    onSelect?.(option);
     setOpen(false);
   };
+
+  // The dialog pins the selected id into its query, so opening it is enough to
+  // learn the record's label even when the caller supplied none.
+  const handleResolve = React.useCallback(
+    (options: EntityOption[]) => {
+      if (!value) return;
+      const match = options.find((o) => o.id === value);
+      if (match) setSelected((prev) => (prev?.id === value ? prev : match));
+    },
+    [value],
+  );
 
   const triggerText =
     selected?.label ??
@@ -229,13 +247,14 @@ export function EntityPicker({
         kind={kind}
         open={open}
         onOpenChange={setOpen}
-        value={value ?? null}
+        selectedIds={value ? [value] : []}
         onPick={handlePick}
         clearable={clearable}
         clearLabel={clearLabel}
         scope={scope}
         lockedFilters={lockedFilters}
         defaultFilters={defaultFilters}
+        onResolve={handleResolve}
       />
     </div>
   );
@@ -245,26 +264,36 @@ interface DialogProps {
   kind: EntityKind;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  value: string | null;
+  /** Ids currently chosen. One entry for the single picker, many for multi. */
+  selectedIds: string[];
   onPick: (option: EntityOption | null) => void;
+  /** Present for the multi picker; makes rows toggle instead of closing. */
+  multiple?: boolean;
   clearable: boolean;
   clearLabel?: string;
   scope?: { key: string; value: string };
   lockedFilters?: Record<string, string>;
   defaultFilters?: Record<string, string>;
+  /**
+   * Called with every row the dialog loads. Callers use it to learn the label
+   * of an id they were handed without one, so nothing has to be preloaded.
+   */
+  onResolve?: (options: EntityOption[]) => void;
 }
 
 function EntityPickerDialog({
   kind,
   open,
   onOpenChange,
-  value,
+  selectedIds,
   onPick,
+  multiple = false,
   clearable,
   clearLabel,
   scope,
   lockedFilters,
   defaultFilters,
+  onResolve,
 }: DialogProps) {
   const config = ENTITY_CONFIG[kind];
   const badgeType = BADGE_TYPE[kind];
@@ -309,6 +338,12 @@ function EntityPickerDialog({
   }, [open, config.defaultSort]);
 
   const filterKey = JSON.stringify({ filters, lockedFilters });
+  const pinKey = selectedIds.join(",");
+
+  const onResolveRef = React.useRef(onResolve);
+  React.useEffect(() => {
+    onResolveRef.current = onResolve;
+  }, [onResolve]);
 
   React.useEffect(() => {
     if (!open) return;
@@ -322,12 +357,13 @@ function EntityPickerDialog({
       sort,
       page,
       scope,
-      includeIds: value ? [value] : undefined,
+      includeIds: selectedIds.length ? selectedIds : undefined,
     })
       .then((res) => {
         if (cancelled) return;
         setItems(res.items);
         setTotal(res.total);
+        onResolveRef.current?.(res.items);
       })
       .catch((err) => {
         if (cancelled) return;
@@ -343,9 +379,11 @@ function EntityPickerDialog({
     return () => {
       cancelled = true;
     };
-    // `filterKey` stands in for the two filter objects.
+    // `filterKey` stands in for the two filter objects, `pinKey` for the
+    // selected ids; `onResolve` is read through a ref so a new callback
+    // identity on every parent render doesn't re-run the query.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, kind, query, filterKey, sort, page, value, scope?.key, scope?.value]);
+  }, [open, kind, query, filterKey, sort, page, pinKey, scope?.key, scope?.value]);
 
   const pageCount = Math.max(1, Math.ceil(total / ENTITY_PAGE_SIZE));
   const visibleFilters = config.filters.filter(
@@ -508,7 +546,7 @@ function EntityPickerDialog({
               onClick={() => onPick(null)}
               className={cn(
                 "flex w-full items-center gap-3 border-b px-4 py-3 text-left text-sm transition-colors hover:bg-accent/50 sm:px-5",
-                !value && "bg-accent/40",
+                selectedIds.length === 0 && "bg-accent/40",
               )}
             >
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-dashed">
@@ -517,7 +555,9 @@ function EntityPickerDialog({
               <span className="flex-1 text-muted-foreground">
                 {clearLabel ?? `No ${config.singular.toLowerCase()}`}
               </span>
-              {!value ? <Check className="h-4 w-4 text-primary" /> : null}
+              {selectedIds.length === 0 ? (
+                <Check className="h-4 w-4 text-primary" />
+              ) : null}
             </button>
           ) : null}
 
@@ -544,7 +584,7 @@ function EntityPickerDialog({
           ) : (
             <ul className={cn("divide-y", loading && "opacity-60")}>
               {items.map((item) => {
-                const isSelected = item.id === value;
+                const isSelected = selectedIds.includes(item.id);
                 return (
                   <li key={item.id}>
                     <button
@@ -557,6 +597,19 @@ function EntityPickerDialog({
                         isSelected && "bg-accent/40",
                       )}
                     >
+                      {multiple ? (
+                        <span
+                          aria-hidden
+                          className={cn(
+                            "flex h-5 w-5 shrink-0 items-center justify-center rounded border",
+                            isSelected
+                              ? "border-primary bg-primary text-primary-foreground"
+                              : "border-input",
+                          )}
+                        >
+                          {isSelected ? <Check className="h-3.5 w-3.5" /> : null}
+                        </span>
+                      ) : null}
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                           <span className="truncate text-sm font-medium">
@@ -587,7 +640,7 @@ function EntityPickerDialog({
                           {item.meta}
                         </span>
                       ) : null}
-                      {isSelected ? (
+                      {isSelected && !multiple ? (
                         <Check className="h-4 w-4 shrink-0 text-primary" />
                       ) : null}
                     </button>
@@ -597,6 +650,22 @@ function EntityPickerDialog({
             </ul>
           )}
         </div>
+
+        {multiple ? (
+          <div className="flex items-center justify-between gap-3 border-t px-4 py-2.5 sm:px-5">
+            <span className="text-xs text-muted-foreground">
+              {selectedIds.length} selected
+            </span>
+            <Button
+              type="button"
+              size="sm"
+              className="h-9"
+              onClick={() => onOpenChange(false)}
+            >
+              Done
+            </Button>
+          </div>
+        ) : null}
 
         {pageCount > 1 ? (
           <div className="flex items-center justify-between gap-2 border-t px-4 py-2.5 sm:px-5">
@@ -629,5 +698,150 @@ function EntityPickerDialog({
         ) : null}
       </DialogContent>
     </Dialog>
+  );
+}
+
+
+export interface EntityMultiPickerProps {
+  kind: EntityKind;
+  /** Selected record ids, in the order the caller keeps them. */
+  value: string[];
+  onChange: (ids: string[]) => void;
+  /** Labels the caller already knows, so chips render before the first fetch. */
+  initialSelected?: EntityOption[];
+  placeholder?: string;
+  disabled?: boolean;
+  scope?: { key: string; value: string };
+  lockedFilters?: Record<string, string>;
+  defaultFilters?: Record<string, string>;
+  className?: string;
+  hint?: string;
+  id?: string;
+}
+
+/**
+ * The multi-select form of the picker: the same searchable, filterable,
+ * paginated dialog, but rows toggle and the choices show as removable chips.
+ * Used where one record legitimately relates to several others — an expense
+ * split across two trucks, for instance.
+ */
+export function EntityMultiPicker({
+  kind,
+  value,
+  onChange,
+  initialSelected,
+  placeholder,
+  disabled = false,
+  scope,
+  lockedFilters,
+  defaultFilters,
+  className,
+  hint,
+  id,
+}: EntityMultiPickerProps) {
+  const config = ENTITY_CONFIG[kind];
+  const Icon = ICONS[config.icon] ?? TruckIcon;
+  const [open, setOpen] = React.useState(false);
+
+  // Every row the dialog has ever shown, so a chip keeps its label after the
+  // user searches for something else.
+  const [known, setKnown] = React.useState<Record<string, EntityOption>>(() =>
+    Object.fromEntries((initialSelected ?? []).map((o) => [o.id, o])),
+  );
+
+  const handleResolve = React.useCallback((options: EntityOption[]) => {
+    setKnown((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      for (const option of options) {
+        if (!next[option.id]) {
+          next[option.id] = option;
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, []);
+
+  const toggle = (option: EntityOption | null) => {
+    if (!option) {
+      onChange([]);
+      return;
+    }
+    handleResolve([option]);
+    onChange(
+      value.includes(option.id)
+        ? value.filter((v) => v !== option.id)
+        : [...value, option.id],
+    );
+  };
+
+  return (
+    <div className={cn("w-full", className)}>
+      <button
+        type="button"
+        id={id}
+        disabled={disabled}
+        onClick={() => setOpen(true)}
+        className={cn(
+          "flex min-h-10 w-full items-center gap-2 rounded-md border border-input bg-transparent px-3 py-2 text-left text-sm shadow-xs transition-colors",
+          "hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+          "disabled:cursor-not-allowed disabled:opacity-50",
+          value.length > 0 && "border-primary/60",
+        )}
+      >
+        <Icon className="h-4 w-4 shrink-0 opacity-60" />
+        <span className="min-w-0 flex-1">
+          {value.length === 0 ? (
+            <span className="text-muted-foreground">
+              {placeholder ?? `Select ${config.plural.toLowerCase()}`}
+            </span>
+          ) : (
+            <span className="flex flex-wrap gap-1">
+              {value.map((entryId) => (
+                <span
+                  key={entryId}
+                  className="inline-flex max-w-full items-center gap-1 rounded bg-secondary px-1.5 py-0.5 text-xs"
+                >
+                  <span className="truncate">
+                    {known[entryId]?.label ?? "…"}
+                  </span>
+                  <span
+                    role="button"
+                    tabIndex={-1}
+                    aria-label="Remove"
+                    className="shrink-0 rounded-sm opacity-60 hover:opacity-100"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onChange(value.filter((v) => v !== entryId));
+                    }}
+                  >
+                    <X className="h-3 w-3" />
+                  </span>
+                </span>
+              ))}
+            </span>
+          )}
+        </span>
+        <Search className="h-4 w-4 shrink-0 opacity-50" />
+      </button>
+      {hint ? (
+        <p className="mt-1 text-xs text-muted-foreground">{hint}</p>
+      ) : null}
+
+      <EntityPickerDialog
+        kind={kind}
+        open={open}
+        onOpenChange={setOpen}
+        selectedIds={value}
+        onPick={toggle}
+        multiple
+        clearable={false}
+        scope={scope}
+        lockedFilters={lockedFilters}
+        defaultFilters={defaultFilters}
+        onResolve={handleResolve}
+      />
+    </div>
   );
 }

@@ -1,5 +1,4 @@
 import { requireRole } from "@/lib/session";
-import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/layout/page-header";
 import { InvoiceForm } from "../_components/invoice-form";
 
@@ -12,15 +11,10 @@ interface NewInvoicePageProps {
 }
 
 export default async function NewInvoicePage({ searchParams }: NewInvoicePageProps) {
-    const session = await requireRole(["admin", "supervisor"]);
+    await requireRole(["admin", "supervisor"]);
     const params = await searchParams;
 
-    const customers = await prisma.customer.findMany({
-        where: { organizationId: session.organizationId, status: "active" },
-        select: { id: true, name: true },
-        orderBy: { name: "asc" },
-    });
-
+    // The customer picker searches the org itself, so nothing is preloaded.
     // Parse prefilled values from search params
     const prefilledCustomerId = params.customerId || undefined;
     const prefilledAmount = params.amount ? parseFloat(params.amount) : undefined;
@@ -34,7 +28,6 @@ export default async function NewInvoicePage({ searchParams }: NewInvoicePagePro
                 backHref="/finance/invoices"
             />
             <InvoiceForm
-                customers={customers}
                 prefilledCustomerId={prefilledCustomerId}
                 prefilledAmount={prefilledAmount}
                 prefilledTripId={prefilledTripId}

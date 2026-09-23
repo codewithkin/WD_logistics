@@ -8,6 +8,8 @@ import { z } from "zod";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { EntityPicker } from "@/components/ui/entity-picker";
+import type { EntityOption } from "@/lib/entity-picker/config";
 import { Textarea } from "@/components/ui/textarea";
 import {
     Form,
@@ -59,12 +61,15 @@ interface ExpenseFormProps {
         notes: string | null;
         tripExpenses?: Array<{ tripId: string }>;
     };
-    trips: Array<{ id: string; originCity: string; destinationCity: string }>;
-    categories: Array<{ id: string; name: string }>;
+    /** Labels for what the expense already points at; the pickers do the rest. */
+    initialSelected?: {
+        category?: EntityOption;
+        trip?: EntityOption;
+    };
     defaultTripId?: string;
 }
 
-export function ExpenseForm({ expense, trips, categories, defaultTripId }: ExpenseFormProps) {
+export function ExpenseForm({ expense, initialSelected, defaultTripId }: ExpenseFormProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
     const isEditing = !!expense;
@@ -182,20 +187,16 @@ export function ExpenseForm({ expense, trips, categories, defaultTripId }: Expen
                                 render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Category</FormLabel>
-                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                            <FormControl>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Select a category" />
-                                                </SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                {categories.map((category) => (
-                                                    <SelectItem key={category.id} value={category.id}>
-                                                        {category.name}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                        <FormControl>
+                                            <EntityPicker
+                                                kind="expenseCategory"
+                                                value={field.value}
+                                                onChange={(id) => field.onChange(id ?? "")}
+                                                initialSelected={initialSelected?.category}
+                                                defaultFilters={{ appliesTo: "trip" }}
+                                                placeholder="Select a category"
+                                            />
+                                        </FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}
@@ -206,24 +207,17 @@ export function ExpenseForm({ expense, trips, categories, defaultTripId }: Expen
                                 render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Link to Trip (Optional)</FormLabel>
-                                        <Select
-                                            onValueChange={(value) => field.onChange(value === "none" ? "" : value)}
-                                            defaultValue={field.value || "none"}
-                                        >
-                                            <FormControl>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Select a trip" />
-                                                </SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                <SelectItem value="none">No Trip</SelectItem>
-                                                {trips.map((trip) => (
-                                                    <SelectItem key={trip.id} value={trip.id}>
-                                                        {trip.originCity} → {trip.destinationCity}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                        <FormControl>
+                                            <EntityPicker
+                                                kind="trip"
+                                                value={field.value || null}
+                                                onChange={(id) => field.onChange(id ?? "")}
+                                                initialSelected={initialSelected?.trip}
+                                                clearable
+                                                clearLabel="No trip"
+                                                placeholder="Select a trip"
+                                            />
+                                        </FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}

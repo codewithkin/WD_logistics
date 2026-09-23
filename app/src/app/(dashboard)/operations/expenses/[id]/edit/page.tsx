@@ -12,10 +12,23 @@ export default async function EditExpensePage({ params }: EditExpensePageProps) 
     const { id } = await params;
     const session = await requireRole(["admin", "supervisor"]);
 
+    // Only the two records this expense already points at are loaded, to label
+    // the form's pickers. The pickers search for everything else.
     const expense = await prisma.expense.findFirst({
         where: { id, organizationId: session.organizationId },
         include: {
-            tripExpenses: true,
+            category: { select: { id: true, name: true } },
+            tripExpenses: {
+                include: {
+                    trip: {
+                        select: {
+                            originCity: true,
+                            destinationCity: true,
+                            scheduledDate: true,
+                        },
+                    },
+                },
+            },
         },
     });
 
@@ -23,18 +36,7 @@ export default async function EditExpensePage({ params }: EditExpensePageProps) 
         notFound();
     }
 
-    const [trips, categories] = await Promise.all([
-        prisma.trip.findMany({
-            where: { organizationId: session.organizationId },
-            select: { id: true, originCity: true, destinationCity: true },
-            orderBy: { scheduledDate: "desc" },
-        }),
-        prisma.expenseCategory.findMany({
-            where: { organizationId: session.organizationId },
-            select: { id: true, name: true },
-            orderBy: { name: "asc" },
-        }),
-    ]);
+    const linkedTrip = expense.tripExpenses[0];
 
     return (
         <div>
@@ -43,7 +45,21 @@ export default async function EditExpensePage({ params }: EditExpensePageProps) 
                 description="Update expense details"
                 backHref="/operations/expenses"
             />
-            <ExpenseForm expense={expense} trips={trips} categories={categories} />
+            <ExpenseForm
+                expense={expense}
+                initialSelected={{
+                    category: expense.category
+                        ? { id: expense.category.id, label: expense.category.name }
+                        : undefined,
+                    trip: linkedTrip
+                        ? {
+                              id: linkedTrip.tripId,
+                              label: `${linkedTrip.trip.originCity} → ${linkedTrip.trip.destinationCity}`,
+                              description: linkedTrip.trip.scheduledDate.toLocaleDateString("en-GB"),
+                          }
+                        : undefined,
+                }}
+            />
         </div>
     );
 }

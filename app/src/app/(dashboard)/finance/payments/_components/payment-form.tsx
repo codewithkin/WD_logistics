@@ -8,6 +8,8 @@ import { z } from "zod";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { EntityPicker } from "@/components/ui/entity-picker";
+import type { EntityOption } from "@/lib/entity-picker/config";
 import { Textarea } from "@/components/ui/textarea";
 import {
     Form,
@@ -65,38 +67,58 @@ interface PaymentFormProps {
         customMethod: string | null;
         notes: string | null;
     };
-    invoices: Array<{
-        id: string;
-        invoiceNumber: string;
-        total: number;
-        balance: number;
-        customerId: string;
-        customer: { name: string };
-    }>;
-    customers: Array<{
-        id: string;
-        name: string;
-    }>;
+    /**
+     * The invoice and customer this payment already points at, so the pickers
+     * read as names and the invoice summary panel has figures to show before
+     * anything is fetched.
+     */
+    initialSelected?: {
+        invoice?: EntityOption;
+        customer?: EntityOption;
+    };
     defaultInvoiceId?: string;
 }
 
-export function PaymentForm({ payment, invoices, customers, defaultInvoiceId }: PaymentFormProps) {
+/** The figures the invoice summary panel needs, read off a picked row. */
+interface InvoiceSummary {
+    total: number;
+    balance: number;
+    customerName: string | null;
+}
+
+function summaryFrom(option: EntityOption | null | undefined): InvoiceSummary | null {
+    const data = option?.data;
+    if (!data || typeof data.total !== "number" || typeof data.balance !== "number") {
+        return null;
+    }
+    return {
+        total: data.total,
+        balance: data.balance,
+        customerName:
+            typeof data.customerName === "string" ? data.customerName : null,
+    };
+}
+
+export function PaymentForm({ payment, initialSelected, defaultInvoiceId }: PaymentFormProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
     const isEditing = !!payment;
 
-    // Get customerId from selected invoice
-    const getCustomerIdFromInvoice = (invoiceId: string) => {
-        const invoice = invoices.find((i) => i.id === invoiceId);
-        return invoice?.customerId ?? "";
-    };
+    // Figures for the panel under the invoice picker. Seeded from the record
+    // being edited, then replaced whenever a different invoice is picked.
+    const [invoiceSummary, setInvoiceSummary] = useState<InvoiceSummary | null>(
+        () => summaryFrom(initialSelected?.invoice),
+    );
+    const [customerLabel, setCustomerLabel] = useState<EntityOption | undefined>(
+        initialSelected?.customer,
+    );
 
     const form = useForm<PaymentFormData>({
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         resolver: zodResolver(paymentSchema) as any,
         defaultValues: {
             invoiceId: payment?.invoiceId ?? defaultInvoiceId ?? "",
-            customerId: payment?.customerId ?? getCustomerIdFromInvoice(defaultInvoiceId ?? ""),
+            customerId: payment?.customerId ?? initialSelected?.customer?.id ?? "",
             amount: payment?.amount ?? 0,
             paymentDate: payment?.paymentDate ?? new Date(),
             method: (payment?.method as PaymentFormData["method"]) ?? "bank_transfer",
@@ -107,17 +129,20 @@ export function PaymentForm({ payment, invoices, customers, defaultInvoiceId }: 
 
     const selectedInvoiceId = form.watch("invoiceId");
     const selectedMethod = form.watch("method");
-    const selectedInvoice = invoices.find((i) => i.id === selectedInvoiceId);
+    const selectedInvoice = invoiceSummary;
 
-    // Update customerId when invoice changes
-    const handleInvoiceChange = (invoiceId: string) => {
-        if (invoiceId === "__none__") {
-            form.setValue("invoiceId", "");
-            return;
-        }
-        const invoice = invoices.find((i) => i.id === invoiceId);
-        if (invoice) {
-            form.setValue("customerId", invoice.customerId);
+    // Picking an invoice settles which customer is paying, so the customer
+    // picker disappears and its value is filled in from the invoice's own row.
+    const handleInvoicePicked = (option: EntityOption | null) => {
+        setInvoiceSummary(summaryFrom(option));
+        const customerId = option?.data?.customerId;
+        if (typeof customerId === "string") {
+            form.setValue("customerId", customerId);
+            const name = option?.data?.customerName;
+            setCustomerLabel({
+                id: customerId,
+                label: typeof name === "string" ? name : "Customer",
+            });
         }
     };
 
@@ -158,29 +183,20 @@ export function PaymentForm({ payment, invoices, customers, defaultInvoiceId }: 
                             render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>Invoice (Optional)</FormLabel>
-                                    <Select
-                                        onValueChange={(value) => {
-                                            field.onChange(value === "__none__" ? "" : value);
-                                            handleInvoiceChange(value);
-                                        }}
-                                        defaultValue={field.value || "__none__"}
-                                        disabled={isEditing}
-                                    >
-                                        <FormControl>
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Select an invoice (optional)" />
-                                            </SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                            <SelectItem value="__none__">No Invoice (Direct Payment)</SelectItem>
-                                            {invoices.map((invoice) => (
-                                                <SelectItem key={invoice.id} value={invoice.id}>
-                                                    {invoice.invoiceNumber} - {invoice.customer.name} (Balance: $
-                                                    {invoice.balance.toLocaleString()})
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                    <FormControl>
+                                        <EntityPicker
+                                            kind="invoice"
+                                            value={field.value || null}
+                                            onChange={(id) => field.onChange(id ?? "")}
+                                            onSelect={handleInvoicePicked}
+                                            initialSelected={initialSelected?.invoice}
+                                            clearable
+                                            clearLabel="No invoice (direct payment)"
+                                            placeholder="Select an invoice (optional)"
+                                            disabled={isEditing}
+                                            defaultFilters={{ balance: "owing" }}
+                                        />
+                                    </FormControl>
                                     <FormMessage />
                                 </FormItem>
                             )}
@@ -193,24 +209,17 @@ export function PaymentForm({ payment, invoices, customers, defaultInvoiceId }: 
                                 render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Customer</FormLabel>
-                                        <Select
-                                            onValueChange={field.onChange}
-                                            defaultValue={field.value}
-                                            disabled={isEditing}
-                                        >
-                                            <FormControl>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Select a customer" />
-                                                </SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                {customers.map((customer) => (
-                                                    <SelectItem key={customer.id} value={customer.id}>
-                                                        {customer.name}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                        <FormControl>
+                                            <EntityPicker
+                                                kind="customer"
+                                                value={field.value}
+                                                onChange={(id) => field.onChange(id ?? "")}
+                                                onSelect={(option) => setCustomerLabel(option ?? undefined)}
+                                                initialSelected={customerLabel}
+                                                placeholder="Select a customer"
+                                                disabled={isEditing}
+                                            />
+                                        </FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}
@@ -232,7 +241,7 @@ export function PaymentForm({ payment, invoices, customers, defaultInvoiceId }: 
                                     </div>
                                     <div>
                                         <p className="text-sm text-muted-foreground">Customer</p>
-                                        <p className="font-medium">{selectedInvoice.customer.name}</p>
+                                        <p className="font-medium">{selectedInvoice.customerName ?? "—"}</p>
                                     </div>
                                 </div>
                             </div>

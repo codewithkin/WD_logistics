@@ -42,6 +42,13 @@ export interface EntityOption {
   status?: string;
   /** Optional avatar/thumbnail URL. */
   image?: string | null;
+  /**
+   * Entity-specific structured values a caller may need when the record is
+   * picked — an invoice's customer and balance, for instance, so a payment
+   * form can prefill itself without a second round trip. Kept deliberately
+   * small; it is not a substitute for loading the record.
+   */
+  data?: Record<string, string | number | boolean | null>;
   /** Set when the record should be visible but not selectable. */
   disabled?: boolean;
   /** Explains why it is disabled. */

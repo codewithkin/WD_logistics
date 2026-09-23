@@ -1,5 +1,4 @@
 import { requireRole } from "@/lib/session";
-import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/layout/page-header";
 import { ExpenseForm } from "../_components/expense-form";
 
@@ -9,21 +8,10 @@ interface NewExpensePageProps {
 
 export default async function NewExpensePage({ searchParams }: NewExpensePageProps) {
     const params = await searchParams;
-    const session = await requireRole(["admin", "supervisor"]);
+    await requireRole(["admin", "supervisor"]);
 
-    const [trips, categories] = await Promise.all([
-        prisma.trip.findMany({
-            where: { organizationId: session.organizationId },
-            select: { id: true, originCity: true, destinationCity: true },
-            orderBy: { scheduledDate: "desc" },
-        }),
-        prisma.expenseCategory.findMany({
-            where: { organizationId: session.organizationId },
-            select: { id: true, name: true },
-            orderBy: { name: "asc" },
-        }),
-    ]);
-
+    // Trips and categories are no longer preloaded — the form's pickers search
+    // for them, so this page stays the same size whatever the trip count is.
     return (
         <div>
             <PageHeader
@@ -31,7 +19,7 @@ export default async function NewExpensePage({ searchParams }: NewExpensePagePro
                 description="Record a new expense"
                 backHref="/operations/expenses"
             />
-            <ExpenseForm trips={trips} categories={categories} defaultTripId={params.tripId} />
+            <ExpenseForm defaultTripId={params.tripId} />
         </div>
     );
 }

@@ -11,18 +11,14 @@ export default async function NewSupplierPaymentPage({ searchParams }: NewSuppli
     const params = await searchParams;
     const session = await requireRole(["admin", "supervisor"]);
 
-    const suppliers = await prisma.supplier.findMany({
-        where: {
-            organizationId: session.organizationId,
-            status: "active",
-        },
-        select: {
-            id: true,
-            name: true,
-            balance: true,
-        },
-        orderBy: { name: "asc" },
-    });
+    // Only a supplier arrived at via ?supplierId is loaded, to seed the
+    // picker; it searches the org for everything else.
+    const prefilled = params.supplierId
+        ? await prisma.supplier.findFirst({
+              where: { id: params.supplierId, organizationId: session.organizationId },
+              select: { id: true, name: true, balance: true, contactPerson: true },
+          })
+        : null;
 
     return (
         <div>
@@ -31,7 +27,19 @@ export default async function NewSupplierPaymentPage({ searchParams }: NewSuppli
                 description="Record a payment made to a supplier"
                 backHref="/finance/supplier-payments"
             />
-            <SupplierPaymentForm suppliers={suppliers} defaultSupplierId={params.supplierId} />
+            <SupplierPaymentForm
+                defaultSupplierId={prefilled?.id}
+                initialSupplier={
+                    prefilled
+                        ? {
+                              id: prefilled.id,
+                              label: prefilled.name,
+                              description: prefilled.contactPerson ?? undefined,
+                              data: { balance: prefilled.balance },
+                          }
+                        : undefined
+                }
+            />
         </div>
     );
 }

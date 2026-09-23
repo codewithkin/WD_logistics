@@ -7,6 +7,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { EntityPicker } from "@/components/ui/entity-picker";
+import type { EntityOption } from "@/lib/entity-picker/config";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -72,7 +74,8 @@ interface InvoiceFormProps {
         isCredit?: boolean;
         tripId?: string | null;
     };
-    customers: Array<{ id: string; name: string }>;
+    /** The customer the invoice already bills, so the picker reads as a name. */
+    initialCustomer?: EntityOption;
     prefilledCustomerId?: string;
     prefilledAmount?: number;
     prefilledTripId?: string;
@@ -80,7 +83,7 @@ interface InvoiceFormProps {
 
 export function InvoiceForm({
     invoice,
-    customers,
+    initialCustomer,
     prefilledCustomerId,
     prefilledAmount,
     prefilledTripId,
@@ -157,20 +160,15 @@ export function InvoiceForm({
                         render={({ field }) => (
                             <FormItem>
                                 <FormLabel>Customer</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                    <FormControl>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select a customer" />
-                                        </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        {customers.map((customer) => (
-                                            <SelectItem key={customer.id} value={customer.id}>
-                                                {customer.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <FormControl>
+                                    <EntityPicker
+                                        kind="customer"
+                                        value={field.value}
+                                        onChange={(id) => field.onChange(id ?? "")}
+                                        initialSelected={initialCustomer}
+                                        placeholder="Select a customer"
+                                    />
+                                </FormControl>
                                 <FormMessage />
                             </FormItem>
                         )}

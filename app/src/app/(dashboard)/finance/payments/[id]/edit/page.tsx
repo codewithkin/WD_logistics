@@ -33,20 +33,13 @@ export default async function EditPaymentPage({ params }: EditPaymentPageProps) 
         notFound();
     }
 
-    // Build invoices array - include the linked invoice if exists
-    const invoices = payment.invoice ? [
-        {
-            id: payment.invoice.id,
-            invoiceNumber: payment.invoice.invoiceNumber,
-            total: payment.invoice.total,
-            balance: payment.invoice.total - payment.invoice.payments.reduce((sum, p) => sum + p.amount, 0) + payment.amount,
-            customerId: payment.invoice.customerId,
-            customer: payment.invoice.customer,
-        },
-    ] : [];
-
-    // Get customer for the form (in case editing needs it)
-    const customers = [payment.customer];
+    // The balance to show is what the invoice owed *before* this payment, so
+    // the amount being edited reads as available rather than already applied.
+    const invoiceBalanceBeforeThisPayment = payment.invoice
+        ? payment.invoice.total -
+          payment.invoice.payments.reduce((sum, p) => sum + p.amount, 0) +
+          payment.amount
+        : 0;
 
     return (
         <div>
@@ -55,7 +48,28 @@ export default async function EditPaymentPage({ params }: EditPaymentPageProps) 
                 description="Update payment details"
                 backHref="/finance/payments"
             />
-            <PaymentForm payment={payment} invoices={invoices} customers={customers} />
+            <PaymentForm
+                payment={payment}
+                initialSelected={{
+                    invoice: payment.invoice
+                        ? {
+                              id: payment.invoice.id,
+                              label: payment.invoice.invoiceNumber,
+                              description: payment.invoice.customer.name,
+                              data: {
+                                  customerId: payment.invoice.customerId,
+                                  customerName: payment.invoice.customer.name,
+                                  total: payment.invoice.total,
+                                  balance: invoiceBalanceBeforeThisPayment,
+                              },
+                          }
+                        : undefined,
+                    customer: {
+                        id: payment.customer.id,
+                        label: payment.customer.name,
+                    },
+                }}
+            />
         </div>
     );
 }

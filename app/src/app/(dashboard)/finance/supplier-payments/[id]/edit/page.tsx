@@ -17,24 +17,16 @@ export default async function EditSupplierPaymentPage({ params }: EditSupplierPa
             id,
             organizationId: session.organizationId,
         },
+        include: {
+            supplier: {
+                select: { id: true, name: true, balance: true, contactPerson: true },
+            },
+        },
     });
 
     if (!payment) {
         notFound();
     }
-
-    const suppliers = await prisma.supplier.findMany({
-        where: {
-            organizationId: session.organizationId,
-            status: "active",
-        },
-        select: {
-            id: true,
-            name: true,
-            balance: true,
-        },
-        orderBy: { name: "asc" },
-    });
 
     return (
         <div>
@@ -43,7 +35,15 @@ export default async function EditSupplierPaymentPage({ params }: EditSupplierPa
                 description="Update payment details"
                 backHref="/finance/supplier-payments"
             />
-            <SupplierPaymentForm suppliers={suppliers} payment={payment} />
+            <SupplierPaymentForm
+                payment={payment}
+                initialSupplier={{
+                    id: payment.supplier.id,
+                    label: payment.supplier.name,
+                    description: payment.supplier.contactPerson ?? undefined,
+                    data: { balance: payment.supplier.balance },
+                }}
+            />
         </div>
     );
 }

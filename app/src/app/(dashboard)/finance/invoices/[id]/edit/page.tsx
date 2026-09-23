@@ -14,17 +14,14 @@ export default async function EditInvoicePage({ params }: EditInvoicePageProps) 
 
     const invoice = await prisma.invoice.findFirst({
         where: { id, organizationId: session.organizationId },
+        include: {
+            customer: { select: { id: true, name: true, contactPerson: true } },
+        },
     });
 
     if (!invoice) {
         notFound();
     }
-
-    const customers = await prisma.customer.findMany({
-        where: { organizationId: session.organizationId },
-        select: { id: true, name: true },
-        orderBy: { name: "asc" },
-    });
 
     return (
         <div>
@@ -35,7 +32,11 @@ export default async function EditInvoicePage({ params }: EditInvoicePageProps) 
             />
             <InvoiceForm
                 invoice={invoice}
-                customers={customers}
+                initialCustomer={{
+                    id: invoice.customer.id,
+                    label: invoice.customer.name,
+                    description: invoice.customer.contactPerson ?? undefined,
+                }}
             />
         </div>
     );

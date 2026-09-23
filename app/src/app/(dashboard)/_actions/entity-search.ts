@@ -341,6 +341,7 @@ export async function searchEntities(
                 : "Settled"
               : undefined,
             status: c.status,
+            data: { balance: showMoney ? c.balance : 0 },
           }),
         ),
         total,
@@ -399,6 +400,7 @@ export async function searchEntities(
                 : "Settled"
               : undefined,
             status: s.status,
+            data: { balance: showMoney ? s.balance : 0 },
           }),
         ),
         total,
@@ -538,6 +540,12 @@ export async function searchEntities(
               .join(" · "),
             meta: showMoney ? money(t.revenue) : undefined,
             status: t.status,
+            data: {
+              truckId: t.truckId,
+              driverId: t.driverId,
+              customerId: t.customerId,
+              revenue: t.revenue,
+            },
           }),
         ),
         total,
@@ -610,6 +618,12 @@ export async function searchEntities(
               ? `${money(i.balance)} of ${money(i.total)} due`
               : undefined,
             status: i.status,
+            data: {
+              customerId: i.customerId,
+              customerName: i.customer?.name ?? null,
+              total: i.total,
+              balance: i.balance,
+            },
           }),
         ),
         total,

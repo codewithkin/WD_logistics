@@ -1,7 +1,6 @@
 import { PageHeader } from "@/components/layout/page-header";
 import { ExpenseForm } from "../_components/expense-form";
 import { requireRole } from "@/lib/session";
-import prisma from "@/lib/prisma";
 import { canViewExpensesPage } from "@/lib/permissions";
 import { redirect } from "next/navigation";
 
@@ -24,113 +23,10 @@ export default async function NewExpensePage({ searchParams }: NewExpensePagePro
         redirect("/dashboard");
     }
 
-    const [categories, trucks, trailers, trips, drivers, suppliers] = await Promise.all([
-        prisma.expenseCategory.findMany({
-            where: {
-                organizationId: user.organizationId,
-            },
-            select: {
-                id: true,
-                name: true,
-                isTruck: true,
-                isTrip: true,
-                isDriver: true,
-            },
-            orderBy: {
-                name: "asc",
-            },
-        }),
-        prisma.truck.findMany({
-            where: {
-                organizationId: user.organizationId,
-                status: { in: ["active", "in_service"] },
-            },
-            select: {
-                id: true,
-                registrationNo: true,
-                make: true,
-                model: true,
-            },
-            orderBy: {
-                registrationNo: "asc",
-            },
-        }),
-        prisma.trailer.findMany({
-            where: {
-                organizationId: user.organizationId,
-                status: { in: ["active", "in_service"] },
-            },
-            select: {
-                id: true,
-                registrationNo: true,
-                make: true,
-                model: true,
-            },
-            orderBy: {
-                registrationNo: "asc",
-            },
-        }),
-        prisma.trip.findMany({
-            where: {
-                organizationId: user.organizationId,
-                status: { in: ["scheduled", "in_progress", "completed"] },
-                scheduledDate: {
-                    gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // Last 30 days
-                },
-            },
-            select: {
-                id: true,
-                originCity: true,
-                destinationCity: true,
-                scheduledDate: true,
-                truck: {
-                    select: {
-                        registrationNo: true,
-                    },
-                },
-                driver: {
-                    select: {
-                        firstName: true,
-                        lastName: true,
-                    },
-                },
-            },
-            orderBy: {
-                scheduledDate: "desc",
-            },
-        }),
-        prisma.driver.findMany({
-            where: {
-                organizationId: user.organizationId,
-                status: "active",
-            },
-            select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                phone: true,
-                licenseNumber: true,
-            },
-            orderBy: {
-                firstName: "asc",
-            },
-        }),
-        prisma.supplier.findMany({
-            where: {
-                organizationId: user.organizationId,
-                status: "active",
-            },
-            select: {
-                id: true,
-                name: true,
-            },
-            orderBy: {
-                name: "asc",
-            },
-        }),
-    ]);
-
-    // Parse prefilled values from search params
+    // Categories, trucks, trailers, trips, drivers and suppliers used to be
+    // preloaded here. The form's pickers search for them instead — which also
+    // removes the old 30-day cut-off on the trip list, so an expense can now be
+    // attached to a trip that ran last quarter.
     const prefilledTripId = params.tripId || undefined;
     const prefilledTruckId = params.truckId || undefined;
     const prefilledDriverId = params.driverId || undefined;
@@ -145,12 +41,6 @@ export default async function NewExpensePage({ searchParams }: NewExpensePagePro
             />
             <div className="w-full">
                 <ExpenseForm
-                    categories={categories}
-                    trucks={trucks}
-                    trailers={trailers}
-                    trips={trips}
-                    drivers={drivers}
-                    suppliers={suppliers}
                     prefilledTripId={prefilledTripId}
                     prefilledTruckId={prefilledTruckId}
                     prefilledDriverId={prefilledDriverId}

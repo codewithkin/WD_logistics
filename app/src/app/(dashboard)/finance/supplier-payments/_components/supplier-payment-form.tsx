@@ -7,6 +7,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { EntityPicker } from "@/components/ui/entity-picker";
+import type { EntityOption } from "@/lib/entity-picker/config";
 import { Textarea } from "@/components/ui/textarea";
 import {
     Select,
@@ -46,14 +48,9 @@ const supplierPaymentSchema = z.object({
 
 type SupplierPaymentFormData = z.infer<typeof supplierPaymentSchema>;
 
-interface Supplier {
-    id: string;
-    name: string;
-    balance: number;
-}
-
 interface SupplierPaymentFormProps {
-    suppliers: Supplier[];
+    /** The supplier already being paid, so the picker reads as a name. */
+    initialSupplier?: EntityOption;
     defaultSupplierId?: string;
     payment?: {
         id: string;
@@ -68,7 +65,7 @@ interface SupplierPaymentFormProps {
     };
 }
 
-export function SupplierPaymentForm({ suppliers, defaultSupplierId, payment }: SupplierPaymentFormProps) {
+export function SupplierPaymentForm({ initialSupplier, defaultSupplierId, payment }: SupplierPaymentFormProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
     const isEditing = !!payment;
@@ -88,8 +85,15 @@ export function SupplierPaymentForm({ suppliers, defaultSupplierId, payment }: S
     });
 
     const selectedMethod = form.watch("method");
-    const selectedSupplierId = form.watch("supplierId");
-    const selectedSupplier = suppliers.find(s => s.id === selectedSupplierId);
+    // What the picked supplier is owed, read off the picker's own row so the
+    // hint under the amount field needs no extra fetch.
+    const [selectedSupplier, setSelectedSupplier] = useState<EntityOption | undefined>(
+        initialSupplier,
+    );
+    const supplierBalance =
+        typeof selectedSupplier?.data?.balance === "number"
+            ? selectedSupplier.data.balance
+            : 0;
 
     const onSubmit = async (data: SupplierPaymentFormData) => {
         setIsLoading(true);
@@ -140,29 +144,17 @@ export function SupplierPaymentForm({ suppliers, defaultSupplierId, payment }: S
                                 render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Supplier</FormLabel>
-                                        <Select
-                                            onValueChange={field.onChange}
-                                            defaultValue={field.value}
-                                            disabled={isEditing}
-                                        >
-                                            <FormControl>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Select supplier" />
-                                                </SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                {suppliers.map((supplier) => (
-                                                    <SelectItem key={supplier.id} value={supplier.id}>
-                                                        {supplier.name}
-                                                        {supplier.balance > 0 && (
-                                                            <span className="text-muted-foreground ml-2">
-                                                                (Owed: ${supplier.balance.toLocaleString()})
-                                                            </span>
-                                                        )}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                        <FormControl>
+                                            <EntityPicker
+                                                kind="supplier"
+                                                value={field.value}
+                                                onChange={(id) => field.onChange(id ?? "")}
+                                                onSelect={(option) => setSelectedSupplier(option ?? undefined)}
+                                                initialSelected={initialSupplier}
+                                                placeholder="Select supplier"
+                                                disabled={isEditing}
+                                            />
+                                        </FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}
@@ -183,9 +175,9 @@ export function SupplierPaymentForm({ suppliers, defaultSupplierId, payment }: S
                                                 onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
                                             />
                                         </FormControl>
-                                        {selectedSupplier && selectedSupplier.balance > 0 && (
+                                        {supplierBalance > 0 && (
                                             <p className="text-sm text-muted-foreground">
-                                                Balance owed: ${selectedSupplier.balance.toLocaleString()}
+                                                Balance owed: ${supplierBalance.toLocaleString()}
                                             </p>
                                         )}
                                         <FormMessage />
