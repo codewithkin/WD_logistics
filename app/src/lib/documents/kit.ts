@@ -20,6 +20,7 @@ import {
   LAYOUT,
   TYPE,
   companyDetails,
+  dateRangeLabel,
   logoDataUrl,
   money,
   shortDate,
@@ -29,7 +30,7 @@ import {
 } from "@/lib/documents/brand";
 
 export type { CompanyDetails, OrganizationLike };
-export { BRAND, LAYOUT, TYPE, money, shortDate };
+export { BRAND, LAYOUT, TYPE, dateRangeLabel, money, shortDate };
 
 export interface DocContext {
   doc: jsPDF;

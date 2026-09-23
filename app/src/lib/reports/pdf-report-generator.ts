@@ -7,6 +7,18 @@
 
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
+import {
+  createDocument,
+  dateRangeLabel,
+  drawHeader,
+  drawKpiRow,
+  drawNotes,
+  drawPeriodLine,
+  drawTable,
+  finalise,
+  shortDate as kitShortDate,
+  type OrganizationLike,
+} from "@/lib/documents/kit";
 
 // Extend jsPDF type to include autoTable
 declare module "jspdf" {
@@ -32,8 +44,22 @@ export interface ReportColumn {
 
 export interface ReportSection {
   title: string;
-  columns: ReportColumn[];
-  data: Record<string, unknown>[];
+  /** Tabular form. Omit when using `rows`. */
+  columns?: ReportColumn[];
+  data?: Record<string, unknown>[];
+  /**
+   * The simple label/value form, for sections that are a list of figures
+   * rather than a table — the dashboard summary's "Fleet Management" block,
+   * say. Several call sites were already passing this shape; the type never
+   * admitted it, so those sections were a type error that shipped and drew
+   * nothing.
+   */
+  rows?: Array<{
+    label: string;
+    value: string | number;
+    /** Formats the value as money rather than a plain number. */
+    isCurrency?: boolean;
+  }>;
   showTotal?: boolean;
   totalLabel?: string;
   totalColumns?: string[];
@@ -130,278 +156,167 @@ function formatValue(value: unknown, format?: string): string {
 // PDF GENERATOR CLASS
 // ============================================================================
 
+/**
+ * Renders a ReportConfig onto the shared document kit.
+ *
+ * This class used to draw its own black-and-white, Times-set "accounting"
+ * layout — which is why every report, statement and list export in the app
+ * looked nothing like the receipt the client praised. The public surface is
+ * deliberately unchanged (construct with a ReportConfig, call generate), so
+ * the ~25 existing callers were restyled without being edited.
+ *
+ * The signature block the old renderer put on every report is gone. A report
+ * is an internal document; nobody signs a fleet utilisation summary. The
+ * invoice and receipt, which genuinely are handed over, keep theirs.
+ */
 export class PDFReportGenerator {
-  private doc: jsPDF;
-  private pageWidth: number;
-  private pageHeight: number;
-  private margin: number;
-  private contentWidth: number;
-  private currentY: number;
   private config: ReportConfig;
-  private pageNumber: number;
+  private organization: OrganizationLike | null;
 
-  constructor(config: ReportConfig) {
+  constructor(config: ReportConfig, organization?: OrganizationLike | null) {
     this.config = {
       companyName: "WD Logistics",
       ...config,
     };
-    
-    this.doc = new jsPDF({
-      orientation: "portrait",
-      unit: "mm",
-      format: "a4",
-    });
-    
-    this.pageWidth = this.doc.internal.pageSize.getWidth();
-    this.pageHeight = this.doc.internal.pageSize.getHeight();
-    this.margin = 20;
-    this.contentWidth = this.pageWidth - 2 * this.margin;
-    this.currentY = this.margin;
-    this.pageNumber = 1;
+    this.organization = organization ?? null;
   }
 
-  private renderHeader(): void {
-    const { companyName, title, subtitle, period } = this.config;
+  /** Formats a cell according to its column's declared format. */
+  private formatCell(value: unknown, format?: ReportColumn["format"]): string {
+    if (value === null || value === undefined || value === "") return "—";
 
-    // Company Name - simple bold text
-    this.doc.setFontSize(16);
-    this.doc.setFont("times", "bold");
-    this.doc.setTextColor(0, 0, 0);
-    this.doc.text(companyName!, this.margin, this.currentY);
-    this.currentY += 8;
-
-    // Simple underline
-    this.doc.setDrawColor(0, 0, 0);
-    this.doc.setLineWidth(0.5);
-    this.doc.line(this.margin, this.currentY, this.pageWidth - this.margin, this.currentY);
-    this.currentY += 12;
-
-    // Report Title - centered, bold
-    this.doc.setFontSize(14);
-    this.doc.setFont("times", "bold");
-    this.doc.text(title.toUpperCase(), this.pageWidth / 2, this.currentY, { align: "center" });
-    this.currentY += 7;
-
-    // Subtitle if exists
-    if (subtitle) {
-      this.doc.setFontSize(11);
-      this.doc.setFont("times", "normal");
-      this.doc.text(subtitle, this.pageWidth / 2, this.currentY, { align: "center" });
-      this.currentY += 6;
+    switch (format) {
+      case "currency":
+        return formatCurrency(value as number);
+      case "percentage":
+        return formatPercentage(value as number);
+      case "number":
+        return formatNumber(value as number);
+      case "date":
+        return kitShortDate(value as Date | string);
+      default:
+        return String(value);
     }
-
-    // Period
-    this.doc.setFontSize(10);
-    this.doc.setFont("times", "normal");
-    const periodText = `For the period: ${formatDate(period.startDate)} to ${formatDate(period.endDate)}`;
-    this.doc.text(periodText, this.pageWidth / 2, this.currentY, { align: "center" });
-    this.currentY += 12;
-  }
-
-  private renderSummary(): void {
-    if (!this.config.summary || this.config.summary.length === 0) return;
-
-    // Summary Section Header
-    this.doc.setFontSize(11);
-    this.doc.setFont("times", "bold");
-    this.doc.text("Summary", this.margin, this.currentY);
-    this.currentY += 6;
-
-    // Simple summary lines
-    this.doc.setFontSize(10);
-    this.doc.setFont("times", "normal");
-
-    this.config.summary.forEach((item) => {
-      const formattedValue = formatValue(item.value, item.format);
-      const label = `${item.label}:`;
-      
-      this.doc.text(label, this.margin + 5, this.currentY);
-      this.doc.text(formattedValue, this.margin + 70, this.currentY);
-      this.currentY += 5;
-    });
-
-    this.currentY += 8;
-  }
-
-  private renderSections(): void {
-    this.config.sections.forEach((section) => {
-      // Check if we need a new page
-      if (this.currentY > this.pageHeight - 50) {
-        this.addNewPage();
-      }
-
-      // Section Title
-      this.doc.setFontSize(11);
-      this.doc.setFont("times", "bold");
-      this.doc.text(section.title, this.margin, this.currentY);
-      this.currentY += 6;
-
-      // Prepare table data
-      const headers = section.columns.map((col) => col.header);
-      const body = section.data.map((row) =>
-        section.columns.map((col) => formatValue(row[col.key], col.format))
-      );
-
-      // Add totals row if needed
-      if (section.showTotal && section.totalColumns) {
-        const totals = section.columns.map((col) => {
-          if (section.totalColumns?.includes(col.key)) {
-            const sum = section.data.reduce((acc, row) => {
-              const val = row[col.key];
-              return acc + (typeof val === "number" ? val : 0);
-            }, 0);
-            return formatValue(sum, col.format);
-          }
-          return "";
-        });
-        totals[0] = section.totalLabel || "Total";
-        body.push(totals);
-      }
-
-      // Column alignment
-      const columnStyles: Record<number, { halign: "left" | "center" | "right" }> = {};
-      section.columns.forEach((col, index) => {
-        if (col.align) {
-          columnStyles[index] = { halign: col.align };
-        } else if (col.format === "currency" || col.format === "number" || col.format === "percentage") {
-          columnStyles[index] = { halign: "right" };
-        }
-      });
-
-      // Render simple table with borders
-      autoTable(this.doc, {
-        startY: this.currentY,
-        head: [headers],
-        body: body,
-        theme: "grid",
-        styles: {
-          fontSize: 9,
-          font: "times",
-          cellPadding: 2,
-          lineColor: [0, 0, 0],
-          lineWidth: 0.2,
-          textColor: [0, 0, 0],
-        },
-        headStyles: {
-          fillColor: [255, 255, 255],
-          textColor: [0, 0, 0],
-          fontStyle: "bold",
-          lineWidth: 0.2,
-        },
-        bodyStyles: {
-          fillColor: [255, 255, 255],
-        },
-        columnStyles,
-        margin: { left: this.margin, right: this.margin },
-        didDrawPage: () => {
-          this.renderPageFooter();
-        },
-        willDrawCell: (data) => {
-          // Bold the totals row
-          if (section.showTotal && data.row.index === body.length - 1 && data.section === "body") {
-            data.cell.styles.fontStyle = "bold";
-          }
-        },
-      });
-
-      this.currentY = this.doc.lastAutoTable.finalY + 10;
-    });
-  }
-
-  private renderNotes(): void {
-    if (!this.config.notes || this.config.notes.length === 0) return;
-
-    // Check if we need a new page
-    if (this.currentY > this.pageHeight - 40) {
-      this.addNewPage();
-    }
-
-    // Notes Header
-    this.doc.setFontSize(11);
-    this.doc.setFont("times", "bold");
-    this.doc.text("Notes:", this.margin, this.currentY);
-    this.currentY += 6;
-
-    // Notes content
-    this.doc.setFontSize(9);
-    this.doc.setFont("times", "normal");
-
-    this.config.notes.forEach((note, index) => {
-      const noteText = `${index + 1}. ${note}`;
-      const lines = this.doc.splitTextToSize(noteText, this.contentWidth - 10);
-      
-      lines.forEach((line: string) => {
-        if (this.currentY > this.pageHeight - 25) {
-          this.addNewPage();
-        }
-        this.doc.text(line, this.margin + 5, this.currentY);
-        this.currentY += 4;
-      });
-      this.currentY += 2;
-    });
-  }
-
-  private renderPageFooter(): void {
-    const footerY = this.pageHeight - 10;
-    
-    // Simple footer line
-    this.doc.setDrawColor(0, 0, 0);
-    this.doc.setLineWidth(0.3);
-    this.doc.line(this.margin, footerY - 5, this.pageWidth - this.margin, footerY - 5);
-
-    // Page number
-    this.doc.setFontSize(9);
-    this.doc.setFont("times", "normal");
-    this.doc.text(
-      `Page ${this.pageNumber}`,
-      this.pageWidth / 2,
-      footerY,
-      { align: "center" }
-    );
-
-    // Date on right
-    this.doc.text(
-      formatShortDate(new Date()),
-      this.pageWidth - this.margin,
-      footerY,
-      { align: "right" }
-    );
-  }
-
-  private addNewPage(): void {
-    this.doc.addPage();
-    this.pageNumber++;
-    this.currentY = this.margin;
-  }
-
-  private renderSignature(): void {
-    if (this.currentY > this.pageHeight - 50) {
-      this.addNewPage();
-    }
-
-    this.currentY += 15;
-
-    // Prepared by section
-    this.doc.setFontSize(10);
-    this.doc.setFont("times", "normal");
-    
-    this.doc.text("Prepared by: _______________________", this.margin, this.currentY);
-    this.doc.text("Date: _____________", this.margin + 100, this.currentY);
-    this.currentY += 12;
-    
-    this.doc.text("Approved by: _______________________", this.margin, this.currentY);
-    this.doc.text("Date: _____________", this.margin + 100, this.currentY);
   }
 
   public generate(): Uint8Array {
-    this.renderHeader();
-    this.renderSummary();
-    this.renderSections();
-    this.renderNotes();
-    this.renderSignature();
-    this.renderPageFooter();
+    const ctx = createDocument({
+      organization: this.organization,
+      title: this.config.title,
+    });
 
-    return this.doc.output("arraybuffer") as unknown as Uint8Array;
+    drawHeader(ctx, {
+      title: this.config.title,
+      metaLines: this.config.subtitle ? [this.config.subtitle] : [],
+    });
+
+    drawPeriodLine(
+      ctx,
+      `Period: ${dateRangeLabel(
+        this.config.period.startDate,
+        this.config.period.endDate,
+      )}`,
+    );
+
+    // The summary becomes the KPI row across the top, which is the figure
+    // set a reader wants before any table.
+    if (this.config.summary && this.config.summary.length > 0) {
+      drawKpiRow(
+        ctx,
+        this.config.summary.map((item) => ({
+          label: item.label,
+          value:
+            item.format === "currency"
+              ? formatCurrency(item.value as number)
+              : item.format === "percentage"
+                ? formatPercentage(item.value as number)
+                : item.format === "number"
+                  ? formatNumber(item.value as number)
+                  : String(item.value),
+        })),
+      );
+    }
+
+    for (const section of this.config.sections) {
+      // The label/value form renders as a two-column table, which keeps one
+      // table style across the whole document.
+      if (section.rows) {
+        drawTable(
+          ctx,
+          [
+            { header: "Item", key: "label" },
+            { header: "Value", key: "value", align: "right", width: 40 },
+          ],
+          section.rows.map((row) => ({
+            label: row.label,
+            value: row.isCurrency
+              ? formatCurrency(row.value as number)
+              : typeof row.value === "number"
+                ? formatNumber(row.value)
+                : row.value,
+          })),
+          { title: section.title, emptyMessage: "Nothing recorded." },
+        );
+        continue;
+      }
+
+      const columns = section.columns ?? [];
+      const data = section.data ?? [];
+
+      // A section with no rows says so rather than printing a bare header,
+      // which used to look like the report had failed.
+      const rows = data.map((row) => {
+        const mapped: Record<string, string | number> = {};
+        for (const column of columns) {
+          mapped[column.key] = this.formatCell(row[column.key], column.format);
+        }
+        return mapped;
+      });
+
+      let foot: Array<string | number> | undefined;
+      if (section.showTotal && data.length > 0) {
+        const totalColumns = new Set(section.totalColumns ?? []);
+        foot = columns.map((column, index) => {
+          if (index === 0) return section.totalLabel ?? "Total";
+          if (!totalColumns.has(column.key)) return "";
+          const sum = data.reduce((total, row) => {
+            const value = row[column.key];
+            const numeric =
+              typeof value === "number" ? value : parseFloat(String(value));
+            return total + (Number.isNaN(numeric) ? 0 : numeric);
+          }, 0);
+          return this.formatCell(sum, column.format);
+        });
+      }
+
+      drawTable(
+        ctx,
+        columns.map((column) => ({
+          header: column.header,
+          key: column.key,
+          align:
+            column.align ??
+            (column.format === "currency" ||
+            column.format === "number" ||
+            column.format === "percentage"
+              ? "right"
+              : "left"),
+          width: column.width,
+        })),
+        rows,
+        {
+          title: section.title,
+          foot,
+          emptyMessage: "No data for this period.",
+        },
+      );
+    }
+
+    if (this.config.notes && this.config.notes.length > 0) {
+      drawNotes(ctx, "Notes", this.config.notes.join("\n"));
+    }
+
+    return finalise(ctx, { docNo: this.config.title });
   }
 }
 
