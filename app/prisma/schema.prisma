@@ -42,6 +42,8 @@ model User {
   maintenanceRequestsAssigned MaintenanceRequest[] @relation("MaintenanceRequestAssigned")
   maintenanceRequestsAssignedBy MaintenanceRequest[] @relation("MaintenanceRequestAssignedBy")
   stockMovements              StockMovement[]
+  assignmentsStarted          DriverTruckAssignment[] @relation("AssignmentStarted")
+  assignmentsEnded            DriverTruckAssignment[] @relation("AssignmentEnded")
 
   @@map("user")
 }
@@ -149,6 +151,7 @@ model Organization {
   expiryReminders   ExpiryReminder[]
   stockMovements    StockMovement[]
   editRequests      EditRequest[]
+  driverAssignments DriverTruckAssignment[]
 
   @@map("organization")
 }
@@ -258,6 +261,7 @@ model Truck {
   assignedDriver       Driver?  @relation("AssignedTruck")
   assignedTrailer      Trailer? @relation("AssignedTrailer")
   maintenanceRequests  MaintenanceRequest[]
+  driverAssignments    DriverTruckAssignment[]
 
   @@unique([organizationId, registrationNo])
   @@index([organizationId, status])
@@ -290,6 +294,41 @@ model Trailer {
   @@unique([organizationId, registrationNo])
   @@index([organizationId, status])
   @@map("trailer")
+}
+
+// A period during which one driver had one truck.
+//
+// Driver.assignedTruckId only ever knew who has what *now*, so "what did this
+// driver earn while they had ABC 222" was unanswerable — the history was
+// thrown away on every reassignment. Each switch closes one row and opens
+// another, which is what makes the per-truck snapshots on a driver's
+// performance page possible.
+model DriverTruckAssignment {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  driverId       String
+  driver         Driver   @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  truckId        String
+  truck          Truck    @relation(fields: [truckId], references: [id], onDelete: Cascade)
+
+  startDate      DateTime
+  /** Null while this is the driver's current truck. */
+  endDate        DateTime?
+
+  startedById    String?
+  startedBy      User?    @relation("AssignmentStarted", fields: [startedById], references: [id])
+  endedById      String?
+  endedBy        User?    @relation("AssignmentEnded", fields: [endedById], references: [id])
+
+  /** reassigned | unassigned | driver_terminated | truck_decommissioned | backfill */
+  endReason      String?
+  createdAt      DateTime @default(now())
+
+  @@index([driverId, startDate])
+  @@index([truckId, startDate])
+  @@index([organizationId, startDate])
+  @@map("driver_truck_assignment")
 }
 
 // =============================================================================
@@ -392,6 +431,7 @@ model Driver {
   assignedTruck   Truck?    @relation("AssignedTruck", fields: [assignedTruckId], references: [id])
   trips           Trip[]
   driverExpenses  DriverExpense[]
+  truckAssignments DriverTruckAssignment[]
 
   @@map("driver")
 }
