@@ -619,6 +619,7 @@ model Trip {
 
   tripExpenses       TripExpense[]
   invoices           Invoice[]
+  notifications      Notification[]
 
   @@index([organizationId, status])
   @@index([organizationId, scheduledDate])
@@ -936,17 +937,43 @@ model Report {
 // NOTIFICATION LOG
 // =============================================================================
 
+// The outbound WhatsApp log — one row per message the system tried to send a
+// driver or customer. Distinct from UserNotification, which is the in-app
+// bell for dashboard users.
+//
+// The point of the extra columns: a driver turning up saying "what WhatsApp
+// message?" used to be unanswerable, because sending was fire-and-forget. The
+// trip page can now say sent, delivered, read or failed-and-why.
 model Notification {
   id             String    @id @default(cuid())
+  organizationId String?
   type           String    // trip_assignment, invoice_reminder, payment_received, general
   recipientPhone String
+  /** Who it was addressed to, so the UI needn't resolve the number. */
+  recipientName  String?
   message        String
-  status         String    @default("pending") // pending, sent, failed
+  /** pending | sent | delivered | read | failed */
+  status         String    @default("pending")
   sentAt         DateTime?
+  /** Set from the agent's message_ack listener. */
+  deliveredAt    DateTime?
+  readAt         DateTime?
+  /** WhatsApp's own message id, which is what an ack refers back to. */
+  waMessageId    String?   @unique
   error          String?
-  metadata       Json?
-  createdAt      DateTime  @default(now())
 
+  tripId         String?
+  trip           Trip?     @relation(fields: [tripId], references: [id], onDelete: SetNull)
+
+  metadata       Json?
+  /** When the recipient replied, where a workflow expects one. */
+  responseAt     DateTime?
+  responseData   String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt @default(now())
+
+  @@index([tripId])
+  @@index([organizationId, createdAt])
   @@map("notification")
 }
 
