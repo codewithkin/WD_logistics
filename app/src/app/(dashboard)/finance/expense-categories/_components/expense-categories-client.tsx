@@ -34,6 +34,14 @@ import {
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
 import { EntityPicker } from "@/components/ui/entity-picker";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import { COST_KINDS, COST_KIND_LABELS } from "@/lib/metrics/cost-kinds";
 import { formatCurrency } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -54,6 +62,7 @@ const categorySchema = z.object({
     isDriver: z.boolean(),
     color: z.string().optional(),
     defaultAccountId: z.string().optional(),
+    kind: z.string().optional(),
 });
 
 interface Category {
@@ -65,6 +74,7 @@ interface Category {
     isDriver: boolean;
     color: string | null;
     defaultAccountId: string | null;
+    kind: string | null;
     _count: {
         expenses: number;
     };
@@ -125,6 +135,7 @@ export function ExpenseCategoriesClient({ categories, accounts, role, periodLabe
             isDriver: false,
             color: predefinedColors[0],
             defaultAccountId: undefined,
+            kind: undefined,
         },
     });
 
@@ -151,6 +162,7 @@ export function ExpenseCategoriesClient({ categories, accounts, role, periodLabe
             isDriver: category.isDriver,
             color: category.color || predefinedColors[0],
             defaultAccountId: category.defaultAccountId || undefined,
+            kind: category.kind ?? undefined,
         });
     };
 
@@ -313,6 +325,43 @@ export function ExpenseCategoriesClient({ categories, accounts, role, periodLabe
                         )}
                     />
                 </div>
+
+                <FormField
+                    control={form.control}
+                    name="kind"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Cost type</FormLabel>
+                            <Select
+                                value={field.value || "untagged"}
+                                onValueChange={(value) =>
+                                    field.onChange(value === "untagged" ? "" : value)
+                                }
+                            >
+                                <FormControl>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Not tagged" />
+                                    </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    <SelectItem value="untagged">Not tagged</SelectItem>
+                                    {COST_KINDS.map((costKind) => (
+                                        <SelectItem key={costKind} value={costKind}>
+                                            {COST_KIND_LABELS[costKind]}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <FormDescription>
+                                What kind of cost this is, whatever it is called. Reports
+                                group by this rather than by name, so a truck&apos;s fuel
+                                spend is found even if the category is called
+                                &ldquo;Diesel&rdquo;.
+                            </FormDescription>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
 
                 <FormField
                     control={form.control}

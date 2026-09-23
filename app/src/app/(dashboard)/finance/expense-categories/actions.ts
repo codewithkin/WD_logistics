@@ -18,6 +18,11 @@ export interface ExpenseCategoryFormData {
   color?: string;
   icon?: string;
   defaultAccountId?: string | null;
+  /**
+   * What kind of cost this is, independent of its name — see the schema.
+   * Drives the fuel and downtime figures on the truck cost breakdown.
+   */
+  kind?: string | null;
 }
 
 export async function createExpenseCategory(data: ExpenseCategoryFormData) {
@@ -48,6 +53,7 @@ export async function createExpenseCategory(data: ExpenseCategoryFormData) {
       color: data.color,
       icon: data.icon,
       defaultAccountId: data.defaultAccountId || null,
+      kind: data.kind || null,
     },
   });
 
@@ -94,6 +100,7 @@ export async function updateExpenseCategory(id: string, data: ExpenseCategoryFor
       color: data.color,
       icon: data.icon,
       defaultAccountId: data.defaultAccountId || null,
+      kind: data.kind || null,
     },
   });
 

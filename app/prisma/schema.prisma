@@ -621,6 +621,16 @@ model ExpenseCategory {
   isTrip         Boolean  @default(false)
   isTruck        Boolean  @default(false)
   isDriver       Boolean  @default(false)
+  /**
+   * What kind of cost this is, independent of what the admin named it:
+   * fuel | maintenance | tyres | tolls | permits | salaries | insurance | other
+   *
+   * The truck cost breakdown needs to answer "is the problem fuel economy or
+   * time in the workshop", and it cannot do that by matching on category
+   * names — one fleet's "Diesel" is another's "Fuel & lubricants". Plain
+   * string with the values listed here, per this schema's convention.
+   */
+  kind           String?
   color          String?
   icon           String?
   createdAt      DateTime @default(now())
