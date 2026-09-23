@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
+import { notifyByTierKey } from "@/lib/notifications";
 import { ACCOUNT_TYPES, AccountType, InsufficientBalanceError } from "@/lib/accounts";
 import { ensureAccountsExist, recordManualMovement, transferFunds } from "@/lib/accounts-server";
 
@@ -118,9 +119,37 @@ export async function recordAccountMovementAction(data: {
     return { success: false, error: "Failed to record this entry" };
   }
 
+  // Money moving in or out of the three accounts is exactly what an admin
+  // wants told about without opening the ledger.
+  const isLargeWithdrawal = data.direction === "withdrawal" && amount >= 1000;
+  if (data.direction === "deposit" || isLargeWithdrawal) {
+    await notifyByTierKey({
+      key: data.direction === "deposit" ? "account_money_in" : "account_large_money_out",
+      organizationId: session.organizationId,
+      title:
+        data.direction === "deposit"
+          ? `Money in: ${account.name}`
+          : `Large withdrawal: ${account.name}`,
+      message: `${formatMoney(amount)} ${
+        data.direction === "deposit" ? "into" : "out of"
+      } ${account.name} by ${session.user.name} — ${description}`,
+      link: "/finance/accounts",
+      excludeUserEmails: [session.user.email],
+      metadata: { accountType: data.accountType, amount, direction: data.direction },
+    });
+  }
+
   revalidatePath("/finance/accounts");
   revalidatePath("/finance/expenses");
   return { success: true };
+}
+
+/** Consistent money formatting for notification text. */
+function formatMoney(amount: number): string {
+  return `$${amount.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
 }
 
 /**

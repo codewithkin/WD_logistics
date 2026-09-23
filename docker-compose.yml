@@ -106,9 +106,13 @@ services:
       R2_PUBLIC_URL: ${R2_PUBLIC_URL:-}
 
       # Native web push (see app/src/lib/push.ts)
+      # Read at runtime by /api/push/public-key, so a missed build arg no
+      # longer ships an image that cannot subscribe anyone.
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
       NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${NEXT_PUBLIC_VAPID_PUBLIC_KEY:-}
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
-      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:admin@example.com}
+      # Apple rejects placeholder subjects; set a real address in .env.
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:operations@wd-logistics.co.zw}
 
       # WhatsApp (this app's own client — Settings -> WhatsApp; separate
       # from the agent's bot) + notification routing

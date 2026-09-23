@@ -4,6 +4,7 @@ import { SessionProvider } from "@/components/providers/session-provider";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { prisma } from "@/lib/prisma";
+import { PushSync } from "@/components/providers/push-sync";
 
 export default async function DashboardLayout({
     children,
@@ -17,6 +18,7 @@ export default async function DashboardLayout({
     // serialize two database round-trips before the shell can render.
     const [session, pendingEditRequests] = await Promise.all([
         requireAuth(),
+        // TODO(T5-A): scope this by organisation once EditRequest carries one.
         prisma.editRequest.count({
             where: {
                 status: "pending",
@@ -30,6 +32,7 @@ export default async function DashboardLayout({
             role={session.role}
             organizationId={session.organizationId}
         >
+            <PushSync userId={session.user.id} />
             <div className="flex min-h-screen">
                 <Sidebar pendingEditRequests={pendingEditRequests} showExpenses={showExpenses} />
                 <div className="flex-1 flex flex-col min-w-0">

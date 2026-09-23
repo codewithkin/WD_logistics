@@ -10,7 +10,12 @@
 import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { sendPushToUser } from "@/lib/push";
-import { getTierConfig, tierKeyFor } from "@/lib/notification-tiers";
+import {
+  assertTierKeyExists,
+  getTierConfig,
+  tierKeyFor,
+  type Role,
+} from "@/lib/notification-tiers";
 
 // Types for notification events
 export type NotificationEventType = "created" | "updated" | "deleted" | "fixed";
@@ -57,7 +62,9 @@ async function getNotificationRecipients(organizationId: string) {
   const members = await prisma.member.findMany({
     where: {
       organizationId,
-      role: { in: ["admin", "supervisor"] },
+      // Every role the tier map can address, not just the office two — a
+      // workshop-targeted tier had no way to reach anyone before this.
+      role: { in: ["admin", "supervisor", "staff", "workshop"] },
     },
     include: {
       user: {
@@ -177,6 +184,9 @@ function getEntityLink(entityType: NotificationEntityType, entityId: string): st
 export async function sendAdminNotification(data: NotificationData): Promise<void> {
   try {
     const tierKey = tierKeyFor(data.entityType, data.eventType);
+    // Warns in development when a call site invents a key the tier map has
+    // never heard of — which silently downgrades it to supervisor-only.
+    assertTierKeyExists(tierKey);
     const tierConfig = getTierConfig(tierKey);
 
     const recipients = await getNotificationRecipients(data.organizationId);
@@ -185,7 +195,9 @@ export async function sendAdminNotification(data: NotificationData): Promise<voi
     // the actual volume fix: routine creates/updates (tier 3/4) don't list
     // "admin" in their tier config, so admins stop getting pinged for every
     // driver/truck/invoice/etc. Only tier 1/2 events still reach them.
-    const eligibleRecipients = recipients.filter((r) => tierConfig.roles.includes(r.role as "admin" | "supervisor"));
+    const eligibleRecipients = recipients.filter((r) =>
+      tierConfig.roles.includes(r.role as Role),
+    );
 
     // Filter out the performer from recipients
     const filteredRecipients = eligibleRecipients.filter(r => r.email !== data.performedBy.email);
@@ -235,7 +247,14 @@ export async function sendAdminNotification(data: NotificationData): Promise<voi
     if (tierConfig.channels.includes("webPush")) {
       await Promise.all(
         filteredRecipients.map((recipient) =>
-          sendPushToUser(recipient.userId, { title, body: message, url: link, tag: `${data.entityType}-${data.entityId}` })
+          sendPushToUser(recipient.userId, {
+            title,
+            body: message,
+            url: link,
+            tag: `${data.entityType}-${data.entityId}`,
+            category: tierKey,
+            organizationId: data.organizationId,
+          })
         )
       );
     }
@@ -715,6 +734,7 @@ export async function notifyMaintenanceRequestFixed(
       entityType: "maintenance_request",
       entityId: data.id,
       title: "Maintenance job completed",
+      category: "maintenance_request_fixed",
       message: `${data.vehicleLabel} — fixed by ${performedBy.name}${
         data.fixedNotes ? `: ${data.fixedNotes}` : ""
       }`,
@@ -758,8 +778,15 @@ export async function notifyUsers(params: {
   excludeUserEmails?: string[];
   link?: string;
   metadata?: Record<string, unknown>;
+  /**
+   * notification-tiers key for this event, e.g. "maintenance_request_assigned".
+   * It drives the per-user mute switches; without it a user who has turned a
+   * category off still receives the push.
+   */
+  category?: string;
 }): Promise<void> {
   try {
+    if (params.category) assertTierKeyExists(params.category);
     const userIds = [...new Set(params.userIds.filter(Boolean))];
     if (userIds.length === 0) return;
 
@@ -803,6 +830,8 @@ export async function notifyUsers(params: {
           body: params.message,
           url: link,
           tag: `${params.entityType}-${params.entityId}`,
+          category: params.category,
+          organizationId: params.organizationId,
         }),
       ),
     );
@@ -830,6 +859,7 @@ export async function notifyMaintenanceRequestAssigned(
     entityType: "maintenance_request",
     entityId: data.id,
     title: "New maintenance job assigned to you",
+    category: "maintenance_request_assigned",
     message: `${data.vehicleLabel} — ${data.notes.slice(0, 120)}`,
     excludeUserEmails: [performedBy.email],
     metadata: { date: data.date, assignedBy: performedBy.name },
@@ -842,6 +872,7 @@ export async function notifyMaintenanceRequestAssigned(
       entityType: "maintenance_request",
       entityId: data.id,
       title: "Maintenance job reassigned",
+      category: "maintenance_request_reassigned",
       message: `${data.vehicleLabel} is no longer assigned to you.`,
       excludeUserEmails: [performedBy.email],
     });
@@ -859,6 +890,7 @@ export async function notifyMaintenanceRequestUpdated(
     entityType: "maintenance_request",
     entityId: data.id,
     title: "Maintenance job updated",
+    category: "maintenance_request_updated",
     message: `${data.vehicleLabel} — ${data.summary}`,
     excludeUserEmails: [performedBy.email],
   });
@@ -1317,4 +1349,79 @@ export async function notifySupplierDeleted(
       name,
     },
   });
+}
+
+/**
+ * Broadcast under an explicit tier key, to whatever roles that tier names.
+ *
+ * `sendAdminNotification` derives its key from `${entityType}_${eventType}`,
+ * which works for the CRUD events but cannot express "money went into an
+ * account" or "a trip message failed" — there is no entity/event pair for
+ * those. This takes the key directly, so the tier map stays the single place
+ * that decides who hears about what.
+ */
+export async function notifyByTierKey(params: {
+  key: string;
+  organizationId: string;
+  title: string;
+  message: string;
+  link?: string;
+  entityType?: NotificationEntityType;
+  entityId?: string;
+  /** Don't notify whoever caused this. */
+  excludeUserEmails?: string[];
+  metadata?: Record<string, unknown>;
+}): Promise<void> {
+  try {
+    assertTierKeyExists(params.key);
+    const tierConfig = getTierConfig(params.key);
+
+    const recipients = await getNotificationRecipients(params.organizationId);
+    const excluded = new Set(params.excludeUserEmails ?? []);
+    const targets = recipients.filter(
+      (r) => tierConfig.roles.includes(r.role as Role) && !excluded.has(r.email),
+    );
+
+    if (targets.length === 0) return;
+
+    await Promise.all(
+      targets.map((recipient) =>
+        prisma.userNotification.create({
+          data: {
+            userId: recipient.userId,
+            organizationId: params.organizationId,
+            type: params.entityType ?? "general",
+            title: params.title,
+            message: params.message,
+            entityType: params.entityType,
+            entityId: params.entityId,
+            link: params.link,
+            metadata: params.metadata
+              ? (JSON.parse(
+                  JSON.stringify(params.metadata),
+                ) as Prisma.InputJsonValue)
+              : Prisma.JsonNull,
+          },
+        }),
+      ),
+    );
+
+    if (tierConfig.channels.includes("webPush")) {
+      await Promise.all(
+        targets.map((recipient) =>
+          sendPushToUser(recipient.userId, {
+            title: params.title,
+            body: params.message,
+            url: params.link,
+            tag: params.entityId ? `${params.key}-${params.entityId}` : params.key,
+            category: params.key,
+            organizationId: params.organizationId,
+          }),
+        ),
+      );
+    }
+  } catch (error) {
+    console.error("[NOTIFICATION] Error in notifyByTierKey:", error);
+    // Same contract as the rest of this module: never break the caller.
+  }
 }

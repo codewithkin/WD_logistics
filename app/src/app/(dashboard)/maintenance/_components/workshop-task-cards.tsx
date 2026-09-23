@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { startOfDayInHarare } from "../_lib/status";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, CalendarClock, Wrench } from "lucide-react";
@@ -11,19 +12,6 @@ interface TaskRequest {
     status: string;
     truck: { registrationNo: string } | null;
     trailer: { registrationNo: string } | null;
-}
-
-/** Start of today in Harare (UTC+2), expressed as a UTC instant.
- *  The server runs in UTC, so "today" has to be pinned to the yard's clock or
- *  a job logged after 22:00 lands on tomorrow's card. */
-function startOfDayInHarare(now: Date): Date {
-    const harare = new Date(now.getTime() + 2 * 60 * 60 * 1000);
-    const midnightUtcOfHarareDay = Date.UTC(
-        harare.getUTCFullYear(),
-        harare.getUTCMonth(),
-        harare.getUTCDate(),
-    );
-    return new Date(midnightUtcOfHarareDay - 2 * 60 * 60 * 1000);
 }
 
 function vehicleName(request: TaskRequest): string {

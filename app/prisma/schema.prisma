@@ -35,6 +35,8 @@ model User {
   notifications UserNotification[]
   accountTransactions AccountTransaction[]
   pushSubscriptions PushSubscription[]
+  pushDeliveries    PushDelivery[]
+  notificationPreferences NotificationPreference[]
   maintenanceRequestsReported MaintenanceRequest[] @relation("MaintenanceRequestReported")
   maintenanceRequestsFixed    MaintenanceRequest[] @relation("MaintenanceRequestFixed")
   maintenanceRequestsAssigned MaintenanceRequest[] @relation("MaintenanceRequestAssigned")
@@ -896,7 +898,65 @@ model PushSubscription {
   auth      String   // subscription auth secret
   userAgent String?
   createdAt DateTime @default(now())
+  // Touched on every page load by the client re-sync, so a subscription that
+  // has gone quiet can be told apart from one that was never used.
+  lastSeenAt DateTime @default(now())
+
+  deliveries PushDelivery[]
 
   @@index([userId])
   @@map("push_subscription")
+}
+
+// Every push attempt, successful or not.
+//
+// Delivery used to fail silently: a missing VAPID key, a revoked
+// subscription or a rejected payload all produced the same nothing, which is
+// why "push notifications are not working at all" was impossible to
+// diagnose from inside the app. Each attempt is written here with the push
+// service's own status code, and surfaced in the user's notification dialog
+// and an admin table under Settings.
+model PushDelivery {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organizationId String?
+  subscriptionId String?
+  subscription   PushSubscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+
+  title      String
+  body       String?
+  url        String?
+  /** notification-tiers key, or "test" for the self-test button. */
+  category   String?
+  /** sent | failed | skipped */
+  status     String
+  /** HTTP status the push service returned, when there was one. */
+  statusCode Int?
+  /** Why it failed, in words a person can act on. */
+  error      String?
+  createdAt  DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([organizationId, createdAt])
+  @@map("push_delivery")
+}
+
+// Per-user mute switches, one row per category the user has turned off.
+// Absence of a row means "on" — the default is to receive everything the
+// tier map says this role should.
+model NotificationPreference {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organizationId String
+  /** Matches a key in notification-tiers.ts, e.g. "maintenance_assigned". */
+  category       String
+  /** False mutes push for this category; in-app records are always kept. */
+  pushEnabled    Boolean  @default(true)
+  updatedAt      DateTime @updatedAt
+
+  @@unique([userId, category])
+  @@index([userId])
+  @@map("notification_preference")
 }

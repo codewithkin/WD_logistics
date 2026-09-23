@@ -77,8 +77,11 @@ ENV NEXT_PUBLIC_AGENT_URL=${NEXT_PUBLIC_AGENT_URL}
 ARG R2_PUBLIC_URL=""
 ENV R2_PUBLIC_URL=${R2_PUBLIC_URL}
 
-# Same reasoning as R2_PUBLIC_URL above — read by
-# src/lib/use-push-notifications.ts and baked into the client bundle.
+# No longer required at build time: the browser fetches the VAPID public key
+# from /api/push/public-key, which reads VAPID_PUBLIC_KEY out of the running
+# container's environment. This ARG stays only so an existing Coolify build
+# that still passes it doesn't fail — but leaving it empty is now harmless,
+# whereas before it shipped an image on which nobody could enable push.
 ARG NEXT_PUBLIC_VAPID_PUBLIC_KEY=""
 ENV NEXT_PUBLIC_VAPID_PUBLIC_KEY=${NEXT_PUBLIC_VAPID_PUBLIC_KEY}
 

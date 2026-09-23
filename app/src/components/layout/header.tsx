@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Bell, LogOut, User, Truck, Receipt, AlertTriangle, Users, CheckCircle2, Clock, X, KeyRound } from "lucide-react";
+import { Bell, BellRing, LogOut, User, Truck, Receipt, AlertTriangle, Users, CheckCircle2, Clock, X, KeyRound } from "lucide-react";
 import { getUserNotifications, markNotificationAsRead, markAllNotificationsAsRead, dismissNotification as dismissNotificationAction } from "@/app/(dashboard)/notifications/actions";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,6 +26,7 @@ import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import { MobileSidebar } from "@/components/layout/mobile-sidebar";
+import { NotificationSettingsDialog } from "@/components/layout/notification-settings-dialog";
 
 interface NotificationItem {
     id: string;
@@ -76,6 +77,9 @@ export function Header({ pendingEditRequests = 0, showExpenses = false }: Header
     const { user, role } = useSession();
     const router = useRouter();
     const [notificationsOpen, setNotificationsOpen] = useState(false);
+    // The "Notifications" item in the user menu — device opt-in, a self-test
+    // and the mute switches. Distinct from the bell's unread dropdown above.
+    const [pushSettingsOpen, setPushSettingsOpen] = useState(false);
     const [notifications, setNotifications] = useState<NotificationItem[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
@@ -310,6 +314,13 @@ export function Header({ pendingEditRequests = 0, showExpenses = false }: Header
                             <KeyRound className="mr-2 h-4 w-4" />
                             Account Settings
                         </DropdownMenuItem>
+                        {/* Every role, not just admin: push has to be enabled
+                            per person per device, and most of what pushes is
+                            aimed at supervisors and the workshop. */}
+                        <DropdownMenuItem onClick={() => setPushSettingsOpen(true)}>
+                            <BellRing className="mr-2 h-4 w-4" />
+                            Notifications
+                        </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
                             <LogOut className="mr-2 h-4 w-4" />
@@ -318,6 +329,11 @@ export function Header({ pendingEditRequests = 0, showExpenses = false }: Header
                     </DropdownMenuContent>
                 </DropdownMenu>
             </div>
+
+            <NotificationSettingsDialog
+                open={pushSettingsOpen}
+                onOpenChange={setPushSettingsOpen}
+            />
         </header>
     );
 }

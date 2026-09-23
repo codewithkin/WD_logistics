@@ -7,7 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { PushNotificationsCard } from "./push-notifications-card";
+import { PushDeliveryLog } from "./push-delivery-log";
 
 interface NotificationPreferences {
     emailNotifications: boolean;
@@ -47,7 +47,11 @@ export function NotificationsSettings({ preferences: initialPreferences }: Notif
 
     return (
         <div className="space-y-6">
-            <PushNotificationsCard />
+            {/* Enabling push is per person and per device, so it lives in the
+                user menu where every role can reach it. What belongs here is
+                the organisation-wide view: who is subscribed, and why anything
+                failed. */}
+            <PushDeliveryLog />
 
             <Card>
                 <CardHeader>
