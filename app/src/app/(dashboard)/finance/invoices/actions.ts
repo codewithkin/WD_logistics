@@ -517,7 +517,7 @@ export async function sendInvoiceToCustomer(invoiceId: string) {
 
 export async function downloadSingleInvoicePDF(invoiceId: string) {
   const session = await requireRole(["admin", "supervisor"]);
-  const { generateSingleInvoicePDF } = await import("@/lib/reports/pdf-report-generator");
+  const { generateInvoicePDF } = await import("@/lib/documents/invoice");
 
   const invoice = await prisma.invoice.findFirst({
     where: {
@@ -526,14 +526,14 @@ export async function downloadSingleInvoicePDF(invoiceId: string) {
     },
     include: {
       customer: true,
+      // The old version never loaded these, which is why every invoice the
+      // system produced showed a total with nothing itemised behind it.
+      lineItems: true,
       trip: {
         include: {
           truck: true,
           driver: true,
         },
-      },
-      payments: {
-        orderBy: { paymentDate: "desc" },
       },
     },
   });
@@ -542,12 +542,13 @@ export async function downloadSingleInvoicePDF(invoiceId: string) {
     return { success: false as const, error: "Invoice not found" };
   }
 
+  // The whole organisation row, not just its name: the letterhead, VAT and BP
+  // numbers, bank details and terms all print from it now.
   const organization = await prisma.organization.findUnique({
     where: { id: session.organizationId },
-    select: { name: true },
   });
 
-  const pdfBytes = generateSingleInvoicePDF({
+  const pdfBytes = generateInvoicePDF({
     invoice: {
       invoiceNumber: invoice.invoiceNumber,
       issueDate: invoice.issueDate,
@@ -561,32 +562,32 @@ export async function downloadSingleInvoicePDF(invoiceId: string) {
       notes: invoice.notes,
       isCredit: invoice.isCredit,
     },
+    lineItems: invoice.lineItems.map((item) => ({
+      description: item.description,
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      total: item.total,
+    })),
     customer: {
       name: invoice.customer.name,
       email: invoice.customer.email,
       phone: invoice.customer.phone,
       address: invoice.customer.address,
+      taxId: invoice.customer.taxId,
     },
-    organization: {
-      name: organization?.name || "Unknown",
-    },
-    trip: invoice.trip ? {
-      originCity: invoice.trip.originCity,
-      destinationCity: invoice.trip.destinationCity,
-      scheduledDate: invoice.trip.scheduledDate,
-      loadDescription: invoice.trip.loadDescription,
-      truck: invoice.trip.truck.registrationNo,
-      driver: `${invoice.trip.driver.firstName} ${invoice.trip.driver.lastName}`,
-    } : null,
-    payments: invoice.payments.map((p) => ({
-      amount: p.amount,
-      paymentDate: p.paymentDate,
-      method: p.method,
-      reference: p.reference,
-    })),
+    organization,
+    trip: invoice.trip
+      ? {
+          originCity: invoice.trip.originCity,
+          destinationCity: invoice.trip.destinationCity,
+          scheduledDate: invoice.trip.scheduledDate,
+          loadDescription: invoice.trip.loadDescription,
+          truck: invoice.trip.truck.registrationNo,
+          driver: `${invoice.trip.driver.firstName} ${invoice.trip.driver.lastName}`,
+        }
+      : null,
   });
 
-  // Convert to base64 for transfer
   const base64 = Buffer.from(pdfBytes).toString("base64");
   return {
     success: true as const,
