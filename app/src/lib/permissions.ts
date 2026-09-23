@@ -166,6 +166,15 @@ export function canEditDirectly(role: Role): boolean {
   return role === "admin" || role === "supervisor";
 }
 
+/**
+ * Expense categories are the chart of accounts for the whole business — every
+ * expense, every per-truck cost breakdown and every report groups by them — so
+ * creating, renaming and deleting them is admin-only. Everyone else reads.
+ */
+export function canManageExpenseCategories(role: Role): boolean {
+  return role === "admin";
+}
+
 // Check if user can delete directly
 export function canDeleteDirectly(role: Role): boolean {
   return role === "admin";

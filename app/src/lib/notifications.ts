@@ -7,6 +7,7 @@
  * For supervisors, financial amounts are hidden.
  */
 
+import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { sendPushToUser } from "@/lib/push";
 import { getTierConfig, tierKeyFor } from "@/lib/notification-tiers";
@@ -153,7 +154,7 @@ function getEntityLink(entityType: NotificationEntityType, entityId: string): st
     case "trailer":
       return `/fleet/trailers/${entityId}`;
     case "maintenance_request":
-      return `/maintenance`;
+      return `/maintenance/${entityId}`;
     case "driver":
       return `/fleet/drivers/${entityId}`;
     case "customer":
@@ -696,20 +697,170 @@ export async function notifyTrailerDeleted(
 
 // Maintenance request notifications
 export async function notifyMaintenanceRequestFixed(
-  data: { id: string; truckRegistrationNo: string },
+  data: {
+    id: string;
+    vehicleLabel: string;
+    fixedNotes?: string | null;
+    reportedById?: string | null;
+  },
   organizationId: string,
   performedBy: { name: string; email: string; role: string }
 ) {
+  // Whoever logged the issue wants to know it's done, whatever their role —
+  // the tier broadcast below only reaches admins and supervisors.
+  if (data.reportedById) {
+    await notifyUsers({
+      userIds: [data.reportedById],
+      organizationId,
+      entityType: "maintenance_request",
+      entityId: data.id,
+      title: "Maintenance job completed",
+      message: `${data.vehicleLabel} — fixed by ${performedBy.name}${
+        data.fixedNotes ? `: ${data.fixedNotes}` : ""
+      }`,
+      excludeUserEmails: [performedBy.email],
+    });
+  }
+
   return sendAdminNotification({
     entityType: "maintenance_request",
     eventType: "fixed",
     entityId: data.id,
-    entityName: `Maintenance request for ${data.truckRegistrationNo}`,
+    entityName: `Maintenance request for ${data.vehicleLabel}`,
     organizationId,
     performedBy,
     details: {
-      truckRegistrationNo: data.truckRegistrationNo,
+      vehicle: data.vehicleLabel,
+      // The fix note is the whole point of marking a job done — carry it into
+      // the notification instead of making the reader open the record.
+      fixedNotes: data.fixedNotes ?? null,
     },
+  });
+}
+
+/**
+ * Notify named users directly (in-app record + web push), bypassing the
+ * role/tier broadcast in `sendAdminNotification`.
+ *
+ * Tier config answers "which roles care about this kind of event"; it can't
+ * answer "this one person is responsible for this one job". Assignments,
+ * reassignments and request outcomes are addressed to an individual — often a
+ * workshop user, whom no tier can target at all — so they come through here.
+ */
+export async function notifyUsers(params: {
+  userIds: string[];
+  organizationId: string;
+  entityType: NotificationEntityType;
+  entityId: string;
+  title: string;
+  message: string;
+  /** Don't notify people about their own action. */
+  excludeUserEmails?: string[];
+  link?: string;
+  metadata?: Record<string, unknown>;
+}): Promise<void> {
+  try {
+    const userIds = [...new Set(params.userIds.filter(Boolean))];
+    if (userIds.length === 0) return;
+
+    const users = await prisma.user.findMany({
+      where: { id: { in: userIds } },
+      select: { id: true, email: true },
+    });
+
+    const excluded = new Set(params.excludeUserEmails ?? []);
+    const targets = users.filter((u) => !excluded.has(u.email));
+    if (targets.length === 0) return;
+
+    const link = params.link ?? getEntityLink(params.entityType, params.entityId);
+
+    await Promise.all(
+      targets.map((user) =>
+        prisma.userNotification.create({
+          data: {
+            userId: user.id,
+            organizationId: params.organizationId,
+            type: params.entityType,
+            title: params.title,
+            message: params.message,
+            entityType: params.entityType,
+            entityId: params.entityId,
+            link,
+            // JSON round-trip so Dates in `metadata` become ISO strings —
+            // Prisma's Json type rejects raw Dates (same as above).
+            metadata: params.metadata
+              ? (JSON.parse(JSON.stringify(params.metadata)) as Prisma.InputJsonValue)
+              : Prisma.JsonNull,
+          },
+        }),
+      ),
+    );
+
+    await Promise.all(
+      targets.map((user) =>
+        sendPushToUser(user.id, {
+          title: params.title,
+          body: params.message,
+          url: link,
+          tag: `${params.entityType}-${params.entityId}`,
+        }),
+      ),
+    );
+  } catch (error) {
+    console.error("[NOTIFICATION] Error notifying users:", error);
+    // Same contract as sendAdminNotification: never break the caller.
+  }
+}
+
+export async function notifyMaintenanceRequestAssigned(
+  data: {
+    id: string;
+    vehicleLabel: string;
+    notes: string;
+    date: Date;
+    assignedToId: string;
+    previousAssigneeId?: string | null;
+  },
+  organizationId: string,
+  performedBy: { name: string; email: string; role: string },
+) {
+  await notifyUsers({
+    userIds: [data.assignedToId],
+    organizationId,
+    entityType: "maintenance_request",
+    entityId: data.id,
+    title: "New maintenance job assigned to you",
+    message: `${data.vehicleLabel} — ${data.notes.slice(0, 120)}`,
+    excludeUserEmails: [performedBy.email],
+    metadata: { date: data.date, assignedBy: performedBy.name },
+  });
+
+  if (data.previousAssigneeId && data.previousAssigneeId !== data.assignedToId) {
+    await notifyUsers({
+      userIds: [data.previousAssigneeId],
+      organizationId,
+      entityType: "maintenance_request",
+      entityId: data.id,
+      title: "Maintenance job reassigned",
+      message: `${data.vehicleLabel} is no longer assigned to you.`,
+      excludeUserEmails: [performedBy.email],
+    });
+  }
+}
+
+export async function notifyMaintenanceRequestUpdated(
+  data: { id: string; vehicleLabel: string; assignedToId: string; summary: string },
+  organizationId: string,
+  performedBy: { name: string; email: string; role: string },
+) {
+  await notifyUsers({
+    userIds: [data.assignedToId],
+    organizationId,
+    entityType: "maintenance_request",
+    entityId: data.id,
+    title: "Maintenance job updated",
+    message: `${data.vehicleLabel} — ${data.summary}`,
+    excludeUserEmails: [performedBy.email],
   });
 }
 

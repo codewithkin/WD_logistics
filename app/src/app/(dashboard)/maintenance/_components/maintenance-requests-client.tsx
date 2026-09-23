@@ -31,6 +31,7 @@ import {
 import {
     Form,
     FormControl,
+    FormDescription,
     FormField,
     FormItem,
     FormLabel,
@@ -49,13 +50,24 @@ import { createMaintenanceRequest, markMaintenanceRequestFixed } from "../action
 import { toast } from "sonner";
 import { format } from "date-fns";
 
+const UNASSIGNED = "unassigned";
+
 const requestSchema = z.object({
-    truckId: z.string().min(1, "Select a truck"),
+    vehicleType: z.enum(["truck", "trailer"]),
+    vehicleId: z.string().min(1, "Select a vehicle"),
     notes: z.string().min(1, "Describe the issue"),
     date: z.string().min(1, "Date is required"),
+    assignedToId: z.string().optional(),
 });
 
 type RequestFormData = z.infer<typeof requestSchema>;
+
+interface VehicleRef {
+    id: string;
+    registrationNo: string;
+    make: string;
+    model: string;
+}
 
 interface MaintenanceRequest {
     id: string;
@@ -64,27 +76,39 @@ interface MaintenanceRequest {
     status: string;
     fixedNotes: string | null;
     fixedAt: Date | null;
-    truck: { id: string; registrationNo: string; make: string; model: string };
+    truck: VehicleRef | null;
+    trailer: VehicleRef | null;
     reportedBy: { name: string };
     fixedBy: { name: string } | null;
+    assignedTo: { id: string; name: string } | null;
 }
 
-interface Truck {
+interface WorkshopMember {
     id: string;
-    registrationNo: string;
-    make: string;
-    model: string;
+    name: string;
+    email: string;
 }
 
 interface MaintenanceRequestsClientProps {
     requests: MaintenanceRequest[];
-    trucks: Truck[];
+    trucks: VehicleRef[];
+    trailers: VehicleRef[];
+    workshopMembers: WorkshopMember[];
     role: Role;
+    currentUserId: string;
 }
 
-export function MaintenanceRequestsClient({ requests, trucks, role }: MaintenanceRequestsClientProps) {
+export function MaintenanceRequestsClient({
+    requests,
+    trucks,
+    trailers,
+    workshopMembers,
+    role,
+    currentUserId,
+}: MaintenanceRequestsClientProps) {
     const router = useRouter();
     const canLogIssue = role === "admin" || role === "supervisor";
+    const isWorkshop = role === "workshop";
     const [statusFilter, setStatusFilter] = useState<string>("open");
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -95,23 +119,38 @@ export function MaintenanceRequestsClient({ requests, trucks, role }: Maintenanc
     const form = useForm<RequestFormData>({
         resolver: zodResolver(requestSchema),
         defaultValues: {
-            truckId: "",
+            vehicleType: "truck",
+            vehicleId: "",
             notes: "",
             date: new Date().toISOString().split("T")[0],
+            assignedToId: UNASSIGNED,
         },
     });
 
-    const filteredRequests = requests.filter(
-        (r) => statusFilter === "all" || r.status === statusFilter
-    );
+    const vehicleType = form.watch("vehicleType");
+    const vehicles = vehicleType === "trailer" ? trailers : trucks;
+
+    // Workshop's list is already filtered server-side to their own unfinished
+    // jobs, so the status dropdown only makes sense for the office.
+    const filteredRequests = isWorkshop
+        ? requests
+        : requests.filter((r) =>
+              statusFilter === "all"
+                  ? true
+                  : statusFilter === "open"
+                    ? r.status !== "fixed"
+                    : r.status === statusFilter,
+          );
 
     const onCreate = async (data: RequestFormData) => {
         setIsSubmitting(true);
         try {
             const result = await createMaintenanceRequest({
-                truckId: data.truckId,
+                vehicleType: data.vehicleType,
+                vehicleId: data.vehicleId,
                 notes: data.notes,
                 date: new Date(data.date),
+                assignedToId: data.assignedToId === UNASSIGNED ? null : data.assignedToId,
             });
             if (result.success) {
                 toast.success("Maintenance issue logged");
@@ -132,7 +171,7 @@ export function MaintenanceRequestsClient({ requests, trucks, role }: Maintenanc
         if (!fixingId) return;
         setIsFixing(true);
         try {
-            const result = await markMaintenanceRequestFixed(fixingId, fixNotes || undefined);
+            const result = await markMaintenanceRequestFixed(fixingId, fixNotes);
             if (result.success) {
                 toast.success("Marked as fixed");
                 setFixingId(null);
@@ -148,19 +187,52 @@ export function MaintenanceRequestsClient({ requests, trucks, role }: Maintenanc
         }
     };
 
+    const vehicleCell = (request: MaintenanceRequest) => {
+        if (request.truck) {
+            return (
+                <Link
+                    href={`/fleet/trucks/${request.truck.id}`}
+                    className="text-primary hover:underline"
+                >
+                    {request.truck.registrationNo}
+                </Link>
+            );
+        }
+        if (request.trailer) {
+            return (
+                <span className="flex flex-col">
+                    <Link
+                        href={`/fleet/trailers/${request.trailer.id}`}
+                        className="text-primary hover:underline"
+                    >
+                        {request.trailer.registrationNo}
+                    </Link>
+                    <span className="text-xs text-muted-foreground">Trailer</span>
+                </span>
+            );
+        }
+        return <span className="text-muted-foreground">Removed</span>;
+    };
+
     return (
         <div className="space-y-4">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-[180px]">
-                        <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="open">Open</SelectItem>
-                        <SelectItem value="fixed">Fixed</SelectItem>
-                        <SelectItem value="all">All</SelectItem>
-                    </SelectContent>
-                </Select>
+                {!isWorkshop ? (
+                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                        <SelectTrigger className="w-[180px]">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="open">Open (not yet fixed)</SelectItem>
+                            <SelectItem value="assigned">Assigned</SelectItem>
+                            <SelectItem value="in_progress">In progress</SelectItem>
+                            <SelectItem value="fixed">Fixed</SelectItem>
+                            <SelectItem value="all">All</SelectItem>
+                        </SelectContent>
+                    </Select>
+                ) : (
+                    <span />
+                )}
 
                 {canLogIssue && (
                     <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
@@ -174,29 +246,70 @@ export function MaintenanceRequestsClient({ requests, trucks, role }: Maintenanc
                             <DialogHeader>
                                 <DialogTitle>Log Maintenance Issue</DialogTitle>
                                 <DialogDescription>
-                                    Report a truck issue for the workshop to resolve.
+                                    Report a truck or trailer issue for the workshop to resolve.
                                 </DialogDescription>
                             </DialogHeader>
                             <Form {...form}>
                                 <form onSubmit={form.handleSubmit(onCreate)} className="space-y-4">
                                     <FormField
                                         control={form.control}
-                                        name="truckId"
+                                        name="vehicleType"
                                         render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel>Truck</FormLabel>
-                                                <Select onValueChange={field.onChange} value={field.value}>
+                                                <FormLabel>Vehicle type</FormLabel>
+                                                <Select
+                                                    onValueChange={(value) => {
+                                                        field.onChange(value);
+                                                        // The two lists are different records —
+                                                        // clear the selection or the form would
+                                                        // submit a truck id against a trailer.
+                                                        form.setValue("vehicleId", "");
+                                                    }}
+                                                    value={field.value}
+                                                >
                                                     <FormControl>
                                                         <SelectTrigger>
-                                                            <SelectValue placeholder="Select truck" />
+                                                            <SelectValue />
                                                         </SelectTrigger>
                                                     </FormControl>
                                                     <SelectContent>
-                                                        {trucks.map((truck) => (
-                                                            <SelectItem key={truck.id} value={truck.id}>
-                                                                {truck.registrationNo} - {truck.make} {truck.model}
-                                                            </SelectItem>
-                                                        ))}
+                                                        <SelectItem value="truck">Truck</SelectItem>
+                                                        <SelectItem value="trailer">Trailer</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control}
+                                        name="vehicleId"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>
+                                                    {vehicleType === "trailer" ? "Trailer" : "Truck"}
+                                                </FormLabel>
+                                                <Select onValueChange={field.onChange} value={field.value}>
+                                                    <FormControl>
+                                                        <SelectTrigger>
+                                                            <SelectValue
+                                                                placeholder={`Select ${vehicleType}`}
+                                                            />
+                                                        </SelectTrigger>
+                                                    </FormControl>
+                                                    <SelectContent>
+                                                        {vehicles.length === 0 ? (
+                                                            <div className="px-2 py-3 text-sm text-muted-foreground">
+                                                                No {vehicleType}s on record yet.
+                                                            </div>
+                                                        ) : (
+                                                            vehicles.map((vehicle) => (
+                                                                <SelectItem key={vehicle.id} value={vehicle.id}>
+                                                                    {vehicle.registrationNo} - {vehicle.make}{" "}
+                                                                    {vehicle.model}
+                                                                </SelectItem>
+                                                            ))
+                                                        )}
                                                     </SelectContent>
                                                 </Select>
                                                 <FormMessage />
@@ -212,6 +325,42 @@ export function MaintenanceRequestsClient({ requests, trucks, role }: Maintenanc
                                                 <FormControl>
                                                     <Input type="date" {...field} />
                                                 </FormControl>
+                                                <FormDescription>
+                                                    The day the job is scheduled for — it shows on the
+                                                    worker&apos;s task list for that date.
+                                                </FormDescription>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control}
+                                        name="assignedToId"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Assign to</FormLabel>
+                                                <Select onValueChange={field.onChange} value={field.value}>
+                                                    <FormControl>
+                                                        <SelectTrigger>
+                                                            <SelectValue placeholder="Leave unassigned" />
+                                                        </SelectTrigger>
+                                                    </FormControl>
+                                                    <SelectContent>
+                                                        <SelectItem value={UNASSIGNED}>
+                                                            Leave unassigned
+                                                        </SelectItem>
+                                                        {workshopMembers.map((member) => (
+                                                            <SelectItem key={member.id} value={member.id}>
+                                                                {member.name}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                                <FormDescription>
+                                                    {workshopMembers.length === 0
+                                                        ? "No workshop users yet — invite one under Users."
+                                                        : "Only workshop users appear here. They get a notification straight away."}
+                                                </FormDescription>
                                                 <FormMessage />
                                             </FormItem>
                                         )}
@@ -252,76 +401,149 @@ export function MaintenanceRequestsClient({ requests, trucks, role }: Maintenanc
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead>Truck</TableHead>
+                                    <TableHead>Vehicle</TableHead>
                                     <TableHead>Date</TableHead>
-                                    <TableHead>Notes</TableHead>
+                                    <TableHead>Issue</TableHead>
                                     <TableHead>Status</TableHead>
-                                    <TableHead>Reported By</TableHead>
-                                    <TableHead className="w-[120px]"></TableHead>
+                                    <TableHead>Fixed by / Assigned to</TableHead>
+                                    <TableHead>Work done</TableHead>
+                                    <TableHead>Reported by</TableHead>
+                                    <TableHead className="w-[160px]"></TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {filteredRequests.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={6} className="text-center h-24 text-muted-foreground">
-                                            No maintenance requests found
+                                        <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
+                                            {isWorkshop
+                                                ? "Nothing assigned to you right now."
+                                                : "No maintenance requests found"}
                                         </TableCell>
                                     </TableRow>
                                 ) : (
-                                    filteredRequests.map((request) => (
-                                        <TableRow key={request.id}>
-                                            <TableCell className="font-medium">
-                                                <Link
-                                                    href={`/fleet/trucks/${request.truck.id}`}
-                                                    className="text-primary hover:underline"
-                                                >
-                                                    {request.truck.registrationNo}
-                                                </Link>
-                                            </TableCell>
-                                            <TableCell>{format(request.date, "PPP")}</TableCell>
-                                            <TableCell className="max-w-xs truncate">{request.notes}</TableCell>
-                                            <TableCell>
-                                                <StatusBadge status={request.status} type="maintenance" />
-                                            </TableCell>
-                                            <TableCell>{request.reportedBy.name}</TableCell>
-                                            <TableCell>
-                                                {request.status === "open" && (
-                                                    <Dialog
-                                                        open={fixingId === request.id}
-                                                        onOpenChange={(open) => {
-                                                            setFixingId(open ? request.id : null);
-                                                            setFixNotes("");
-                                                        }}
+                                    filteredRequests.map((request) => {
+                                        const canFix =
+                                            request.status !== "fixed" &&
+                                            (!isWorkshop || request.assignedTo?.id === currentUserId);
+
+                                        return (
+                                            <TableRow key={request.id}>
+                                                <TableCell className="font-medium">
+                                                    {vehicleCell(request)}
+                                                </TableCell>
+                                                <TableCell>{format(request.date, "PPP")}</TableCell>
+                                                <TableCell className="max-w-xs">
+                                                    <Link
+                                                        href={`/maintenance/${request.id}`}
+                                                        className="line-clamp-2 hover:underline"
+                                                        title={request.notes}
                                                     >
-                                                        <DialogTrigger asChild>
-                                                            <Button size="sm" variant="outline">
-                                                                Mark Fixed
-                                                            </Button>
-                                                        </DialogTrigger>
-                                                        <DialogContent>
-                                                            <DialogHeader>
-                                                                <DialogTitle>Mark as Fixed</DialogTitle>
-                                                                <DialogDescription>
-                                                                    {request.truck.registrationNo} — this notifies admin and supervisor.
-                                                                </DialogDescription>
-                                                            </DialogHeader>
-                                                            <Textarea
-                                                                placeholder="What was done (optional)..."
-                                                                value={fixNotes}
-                                                                onChange={(e) => setFixNotes(e.target.value)}
-                                                            />
-                                                            <DialogFooter>
-                                                                <Button onClick={handleMarkFixed} disabled={isFixing}>
-                                                                    {isFixing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                                                    Confirm Fixed
-                                                                </Button>
-                                                            </DialogFooter>
-                                                        </DialogContent>
-                                                    </Dialog>
-                                                )}
-                                            </TableCell>
-                                        </TableRow>
-                                    ))
+                                                        {request.notes}
+                                                    </Link>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <StatusBadge status={request.status} type="maintenance" />
+                                                </TableCell>
+                                                <TableCell>
+                                                    {request.fixedBy ? (
+                                                        <span className="flex flex-col">
+                                                            <span>{request.fixedBy.name}</span>
+                                                            {request.fixedAt && (
+                                                                <span className="text-xs text-muted-foreground">
+                                                                    {format(request.fixedAt, "d MMM yyyy")}
+                                                                </span>
+                                                            )}
+                                                        </span>
+                                                    ) : request.assignedTo ? (
+                                                        <span className="flex flex-col">
+                                                            <span>{request.assignedTo.name}</span>
+                                                            <span className="text-xs text-muted-foreground">
+                                                                assigned
+                                                            </span>
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-muted-foreground">Unassigned</span>
+                                                    )}
+                                                </TableCell>
+                                                <TableCell className="max-w-xs">
+                                                    {request.fixedNotes ? (
+                                                        <span
+                                                            className="line-clamp-2 text-sm"
+                                                            title={request.fixedNotes}
+                                                        >
+                                                            {request.fixedNotes}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-muted-foreground">—</span>
+                                                    )}
+                                                </TableCell>
+                                                <TableCell>{request.reportedBy.name}</TableCell>
+                                                <TableCell>
+                                                    <div className="flex items-center gap-2">
+                                                        <Button asChild size="sm" variant="ghost">
+                                                            <Link href={`/maintenance/${request.id}`}>View</Link>
+                                                        </Button>
+                                                        {canFix && (
+                                                            <Dialog
+                                                                open={fixingId === request.id}
+                                                                onOpenChange={(open) => {
+                                                                    setFixingId(open ? request.id : null);
+                                                                    setFixNotes("");
+                                                                }}
+                                                            >
+                                                                <DialogTrigger asChild>
+                                                                    <Button size="sm" variant="outline">
+                                                                        Mark Fixed
+                                                                    </Button>
+                                                                </DialogTrigger>
+                                                                <DialogContent>
+                                                                    <DialogHeader>
+                                                                        <DialogTitle>Mark as Fixed</DialogTitle>
+                                                                        <DialogDescription>
+                                                                            {request.truck?.registrationNo ??
+                                                                                request.trailer?.registrationNo}{" "}
+                                                                            — this notifies the office and whoever
+                                                                            logged it.
+                                                                        </DialogDescription>
+                                                                    </DialogHeader>
+                                                                    <div className="space-y-2">
+                                                                        <label
+                                                                            htmlFor="fix-notes"
+                                                                            className="text-sm font-medium"
+                                                                        >
+                                                                            What did you do? *
+                                                                        </label>
+                                                                        <Textarea
+                                                                            id="fix-notes"
+                                                                            placeholder="e.g. Replaced front brake pads and bled the system"
+                                                                            value={fixNotes}
+                                                                            onChange={(e) => setFixNotes(e.target.value)}
+                                                                        />
+                                                                        <p className="text-xs text-muted-foreground">
+                                                                            This is the record of the repair — the
+                                                                            office reads it on the job and in the
+                                                                            truck&apos;s history.
+                                                                        </p>
+                                                                    </div>
+                                                                    <DialogFooter>
+                                                                        <Button
+                                                                            onClick={handleMarkFixed}
+                                                                            disabled={isFixing || fixNotes.trim().length < 5}
+                                                                        >
+                                                                            {isFixing && (
+                                                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                                            )}
+                                                                            Confirm Fixed
+                                                                        </Button>
+                                                                    </DialogFooter>
+                                                                </DialogContent>
+                                                            </Dialog>
+                                                        )}
+                                                    </div>
+                                                </TableCell>
+                                            </TableRow>
+                                        );
+                                    })
                                 )}
                             </TableBody>
                         </Table>

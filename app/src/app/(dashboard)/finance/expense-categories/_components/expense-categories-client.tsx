@@ -41,18 +41,21 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, Truck, MapPin, Check, X } from "lucide-react";
+import { Plus, Pencil, Trash2, Truck, MapPin, User, Check, X } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { createExpenseCategory, updateExpenseCategory, deleteExpenseCategory } from "../actions";
 import { useRouter } from "next/navigation";
+import type { Role } from "@/lib/types";
+import { canManageExpenseCategories } from "@/lib/permissions";
 
 const categorySchema = z.object({
     name: z.string().min(1, "Name is required"),
     description: z.string().optional(),
     isTruck: z.boolean(),
     isTrip: z.boolean(),
+    isDriver: z.boolean(),
     color: z.string().optional(),
     defaultAccountId: z.string().optional(),
 });
@@ -63,6 +66,7 @@ interface Category {
     description: string | null;
     isTruck: boolean;
     isTrip: boolean;
+    isDriver: boolean;
     color: string | null;
     defaultAccountId: string | null;
     _count: {
@@ -79,6 +83,7 @@ interface Account {
 interface ExpenseCategoriesClientProps {
     categories: Category[];
     accounts: Account[];
+    role: Role;
 }
 
 const predefinedColors = [
@@ -95,8 +100,11 @@ const predefinedColors = [
     "#71717a", // gray
 ];
 
-export function ExpenseCategoriesClient({ categories, accounts }: ExpenseCategoriesClientProps) {
+export function ExpenseCategoriesClient({ categories, accounts, role }: ExpenseCategoriesClientProps) {
     const router = useRouter();
+    // Read-only for everyone but admin. The server actions enforce this too —
+    // this only keeps controls that would always fail off the screen.
+    const canManage = canManageExpenseCategories(role);
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [editingCategory, setEditingCategory] = useState<Category | null>(null);
     const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -108,6 +116,7 @@ export function ExpenseCategoriesClient({ categories, accounts }: ExpenseCategor
             description: "",
             isTruck: false,
             isTrip: false,
+            isDriver: false,
             color: predefinedColors[0],
             defaultAccountId: undefined,
         },
@@ -133,6 +142,7 @@ export function ExpenseCategoriesClient({ categories, accounts }: ExpenseCategor
             description: category.description || "",
             isTruck: category.isTruck,
             isTrip: category.isTrip,
+            isDriver: category.isDriver,
             color: category.color || predefinedColors[0],
             defaultAccountId: category.defaultAccountId || undefined,
         });
@@ -272,6 +282,30 @@ export function ExpenseCategoriesClient({ categories, accounts }: ExpenseCategor
                             </FormItem>
                         )}
                     />
+
+                    <FormField
+                        control={form.control}
+                        name="isDriver"
+                        render={({ field }) => (
+                            <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                                <FormControl>
+                                    <Checkbox
+                                        checked={field.value}
+                                        onCheckedChange={field.onChange}
+                                    />
+                                </FormControl>
+                                <div className="space-y-1 leading-none">
+                                    <FormLabel className="flex items-center gap-2 font-normal">
+                                        <User className="h-4 w-4" />
+                                        Driver Expense
+                                    </FormLabel>
+                                    <FormDescription>
+                                        Can be associated with specific drivers
+                                    </FormDescription>
+                                </div>
+                            </FormItem>
+                        )}
+                    />
                 </div>
 
                 <FormField
@@ -314,6 +348,7 @@ export function ExpenseCategoriesClient({ categories, accounts }: ExpenseCategor
     return (
         <div className="space-y-4">
             <div className="flex justify-end">
+                {canManage && (
                 <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
                     <DialogTrigger asChild>
                         <Button>
@@ -331,6 +366,7 @@ export function ExpenseCategoriesClient({ categories, accounts }: ExpenseCategor
                         <CategoryFormContent onSubmit={handleCreate} />
                     </DialogContent>
                 </Dialog>
+                )}
             </div>
 
             <div className="rounded-md border">
@@ -379,7 +415,13 @@ export function ExpenseCategoriesClient({ categories, accounts }: ExpenseCategor
                                                     Trip
                                                 </Badge>
                                             )}
-                                            {!category.isTruck && !category.isTrip && "-"}
+                                            {category.isDriver && (
+                                                <Badge variant="secondary">
+                                                    <User className="mr-1 h-3 w-3" />
+                                                    Driver
+                                                </Badge>
+                                            )}
+                                            {!category.isTruck && !category.isTrip && !category.isDriver && "-"}
                                         </div>
                                     </TableCell>
                                     <TableCell>
@@ -394,6 +436,11 @@ export function ExpenseCategoriesClient({ categories, accounts }: ExpenseCategor
                                     </TableCell>
                                     <TableCell>
                                         <div className="flex gap-2">
+                                            {!canManage && (
+                                                <span className="text-muted-foreground text-sm">-</span>
+                                            )}
+                                            {canManage && (
+                                            <>
                                             <Dialog
                                                 open={editingCategory?.id === category.id}
                                                 onOpenChange={(open) => !open && setEditingCategory(null)}
@@ -427,6 +474,8 @@ export function ExpenseCategoriesClient({ categories, accounts }: ExpenseCategor
                                             >
                                                 <Trash2 className="h-4 w-4 text-destructive" />
                                             </Button>
+                                            </>
+                                            )}
                                         </div>
                                     </TableCell>
                                 </TableRow>

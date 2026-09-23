@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Role } from "@/lib/types";
 import { getLandingPath } from "@/lib/landing";
+import { UserFacingError } from "@/lib/error-messages";
 import { redirect } from "next/navigation";
 
 export interface ServerSession {
@@ -63,6 +64,27 @@ export async function requireAuth(): Promise<ServerSession> {
     redirect("/sign-in");
   }
   
+  return session;
+}
+
+/**
+ * Role check for server actions that a client component calls directly.
+ *
+ * `requireRole` redirects, which is right for a page render but wrong inside an
+ * action invoked from a dialog or form: the caller sees a failed request with
+ * no message, so a blocked action looks like a crash. This throws instead, and
+ * the message is already written for the user (`toUserMessage` passes
+ * UserFacingError straight through).
+ */
+export async function assertRole(allowedRoles: Role[]): Promise<ServerSession> {
+  const session = await requireAuth();
+
+  if (!allowedRoles.includes(session.role)) {
+    throw new UserFacingError(
+      "You don't have permission to do that. Ask an admin to make this change.",
+    );
+  }
+
   return session;
 }
 

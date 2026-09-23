@@ -283,6 +283,18 @@ const maintenanceStatusConfig: Record<string, StatusConfig> = {
         textColor: "text-amber-700 dark:text-amber-400",
         icon: Wrench,
     },
+    assigned: {
+        label: "Assigned",
+        bgColor: "bg-blue-100 dark:bg-blue-900/30",
+        textColor: "text-blue-700 dark:text-blue-400",
+        icon: Wrench,
+    },
+    in_progress: {
+        label: "In Progress",
+        bgColor: "bg-indigo-100 dark:bg-indigo-900/30",
+        textColor: "text-indigo-700 dark:text-indigo-400",
+        icon: Wrench,
+    },
     fixed: {
         label: "Fixed",
         bgColor: "bg-emerald-100 dark:bg-emerald-900/30",

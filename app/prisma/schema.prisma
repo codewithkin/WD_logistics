@@ -37,6 +37,8 @@ model User {
   pushSubscriptions PushSubscription[]
   maintenanceRequestsReported MaintenanceRequest[] @relation("MaintenanceRequestReported")
   maintenanceRequestsFixed    MaintenanceRequest[] @relation("MaintenanceRequestFixed")
+  maintenanceRequestsAssigned MaintenanceRequest[] @relation("MaintenanceRequestAssigned")
+  maintenanceRequestsAssignedBy MaintenanceRequest[] @relation("MaintenanceRequestAssignedBy")
   stockMovements              StockMovement[]
 
   @@map("user")
@@ -236,6 +238,7 @@ model Trailer {
   assignedTruck     Truck?    @relation("AssignedTrailer", fields: [assignedTruckId], references: [id])
 
   trailerExpenses   TrailerExpense[]
+  maintenanceRequests MaintenanceRequest[]
 
   @@unique([organizationId, registrationNo])
   @@index([organizationId, status])
@@ -250,14 +253,28 @@ model MaintenanceRequest {
   id             String   @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  truckId        String
-  truck          Truck    @relation(fields: [truckId], references: [id])
+
+  // Exactly one of truckId/trailerId is set — enforced by a CHECK constraint in
+  // the migration, since Prisma can't express "one or the other" in the schema.
+  truckId        String?
+  truck          Truck?   @relation(fields: [truckId], references: [id])
+  trailerId      String?
+  trailer        Trailer? @relation(fields: [trailerId], references: [id])
+
   notes          String
-  date           DateTime @default(now())
-  status         String   @default("open") // open, fixed
+  date           DateTime @default(now()) // the day the job is scheduled for
+  status         String   @default("open") // open, assigned, in_progress, fixed
 
   reportedById   String
   reportedBy     User     @relation("MaintenanceRequestReported", fields: [reportedById], references: [id])
+
+  // Who is going to fix it. Always a member with the workshop role; validated
+  // in assignMaintenanceRequest, not at the DB level.
+  assignedToId   String?
+  assignedTo     User?    @relation("MaintenanceRequestAssigned", fields: [assignedToId], references: [id])
+  assignedById   String?
+  assignedBy     User?    @relation("MaintenanceRequestAssignedBy", fields: [assignedById], references: [id])
+  assignedAt     DateTime?
 
   fixedById      String?
   fixedBy        User?    @relation("MaintenanceRequestFixed", fields: [fixedById], references: [id])
@@ -268,6 +285,8 @@ model MaintenanceRequest {
   updatedAt      DateTime @updatedAt
 
   @@index([organizationId, status])
+  @@index([organizationId, assignedToId, status])
+  @@index([organizationId, date])
   @@map("maintenance_request")
 }
 

@@ -16,6 +16,8 @@ import { ExportTruckButton } from "./_components/export-truck-button";
 import { getDateRangeFromParams } from "@/lib/period-utils";
 import { PagePeriodSelector } from "@/components/ui/page-period-selector";
 import { formatCurrency } from "@/lib/utils";
+import { TruckMaintenanceHistory } from "./_components/truck-maintenance-history";
+import { UNFINISHED_STATUSES } from "../../../maintenance/_lib/status";
 
 interface TruckDetailPageProps {
     params: Promise<{ id: string }>;
@@ -92,6 +94,29 @@ export default async function TruckDetailPage({ params, searchParams }: TruckDet
 
     const canEdit = role === "admin" || role === "supervisor";
     const showFinancials = canViewFinancialData(role);
+    // Same audience as the maintenance screen itself: the office, not staff.
+    const canViewMaintenance = role === "admin" || role === "supervisor";
+
+    // "Is this truck spending its life in the workshop?" — the repair half of
+    // the profit/loss question the detail page exists to answer.
+    const maintenanceRequests = canViewMaintenance
+        ? await prisma.maintenanceRequest.findMany({
+              where: {
+                  truckId: id,
+                  organizationId,
+                  OR: [
+                      { date: { gte: dateRange.from, lte: dateRange.to } },
+                      { fixedAt: { gte: dateRange.from, lte: dateRange.to } },
+                      { status: { in: [...UNFINISHED_STATUSES] } },
+                  ],
+              },
+              include: {
+                  assignedTo: { select: { name: true } },
+                  fixedBy: { select: { name: true } },
+              },
+              orderBy: { date: "desc" },
+          })
+        : [];
 
     return (
         <div>
@@ -312,6 +337,14 @@ export default async function TruckDetailPage({ params, searchParams }: TruckDet
                     )}
                 </CardContent>
             </Card>
+
+            {canViewMaintenance && (
+                <TruckMaintenanceHistory
+                    truckId={truck.id}
+                    requests={maintenanceRequests}
+                    periodLabel={dateRange.label}
+                />
+            )}
         </div>
     );
 }

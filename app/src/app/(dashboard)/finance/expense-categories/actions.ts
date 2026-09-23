@@ -1,6 +1,6 @@
 "use server";
 
-import { requireRole } from "@/lib/session";
+import { assertRole } from "@/lib/session";
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 export interface ExpenseCategoryFormData {
@@ -8,13 +8,14 @@ export interface ExpenseCategoryFormData {
   description?: string;
   isTruck: boolean;
   isTrip: boolean;
+  isDriver: boolean;
   color?: string;
   icon?: string;
   defaultAccountId?: string | null;
 }
 
 export async function createExpenseCategory(data: ExpenseCategoryFormData) {
-  const user = await requireRole(["admin", "supervisor"]);
+  const user = await assertRole(["admin"]);
 
   // Check if category name already exists
   const existing = await prisma.expenseCategory.findUnique({
@@ -37,6 +38,7 @@ export async function createExpenseCategory(data: ExpenseCategoryFormData) {
       description: data.description,
       isTruck: data.isTruck,
       isTrip: data.isTrip,
+      isDriver: data.isDriver,
       color: data.color,
       icon: data.icon,
       defaultAccountId: data.defaultAccountId || null,
@@ -47,7 +49,7 @@ export async function createExpenseCategory(data: ExpenseCategoryFormData) {
 }
 
 export async function updateExpenseCategory(id: string, data: ExpenseCategoryFormData) {
-  const user = await requireRole(["admin", "supervisor"]);
+  const user = await assertRole(["admin"]);
 
   // Verify ownership
   const existing = await prisma.expenseCategory.findUnique({
@@ -82,6 +84,7 @@ export async function updateExpenseCategory(id: string, data: ExpenseCategoryFor
       description: data.description,
       isTruck: data.isTruck,
       isTrip: data.isTrip,
+      isDriver: data.isDriver,
       color: data.color,
       icon: data.icon,
       defaultAccountId: data.defaultAccountId || null,
@@ -92,7 +95,7 @@ export async function updateExpenseCategory(id: string, data: ExpenseCategoryFor
 }
 
 export async function deleteExpenseCategory(id: string) {
-  const user = await requireRole(["admin", "supervisor"]);
+  const user = await assertRole(["admin"]);
 
   // Verify ownership
   const existing = await prisma.expenseCategory.findUnique({

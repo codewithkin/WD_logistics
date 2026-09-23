@@ -38,7 +38,7 @@ export default async function ExpenseCategoriesPage() {
                 description="Manage expense categories and their settings"
                 backHref="/finance/expenses"
             />
-            <ExpenseCategoriesClient categories={categories} accounts={accounts} />
+            <ExpenseCategoriesClient categories={categories} accounts={accounts} role={user.role} />
         </div>
     );
 }
