@@ -14,37 +14,20 @@ export default async function EditTripPage({ params }: EditTripPageProps) {
     const session = await requireRole(["admin", "supervisor"]);
     const showFinancials = canViewFinancialData(session.role);
 
+    // Only the three related records the trip already points at are loaded —
+    // enough to label the pickers. The pickers search for everything else.
     const trip = await prisma.trip.findFirst({
         where: { id, organizationId: session.organizationId },
+        include: {
+            truck: { select: { registrationNo: true, make: true, model: true } },
+            driver: { select: { firstName: true, lastName: true, phone: true } },
+            customer: { select: { name: true, contactPerson: true } },
+        },
     });
 
     if (!trip) {
         notFound();
     }
-
-    const [trucks, drivers, customers] = await Promise.all([
-        prisma.truck.findMany({
-            where: {
-                organizationId: session.organizationId,
-                OR: [{ status: "active" }, { id: trip.truckId }],
-            },
-            select: { id: true, registrationNo: true },
-            orderBy: { registrationNo: "asc" },
-        }),
-        prisma.driver.findMany({
-            where: {
-                organizationId: session.organizationId,
-                OR: [{ status: "active" }, { id: trip.driverId }],
-            },
-            select: { id: true, firstName: true, lastName: true },
-            orderBy: { firstName: "asc" },
-        }),
-        prisma.customer.findMany({
-            where: { organizationId: session.organizationId },
-            select: { id: true, name: true },
-            orderBy: { name: "asc" },
-        }),
-    ]);
 
     return (
         <div>
@@ -53,7 +36,26 @@ export default async function EditTripPage({ params }: EditTripPageProps) {
                 description={`Update trip: ${trip.originCity} → ${trip.destinationCity}`}
                 backHref={`/operations/trips/${trip.id}`}
             />
-            <TripForm trip={trip} trucks={trucks} drivers={drivers} customers={customers} showFinancials={showFinancials} />
+            <TripForm
+                trip={trip}
+                selected={{
+                    truck: {
+                        label: trip.truck.registrationNo,
+                        description: `${trip.truck.make} ${trip.truck.model}`,
+                    },
+                    driver: {
+                        label: `${trip.driver.firstName} ${trip.driver.lastName}`,
+                        description: trip.driver.phone,
+                    },
+                    customer: trip.customer
+                        ? {
+                              label: trip.customer.name,
+                              description: trip.customer.contactPerson ?? undefined,
+                          }
+                        : undefined,
+                }}
+                showFinancials={showFinancials}
+            />
         </div>
     );
 }

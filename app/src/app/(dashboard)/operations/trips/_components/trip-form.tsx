@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { EntityPicker } from "@/components/ui/entity-picker";
 import { CalendarIcon, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -88,13 +89,20 @@ interface TripFormProps {
         customerId: string | null;
         notes: string | null;
     };
-    trucks: Array<{ id: string; registrationNo: string }>;
-    drivers: Array<{ id: string; firstName: string; lastName: string }>;
-    customers: Array<{ id: string; name: string }>;
+    /**
+     * Labels for the records the trip already points at, so the pickers read as
+     * "ABC 222" rather than "Loading..." on first paint. The picker fetches
+     * everything else itself.
+     */
+    selected?: {
+        truck?: { label: string; description?: string };
+        driver?: { label: string; description?: string };
+        customer?: { label: string; description?: string };
+    };
     showFinancials?: boolean;
 }
 
-export function TripForm({ trip, trucks, drivers, customers, showFinancials = true }: TripFormProps) {
+export function TripForm({ trip, selected, showFinancials = true }: TripFormProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
     const isEditing = !!trip;
@@ -253,20 +261,16 @@ export function TripForm({ trip, trucks, drivers, customers, showFinancials = tr
                         render={({ field }) => (
                             <FormItem>
                                 <FormLabel>Truck</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                    <FormControl>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select a truck" />
-                                        </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        {trucks.map((truck) => (
-                                            <SelectItem key={truck.id} value={truck.id}>
-                                                {truck.registrationNo}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <FormControl>
+                                    <EntityPicker
+                                        kind="truck"
+                                        value={field.value}
+                                        onChange={(id) => field.onChange(id ?? "")}
+                                        initialLabel={selected?.truck?.label}
+                                        initialDescription={selected?.truck?.description}
+                                        defaultFilters={{ status: "active" }}
+                                    />
+                                </FormControl>
                                 <FormMessage />
                             </FormItem>
                         )}
@@ -277,20 +281,16 @@ export function TripForm({ trip, trucks, drivers, customers, showFinancials = tr
                         render={({ field }) => (
                             <FormItem>
                                 <FormLabel>Driver</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                    <FormControl>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select a driver" />
-                                        </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        {drivers.map((driver) => (
-                                            <SelectItem key={driver.id} value={driver.id}>
-                                                {driver.firstName} {driver.lastName}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <FormControl>
+                                    <EntityPicker
+                                        kind="driver"
+                                        value={field.value}
+                                        onChange={(id) => field.onChange(id ?? "")}
+                                        initialLabel={selected?.driver?.label}
+                                        initialDescription={selected?.driver?.description}
+                                        defaultFilters={{ status: "active" }}
+                                    />
+                                </FormControl>
                                 <FormMessage />
                             </FormItem>
                         )}
@@ -301,24 +301,18 @@ export function TripForm({ trip, trucks, drivers, customers, showFinancials = tr
                         render={({ field }) => (
                             <FormItem>
                                 <FormLabel>Customer (Optional)</FormLabel>
-                                <Select
-                                    onValueChange={(value) => field.onChange(value === "none" ? undefined : value)}
-                                    value={field.value ?? "none"}
-                                >
-                                    <FormControl>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select a customer" />
-                                        </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        <SelectItem value="none">No Customer</SelectItem>
-                                        {customers.map((customer) => (
-                                            <SelectItem key={customer.id} value={customer.id}>
-                                                {customer.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <FormControl>
+                                    <EntityPicker
+                                        kind="customer"
+                                        value={field.value ?? null}
+                                        onChange={(id) => field.onChange(id ?? undefined)}
+                                        initialLabel={selected?.customer?.label}
+                                        initialDescription={selected?.customer?.description}
+                                        clearable
+                                        clearLabel="No customer"
+                                        placeholder="Select a customer"
+                                    />
+                                </FormControl>
                                 <FormMessage />
                             </FormItem>
                         )}
