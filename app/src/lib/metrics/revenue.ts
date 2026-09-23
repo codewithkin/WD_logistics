@@ -47,15 +47,34 @@ interface DatedAmount {
 }
 
 /**
+ * Narrows a revenue figure to one customer, truck or driver. Combining them
+ * is an AND — "this driver's revenue on that truck" is exactly what the
+ * per-truck driver snapshots need.
+ */
+export interface RevenueScope {
+  customerId?: string;
+  truckId?: string;
+  driverId?: string;
+}
+
+/**
  * Completed trips in a period, dated by `endDate` where there is one.
  *
  * A trip marked completed without an end date would otherwise vanish from every
  * revenue figure, so it falls back to its scheduled date.
  */
-export function earnedRevenueWhere(organizationId: string, from: Date, to: Date) {
+export function earnedRevenueWhere(
+  organizationId: string,
+  from: Date,
+  to: Date,
+  scope?: RevenueScope,
+) {
   return {
     organizationId,
     status: "completed",
+    ...(scope?.customerId ? { customerId: scope.customerId } : {}),
+    ...(scope?.truckId ? { truckId: scope.truckId } : {}),
+    ...(scope?.driverId ? { driverId: scope.driverId } : {}),
     OR: [
       { endDate: { gte: from, lte: to } },
       { endDate: null, scheduledDate: { gte: from, lte: to } },
@@ -67,9 +86,10 @@ export async function getEarnedRevenue(
   organizationId: string,
   from: Date,
   to: Date,
+  scope?: RevenueScope,
 ): Promise<number> {
   const trips = await prisma.trip.findMany({
-    where: earnedRevenueWhere(organizationId, from, to),
+    where: earnedRevenueWhere(organizationId, from, to, scope),
     select: { revenue: true },
   });
 

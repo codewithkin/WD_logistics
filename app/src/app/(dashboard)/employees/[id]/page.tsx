@@ -3,6 +3,11 @@ import Link from "next/link";
 import { requireAuth } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/layout/page-header";
+import { PagePeriodSelector } from "@/components/ui/page-period-selector";
+import { getDateRangeFromParams } from "@/lib/period-utils";
+import { canViewInventoryValue } from "@/lib/permissions";
+import { formatCurrency } from "@/lib/utils";
+import { Package } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
@@ -13,13 +18,16 @@ import { format, differenceInYears, differenceInMonths } from "date-fns";
 
 interface EmployeeDetailPageProps {
     params: Promise<{ id: string }>;
+    searchParams: Promise<{ period?: string; from?: string; to?: string }>;
 }
 
 
-export default async function EmployeeDetailPage({ params }: EmployeeDetailPageProps) {
+export default async function EmployeeDetailPage({ params, searchParams }: EmployeeDetailPageProps) {
     const { id } = await params;
+    const query = await searchParams;
     const session = await requireAuth();
     const { role, organizationId } = session;
+    const dateRange = getDateRangeFromParams(query, "3m");
 
     const employee = await prisma.employee.findFirst({
         where: { id, organizationId },
@@ -28,6 +36,30 @@ export default async function EmployeeDetailPage({ params }: EmployeeDetailPageP
     if (!employee) {
         notFound();
     }
+
+    // What this employee has issued out of the warehouse. It was recorded
+    // against them on every allocation but never shown anywhere, so there was
+    // no way to ask who had been drawing parts.
+    const canSeeValue = canViewInventoryValue(role);
+    const allocations = await prisma.partAllocation.findMany({
+        where: {
+            allocatedById: employee.id,
+            allocatedAt: { gte: dateRange.from, lte: dateRange.to },
+        },
+        include: {
+            inventoryItem: { select: { id: true, name: true, unit: true, unitCost: true } },
+            truck: { select: { id: true, registrationNo: true } },
+        },
+        orderBy: { allocatedAt: "desc" },
+        take: 25,
+    });
+
+    const allocationValue = canSeeValue
+        ? allocations.reduce(
+              (sum, a) => sum + (a.inventoryItem.unitCost ?? 0) * a.quantity,
+              0,
+          )
+        : null;
 
     const canEdit = role === "admin" || role === "supervisor";
 
@@ -53,7 +85,9 @@ export default async function EmployeeDetailPage({ params }: EmployeeDetailPageP
                         }
                         : undefined
                 }
-            />
+            >
+                <PagePeriodSelector defaultPreset="3m" />
+            </PageHeader>
 
             <div className="grid gap-6 md:grid-cols-2">
                 <Card>
@@ -153,6 +187,60 @@ export default async function EmployeeDetailPage({ params }: EmployeeDetailPageP
                     </CardContent>
                 </Card>
 
+                <Card className="md:col-span-2">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <Package className="h-5 w-5" /> Parts issued ({dateRange.label})
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        {allocations.length === 0 ? (
+                            <p className="py-4 text-center text-muted-foreground">
+                                No parts issued by this employee in this period.
+                            </p>
+                        ) : (
+                            <div className="space-y-3">
+                                {allocationValue !== null && (
+                                    <p className="text-sm text-muted-foreground">
+                                        {allocations.length} allocation
+                                        {allocations.length === 1 ? "" : "s"}, worth{" "}
+                                        <span className="font-medium text-foreground">
+                                            {formatCurrency(allocationValue)}
+                                        </span>
+                                    </p>
+                                )}
+                                {allocations.map((allocation) => (
+                                    <div
+                                        key={allocation.id}
+                                        className="flex flex-wrap items-center justify-between gap-2 border-b pb-3 last:border-0 last:pb-0"
+                                    >
+                                        <div className="min-w-0">
+                                            <Link
+                                                href={`/inventory/${allocation.inventoryItem.id}`}
+                                                className="font-medium text-primary hover:underline"
+                                            >
+                                                {allocation.inventoryItem.name}
+                                            </Link>
+                                            <p className="text-sm text-muted-foreground">
+                                                {allocation.quantity} {allocation.inventoryItem.unit ?? "units"}
+                                                {" to "}
+                                                <Link
+                                                    href={`/fleet/trucks/${allocation.truck.id}`}
+                                                    className="hover:underline"
+                                                >
+                                                    {allocation.truck.registrationNo}
+                                                </Link>
+                                            </p>
+                                        </div>
+                                        <span className="text-sm text-muted-foreground">
+                                            {format(allocation.allocatedAt, "d MMM yyyy")}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
             </div>
         </div>
     );

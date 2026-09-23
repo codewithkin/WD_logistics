@@ -3,6 +3,8 @@ import Link from "next/link";
 import { requireAuth } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/layout/page-header";
+import { PagePeriodSelector } from "@/components/ui/page-period-selector";
+import { getDateRangeFromParams } from "@/lib/period-utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Separator } from "@/components/ui/separator";
@@ -10,15 +12,23 @@ import { Pencil, Truck as TruckIcon, FileText, IdCard } from "lucide-react";
 import { format } from "date-fns";
 import { AssignTruck } from "./_components/assign-truck";
 import { ExportTrailerButton } from "./_components/export-trailer-button";
+import { VehicleMaintenanceHistory } from "@/components/fleet/vehicle-maintenance-history";
+import { UNFINISHED_STATUSES } from "@/app/(dashboard)/maintenance/_lib/status";
+import { canViewFinancialData } from "@/lib/permissions";
+import { formatCurrency } from "@/lib/utils";
+import { Wrench } from "lucide-react";
 
 interface TrailerDetailPageProps {
     params: Promise<{ id: string }>;
+    searchParams: Promise<{ period?: string; from?: string; to?: string }>;
 }
 
-export default async function TrailerDetailPage({ params }: TrailerDetailPageProps) {
+export default async function TrailerDetailPage({ params, searchParams }: TrailerDetailPageProps) {
     const { id } = await params;
+    const query = await searchParams;
     const session = await requireAuth();
     const { role, organizationId } = session;
+    const dateRange = getDateRangeFromParams(query, "3m");
 
     const trailer = await prisma.trailer.findFirst({
         where: { id, organizationId },
@@ -32,6 +42,61 @@ export default async function TrailerDetailPage({ params }: TrailerDetailPagePro
     }
 
     const canEdit = role === "admin" || role === "supervisor";
+    // Same audience as the workshop screen: the office, not staff.
+    const canViewMaintenance = role === "admin" || role === "supervisor";
+    const showFinancials = canViewFinancialData(role);
+
+    // A trailer can be maintained and can run up costs of its own, but the
+    // page showed neither — so there was no way to ask whether one was worth
+    // keeping. Both follow the period selector.
+    const [maintenanceRequests, trailerExpenses] = await Promise.all([
+        canViewMaintenance
+            ? prisma.maintenanceRequest.findMany({
+                  where: {
+                      trailerId: id,
+                      organizationId,
+                      // Unfinished work stays visible however it is dated, so a
+                      // job booked for next week doesn't fall off the page.
+                      OR: [
+                          { date: { gte: dateRange.from, lte: dateRange.to } },
+                          { fixedAt: { gte: dateRange.from, lte: dateRange.to } },
+                          { status: { in: [...UNFINISHED_STATUSES] } },
+                      ],
+                  },
+                  include: {
+                      assignedTo: { select: { name: true } },
+                      fixedBy: { select: { name: true } },
+                  },
+                  orderBy: { date: "desc" },
+              })
+            : Promise.resolve([]),
+        showFinancials
+            ? prisma.trailerExpense.findMany({
+                  where: {
+                      trailerId: id,
+                      expense: {
+                          organizationId,
+                          date: { gte: dateRange.from, lte: dateRange.to },
+                      },
+                  },
+                  include: {
+                      expense: {
+                          include: { category: { select: { name: true } } },
+                      },
+                  },
+                  orderBy: { expense: { date: "desc" } },
+              })
+            : Promise.resolve([]),
+    ]);
+
+    const expenseTotal = trailerExpenses.reduce((sum, te) => sum + te.expense.amount, 0);
+    const expensesByCategory = Object.values(
+        trailerExpenses.reduce<Record<string, { name: string; amount: number }>>((acc, te) => {
+            const name = te.expense.category.name;
+            (acc[name] ??= { name, amount: 0 }).amount += te.expense.amount;
+            return acc;
+        }, {})
+    ).sort((a, b) => b.amount - a.amount);
 
     return (
         <div>
@@ -50,7 +115,10 @@ export default async function TrailerDetailPage({ params }: TrailerDetailPagePro
                             : undefined
                     }
                 />
-                <ExportTrailerButton trailerId={trailer.id} trailerName={trailer.registrationNo} />
+                <div className="flex items-center gap-2">
+                    <PagePeriodSelector defaultPreset="3m" />
+                    <ExportTrailerButton trailerId={trailer.id} trailerName={trailer.registrationNo} />
+                </div>
             </div>
 
             <div className="grid gap-6 md:grid-cols-2">
@@ -154,6 +222,39 @@ export default async function TrailerDetailPage({ params }: TrailerDetailPagePro
                     </CardContent>
                 </Card>
 
+                {showFinancials && (
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-lg flex items-center gap-2">
+                                <Wrench className="h-5 w-5" /> Costs ({dateRange.label})
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="flex items-center justify-between">
+                                <span className="text-muted-foreground">Total spent</span>
+                                <span className="font-medium">{formatCurrency(expenseTotal)}</span>
+                            </div>
+                            <Separator />
+                            {expensesByCategory.length === 0 ? (
+                                <p className="text-sm text-muted-foreground">
+                                    No costs recorded against this trailer in this period.
+                                </p>
+                            ) : (
+                                <div className="space-y-2">
+                                    {expensesByCategory.map((row) => (
+                                        <div key={row.name} className="flex items-center justify-between text-sm">
+                                            <span className="text-muted-foreground">{row.name}</span>
+                                            <span className="font-medium tabular-nums">
+                                                {formatCurrency(row.amount)}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                )}
+
                 {trailer.notes && (
                     <Card>
                         <CardHeader>
@@ -167,6 +268,14 @@ export default async function TrailerDetailPage({ params }: TrailerDetailPagePro
                     </Card>
                 )}
             </div>
+
+            {canViewMaintenance && (
+                <VehicleMaintenanceHistory
+                    requests={maintenanceRequests}
+                    periodLabel={dateRange.label}
+                    vehicleLabel="trailer"
+                />
+            )}
         </div>
     );
 }

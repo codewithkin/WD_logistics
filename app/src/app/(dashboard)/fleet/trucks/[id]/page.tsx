@@ -16,7 +16,7 @@ import { ExportTruckButton } from "./_components/export-truck-button";
 import { getDateRangeFromParams } from "@/lib/period-utils";
 import { PagePeriodSelector } from "@/components/ui/page-period-selector";
 import { formatCurrency } from "@/lib/utils";
-import { TruckMaintenanceHistory } from "./_components/truck-maintenance-history";
+import { VehicleMaintenanceHistory } from "@/components/fleet/vehicle-maintenance-history";
 import { UNFINISHED_STATUSES } from "../../../maintenance/_lib/status";
 
 interface TruckDetailPageProps {
@@ -339,8 +339,7 @@ export default async function TruckDetailPage({ params, searchParams }: TruckDet
             </Card>
 
             {canViewMaintenance && (
-                <TruckMaintenanceHistory
-                    truckId={truck.id}
+                <VehicleMaintenanceHistory
                     requests={maintenanceRequests}
                     periodLabel={dateRange.label}
                 />

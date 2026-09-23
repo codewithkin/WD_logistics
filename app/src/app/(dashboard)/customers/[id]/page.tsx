@@ -3,6 +3,9 @@ import Link from "next/link";
 import { requireAuth } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/layout/page-header";
+import { PagePeriodSelector } from "@/components/ui/page-period-selector";
+import { getDateRangeFromParams } from "@/lib/period-utils";
+import { getEarnedRevenue } from "@/lib/metrics/revenue";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
@@ -14,17 +17,21 @@ import { ExportCustomerButton } from "./_components/export-customer-button";
 
 interface CustomerDetailPageProps {
     params: Promise<{ id: string }>;
+    searchParams: Promise<{ period?: string; from?: string; to?: string }>;
 }
 
-export default async function CustomerDetailPage({ params }: CustomerDetailPageProps) {
+export default async function CustomerDetailPage({ params, searchParams }: CustomerDetailPageProps) {
     const { id } = await params;
+    const query = await searchParams;
     const session = await requireAuth();
     const { role, organizationId } = session;
+    const dateRange = getDateRangeFromParams(query, "3m");
 
     const customer = await prisma.customer.findFirst({
         where: { id, organizationId },
         include: {
             trips: {
+                where: { scheduledDate: { gte: dateRange.from, lte: dateRange.to } },
                 orderBy: { startDate: "desc" },
                 take: 5,
                 include: {
@@ -33,6 +40,7 @@ export default async function CustomerDetailPage({ params }: CustomerDetailPageP
                 },
             },
             invoices: {
+                where: { issueDate: { gte: dateRange.from, lte: dateRange.to } },
                 orderBy: { issueDate: "desc" },
                 take: 5,
             },
@@ -46,9 +54,35 @@ export default async function CustomerDetailPage({ params }: CustomerDetailPageP
     const canEdit = role === "admin" || role === "supervisor";
     const showFinancials = canViewFinancialData(role);
 
-    // Calculate totals
-    const totalRevenue = customer.trips.reduce((sum, trip) => sum + trip.revenue, 0);
-    const totalInvoiced = customer.invoices.reduce((sum, inv) => sum + inv.total, 0);
+    // The cards used to total the five rows shown below them, so a customer
+    // with thirty trips reported the revenue of the latest five. Counts and
+    // sums come from un-truncated aggregates over the whole period; the lists
+    // below stay capped at five and say so.
+    const [tripCount, invoiceTotals, periodRevenue] = await Promise.all([
+        prisma.trip.count({
+            where: {
+                customerId: customer.id,
+                organizationId,
+                scheduledDate: { gte: dateRange.from, lte: dateRange.to },
+            },
+        }),
+        prisma.invoice.aggregate({
+            where: {
+                customerId: customer.id,
+                organizationId,
+                issueDate: { gte: dateRange.from, lte: dateRange.to },
+            },
+            _sum: { total: true, balance: true },
+        }),
+        // The one definition of revenue: completed trips only.
+        getEarnedRevenue(organizationId, dateRange.from, dateRange.to, {
+            customerId: customer.id,
+        }),
+    ]);
+
+    const totalRevenue = periodRevenue;
+    const totalInvoiced = invoiceTotals._sum.total ?? 0;
+    const outstanding = invoiceTotals._sum.balance ?? 0;
 
     return (
         <div>
@@ -67,7 +101,10 @@ export default async function CustomerDetailPage({ params }: CustomerDetailPageP
                             : undefined
                     }
                 />
-                <ExportCustomerButton customerId={customer.id} customerName={customer.name} />
+                <div className="flex items-center gap-2">
+                    <PagePeriodSelector defaultPreset="3m" />
+                    <ExportCustomerButton customerId={customer.id} customerName={customer.name} />
+                </div>
             </div>
 
             <div className="grid gap-6 md:grid-cols-2">
@@ -140,21 +177,31 @@ export default async function CustomerDetailPage({ params }: CustomerDetailPageP
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
+                            <p className="text-xs text-muted-foreground">{dateRange.label}</p>
                             <div className="flex items-center justify-between">
-                                <span className="text-muted-foreground">Total Trips</span>
-                                <span className="font-medium">{customer.trips.length}</span>
+                                <span className="text-muted-foreground">Trips</span>
+                                <span className="font-medium">{tripCount}</span>
                             </div>
                             <Separator />
                             <div className="flex items-center justify-between">
-                                <span className="text-muted-foreground">Total Revenue</span>
+                                <span className="text-muted-foreground" title="Completed trips only">
+                                    Revenue earned
+                                </span>
                                 <span className="font-medium text-green-600">
                                     ${totalRevenue.toLocaleString()}
                                 </span>
                             </div>
                             <Separator />
                             <div className="flex items-center justify-between">
-                                <span className="text-muted-foreground">Total Invoiced</span>
+                                <span className="text-muted-foreground">Invoiced</span>
                                 <span className="font-medium">${totalInvoiced.toLocaleString()}</span>
+                            </div>
+                            <Separator />
+                            <div className="flex items-center justify-between">
+                                <span className="text-muted-foreground">Still outstanding</span>
+                                <span className="font-medium text-amber-600">
+                                    ${outstanding.toLocaleString()}
+                                </span>
                             </div>
                         </CardContent>
                     </Card>
@@ -186,7 +233,9 @@ export default async function CustomerDetailPage({ params }: CustomerDetailPageP
                     </CardHeader>
                     <CardContent>
                         {customer.trips.length === 0 ? (
-                            <p className="text-center text-muted-foreground py-4">No trips recorded</p>
+                            <p className="text-center text-muted-foreground py-4">
+                                No trips in {dateRange.label.toLowerCase()}
+                            </p>
                         ) : (
                             <div className="space-y-3">
                                 {customer.trips.map((trip) => (
@@ -222,7 +271,9 @@ export default async function CustomerDetailPage({ params }: CustomerDetailPageP
                     </CardHeader>
                     <CardContent>
                         {customer.invoices.length === 0 ? (
-                            <p className="text-center text-muted-foreground py-4">No invoices created</p>
+                            <p className="text-center text-muted-foreground py-4">
+                                No invoices in {dateRange.label.toLowerCase()}
+                            </p>
                         ) : (
                             <div className="space-y-3">
                                 {customer.invoices.map((invoice) => (

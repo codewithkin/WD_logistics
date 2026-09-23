@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Wrench } from "lucide-react";
-import { downtimeDaysFor } from "../../../../maintenance/_lib/history";
+import { downtimeDaysFor } from "@/app/(dashboard)/maintenance/_lib/history";
 
 interface MaintenanceRow {
     id: string;
@@ -18,19 +18,23 @@ interface MaintenanceRow {
 }
 
 /**
- * Repair history for one truck: how often it comes in, how long it's off the
- * road, and what was actually done each time. Sits next to the revenue and
- * expense cards because "in the workshop" is one of the two ways a truck
+ * Repair history for one vehicle: how often it comes in, how long it's off
+ * the road, and what was actually done each time. Sits next to the revenue
+ * and expense cards because "in the workshop" is one of the two ways a truck
  * stops paying for itself.
+ *
+ * Shared by the truck and trailer detail pages — maintenance can be raised
+ * against either, so both deserve the same history.
  */
-export function TruckMaintenanceHistory({
-    truckId,
+export function VehicleMaintenanceHistory({
     requests,
     periodLabel,
+    vehicleLabel = "truck",
 }: {
-    truckId: string;
     requests: MaintenanceRow[];
     periodLabel: string;
+    /** Named in the empty state, e.g. "trailer". */
+    vehicleLabel?: string;
 }) {
     const open = requests.filter((r) => r.status !== "fixed").length;
     const downtime =
@@ -55,7 +59,7 @@ export function TruckMaintenanceHistory({
 
                 {requests.length === 0 ? (
                     <p className="py-4 text-center text-muted-foreground">
-                        No maintenance logged for this truck in this period.
+                        No maintenance logged for this {vehicleLabel} in this period.
                     </p>
                 ) : (
                     <div className="space-y-4">

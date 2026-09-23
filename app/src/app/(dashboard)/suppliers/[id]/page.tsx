@@ -3,6 +3,8 @@ import Link from "next/link";
 import { requireAuth } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/layout/page-header";
+import { PagePeriodSelector } from "@/components/ui/page-period-selector";
+import { getDateRangeFromParams } from "@/lib/period-utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Separator } from "@/components/ui/separator";
@@ -21,17 +23,29 @@ import { MarkExpensePaidButton } from "./_components/mark-expense-paid-button";
 
 interface SupplierDetailPageProps {
     params: Promise<{ id: string }>;
+    searchParams: Promise<{ period?: string; from?: string; to?: string }>;
 }
 
-export default async function SupplierDetailPage({ params }: SupplierDetailPageProps) {
+export default async function SupplierDetailPage({ params, searchParams }: SupplierDetailPageProps) {
     const { id } = await params;
+    const query = await searchParams;
     const session = await requireAuth();
     const { role, organizationId } = session;
+    const dateRange = getDateRangeFromParams(query, "3m");
 
+    // Expenses are dated by when they were incurred, but anything still
+    // unpaid stays on the page however old — a debt that scrolls out of the
+    // period is exactly the one the office needs to see.
     const supplier = await prisma.supplier.findFirst({
         where: { id, organizationId },
         include: {
             expenses: {
+                where: {
+                    OR: [
+                        { date: { gte: dateRange.from, lte: dateRange.to } },
+                        { isPaid: false },
+                    ],
+                },
                 orderBy: { date: "desc" },
                 include: {
                     category: true,
@@ -62,20 +76,23 @@ export default async function SupplierDetailPage({ params }: SupplierDetailPageP
 
     return (
         <div className="space-y-6">
-            <PageHeader
-                title={supplier.name}
-                description="Supplier details and expenses"
-                backHref="/suppliers"
-                action={
-                    canEdit
-                        ? {
-                            label: "Edit Supplier",
-                            href: `/suppliers/${supplier.id}/edit`,
-                            icon: Pencil,
-                        }
-                        : undefined
-                }
-            />
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <PageHeader
+                    title={supplier.name}
+                    description={`Supplier details and expenses — ${dateRange.label}`}
+                    backHref="/suppliers"
+                    action={
+                        canEdit
+                            ? {
+                                label: "Edit Supplier",
+                                href: `/suppliers/${supplier.id}/edit`,
+                                icon: Pencil,
+                            }
+                            : undefined
+                    }
+                />
+                <PagePeriodSelector defaultPreset="3m" />
+            </div>
 
             <div className="grid gap-6 md:grid-cols-2">
                 <Card>

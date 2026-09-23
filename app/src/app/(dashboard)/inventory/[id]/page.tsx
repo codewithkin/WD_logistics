@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/layout/page-header";
+import { PagePeriodSelector } from "@/components/ui/page-period-selector";
+import { getDateRangeFromParams } from "@/lib/period-utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
@@ -22,17 +24,23 @@ import { StockMovementsTable } from "../_components/stock-movements-table";
 
 interface InventoryItemDetailPageProps {
     params: Promise<{ id: string }>;
+    searchParams: Promise<{ period?: string; from?: string; to?: string }>;
 }
 
-export default async function InventoryItemDetailPage({ params }: InventoryItemDetailPageProps) {
+export default async function InventoryItemDetailPage({ params, searchParams }: InventoryItemDetailPageProps) {
     const { id } = await params;
+    const query = await searchParams;
     const session = await requireRole(["admin", "supervisor"]);
     const { role, organizationId } = session;
+    const dateRange = getDateRangeFromParams(query, "3m");
 
+    // Stock on hand is a right-now figure; the period narrows the paper trail
+    // below it — what was allocated and what moved.
     const item = await prisma.inventoryItem.findFirst({
         where: { id, organizationId },
         include: {
             allocations: {
+                where: { allocatedAt: { gte: dateRange.from, lte: dateRange.to } },
                 orderBy: { allocatedAt: "desc" },
                 include: {
                     truck: { select: { registrationNo: true, make: true, model: true } },
@@ -40,6 +48,7 @@ export default async function InventoryItemDetailPage({ params }: InventoryItemD
                 },
             },
             movements: {
+                where: { createdAt: { gte: dateRange.from, lte: dateRange.to } },
                 orderBy: { createdAt: "desc" },
                 include: { performedBy: { select: { name: true } } },
             },
@@ -68,7 +77,7 @@ export default async function InventoryItemDetailPage({ params }: InventoryItemD
         <div className="space-y-6">
             <PageHeader
                 title={item.name}
-                description="Stock levels and a full record of what came in and went out"
+                description={`Stock levels now; movements and allocations for ${dateRange.label.toLowerCase()}`}
                 backHref="/inventory"
                 action={
                     canManage
@@ -76,12 +85,15 @@ export default async function InventoryItemDetailPage({ params }: InventoryItemD
                         : undefined
                 }
             >
-                {canManage && (
-                    <StockActions
-                        item={{ id: item.id, name: item.name, quantity: item.quantity, unit: item.unit, unitCost: item.unitCost }}
-                        showValue={canSeeValue}
-                    />
-                )}
+                <div className="flex flex-wrap items-center gap-2">
+                    <PagePeriodSelector defaultPreset="3m" />
+                    {canManage && (
+                        <StockActions
+                            item={{ id: item.id, name: item.name, quantity: item.quantity, unit: item.unit, unitCost: item.unitCost }}
+                            showValue={canSeeValue}
+                        />
+                    )}
+                </div>
             </PageHeader>
 
             <div className="grid gap-6 md:grid-cols-2">
@@ -230,7 +242,7 @@ export default async function InventoryItemDetailPage({ params }: InventoryItemD
                 <CardContent>
                     {item.allocations.length === 0 ? (
                         <p className="text-center text-muted-foreground py-8">
-                            No allocations recorded for this item
+                            No allocations for this item in {dateRange.label.toLowerCase()}
                         </p>
                     ) : (
                         <div className="rounded-md border overflow-x-auto">
