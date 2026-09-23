@@ -14,7 +14,7 @@ import { reportConfigs } from "@/config/reports";
 export const TAB_REPORT_TYPES: Record<string, string[]> = {
   overview: ["revenue", "expenses", "trip-summary"],
   financial: ["account-ledger", "revenue", "expenses", "customer-statement"],
-  fleet: ["profit-per-unit", "truck-profitability", "trip-summary"],
+  fleet: ["truck-cost-breakdown", "profit-per-unit", "truck-profitability", "trip-summary"],
 };
 
 export const TAB_LABELS: Record<string, string> = {

@@ -40,6 +40,7 @@ import {
 // Input validation schema
 const generateReportSchema = z.object({
   reportType: z.enum([
+    "truck-cost-breakdown",
     "profit-per-unit",
     "revenue",
     "expenses",
@@ -95,6 +96,111 @@ export async function generateReport(
     let filename: string;
 
     switch (reportType) {
+      // Item 1's "separate report": the same figures as the on-screen
+      // breakdown, reading from lib/metrics/truck-costs so the two can never
+      // disagree. One truck when truckId is given, the whole fleet otherwise.
+      case "truck-cost-breakdown": {
+        const { generateTruckCostReportPDF } = await import(
+          "@/lib/documents/truck-cost-report"
+        );
+        const { getTruckCostBreakdown, getFleetCostRanking } = await import(
+          "@/lib/metrics/truck-costs"
+        );
+        const { generateTruckCostBreakdownCSV } = await import(
+          "@/lib/reports/csv-generator"
+        );
+
+        const organization = await prisma.organization.findUnique({
+          where: { id: organizationId },
+        });
+        const range = { from: start, to: end };
+
+        if (truckId) {
+          const truck = await prisma.truck.findFirst({
+            where: { id: truckId, organizationId },
+          });
+          if (!truck) {
+            return { success: false, error: "Truck not found" };
+          }
+          const breakdown = await getTruckCostBreakdown(
+            organizationId,
+            truckId,
+            range,
+          );
+
+          if (format === "pdf") {
+            fileBuffer = generateTruckCostReportPDF({
+              organization,
+              period: range,
+              truck: {
+                registrationNo: truck.registrationNo,
+                make: truck.make,
+                model: truck.model,
+                year: truck.year,
+                breakdown,
+              },
+            });
+            mimeType = "application/pdf";
+            fileExtension = "pdf";
+          } else {
+            // A single truck's CSV is its category split, which is what a
+            // spreadsheet reader actually wants to pivot on.
+            const csv = [
+              `"WD Logistics - Cost Breakdown ${truck.registrationNo}"`,
+              `"Period: ${start.toISOString().split("T")[0]} - ${end.toISOString().split("T")[0]}"`,
+              `""`,
+              `Category,Type,Count,Amount,Share %,Fleet share %`,
+              ...breakdown.byCategory.map(
+                (c) =>
+                  `"${c.category}","${c.kindLabel}",${c.count},${c.amount},${c.share},${c.fleetShare}`,
+              ),
+            ].join("\n");
+            fileBuffer = Buffer.from(csv, "utf-8");
+            mimeType = "text/csv";
+            fileExtension = "csv";
+          }
+          filename = `truck-cost-${truck.registrationNo.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase()}-${start.toISOString().split("T")[0]}.${fileExtension}`;
+          break;
+        }
+
+        const fleet = await getFleetCostRanking(organizationId, range);
+        if (format === "pdf") {
+          fileBuffer = generateTruckCostReportPDF({
+            organization,
+            period: range,
+            fleet,
+          });
+          mimeType = "application/pdf";
+          fileExtension = "pdf";
+        } else {
+          const csv = generateTruckCostBreakdownCSV(
+            fleet.map((row) => ({
+              registrationNo: row.registrationNo,
+              revenue: row.revenue,
+              expenses: row.expenses,
+              profit: row.profit,
+              margin: row.margin,
+              kilometres: row.kilometres,
+              costPerKm: row.costPerKm,
+              worstCategory: row.worstCategory
+                ? `${row.worstCategory.name} (${row.worstCategory.share}% vs fleet ${row.worstCategory.fleetShare}%)`
+                : "",
+            })),
+            {
+              startDate: start.toISOString().split("T")[0],
+              endDate: end.toISOString().split("T")[0],
+              period,
+              generatedAt: new Date(),
+            },
+          );
+          fileBuffer = Buffer.from(csv, "utf-8");
+          mimeType = "text/csv";
+          fileExtension = "csv";
+        }
+        filename = `fleet-cost-breakdown-${start.toISOString().split("T")[0]}-to-${end.toISOString().split("T")[0]}.${fileExtension}`;
+        break;
+      }
+
       case "profit-per-unit": {
         const data = await fetchProfitPerUnitData(organizationId, start, end);
 

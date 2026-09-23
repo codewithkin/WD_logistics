@@ -23,6 +23,23 @@ export interface ReportConfig {
 }
 
 export const reportConfigs: Record<string, ReportConfig> = {
+  "truck-cost-breakdown": {
+    id: "truck-cost-breakdown",
+    name: "Truck Cost Breakdown",
+    description:
+      "Where each truck's money goes — by category, with fuel per km and workshop downtime, against the fleet average. Leave the truck blank for the whole fleet.",
+    periods: ["monthly", "quarterly", "yearly", "custom"],
+    formats: ["pdf", "csv"],
+    fields: [
+      { key: "registrationNo", label: "Truck", type: "string" },
+      { key: "revenue", label: "Revenue", type: "currency" },
+      { key: "expenses", label: "Costs", type: "currency" },
+      { key: "profit", label: "Profit", type: "currency" },
+      { key: "margin", label: "Margin %", type: "percentage" },
+      { key: "costPerKm", label: "Cost/km", type: "currency" },
+      { key: "worstCategory", label: "Worst category", type: "string" },
+    ],
+  },
   "profit-per-unit": {
     id: "profit-per-unit",
     name: "Profit Per Unit Report",

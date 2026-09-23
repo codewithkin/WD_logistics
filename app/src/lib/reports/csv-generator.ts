@@ -428,3 +428,51 @@ export function generateTruckProfitabilityCSV(
 
   return `${metaInfo}\n${csvData}\n${summaryRows}`;
 }
+
+/** One row per truck, matching the fleet table in the PDF. */
+export interface TruckCostCSVRow {
+  registrationNo: string;
+  revenue: number;
+  expenses: number;
+  profit: number;
+  margin: number | null;
+  kilometres: number;
+  costPerKm: number | null;
+  worstCategory: string;
+}
+
+export function generateTruckCostBreakdownCSV(
+  data: TruckCostCSVRow[],
+  meta: ReportMeta
+): string {
+  const columns: CSVColumn[] = [
+    { key: "registrationNo", label: "Truck" },
+    { key: "revenue", label: "Revenue ($)", format: (v) => formatCurrency(v as number) },
+    { key: "expenses", label: "Costs ($)", format: (v) => formatCurrency(v as number) },
+    { key: "profit", label: "Profit ($)", format: (v) => formatCurrency(v as number) },
+    {
+      key: "margin",
+      label: "Margin (%)",
+      format: (v) => (v === null ? "" : formatPercentage(v as number)),
+    },
+    { key: "kilometres", label: "Kilometres" },
+    {
+      key: "costPerKm",
+      label: "Cost per km ($)",
+      format: (v) => (v === null ? "" : formatCurrency(v as number)),
+    },
+    { key: "worstCategory", label: "Over-spends on" },
+  ];
+
+  const metaInfo = [
+    `"WD Logistics - Truck Cost Breakdown"`,
+    `"Period: ${meta.startDate} - ${meta.endDate}"`,
+    `"Generated: ${new Date().toISOString()}"`,
+    // The allocation rule belongs with the numbers: a reader summing these in
+    // a spreadsheet needs to know a shared cost was already split.
+    `"Shared costs are split evenly between the trucks they name."`,
+    `""`,
+  ].join("\n");
+
+  return `${metaInfo}\n${generateCSV(data, { columns })}`;
+}
