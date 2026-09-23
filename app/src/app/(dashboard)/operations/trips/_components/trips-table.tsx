@@ -42,10 +42,10 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
-import { MoreHorizontal, Eye, Pencil, Trash2, Search, FileEdit, MapPin, Play, Loader2 } from "lucide-react";
+import { MoreHorizontal, Eye, Pencil, Trash2, Search, MapPin, Play, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { Role, TRIP_STATUS_LABELS } from "@/lib/types";
-import { deleteTrip, requestEditTrip, updateTrip } from "../actions";
+import { deleteTrip, updateTrip } from "../actions";
 import { toast } from "sonner";
 
 interface Trip {
@@ -88,9 +88,13 @@ export function TripsTable({ trips, role, showFinancials = true }: TripsTablePro
     const [isDeleting, setIsDeleting] = useState(false);
     const [completingId, setCompletingId] = useState<string | null>(null);
 
-    const canEdit = role === "admin" || role === "supervisor";
-    const canDelete = role === "admin";
-    const isStaff = role === "staff";
+    // Every role can open the edit form and press Delete; what differs is
+    // what happens on save. An admin writes straight through, anyone else
+    // files a request an admin accepts or refuses (lib/edit-requests/gate),
+    // so the menu says which it will be rather than implying a direct write.
+    const canEdit = true;
+    const canDelete = true;
+    const editsNeedApproval = role !== "admin";
     const canViewAmounts = showFinancials && role === "admin";
 
     const filteredTrips = trips.filter((trip) => {
@@ -129,19 +133,6 @@ export function TripsTable({ trips, role, showFinancials = true }: TripsTablePro
         } finally {
             setIsDeleting(false);
             setDeleteId(null);
-        }
-    };
-
-    const handleRequestEdit = async (tripId: string) => {
-        try {
-            const result = await requestEditTrip(tripId);
-            if (result.success) {
-                toast.success("Edit request submitted for approval");
-            } else {
-                toast.error(result.error || "Failed to submit request");
-            }
-        } catch {
-            toast.error("An error occurred");
         }
     };
 
@@ -319,14 +310,8 @@ export function TripsTable({ trips, role, showFinancials = true }: TripsTablePro
                                                         <DropdownMenuItem asChild>
                                                             <Link href={`/operations/trips/${trip.id}/edit`}>
                                                                 <Pencil className="mr-2 h-4 w-4" />
-                                                                Edit
+                                                                {editsNeedApproval ? "Request edit" : "Edit"}
                                                             </Link>
-                                                        </DropdownMenuItem>
-                                                    )}
-                                                    {isStaff && (
-                                                        <DropdownMenuItem onClick={() => handleRequestEdit(trip.id)}>
-                                                            <FileEdit className="mr-2 h-4 w-4" />
-                                                            Request Edit
                                                         </DropdownMenuItem>
                                                     )}
                                                     {canDelete && (
@@ -337,7 +322,7 @@ export function TripsTable({ trips, role, showFinancials = true }: TripsTablePro
                                                                 onClick={() => setDeleteId(trip.id)}
                                                             >
                                                                 <Trash2 className="mr-2 h-4 w-4" />
-                                                                Delete
+                                                                {editsNeedApproval ? "Request delete" : "Delete"}
                                                             </DropdownMenuItem>
                                                         </>
                                                     )}

@@ -6,6 +6,11 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
+import {
+    ApprovalNotice,
+    isPendingApproval,
+} from "@/components/ui/approval-notice";
+import { useSession } from "@/components/providers/session-provider";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -105,6 +110,13 @@ interface TripFormProps {
 export function TripForm({ trip, selected, showFinancials = true }: TripFormProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
+    // Non-admins are editing a request, not the record — see
+    // lib/edit-requests/gate.ts. The banner below says so, and the
+    // reason travels with the change for the admin who reviews it.
+    const { role } = useSession();
+    const needsApproval = role !== "admin";
+    const [approvalReason, setApprovalReason] = useState("");
+    const [reasonError, setReasonError] = useState<string | undefined>();
     const isEditing = !!trip;
 
     const form = useForm<TripFormData>({
@@ -137,11 +149,16 @@ export function TripForm({ trip, selected, showFinancials = true }: TripFormProp
     const onSubmit = async (data: TripFormData) => {
         setIsLoading(true);
         try {
+            if (isEditing && needsApproval && approvalReason.trim().length < 5) {
+                setReasonError("Give a short reason so the admin knows why.");
+                setIsLoading(false);
+                return;
+            }
             const result = isEditing
                 ? await updateTrip(trip.id, {
                     ...data,
                     customerId: data.customerId || null,
-                })
+                }, approvalReason)
                 : await createTrip({
                     originCity: data.originCity,
                     originAddress: data.originAddress,
@@ -163,6 +180,16 @@ export function TripForm({ trip, selected, showFinancials = true }: TripFormProp
                     customerId: data.customerId || null,
                     notes: data.notes,
                 });
+
+            if (isPendingApproval(result)) {
+
+                toast.success(result.message);
+
+                router.push("/edit-requests");
+
+                return;
+
+            }
 
             if (result.success) {
                 toast.success(isEditing ? "Trip updated successfully" : "Trip created successfully");
@@ -629,6 +656,29 @@ export function TripForm({ trip, selected, showFinancials = true }: TripFormProp
                         </FormItem>
                     )}
                 />
+
+                {isEditing && needsApproval && (
+
+                    <ApprovalNotice
+
+                        value={approvalReason}
+
+                        onChange={(value) => {
+
+                            setApprovalReason(value);
+
+                            setReasonError(undefined);
+
+                        }}
+
+                        noun="trip"
+
+                        error={reasonError}
+
+                    />
+
+                )}
+
 
                 <div className="flex justify-end gap-2 pt-4">
                     <Button

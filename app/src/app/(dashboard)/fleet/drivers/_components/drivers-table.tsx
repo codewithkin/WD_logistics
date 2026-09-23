@@ -41,9 +41,9 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { PaginationControls } from "@/components/ui/pagination-controls";
 import { usePagination } from "@/hooks/use-pagination";
-import { MoreHorizontal, Eye, Pencil, Trash2, Search, FileEdit } from "lucide-react";
+import { MoreHorizontal, Eye, Pencil, Trash2, Search } from "lucide-react";
 import { Role, DRIVER_STATUS_LABELS } from "@/lib/types";
-import { deleteDriver, requestEditDriver } from "../actions";
+import { deleteDriver } from "../actions";
 import { toast } from "sonner";
 
 interface Driver {
@@ -77,9 +77,13 @@ export function DriversTable({ drivers, role, showFinancials = true }: DriversTa
     const [deleteId, setDeleteId] = useState<string | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
 
-    const canEdit = role === "admin" || role === "supervisor";
-    const canDelete = role === "admin";
-    const isStaff = role === "staff";
+    // Every role can open the edit form and press Delete; what differs is
+    // what happens on save. An admin writes straight through, anyone else
+    // files a request an admin accepts or refuses (lib/edit-requests/gate),
+    // so the menu says which it will be rather than implying a direct write.
+    const canEdit = true;
+    const canDelete = true;
+    const editsNeedApproval = role !== "admin";
 
     const filteredDrivers = drivers.filter((driver) => {
         const driverName = `${driver.firstName} ${driver.lastName}`.toLowerCase();
@@ -114,19 +118,6 @@ export function DriversTable({ drivers, role, showFinancials = true }: DriversTa
         } finally {
             setIsDeleting(false);
             setDeleteId(null);
-        }
-    };
-
-    const handleRequestEdit = async (driverId: string) => {
-        try {
-            const result = await requestEditDriver(driverId);
-            if (result.success) {
-                toast.success("Edit request submitted for approval");
-            } else {
-                toast.error(result.error || "Failed to submit request");
-            }
-        } catch {
-            toast.error("An error occurred");
         }
     };
 
@@ -219,14 +210,8 @@ export function DriversTable({ drivers, role, showFinancials = true }: DriversTa
                                                         <DropdownMenuItem asChild>
                                                             <Link href={`/fleet/drivers/${driver.id}/edit`}>
                                                                 <Pencil className="mr-2 h-4 w-4" />
-                                                                Edit
+                                                                {editsNeedApproval ? "Request edit" : "Edit"}
                                                             </Link>
-                                                        </DropdownMenuItem>
-                                                    )}
-                                                    {isStaff && (
-                                                        <DropdownMenuItem onClick={() => handleRequestEdit(driver.id)}>
-                                                            <FileEdit className="mr-2 h-4 w-4" />
-                                                            Request Edit
                                                         </DropdownMenuItem>
                                                     )}
                                                     {canDelete && (
@@ -237,7 +222,7 @@ export function DriversTable({ drivers, role, showFinancials = true }: DriversTa
                                                                 onClick={() => setDeleteId(driver.id)}
                                                             >
                                                                 <Trash2 className="mr-2 h-4 w-4" />
-                                                                Delete
+                                                                {editsNeedApproval ? "Request delete" : "Delete"}
                                                             </DropdownMenuItem>
                                                         </>
                                                     )}

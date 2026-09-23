@@ -44,9 +44,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { PaginationControls } from "@/components/ui/pagination-controls";
 import { usePagination } from "@/hooks/use-pagination";
 import { ExportOptionsDialog, type ExportScope } from "@/components/ui/export-options-dialog";
-import { MoreHorizontal, Eye, Pencil, Trash2, Search, FileEdit, FileText, Download, Loader2 } from "lucide-react";
+import { MoreHorizontal, Eye, Pencil, Trash2, Search, FileText, Download, Loader2 } from "lucide-react";
 import { Role, TRUCK_STATUS_LABELS } from "@/lib/types";
-import { deleteTruck, requestEditTruck, exportTrucksPDF } from "../actions";
+import { deleteTruck, exportTrucksPDF } from "../actions";
 import { toast } from "sonner";
 
 interface Truck {
@@ -89,9 +89,13 @@ export function TrucksTable({ trucks, role, periodLabel, showFinancials = true }
     // window — the file now matches the rows on screen.
     const period = usePeriodRange("3m");
 
-    const canEdit = role === "admin" || role === "supervisor";
-    const canDelete = role === "admin";
-    const isStaff = role === "staff";
+    // Every role can open the edit form and press Delete; what differs is
+    // what happens on save. An admin writes straight through, anyone else
+    // files a request an admin accepts or refuses (lib/edit-requests/gate),
+    // so the menu says which it will be rather than implying a direct write.
+    const canEdit = true;
+    const canDelete = true;
+    const editsNeedApproval = role !== "admin";
 
     const filteredTrucks = trucks.filter((truck) => {
         const matchesSearch =
@@ -137,19 +141,6 @@ export function TrucksTable({ trucks, role, periodLabel, showFinancials = true }
         } finally {
             setIsDeleting(false);
             setDeleteId(null);
-        }
-    };
-
-    const handleRequestEdit = async (truckId: string) => {
-        try {
-            const result = await requestEditTruck(truckId);
-            if (result.success) {
-                toast.success("Edit request submitted for approval");
-            } else {
-                toast.error(result.error || "Failed to submit request");
-            }
-        } catch {
-            toast.error("An error occurred");
         }
     };
 
@@ -355,14 +346,8 @@ export function TrucksTable({ trucks, role, periodLabel, showFinancials = true }
                                                             <DropdownMenuItem asChild>
                                                                 <Link href={`/fleet/trucks/${truck.id}/edit`}>
                                                                     <Pencil className="mr-2 h-4 w-4" />
-                                                                    Edit
+                                                                    {editsNeedApproval ? "Request edit" : "Edit"}
                                                                 </Link>
-                                                            </DropdownMenuItem>
-                                                        )}
-                                                        {isStaff && (
-                                                            <DropdownMenuItem onClick={() => handleRequestEdit(truck.id)}>
-                                                                <FileEdit className="mr-2 h-4 w-4" />
-                                                                Request Edit
                                                             </DropdownMenuItem>
                                                         )}
                                                         {canDelete && (
@@ -373,7 +358,7 @@ export function TrucksTable({ trucks, role, periodLabel, showFinancials = true }
                                                                     onClick={() => setDeleteId(truck.id)}
                                                                 >
                                                                     <Trash2 className="mr-2 h-4 w-4" />
-                                                                    Delete
+                                                                    {editsNeedApproval ? "Request delete" : "Delete"}
                                                                 </DropdownMenuItem>
                                                             </>
                                                         )}

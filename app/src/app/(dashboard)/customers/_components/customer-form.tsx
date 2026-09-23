@@ -6,6 +6,11 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
+import {
+    ApprovalNotice,
+    isPendingApproval,
+} from "@/components/ui/approval-notice";
+import { useSession } from "@/components/providers/session-provider";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -56,6 +61,13 @@ interface CustomerFormProps {
 export function CustomerForm({ customer }: CustomerFormProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
+    // Non-admins are editing a request, not the record — see
+    // lib/edit-requests/gate.ts. The banner below says so, and the
+    // reason travels with the change for the admin who reviews it.
+    const { role } = useSession();
+    const needsApproval = role !== "admin";
+    const [approvalReason, setApprovalReason] = useState("");
+    const [reasonError, setReasonError] = useState<string | undefined>();
     const isEditing = !!customer;
 
     const form = useForm<CustomerFormData>({
@@ -74,15 +86,30 @@ export function CustomerForm({ customer }: CustomerFormProps) {
     const onSubmit = async (data: CustomerFormData) => {
         setIsLoading(true);
         try {
+            if (isEditing && needsApproval && approvalReason.trim().length < 5) {
+                setReasonError("Give a short reason so the admin knows why.");
+                setIsLoading(false);
+                return;
+            }
             const result = isEditing
                 ? await updateCustomer(customer.id, {
                     ...data,
                     email: data.email || undefined,
-                })
+                }, approvalReason)
                 : await createCustomer({
                     ...data,
                     email: data.email || undefined,
                 });
+
+            if (isPendingApproval(result)) {
+
+                toast.success(result.message);
+
+                router.push("/edit-requests");
+
+                return;
+
+            }
 
             if (result.success) {
                 toast.success(
@@ -223,6 +250,29 @@ export function CustomerForm({ customer }: CustomerFormProps) {
                         )}
                     />
                 )}
+
+                {isEditing && needsApproval && (
+
+                    <ApprovalNotice
+
+                        value={approvalReason}
+
+                        onChange={(value) => {
+
+                            setApprovalReason(value);
+
+                            setReasonError(undefined);
+
+                        }}
+
+                        noun="customer"
+
+                        error={reasonError}
+
+                    />
+
+                )}
+
 
                 <div className="flex justify-end gap-2 pt-4">
                     <Button

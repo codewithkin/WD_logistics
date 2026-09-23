@@ -6,6 +6,11 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
+import {
+    ApprovalNotice,
+    isPendingApproval,
+} from "@/components/ui/approval-notice";
+import { useSession } from "@/components/providers/session-provider";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ImageUpload } from "@/components/ui/image-upload";
@@ -71,6 +76,13 @@ interface EmployeeFormProps {
 export function EmployeeForm({ employee }: EmployeeFormProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
+    // Non-admins are editing a request, not the record — see
+    // lib/edit-requests/gate.ts. The banner below says so, and the
+    // reason travels with the change for the admin who reviews it.
+    const { role } = useSession();
+    const needsApproval = role !== "admin";
+    const [approvalReason, setApprovalReason] = useState("");
+    const [reasonError, setReasonError] = useState<string | undefined>();
     const [isUploading, setIsUploading] = useState(false);
     const isEditing = !!employee;
 
@@ -101,9 +113,29 @@ export function EmployeeForm({ employee }: EmployeeFormProps) {
                 email: data.email || undefined,
             };
 
+            if (isEditing && needsApproval && approvalReason.trim().length < 5) {
+
+                setReasonError("Give a short reason so the admin knows why.");
+
+                setIsLoading(false);
+
+                return;
+
+            }
+
             const result = isEditing
-                ? await updateEmployee(employee.id, submitData)
+                ? await updateEmployee(employee.id, submitData, approvalReason)
                 : await createEmployee(submitData);
+
+            if (isPendingApproval(result)) {
+
+                toast.success(result.message);
+
+                router.push("/edit-requests");
+
+                return;
+
+            }
 
             if (result.success) {
                 toast.success(
@@ -370,6 +402,29 @@ export function EmployeeForm({ employee }: EmployeeFormProps) {
                         </FormItem>
                     )}
                 />
+
+                {isEditing && needsApproval && (
+
+                    <ApprovalNotice
+
+                        value={approvalReason}
+
+                        onChange={(value) => {
+
+                            setApprovalReason(value);
+
+                            setReasonError(undefined);
+
+                        }}
+
+                        noun="employee"
+
+                        error={reasonError}
+
+                    />
+
+                )}
+
 
                 <div className="flex justify-end gap-2 pt-4">
                     <Button

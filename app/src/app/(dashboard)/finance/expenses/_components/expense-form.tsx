@@ -3,6 +3,11 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import {
+    ApprovalNotice,
+    isPendingApproval,
+} from "@/components/ui/approval-notice";
+import { useSession } from "@/components/providers/session-provider";
 import { EntityPicker, EntityMultiPicker } from "@/components/ui/entity-picker";
 import type { EntityOption } from "@/lib/entity-picker/config";
 import {
@@ -99,6 +104,13 @@ interface ExpenseFormProps {
 export function ExpenseForm({ initialSelected, expense, prefilledTripId, prefilledTruckId, prefilledDriverId, prefilledSupplierId, prefilledIsBusinessExpense }: ExpenseFormProps) {
     const router = useRouter();
     const [isSubmitting, setIsSubmitting] = useState(false);
+    // Non-admins are editing a request, not the record — see
+    // lib/edit-requests/gate.ts. The banner below says so, and the
+    // reason travels with the change for the admin who reviews it.
+    const { role } = useSession();
+    const needsApproval = role !== "admin";
+    const [approvalReason, setApprovalReason] = useState("");
+    const [reasonError, setReasonError] = useState<string | undefined>();
 
     const form = useForm<z.infer<typeof expenseSchema>>({
         // `as any` because z.coerce.number() on `amount` makes the schema's
@@ -159,8 +171,18 @@ export function ExpenseForm({ initialSelected, expense, prefilledTripId, prefill
             };
 
             const result = expense
-                ? await updateExpense(expense.id, data)
+                ? await updateExpense(expense.id, data, approvalReason)
                 : await createExpense(data);
+
+            if (isPendingApproval(result)) {
+
+                toast.success(result.message);
+
+                router.push("/edit-requests");
+
+                return;
+
+            }
 
             if (result.success) {
                 toast.success(expense ? "Expense updated successfully" : "Expense created successfully");
@@ -410,6 +432,29 @@ export function ExpenseForm({ initialSelected, expense, prefilledTripId, prefill
                         </FormItem>
                     )}
                 />
+
+                {expense && needsApproval && (
+
+                    <ApprovalNotice
+
+                        value={approvalReason}
+
+                        onChange={(value) => {
+
+                            setApprovalReason(value);
+
+                            setReasonError(undefined);
+
+                        }}
+
+                        noun="expense"
+
+                        error={reasonError}
+
+                    />
+
+                )}
+
 
                 <div className="flex gap-4">
                     <Button type="submit" disabled={isSubmitting}>

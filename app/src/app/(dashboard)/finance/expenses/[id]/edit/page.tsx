@@ -1,5 +1,7 @@
 import { PageHeader } from "@/components/layout/page-header";
 import { ExpenseForm } from "../../_components/expense-form";
+// Staff reach the edit form too: their save becomes a request an admin
+// accepts or refuses, rather than being refused at the door.
 import { requireRole } from "@/lib/session";
 import prisma from "@/lib/prisma";
 import { notFound, redirect } from "next/navigation";
@@ -11,7 +13,7 @@ interface EditExpensePageProps {
 
 export default async function EditExpensePage({ params }: EditExpensePageProps) {
     const { id } = await params;
-    const user = await requireRole(["admin", "supervisor"]);
+    const user = await requireRole(["admin", "supervisor", "staff"]);
 
     // Check if user can view expenses page
     if (!canViewExpensesPage(user.role)) {

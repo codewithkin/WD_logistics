@@ -6,6 +6,11 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
+import {
+    ApprovalNotice,
+    isPendingApproval,
+} from "@/components/ui/approval-notice";
+import { useSession } from "@/components/providers/session-provider";
 import { Input } from "@/components/ui/input";
 import { EntityPicker } from "@/components/ui/entity-picker";
 import type { EntityOption } from "@/lib/entity-picker/config";
@@ -90,6 +95,13 @@ export function InvoiceForm({
 }: InvoiceFormProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
+    // Non-admins are editing a request, not the record — see
+    // lib/edit-requests/gate.ts. The banner below says so, and the
+    // reason travels with the change for the admin who reviews it.
+    const { role } = useSession();
+    const needsApproval = role !== "admin";
+    const [approvalReason, setApprovalReason] = useState("");
+    const [reasonError, setReasonError] = useState<string | undefined>();
     const isEditing = !!invoice;
 
     const form = useForm<InvoiceFormData>({
@@ -114,6 +126,11 @@ export function InvoiceForm({
     const onSubmit = async (data: InvoiceFormData) => {
         setIsLoading(true);
         try {
+            if (isEditing && needsApproval && approvalReason.trim().length < 5) {
+                setReasonError("Give a short reason so the admin knows why.");
+                setIsLoading(false);
+                return;
+            }
             const result = isEditing
                 ? await updateInvoice(invoice.id, {
                     customerId: data.customerId,
@@ -126,7 +143,7 @@ export function InvoiceForm({
                     balance: data.amount - amountPaid,
                     status: data.status,
                     notes: data.notes,
-                })
+                }, approvalReason)
                 : await createInvoice({
                     customerId: data.customerId,
                     isCredit: data.isCredit,
@@ -136,6 +153,16 @@ export function InvoiceForm({
                     status: data.status,
                     notes: data.notes,
                 });
+
+            if (isPendingApproval(result)) {
+
+                toast.success(result.message);
+
+                router.push("/edit-requests");
+
+                return;
+
+            }
 
             if (result.success) {
                 toast.success(isEditing ? "Invoice updated successfully" : "Invoice created successfully");
@@ -309,6 +336,29 @@ export function InvoiceForm({
                         </FormItem>
                     )}
                 />
+
+                {isEditing && needsApproval && (
+
+                    <ApprovalNotice
+
+                        value={approvalReason}
+
+                        onChange={(value) => {
+
+                            setApprovalReason(value);
+
+                            setReasonError(undefined);
+
+                        }}
+
+                        noun="invoice"
+
+                        error={reasonError}
+
+                    />
+
+                )}
+
 
                 <div className="flex justify-end gap-2 pt-4">
                     <Button

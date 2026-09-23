@@ -7,6 +7,11 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+    ApprovalNotice,
+    isPendingApproval,
+} from "@/components/ui/approval-notice";
+import { useSession } from "@/components/providers/session-provider";
 import { Input } from "@/components/ui/input";
 import { EntityPicker } from "@/components/ui/entity-picker";
 import type { EntityOption } from "@/lib/entity-picker/config";
@@ -102,6 +107,13 @@ function summaryFrom(option: EntityOption | null | undefined): InvoiceSummary | 
 export function PaymentForm({ payment, initialSelected, defaultInvoiceId }: PaymentFormProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
+    // Non-admins are editing a request, not the record — see
+    // lib/edit-requests/gate.ts. The banner below says so, and the
+    // reason travels with the change for the admin who reviews it.
+    const { role } = useSession();
+    const needsApproval = role !== "admin";
+    const [approvalReason, setApprovalReason] = useState("");
+    const [reasonError, setReasonError] = useState<string | undefined>();
     const isEditing = !!payment;
 
     // Figures for the panel under the invoice picker. Seeded from the record
@@ -149,15 +161,30 @@ export function PaymentForm({ payment, initialSelected, defaultInvoiceId }: Paym
     const onSubmit = async (data: PaymentFormData) => {
         setIsLoading(true);
         try {
+            if (isEditing && needsApproval && approvalReason.trim().length < 5) {
+                setReasonError("Give a short reason so the admin knows why.");
+                setIsLoading(false);
+                return;
+            }
             const result = isEditing
                 ? await updatePayment(payment.id, {
                     ...data,
                     customMethod: data.method === "other" ? data.customMethod : undefined,
-                })
+                }, approvalReason)
                 : await createPayment({
                     ...data,
                     customMethod: data.method === "other" ? data.customMethod : undefined,
                 });
+
+            if (isPendingApproval(result)) {
+
+                toast.success(result.message);
+
+                router.push("/edit-requests");
+
+                return;
+
+            }
 
             if (result.success) {
                 toast.success(isEditing ? "Payment updated successfully" : "Payment recorded successfully");
@@ -358,6 +385,18 @@ export function PaymentForm({ payment, initialSelected, defaultInvoiceId }: Paym
                                 </FormItem>
                             )}
                         />
+
+                        {isEditing && needsApproval && (
+                            <ApprovalNotice
+                                value={approvalReason}
+                                onChange={(value) => {
+                                    setApprovalReason(value);
+                                    setReasonError(undefined);
+                                }}
+                                noun="payment"
+                                error={reasonError}
+                            />
+                        )}
                     </CardContent>
                     <CardFooter className="flex justify-end gap-2">
                         <Button
