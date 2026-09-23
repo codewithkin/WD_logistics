@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, requireRole } from "@/lib/session";
+import { resolvePeriod } from "@/lib/period-range";
+import { earnedRevenueWhere } from "@/lib/metrics/revenue";
 import { TruckStatus } from "@/lib/types";
 import { generateTruckReportPDF, generateSingleTruckReportPDF } from "@/lib/reports/pdf-report-generator";
 import { notifyTruckCreated, notifyTruckUpdated, notifyTruckDeleted } from "@/lib/notifications";
@@ -368,11 +370,17 @@ export async function exportTrucksPDF(options?: {
   startDate?: Date;
   endDate?: Date;
 }) {
-  const session = await requireAuth();
+  // This report is a profit-and-loss statement per truck, so it belongs to
+  // whoever may see money. It used to need only a session.
+  const session = await requireRole(["admin"]);
 
   try {
-    const startDate = options?.startDate || new Date(new Date().setMonth(new Date().getMonth() - 1));
-    const endDate = options?.endDate || new Date();
+    const range = resolvePeriod(
+      { from: options?.startDate, to: options?.endDate },
+      "3m",
+    );
+    const startDate = range.from;
+    const endDate = range.to;
 
     const whereClause: Record<string, unknown> = {
       organizationId: session.organizationId,
@@ -391,19 +399,24 @@ export async function exportTrucksPDF(options?: {
             lastName: true,
           },
         },
+        // Revenue matched the on-screen figure only by accident: trips were
+        // picked by createdAt (when the row was typed in) rather than when
+        // the work happened, and cancelled and scheduled trips counted too.
+        // This is the same rule as lib/metrics/revenue.ts.
         trips: {
-          where: {
-            createdAt: {
-              gte: startDate,
-              lte: endDate,
-            },
-          },
+          where: earnedRevenueWhere(session.organizationId, startDate, endDate),
           select: {
             id: true,
             revenue: true,
           },
         },
+        // Expenses were not period-filtered at all, so a one-month report
+        // subtracted every cost the truck had ever incurred from one month of
+        // revenue and reported the result as profit.
         truckExpenses: {
+          where: {
+            expense: { date: { gte: startDate, lte: endDate } },
+          },
           include: {
             expense: {
               select: {
@@ -467,7 +480,8 @@ export async function exportTrucksPDF(options?: {
 }
 
 export async function exportSingleTruckReport(truckId: string, periodParams?: { period?: string; from?: string; to?: string }) {
-  const session = await requireAuth();
+  // A per-truck P&L; admin-only, like the rest of the financial exports.
+  const session = await requireRole(["admin"]);
 
   // Import date range function dynamically
   const { getDateRangeFromParams } = await import("@/lib/period-utils");
@@ -516,11 +530,61 @@ export async function exportSingleTruckReport(truckId: string, periodParams?: { 
       return { success: false, error: "Truck not found" };
     }
 
-    // Calculate stats
-    const completedTrips = truck.trips.filter((t) => t.status === "completed").length;
-    const inProgressTrips = truck.trips.filter((t) => t.status === "in_progress").length;
-    const totalRevenue = truck.trips.reduce((sum, t) => sum + t.revenue, 0);
-    const totalExpenses = truck.truckExpenses.reduce((sum, te) => sum + te.expense.amount, 0);
+    // The tables above are capped at 20 trips and 10 expenses so the PDF stays
+    // readable, but the totals must cover the whole period — they used to sum
+    // the capped slices, so a busy truck's report understated both its revenue
+    // and its costs, and the profit line was the difference of two wrong
+    // numbers. These aggregates are un-truncated.
+    const [totalTrips, completedTrips, inProgressTrips, revenueAgg, expenseRows] =
+      await Promise.all([
+        prisma.trip.count({
+          where: {
+            truckId,
+            organizationId: session.organizationId,
+            scheduledDate: { gte: dateRange.from, lte: dateRange.to },
+          },
+        }),
+        prisma.trip.count({
+          where: {
+            truckId,
+            organizationId: session.organizationId,
+            status: "completed",
+            scheduledDate: { gte: dateRange.from, lte: dateRange.to },
+          },
+        }),
+        prisma.trip.count({
+          where: {
+            truckId,
+            organizationId: session.organizationId,
+            status: "in_progress",
+            scheduledDate: { gte: dateRange.from, lte: dateRange.to },
+          },
+        }),
+        // Completed trips only — the same definition the screens use.
+        prisma.trip.aggregate({
+          where: earnedRevenueWhere(
+            session.organizationId,
+            dateRange.from,
+            dateRange.to,
+            { truckId },
+          ),
+          _sum: { revenue: true },
+        }),
+        // The amount lives on Expense, not on the TruckExpense join row, and
+        // `some` keeps an expense shared across two trucks counted once here
+        // rather than once per link.
+        prisma.expense.findMany({
+          where: {
+            organizationId: session.organizationId,
+            date: { gte: dateRange.from, lte: dateRange.to },
+            truckExpenses: { some: { truckId } },
+          },
+          select: { amount: true },
+        }),
+      ]);
+
+    const totalRevenue = revenueAgg._sum.revenue ?? 0;
+    const totalExpenses = expenseRows.reduce((sum, e) => sum + e.amount, 0);
 
     // Format dates helper
     const formatDate = (date: Date | null) => {
@@ -544,7 +608,7 @@ export async function exportSingleTruckReport(truckId: string, periodParams?: { 
         notes: truck.notes || "",
       },
       stats: {
-        totalTrips: truck.trips.length,
+        totalTrips,
         completedTrips,
         inProgressTrips,
         totalRevenue,

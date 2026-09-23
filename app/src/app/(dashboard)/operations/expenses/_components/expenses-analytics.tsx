@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { usePeriodRange } from "@/lib/use-period-range";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { groupByMonth, lastMonths } from "@/lib/metrics/monthly";
@@ -71,6 +72,8 @@ const CATEGORY_COLORS = [
 
 export function ExpensesAnalytics({ analytics, expenses, canExport, categoryId, categoryName, periodLabel }: ExpensesAnalyticsProps) {
     const [isExporting, setIsExporting] = useState(false);
+    // The export covers the period on screen.
+    const period = usePeriodRange("1m");
 
     const statusData = [
         { name: "Pending", value: analytics.pendingExpenses, color: STATUS_COLORS.pending },
@@ -118,7 +121,7 @@ export function ExpensesAnalytics({ analytics, expenses, canExport, categoryId, 
     const handleExportPDF = async () => {
         setIsExporting(true);
         try {
-            const result = await exportOperationsExpensesPDF({ categoryId });
+            const result = await exportOperationsExpensesPDF({ categoryId, period: period.payload });
             if (result.success && result.data) {
                 const byteCharacters = atob(result.data);
                 const byteNumbers = new Array(byteCharacters.length);

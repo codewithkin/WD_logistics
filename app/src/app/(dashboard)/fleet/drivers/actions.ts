@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, requireRole } from "@/lib/session";
+import { resolvePeriod, type PeriodInput } from "@/lib/period-range";
 import { DriverStatus } from "@/lib/types";
 import { generateDriverReportPDF, generateSingleDriverReportPDF } from "@/lib/reports/pdf-report-generator";
 import { notifyDriverCreated, notifyDriverUpdated, notifyDriverDeleted } from "@/lib/notifications";
@@ -396,15 +397,30 @@ export async function requestEditDriver(driverId: string) {
   }
 }
 
-export async function exportDriversPDF() {
-  const session = await requireAuth();
+export async function exportDriversPDF(period?: PeriodInput) {
+  // Prints revenue and balances, which canViewFinancialData reserves
+  // for admin. This used to need only a session.
+  const session = await requireRole(["admin"]);
 
   try {
+    // The trip count used to be every trip the driver had ever run, printed
+    // under a header that said "this month". It now counts the period the
+    // page is showing, and the header says the same thing.
+    const range = resolvePeriod(period, "3m");
+
     const drivers = await prisma.driver.findMany({
       where: { organizationId: session.organizationId },
       include: {
         assignedTruck: { select: { registrationNo: true } },
-        _count: { select: { trips: true } },
+        _count: {
+          select: {
+            trips: {
+              where: {
+                scheduledDate: { gte: range.from, lte: range.to },
+              },
+            },
+          },
+        },
       },
       orderBy: { lastName: "asc" },
     });
@@ -417,7 +433,6 @@ export async function exportDriversPDF() {
     };
 
     const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
     const pdfBytes = generateDriverReportPDF({
       drivers: drivers.map((d) => ({
@@ -430,8 +445,8 @@ export async function exportDriversPDF() {
       })),
       analytics,
       period: {
-        startDate: startOfMonth,
-        endDate: now,
+        startDate: range.from,
+        endDate: range.to,
       },
     });
 
@@ -498,10 +513,45 @@ export async function exportSingleDriverReport(driverId: string, periodParams?: 
       return { success: false, error: "Driver not found" };
     }
 
-    // Calculate stats
-    const completedTrips = driver.trips.filter((t) => t.status === "completed").length;
-    const inProgressTrips = driver.trips.filter((t) => t.status === "in_progress").length;
-    const totalExpenses = driver.driverExpenses.reduce((sum, de) => sum + de.expense.amount, 0);
+    // The tables below are capped at 20 trips and 10 expenses to keep the PDF
+    // readable; the totals must not be. They used to sum the capped slices, so
+    // a driver with thirty trips reported the expenses of ten of them.
+    const [totalTrips, completedTrips, inProgressTrips, expenseRows] =
+      await Promise.all([
+        prisma.trip.count({
+          where: {
+            driverId,
+            organizationId: session.organizationId,
+            scheduledDate: { gte: dateRange.from, lte: dateRange.to },
+          },
+        }),
+        prisma.trip.count({
+          where: {
+            driverId,
+            organizationId: session.organizationId,
+            status: "completed",
+            scheduledDate: { gte: dateRange.from, lte: dateRange.to },
+          },
+        }),
+        prisma.trip.count({
+          where: {
+            driverId,
+            organizationId: session.organizationId,
+            status: "in_progress",
+            scheduledDate: { gte: dateRange.from, lte: dateRange.to },
+          },
+        }),
+        prisma.expense.findMany({
+          where: {
+            organizationId: session.organizationId,
+            date: { gte: dateRange.from, lte: dateRange.to },
+            driverExpenses: { some: { driverId } },
+          },
+          select: { amount: true },
+        }),
+      ]);
+
+    const totalExpenses = expenseRows.reduce((sum, e) => sum + e.amount, 0);
 
     // Format dates helper
     const formatDate = (date: Date | null) => {
@@ -524,7 +574,7 @@ export async function exportSingleDriverReport(driverId: string, periodParams?: 
         notes: driver.notes || "",
       },
       stats: {
-        totalTrips: driver.trips.length,
+        totalTrips,
         completedTrips,
         inProgressTrips,
         totalExpenses,

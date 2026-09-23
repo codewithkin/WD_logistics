@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, requireRole } from "@/lib/session";
+import { resolvePeriod, type PeriodInput } from "@/lib/period-range";
 import { TripStatus } from "@/lib/types";
 import { generateTripReportPDF, generateSingleTripReportPDF } from "@/lib/reports/pdf-report-generator";
 import { notifyTripCreated, notifyTripUpdated, notifyTripDeleted } from "@/lib/notifications";
@@ -318,12 +319,20 @@ export async function requestEditTrip(tripId: string) {
   }
 }
 
-export async function exportTripsPDF() {
-  const session = await requireAuth();
+export async function exportTripsPDF(period?: PeriodInput) {
+  // Prints revenue and balances, which canViewFinancialData reserves
+  // for admin. This used to need only a session.
+  const session = await requireRole(["admin"]);
 
   try {
+    // Every trip ever run used to go into a PDF headed "this month".
+    const range = resolvePeriod(period, "1m");
+
     const trips = await prisma.trip.findMany({
-      where: { organizationId: session.organizationId },
+      where: {
+        organizationId: session.organizationId,
+        scheduledDate: { gte: range.from, lte: range.to },
+      },
       include: {
         truck: { select: { registrationNo: true } },
         driver: { select: { firstName: true, lastName: true } },
@@ -334,12 +343,14 @@ export async function exportTripsPDF() {
     const analytics = {
       totalTrips: trips.length,
       completedTrips: trips.filter((t) => t.status === "completed").length,
-      totalRevenue: trips.reduce((sum, t) => sum + t.revenue, 0),
+      // Revenue counts completed work only, matching every screen.
+      totalRevenue: trips
+        .filter((t) => t.status === "completed")
+        .reduce((sum, t) => sum + t.revenue, 0),
       totalMileage: trips.reduce((sum, t) => sum + (t.actualMileage || t.estimatedMileage), 0),
     };
 
     const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
     const pdfBytes = generateTripReportPDF({
       trips: trips.map((t) => ({
@@ -353,8 +364,8 @@ export async function exportTripsPDF() {
       })),
       analytics,
       period: {
-        startDate: startOfMonth,
-        endDate: now,
+        startDate: range.from,
+        endDate: range.to,
       },
     });
 

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, requireRole } from "@/lib/session";
+import { resolvePeriod, type PeriodInput } from "@/lib/period-range";
 import { generateOperationsExpenseReportPDF } from "@/lib/reports/pdf-report-generator";
 import { notifyExpenseCreated, notifyExpenseUpdated, notifyExpenseDeleted } from "@/lib/notifications";
 import { InsufficientBalanceError } from "@/lib/accounts";
@@ -275,13 +276,20 @@ export async function deleteExpense(id: string) {
   }
 }
 
-export async function exportOperationsExpensesPDF(options?: { categoryId?: string }) {
+export async function exportOperationsExpensesPDF(options?: {
+  categoryId?: string;
+  period?: PeriodInput;
+}) {
   const session = await requireAuth();
 
   try {
+    // Follows the page's period rather than exporting every expense ever.
+    const range = resolvePeriod(options?.period, "1m");
+
     // Build where clause with optional category filter
-    const whereClause: Record<string, unknown> = { 
-      organizationId: session.organizationId 
+    const whereClause: Record<string, unknown> = {
+      organizationId: session.organizationId,
+      date: { gte: range.from, lte: range.to },
     };
     
     if (options?.categoryId) {
@@ -306,8 +314,11 @@ export async function exportOperationsExpensesPDF(options?: { categoryId?: strin
     // Get category name if filtering by category
     let categoryName = "All Categories";
     if (options?.categoryId) {
-      const category = await prisma.expenseCategory.findUnique({
-        where: { id: options.categoryId },
+      const category = await prisma.expenseCategory.findFirst({
+        where: {
+          id: options.categoryId,
+          organizationId: session.organizationId,
+        },
         select: { name: true },
       });
       if (category) {
@@ -318,26 +329,31 @@ export async function exportOperationsExpensesPDF(options?: { categoryId?: strin
     const analytics = {
       totalExpenses: expenses.length,
       totalAmount: expenses.reduce((sum, e) => sum + e.amount, 0),
-      pendingAmount: 0,
-      paidAmount: expenses.reduce((sum, e) => sum + e.amount, 0),
+      // These were hardcoded to "nothing pending, everything paid", which is
+      // the same bug the on-screen chart carried. Read the flag.
+      pendingAmount: expenses
+        .filter((e) => !e.isPaid)
+        .reduce((sum, e) => sum + e.amount, 0),
+      paidAmount: expenses
+        .filter((e) => e.isPaid)
+        .reduce((sum, e) => sum + e.amount, 0),
     };
 
     const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
     const pdfBytes = generateOperationsExpenseReportPDF({
       expenses: expenses.map((e) => ({
         description: e.description || "No description",
         amount: e.amount,
         date: e.date,
-        status: "Recorded",
+        status: e.isPaid ? "Paid" : "Pending",
         category: e.category?.name || "Uncategorized",
         tripTruck: e.tripExpenses[0]?.trip?.truck?.registrationNo || "N/A",
       })),
       analytics,
       period: {
-        startDate: startOfMonth,
-        endDate: now,
+        startDate: range.from,
+        endDate: range.to,
       },
       categoryName: options?.categoryId ? categoryName : undefined,
     });

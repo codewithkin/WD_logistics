@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireRole, requireAuth } from "@/lib/session";
+import { resolvePeriod } from "@/lib/period-range";
 import { EmployeeStatus } from "@/lib/types";
 import { generateEmployeeReportPDF } from "@/lib/reports/pdf-report-generator";
 import { notifyEmployeeCreated, notifyEmployeeUpdated, notifyEmployeeDeleted } from "@/lib/notifications";
@@ -193,8 +194,11 @@ export async function exportEmployeesPDF(options?: {
   const session = await requireAuth();
 
   try {
-    const startDate = options?.startDate || new Date(new Date().setMonth(new Date().getMonth() - 1));
-    const endDate = options?.endDate || new Date();
+    // The client now always sends the period on screen; the fallback is only
+    // for a caller that omits it, and it is validated rather than trusted.
+    const range = resolvePeriod({ from: options?.startDate, to: options?.endDate }, "1m");
+    const startDate = range.from;
+    const endDate = range.to;
 
     const whereClause: Record<string, unknown> = {
       organizationId: session.organizationId,

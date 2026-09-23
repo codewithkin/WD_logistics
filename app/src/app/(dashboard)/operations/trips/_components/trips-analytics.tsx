@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { usePeriodRange } from "@/lib/use-period-range";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { groupByMonth, lastMonths } from "@/lib/metrics/monthly";
@@ -60,6 +61,8 @@ const STATUS_COLORS = {
 
 export function TripsAnalytics({ analytics, trips, canExport, periodLabel }: TripsAnalyticsProps) {
     const [isExporting, setIsExporting] = useState(false);
+    // The export covers the period on screen.
+    const period = usePeriodRange("1m");
 
     const statusData = [
         { name: "Completed", value: analytics.completedTrips, color: STATUS_COLORS.completed },
@@ -111,7 +114,7 @@ export function TripsAnalytics({ analytics, trips, canExport, periodLabel }: Tri
     const handleExportPDF = async () => {
         setIsExporting(true);
         try {
-            const result = await exportTripsPDF();
+            const result = await exportTripsPDF(period.payload);
             if (result.success && result.data) {
                 const byteCharacters = atob(result.data);
                 const byteNumbers = new Array(byteCharacters.length);

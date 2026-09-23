@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, requireRole } from "@/lib/session";
+import { resolvePeriod } from "@/lib/period-range";
 import { generateCustomerReportPDF, generateSingleCustomerReportPDF } from "@/lib/reports/pdf-report-generator";
 import { generateCustomerDetailReportWord } from "@/lib/reports/word-report-generator";
 import { notifyCustomerCreated, notifyCustomerUpdated, notifyCustomerDeleted } from "@/lib/notifications";
@@ -144,11 +145,16 @@ export async function exportCustomersPDF(options?: {
   startDate?: Date;
   endDate?: Date;
 }) {
-  const session = await requireAuth();
+  // Prints revenue and balances, which canViewFinancialData reserves
+  // for admin. This used to need only a session.
+  const session = await requireRole(["admin"]);
 
   try {
-    const startDate = options?.startDate || new Date(new Date().setMonth(new Date().getMonth() - 1));
-    const endDate = options?.endDate || new Date();
+    // The client now always sends the period on screen; the fallback is only
+    // for a caller that omits it, and it is validated rather than trusted.
+    const range = resolvePeriod({ from: options?.startDate, to: options?.endDate }, "1m");
+    const startDate = range.from;
+    const endDate = range.to;
 
     const whereClause: Record<string, unknown> = {
       organizationId: session.organizationId,

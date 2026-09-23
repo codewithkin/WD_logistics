@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { usePeriodRange } from "@/lib/use-period-range";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Download, FileSpreadsheet, Users, UserCheck, UserX, Truck, Route, IdCard, Coffee, UserMinus, Loader2 } from "lucide-react";
@@ -69,6 +70,8 @@ const LICENSE_COLORS = [
 
 export function DriversAnalytics({ analytics, drivers, canExport, periodLabel, showFinancials = true }: DriversAnalyticsProps) {
     const [isExporting, setIsExporting] = useState(false);
+    // The export covers the period on screen.
+    const period = usePeriodRange("3m");
 
     const statusData = [
         { name: "Active", value: analytics.activeDrivers, color: STATUS_COLORS.active },
@@ -118,7 +121,7 @@ export function DriversAnalytics({ analytics, drivers, canExport, periodLabel, s
     const handleExportPDF = async () => {
         setIsExporting(true);
         try {
-            const result = await exportDriversPDF();
+            const result = await exportDriversPDF(period.payload);
             if (result.success && result.data) {
                 const byteCharacters = atob(result.data);
                 const byteNumbers = new Array(byteCharacters.length);
