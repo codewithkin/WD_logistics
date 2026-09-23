@@ -49,6 +49,37 @@ Docker: `agent/Dockerfile` + `agent/docker-compose.yml` (`docker-compose up -d` 
 
 The two services must run simultaneously for the AI assistant / WhatsApp features to work: `app` on `:3000`, `agent` on `:3001`. Each needs its own `.env` (see `app/.env.example`, `agent/.env.example`); `AGENT_API_KEY` **must match** between the two.
 
+## Working conventions
+
+These apply to every session, human or AI, and outrank any default habit to the contrary.
+
+### Split the work before starting it
+
+A feature is broken into **modular todos** before any code is written, each one a slice that stands on its own and can be reviewed without the others. The usual seams in this codebase:
+
+- schema change + migration
+- server actions / data layer
+- UI
+- notifications or side effects
+- verification
+
+A todo that can't be described in one line is still two todos.
+
+### One commit per todo
+
+Each todo lands as **exactly one commit**, complete and self-contained: the migration with the schema change that needs it, the action with the UI that calls it. Don't batch several todos into one commit, and don't split one todo across several "wip" commits. A commit that doesn't build or typecheck is not finished.
+
+Commit message style:
+
+- A short imperative subject line, prefixed by type and scope (`feat(maintenance):`, `fix(charts):`, `docs:`).
+- A body explaining **why**, not a list of the files touched — the diff already says what changed. Say what was broken and how it showed up to a user.
+- **No `Co-Authored-By` trailer, and no "Generated with Claude Code" line.** This repo's history carries no tool attribution.
+
+### Before each commit
+
+- `bunx tsc --noEmit` from `app/`, compared against the recorded baseline (see `PROGRESS.md`) — the error count must not grow. Type errors are not caught at build time here, because `next.config.ts` sets `ignoreBuildErrors: true`.
+- Load the affected page in a browser, as each role that can reach it. This codebase has repeatedly shipped changes that typecheck and then throw at runtime.
+
 ## Architecture
 
 ### Two-service split and how they talk

@@ -11,7 +11,7 @@ Read these three files together:
 | `PROGRESS.md` (this file) | What is done, what is next, and everything learned along the way that isn't in the other two. |
 | `FIX_PLAN.md` | The *previous* round's plan. Historical, but its "Gotchas" section is still valuable — except gotcha #4, which this round deliberately overturns (see below). |
 
-`CLAUDE.md` has the architecture writeup and is accurate.
+`CLAUDE.md` has the architecture writeup and is accurate. Its **"Working conventions"** section is binding: split each feature into modular todos, **one commit per todo**, and **no `Co-Authored-By` or "Generated with Claude Code" lines in commit messages** — this repo's history carries no tool attribution. Typecheck against the baseline and load the page in a browser before each commit.
 
 ---
 
