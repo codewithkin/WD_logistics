@@ -95,6 +95,16 @@ export default async function DriverDetailPage({ params, searchParams }: DriverD
                             : undefined
                     }
                 >
+                    {/* The per-truck breakdown item 25 asked for. Money, so
+                        the same audience as the cards below. */}
+                    {showFinancials && (
+                        <Button variant="outline" asChild>
+                            <Link href={`/fleet/drivers/${driver.id}/performance`}>
+                                <TrendingUp className="mr-2 h-4 w-4" />
+                                Earnings by truck
+                            </Link>
+                        </Button>
+                    )}
                     <ExportDriverButton
                         driverId={driver.id}
                         driverName={`${driver.firstName} ${driver.lastName}`}
