@@ -35,14 +35,17 @@ export const ROLE_PERMISSIONS = {
     canCreateUsers: false,
     canEditUsers: false,
     canDeleteUsers: false,
-    
-    // Data Management
+
+    // Data Management. Creating stays direct; changing and removing an
+    // existing record goes to an admin as a request — see lib/edit-requests.
     canCreate: true,
-    canEdit: true,
+    canEdit: false,
     canDelete: false,
-    
-    // Edit Requests
-    canApproveEditRequests: true,
+
+    // Edit Requests: supervisors raise them and watch their own, but an
+    // approval by the person who would otherwise have edited directly is not
+    // an approval at all.
+    canApproveEditRequests: false,
     canViewAllEditRequests: true,
     
     // Reports
@@ -161,9 +164,16 @@ export function canViewFinancialData(role: Role): boolean {
   return role === "admin";
 }
 
-// Check if user can edit directly or needs to submit edit request
+/**
+ * Who may write to an existing record without asking.
+ *
+ * Only the admin. Everyone else's edit becomes an EditRequest carrying a real
+ * before/after diff, which the admin accepts or refuses. This predicate is
+ * the one place that decides it — see lib/edit-requests/gate.ts for the gate
+ * every update action calls.
+ */
 export function canEditDirectly(role: Role): boolean {
-  return role === "admin" || role === "supervisor";
+  return role === "admin";
 }
 
 /**
