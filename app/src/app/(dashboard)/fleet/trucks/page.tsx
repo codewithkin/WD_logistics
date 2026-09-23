@@ -38,12 +38,19 @@ export default async function TrucksPage({ searchParams }: TrucksPageProps) {
                     expense: true,
                 },
             },
+            // Completed trips only, dated the way lib/metrics/revenue.ts
+            // dates them — this used to count scheduled and cancelled trips
+            // as revenue, so the list disagreed with every other screen.
             trips: {
                 where: {
-                    scheduledDate: {
-                        gte: dateRange.from,
-                        lte: dateRange.to,
-                    },
+                    status: "completed",
+                    OR: [
+                        { endDate: { gte: dateRange.from, lte: dateRange.to } },
+                        {
+                            endDate: null,
+                            scheduledDate: { gte: dateRange.from, lte: dateRange.to },
+                        },
+                    ],
                 },
                 select: {
                     revenue: true,
@@ -58,16 +65,26 @@ export default async function TrucksPage({ searchParams }: TrucksPageProps) {
         orderBy: { registrationNo: "asc" },
     });
 
-    // Transform data to include calculated totals for the period
-    const trucksWithTotals = trucks.map((truck) => ({
-        ...truck,
-        totalExpenses: truck.truckExpenses.reduce((sum, te) => sum + te.expense.amount, 0),
-        totalRevenue: truck.trips.reduce((sum, t) => sum + t.revenue, 0),
-        tripsInPeriod: truck.trips.length,
-    }));
-
     const canCreate = role === "admin" || role === "supervisor";
     const showFinancials = canViewFinancialData(role);
+
+    // Totals are computed here and the underlying rows dropped. Spreading
+    // `...truck` shipped every expense record to the browser — visible in the
+    // RSC payload even for a supervisor who never sees a money column.
+    const trucksWithTotals = trucks.map((truck) => {
+        const { truckExpenses, trips, ...rest } = truck;
+        const totalExpenses = truckExpenses.reduce(
+            (sum, te) => sum + te.expense.amount,
+            0,
+        );
+        const totalRevenue = trips.reduce((sum, t) => sum + t.revenue, 0);
+        return {
+            ...rest,
+            totalExpenses: showFinancials ? totalExpenses : 0,
+            totalRevenue: showFinancials ? totalRevenue : 0,
+            tripsInPeriod: trips.length,
+        };
+    });
 
     return (
         <div className="space-y-6">

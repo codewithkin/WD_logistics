@@ -17,6 +17,8 @@ import { getDateRangeFromParams } from "@/lib/period-utils";
 import { PagePeriodSelector } from "@/components/ui/page-period-selector";
 import { formatCurrency } from "@/lib/utils";
 import { VehicleMaintenanceHistory } from "@/components/fleet/vehicle-maintenance-history";
+import { TruckCostBreakdownPanel } from "./_components/truck-cost-breakdown";
+import { getTruckCostBreakdown } from "@/lib/metrics/truck-costs";
 import { UNFINISHED_STATUSES } from "../../../maintenance/_lib/status";
 
 interface TruckDetailPageProps {
@@ -94,6 +96,16 @@ export default async function TruckDetailPage({ params, searchParams }: TruckDet
 
     const canEdit = role === "admin" || role === "supervisor";
     const showFinancials = canViewFinancialData(role);
+
+    // The paper trail for "is this truck losing money, and where" — admin
+    // only, and not fetched at all otherwise, so it never travels in the RSC
+    // payload for a supervisor.
+    const costBreakdown = showFinancials
+        ? await getTruckCostBreakdown(organizationId, id, {
+              from: dateRange.from,
+              to: dateRange.to,
+          })
+        : null;
     // Same audience as the maintenance screen itself: the office, not staff.
     const canViewMaintenance = role === "admin" || role === "supervisor";
 
@@ -337,6 +349,14 @@ export default async function TruckDetailPage({ params, searchParams }: TruckDet
                     )}
                 </CardContent>
             </Card>
+
+            {costBreakdown && (
+                <TruckCostBreakdownPanel
+                    data={costBreakdown}
+                    periodLabel={dateRange.label}
+                    truckId={truck.id}
+                />
+            )}
 
             {canViewMaintenance && (
                 <VehicleMaintenanceHistory
