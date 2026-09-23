@@ -24,6 +24,7 @@ import {
 import { ArrowDownLeft, ArrowRight, ArrowUpRight, Loader2 } from "lucide-react";
 import { ACCOUNT_TYPES, ACCOUNT_TYPE_LABELS, type AccountType } from "@/lib/accounts";
 import { formatCurrency, cn } from "@/lib/utils";
+import { useSession } from "@/components/providers/session-provider";
 import { recordAccountMovementAction } from "../actions";
 import { toast } from "sonner";
 
@@ -62,7 +63,18 @@ export function AccountMovementDialog({
         }
     }, [open, initialAccount, initialDirection]);
 
-    const isIn = direction === "deposit";
+    // Recording money *into* an account is the one movement with no paper
+    // trail behind it, so it is admin-only; money out stays with supervisors.
+    const { role } = useSession();
+    const canRecordMoneyIn = role === "admin";
+    const isIn = canRecordMoneyIn && direction === "deposit";
+
+    // A supervisor who opened the dialog on the deposit tab is moved off it.
+    useEffect(() => {
+        if (!canRecordMoneyIn && direction === "deposit") {
+            setDirection("withdrawal");
+        }
+    }, [canRecordMoneyIn, direction]);
     const currentBalance = balances[accountType] ?? 0;
     const parsed = Number(amount);
     const validAmount = amount !== "" && parsed > 0;
@@ -121,7 +133,11 @@ export function AccountMovementDialog({
                 </DialogHeader>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
-                    <div className="grid grid-cols-2 gap-2">
+                    {/* Money in is admin-only (see finance/accounts/actions.ts).
+                        Hiding the option rather than letting it fail keeps the
+                        dialog honest, and the server refuses it regardless. */}
+                    <div className={cn("grid gap-2", canRecordMoneyIn ? "grid-cols-2" : "grid-cols-1")}>
+                        {canRecordMoneyIn && (
                         <button
                             type="button"
                             onClick={() => setDirection("deposit")}
@@ -135,6 +151,7 @@ export function AccountMovementDialog({
                             <ArrowDownLeft className="h-4 w-4" />
                             Money in
                         </button>
+                        )}
                         <button
                             type="button"
                             onClick={() => setDirection("withdrawal")}

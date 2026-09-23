@@ -90,6 +90,15 @@ export async function recordAccountMovementAction(data: {
   if (data.direction !== "deposit" && data.direction !== "withdrawal") {
     return { success: false, error: "Choose money in or money out" };
   }
+  // Money *into* an account is admin-only: it is the one movement with no
+  // paper trail behind it, so it is the one worth restricting. Money out
+  // stays open to supervisors, who need it to run the yard day to day.
+  if (data.direction === "deposit" && session.role !== "admin") {
+    return {
+      success: false,
+      error: "Only an admin can record money into an account. Ask one to enter this deposit.",
+    };
+  }
   if (!(amount > 0)) {
     return { success: false, error: "Amount must be greater than zero" };
   }
