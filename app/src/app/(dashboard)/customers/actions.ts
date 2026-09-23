@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, requireRole } from "@/lib/session";
+import { gateChange } from "@/lib/edit-requests/gate";
 import { resolvePeriod } from "@/lib/period-range";
 import { generateCustomerReportPDF, generateSingleCustomerReportPDF } from "@/lib/reports/pdf-report-generator";
 import { generateCustomerDetailReportWord } from "@/lib/reports/word-report-generator";
@@ -60,9 +61,26 @@ export async function updateCustomer(
     contactPerson?: string;
     notes?: string;
     status?: string;
-  }
+  },
+  /**
+   * Why the change is wanted. Required for anyone but an admin, whose
+   * edit becomes a request rather than a write — see lib/edit-requests.
+   */
+  reason?: string,
 ) {
-  const session = await requireRole(["admin", "supervisor"]);
+  const session = await requireAuth();
+
+  // Admins write directly; everyone else's change becomes a request an
+  // admin accepts or refuses. Everything below runs either for an admin,
+  // or while an approved request is being replayed.
+  const gate = await gateChange({
+    entityType: "customer",
+    entityId: id,
+    data: data as unknown as Record<string, unknown>,
+    action: "update",
+    reason,
+  });
+  if (!gate.proceed) return gate.response;
 
   try {
     const customer = await prisma.customer.findFirst({
@@ -100,8 +118,26 @@ export async function updateCustomer(
   }
 }
 
-export async function deleteCustomer(id: string) {
-  const session = await requireRole(["admin"]);
+export async function deleteCustomer(id: string,
+  /**
+   * Why the change is wanted. Required for anyone but an admin, whose
+   * edit becomes a request rather than a write — see lib/edit-requests.
+   */
+  reason?: string,
+) {
+  const session = await requireAuth();
+
+  // Admins write directly; everyone else's change becomes a request an
+  // admin accepts or refuses. Everything below runs either for an admin,
+  // or while an approved request is being replayed.
+  const gate = await gateChange({
+    entityType: "customer",
+    entityId: id,
+    data: {},
+    action: "delete",
+    reason,
+  });
+  if (!gate.proceed) return gate.response;
 
   try {
     const customer = await prisma.customer.findFirst({

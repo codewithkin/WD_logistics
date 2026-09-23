@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, requireRole } from "@/lib/session";
+import { gateChange } from "@/lib/edit-requests/gate";
 import { resolvePeriod, type PeriodInput } from "@/lib/period-range";
 import { TripStatus } from "@/lib/types";
 import { generateTripReportPDF, generateSingleTripReportPDF } from "@/lib/reports/pdf-report-generator";
@@ -154,9 +155,26 @@ export async function updateTrip(
     driverId?: string;
     customerId?: string | null;
     notes?: string;
-  }
+  },
+  /**
+   * Why the change is wanted. Required for anyone but an admin, whose
+   * edit becomes a request rather than a write — see lib/edit-requests.
+   */
+  reason?: string,
 ) {
-  const session = await requireRole(["admin", "supervisor"]);
+  const session = await requireAuth();
+
+  // Admins write directly; everyone else's change becomes a request an
+  // admin accepts or refuses. Everything below runs either for an admin,
+  // or while an approved request is being replayed.
+  const gate = await gateChange({
+    entityType: "trip",
+    entityId: id,
+    data: data as unknown as Record<string, unknown>,
+    action: "update",
+    reason,
+  });
+  if (!gate.proceed) return gate.response;
 
   try {
     const trip = await prisma.trip.findFirst({
@@ -233,8 +251,26 @@ export async function updateTrip(
   }
 }
 
-export async function deleteTrip(id: string) {
-  const session = await requireRole(["admin"]);
+export async function deleteTrip(id: string,
+  /**
+   * Why the change is wanted. Required for anyone but an admin, whose
+   * edit becomes a request rather than a write — see lib/edit-requests.
+   */
+  reason?: string,
+) {
+  const session = await requireAuth();
+
+  // Admins write directly; everyone else's change becomes a request an
+  // admin accepts or refuses. Everything below runs either for an admin,
+  // or while an approved request is being replayed.
+  const gate = await gateChange({
+    entityType: "trip",
+    entityId: id,
+    data: {},
+    action: "delete",
+    reason,
+  });
+  if (!gate.proceed) return gate.response;
 
   try {
     const trip = await prisma.trip.findFirst({
@@ -272,50 +308,6 @@ export async function deleteTrip(id: string) {
   } catch (error) {
     console.error("Failed to delete trip:", error);
     return { success: false, error: "Failed to delete trip" };
-  }
-}
-
-export async function requestEditTrip(tripId: string) {
-  const session = await requireAuth();
-
-  try {
-    const trip = await prisma.trip.findFirst({
-      where: { id: tripId, organizationId: session.organizationId },
-    });
-
-    if (!trip) {
-      return { success: false, error: "Trip not found" };
-    }
-
-    const existingRequest = await prisma.editRequest.findFirst({
-      where: {
-        entityType: "trip",
-        entityId: tripId,
-        status: "pending",
-      },
-    });
-
-    if (existingRequest) {
-      return { success: false, error: "An edit request for this trip is already pending" };
-    }
-
-    await prisma.editRequest.create({
-      data: {
-        entityType: "trip",
-        entityId: tripId,
-        reason: `Request to edit trip: ${trip.originCity} → ${trip.destinationCity}`,
-        originalData: trip,
-        proposedData: {},
-        status: "pending",
-        requestedById: session.user.id,
-      },
-    });
-
-    revalidatePath("/edit-requests");
-    return { success: true };
-  } catch (error) {
-    console.error("Failed to create edit request:", error);
-    return { success: false, error: "Failed to submit edit request" };
   }
 }
 

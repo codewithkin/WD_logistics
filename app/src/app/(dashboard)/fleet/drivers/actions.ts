@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, requireRole } from "@/lib/session";
+import { gateChange } from "@/lib/edit-requests/gate";
 import { resolvePeriod, type PeriodInput } from "@/lib/period-range";
 import { DriverStatus } from "@/lib/types";
 import { generateDriverReportPDF, generateSingleDriverReportPDF } from "@/lib/reports/pdf-report-generator";
@@ -127,9 +128,26 @@ export async function updateDriver(
     notes?: string;
     assignedTruckId?: string | null;
     reminders?: ReminderDays;
-  }
+  },
+  /**
+   * Why the change is wanted. Required for anyone but an admin, whose
+   * edit becomes a request rather than a write — see lib/edit-requests.
+   */
+  reason?: string,
 ) {
-  const session = await requireRole(["admin", "supervisor"]);
+  const session = await requireAuth();
+
+  // Admins write directly; everyone else's change becomes a request an
+  // admin accepts or refuses. Everything below runs either for an admin,
+  // or while an approved request is being replayed.
+  const gate = await gateChange({
+    entityType: "driver",
+    entityId: id,
+    data: data as unknown as Record<string, unknown>,
+    action: "update",
+    reason,
+  });
+  if (!gate.proceed) return gate.response;
 
   try {
     const driver = await prisma.driver.findFirst({
@@ -230,8 +248,26 @@ export async function updateDriver(
   }
 }
 
-export async function deleteDriver(id: string) {
-  const session = await requireRole(["admin"]);
+export async function deleteDriver(id: string,
+  /**
+   * Why the change is wanted. Required for anyone but an admin, whose
+   * edit becomes a request rather than a write — see lib/edit-requests.
+   */
+  reason?: string,
+) {
+  const session = await requireAuth();
+
+  // Admins write directly; everyone else's change becomes a request an
+  // admin accepts or refuses. Everything below runs either for an admin,
+  // or while an approved request is being replayed.
+  const gate = await gateChange({
+    entityType: "driver",
+    entityId: id,
+    data: {},
+    action: "delete",
+    reason,
+  });
+  if (!gate.proceed) return gate.response;
 
   try {
     const driver = await prisma.driver.findFirst({
@@ -350,50 +386,6 @@ export async function getAvailableTrucks() {
   } catch (error) {
     console.error("Failed to fetch trucks:", error);
     return { success: false, error: "Failed to fetch trucks", trucks: [] };
-  }
-}
-
-export async function requestEditDriver(driverId: string) {
-  const session = await requireAuth();
-
-  try {
-    const driver = await prisma.driver.findFirst({
-      where: { id: driverId, organizationId: session.organizationId },
-    });
-
-    if (!driver) {
-      return { success: false, error: "Driver not found" };
-    }
-
-    const existingRequest = await prisma.editRequest.findFirst({
-      where: {
-        entityType: "driver",
-        entityId: driverId,
-        status: "pending",
-      },
-    });
-
-    if (existingRequest) {
-      return { success: false, error: "An edit request for this driver is already pending" };
-    }
-
-    await prisma.editRequest.create({
-      data: {
-        entityType: "driver",
-        entityId: driverId,
-        reason: `Request to edit driver: ${driver.firstName} ${driver.lastName}`,
-        originalData: {},
-        proposedData: {},
-        status: "pending",
-        requestedById: session.user.id,
-      },
-    });
-
-    revalidatePath("/edit-requests");
-    return { success: true };
-  } catch (error) {
-    console.error("Failed to create edit request:", error);
-    return { success: false, error: "Failed to submit edit request" };
   }
 }
 

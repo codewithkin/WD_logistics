@@ -1,6 +1,7 @@
 "use server";
 
-import { requireRole } from "@/lib/session";
+import { requireAuth, requireRole } from "@/lib/session";
+import { gateChange } from "@/lib/edit-requests/gate";
 import { resolvePeriod, type PeriodInput } from "@/lib/period-range";
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
@@ -151,8 +152,26 @@ export async function createExpense(data: ExpenseFormData): Promise<ExpenseActio
   }
 }
 
-export async function updateExpense(id: string, data: ExpenseFormData): Promise<ExpenseActionResponse> {
-  const user = await requireRole(["admin", "supervisor", "staff"]);
+export async function updateExpense(id: string, data: ExpenseFormData,
+  /**
+   * Why the change is wanted. Required for anyone but an admin, whose
+   * edit becomes a request rather than a write — see lib/edit-requests.
+   */
+  reason?: string,
+): Promise<ExpenseActionResponse> {
+  const user = await requireAuth();
+
+  // Admins write directly; everyone else's change becomes a request an
+  // admin accepts or refuses. Everything below runs either for an admin,
+  // or while an approved request is being replayed.
+  const gate = await gateChange({
+    entityType: "expense",
+    entityId: id,
+    data: data as unknown as Record<string, unknown>,
+    action: "update",
+    reason,
+  });
+  if (!gate.proceed) return gate.response;
 
   try {
     // Verify ownership and get old data for supplier balance adjustment
@@ -326,8 +345,26 @@ export async function updateExpense(id: string, data: ExpenseFormData): Promise<
   }
 }
 
-export async function deleteExpense(id: string) {
-  const user = await requireRole(["admin", "supervisor"]);
+export async function deleteExpense(id: string,
+  /**
+   * Why the change is wanted. Required for anyone but an admin, whose
+   * edit becomes a request rather than a write — see lib/edit-requests.
+   */
+  reason?: string,
+) {
+  const user = await requireAuth();
+
+  // Admins write directly; everyone else's change becomes a request an
+  // admin accepts or refuses. Everything below runs either for an admin,
+  // or while an approved request is being replayed.
+  const gate = await gateChange({
+    entityType: "expense",
+    entityId: id,
+    data: {},
+    action: "delete",
+    reason,
+  });
+  if (!gate.proceed) return gate.response;
 
   // Verify ownership and get details for notification and supplier balance
   const existing = await prisma.expense.findUnique({

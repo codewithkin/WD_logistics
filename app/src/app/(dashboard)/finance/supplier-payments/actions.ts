@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireRole } from "@/lib/session";
+import { requireAuth, requireRole } from "@/lib/session";
+import { gateChange } from "@/lib/edit-requests/gate";
 import { PaymentMethod } from "@/lib/types";
 
 export async function createSupplierPayment(data: {
@@ -69,9 +70,26 @@ export async function updateSupplierPayment(
         reference?: string;
         description?: string;
         notes?: string;
-    }
+  },
+  /**
+   * Why the change is wanted. Required for anyone but an admin, whose
+   * edit becomes a request rather than a write — see lib/edit-requests.
+   */
+  reason?: string,
 ) {
-    const session = await requireRole(["admin", "supervisor"]);
+    const session = await requireAuth();
+
+  // Admins write directly; everyone else's change becomes a request an
+  // admin accepts or refuses. Everything below runs either for an admin,
+  // or while an approved request is being replayed.
+  const gate = await gateChange({
+    entityType: "supplier_payment",
+    entityId: id,
+    data: data as unknown as Record<string, unknown>,
+    action: "update",
+    reason,
+  });
+  if (!gate.proceed) return gate.response;
 
     try {
         const existingPayment = await prisma.supplierPayment.findFirst({
@@ -117,8 +135,26 @@ export async function updateSupplierPayment(
     }
 }
 
-export async function deleteSupplierPayment(id: string) {
-    const session = await requireRole(["admin"]);
+export async function deleteSupplierPayment(id: string,
+  /**
+   * Why the change is wanted. Required for anyone but an admin, whose
+   * edit becomes a request rather than a write — see lib/edit-requests.
+   */
+  reason?: string,
+) {
+    const session = await requireAuth();
+
+  // Admins write directly; everyone else's change becomes a request an
+  // admin accepts or refuses. Everything below runs either for an admin,
+  // or while an approved request is being replayed.
+  const gate = await gateChange({
+    entityType: "supplier_payment",
+    entityId: id,
+    data: {},
+    action: "delete",
+    reason,
+  });
+  if (!gate.proceed) return gate.response;
 
     try {
         const payment = await prisma.supplierPayment.findFirst({

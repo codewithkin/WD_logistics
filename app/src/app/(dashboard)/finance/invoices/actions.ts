@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireRole, requireAuth } from "@/lib/session";
+import { gateChange } from "@/lib/edit-requests/gate";
 import { resolvePeriod } from "@/lib/period-range";
 import { InvoiceStatus } from "@/lib/types";
 import { sendInvoiceEmail, sendCreditInvoiceReminderEmail } from "@/lib/email";
@@ -188,9 +189,26 @@ export async function updateInvoice(
     balance?: number;
     status?: InvoiceStatus;
     notes?: string;
-  }
+  },
+  /**
+   * Why the change is wanted. Required for anyone but an admin, whose
+   * edit becomes a request rather than a write — see lib/edit-requests.
+   */
+  reason?: string,
 ) {
-  const session = await requireRole(["admin", "supervisor"]);
+  const session = await requireAuth();
+
+  // Admins write directly; everyone else's change becomes a request an
+  // admin accepts or refuses. Everything below runs either for an admin,
+  // or while an approved request is being replayed.
+  const gate = await gateChange({
+    entityType: "invoice",
+    entityId: id,
+    data: data as unknown as Record<string, unknown>,
+    action: "update",
+    reason,
+  });
+  if (!gate.proceed) return gate.response;
 
   try {
     const invoice = await prisma.invoice.findFirst({
@@ -256,8 +274,26 @@ export async function updateInvoice(
   }
 }
 
-export async function deleteInvoice(id: string) {
-  const session = await requireRole(["admin"]);
+export async function deleteInvoice(id: string,
+  /**
+   * Why the change is wanted. Required for anyone but an admin, whose
+   * edit becomes a request rather than a write — see lib/edit-requests.
+   */
+  reason?: string,
+) {
+  const session = await requireAuth();
+
+  // Admins write directly; everyone else's change becomes a request an
+  // admin accepts or refuses. Everything below runs either for an admin,
+  // or while an approved request is being replayed.
+  const gate = await gateChange({
+    entityType: "invoice",
+    entityId: id,
+    data: {},
+    action: "delete",
+    reason,
+  });
+  if (!gate.proceed) return gate.response;
 
   try {
     const invoice = await prisma.invoice.findFirst({

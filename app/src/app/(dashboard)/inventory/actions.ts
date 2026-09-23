@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
-import { requireRole } from "@/lib/session";
+import { requireAuth, requireRole } from "@/lib/session";
+import { gateChange } from "@/lib/edit-requests/gate";
 import { sendPushToUsers } from "@/lib/push";
 import { getTierConfig } from "@/lib/notification-tiers";
 import { InsufficientStockError, type StockMovementType } from "@/lib/inventory";
@@ -162,8 +163,26 @@ export async function createInventoryItem(data: InventoryItemInput) {
   }
 }
 
-export async function updateInventoryItem(id: string, data: Partial<InventoryItemInput>) {
-  const session = await requireRole(["admin", "supervisor"]);
+export async function updateInventoryItem(id: string, data: Partial<InventoryItemInput>,
+  /**
+   * Why the change is wanted. Required for anyone but an admin, whose
+   * edit becomes a request rather than a write — see lib/edit-requests.
+   */
+  reason?: string,
+) {
+  const session = await requireAuth();
+
+  // Admins write directly; everyone else's change becomes a request an
+  // admin accepts or refuses. Everything below runs either for an admin,
+  // or while an approved request is being replayed.
+  const gate = await gateChange({
+    entityType: "inventory_item",
+    entityId: id,
+    data: data as unknown as Record<string, unknown>,
+    action: "update",
+    reason,
+  });
+  if (!gate.proceed) return gate.response;
 
   try {
     const item = await prisma.inventoryItem.findFirst({
@@ -306,8 +325,26 @@ export async function addStock(data: {
   }
 }
 
-export async function deleteInventoryItem(id: string) {
-  const session = await requireRole(["admin"]);
+export async function deleteInventoryItem(id: string,
+  /**
+   * Why the change is wanted. Required for anyone but an admin, whose
+   * edit becomes a request rather than a write — see lib/edit-requests.
+   */
+  reason?: string,
+) {
+  const session = await requireAuth();
+
+  // Admins write directly; everyone else's change becomes a request an
+  // admin accepts or refuses. Everything below runs either for an admin,
+  // or while an approved request is being replayed.
+  const gate = await gateChange({
+    entityType: "inventory_item",
+    entityId: id,
+    data: {},
+    action: "delete",
+    reason,
+  });
+  if (!gate.proceed) return gate.response;
 
   try {
     const item = await prisma.inventoryItem.findFirst({

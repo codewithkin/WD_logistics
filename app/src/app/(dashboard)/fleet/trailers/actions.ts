@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, requireRole } from "@/lib/session";
+import { gateChange } from "@/lib/edit-requests/gate";
 import { TrailerStatus } from "@/lib/types";
 import { notifyTrailerCreated, notifyTrailerUpdated, notifyTrailerDeleted } from "@/lib/notifications";
 import { deleteFromR2, getKeyFromUrl } from "@/lib/r2";
@@ -111,9 +112,26 @@ export async function updateTrailer(
     image?: string;
     notes?: string;
     reminders?: ReminderDays;
-  }
+  },
+  /**
+   * Why the change is wanted. Required for anyone but an admin, whose
+   * edit becomes a request rather than a write — see lib/edit-requests.
+   */
+  reason?: string,
 ) {
-  const session = await requireRole(["admin", "supervisor"]);
+  const session = await requireAuth();
+
+  // Admins write directly; everyone else's change becomes a request an
+  // admin accepts or refuses. Everything below runs either for an admin,
+  // or while an approved request is being replayed.
+  const gate = await gateChange({
+    entityType: "trailer",
+    entityId: id,
+    data: data as unknown as Record<string, unknown>,
+    action: "update",
+    reason,
+  });
+  if (!gate.proceed) return gate.response;
   const { reminders, ...trailerData } = data;
 
   try {
@@ -269,8 +287,26 @@ export async function getAvailableTrucks() {
   }
 }
 
-export async function deleteTrailer(id: string) {
-  const session = await requireRole(["admin"]);
+export async function deleteTrailer(id: string,
+  /**
+   * Why the change is wanted. Required for anyone but an admin, whose
+   * edit becomes a request rather than a write — see lib/edit-requests.
+   */
+  reason?: string,
+) {
+  const session = await requireAuth();
+
+  // Admins write directly; everyone else's change becomes a request an
+  // admin accepts or refuses. Everything below runs either for an admin,
+  // or while an approved request is being replayed.
+  const gate = await gateChange({
+    entityType: "trailer",
+    entityId: id,
+    data: {},
+    action: "delete",
+    reason,
+  });
+  if (!gate.proceed) return gate.response;
 
   try {
     const trailer = await prisma.trailer.findFirst({
@@ -299,50 +335,6 @@ export async function deleteTrailer(id: string) {
   } catch (error) {
     console.error("Failed to delete trailer:", error);
     return { success: false, error: "Failed to delete trailer" };
-  }
-}
-
-export async function requestEditTrailer(trailerId: string) {
-  const session = await requireAuth();
-
-  try {
-    const trailer = await prisma.trailer.findFirst({
-      where: { id: trailerId, organizationId: session.organizationId },
-    });
-
-    if (!trailer) {
-      return { success: false, error: "Trailer not found" };
-    }
-
-    const existingRequest = await prisma.editRequest.findFirst({
-      where: {
-        entityType: "trailer",
-        entityId: trailerId,
-        status: "pending",
-      },
-    });
-
-    if (existingRequest) {
-      return { success: false, error: "An edit request for this trailer is already pending" };
-    }
-
-    await prisma.editRequest.create({
-      data: {
-        entityType: "trailer",
-        entityId: trailerId,
-        reason: `Request to edit trailer: ${trailer.registrationNo}`,
-        originalData: {},
-        proposedData: {},
-        status: "pending",
-        requestedById: session.user.id,
-      },
-    });
-
-    revalidatePath("/edit-requests");
-    return { success: true };
-  } catch (error) {
-    console.error("Failed to create edit request:", error);
-    return { success: false, error: "Failed to submit edit request" };
   }
 }
 

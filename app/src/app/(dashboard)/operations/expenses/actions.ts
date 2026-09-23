@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, requireRole } from "@/lib/session";
+import { gateChange } from "@/lib/edit-requests/gate";
 import { resolvePeriod, type PeriodInput } from "@/lib/period-range";
 import { generateOperationsExpenseReportPDF } from "@/lib/reports/pdf-report-generator";
 import { notifyExpenseCreated, notifyExpenseUpdated, notifyExpenseDeleted } from "@/lib/notifications";
@@ -118,8 +119,26 @@ export async function updateExpense(
     receiptUrl?: string;
     notes?: string;
   }
+,
+  /**
+   * Why the change is wanted. Required for anyone but an admin, whose edit
+   * becomes a request rather than a write — see lib/edit-requests.
+   */
+  reason?: string,
 ) {
-  const session = await requireRole(["admin", "supervisor"]);
+  const session = await requireAuth();
+
+  // Admins write directly; everyone else's change becomes a request an admin
+  // accepts or refuses. Everything below runs either for an admin, or while
+  // an approved request is being replayed.
+  const gate = await gateChange({
+    entityType: "expense",
+    entityId: id,
+    data: data as unknown as Record<string, unknown>,
+    action: "update",
+    reason,
+  });
+  if (!gate.proceed) return gate.response;
 
   try {
     const expense = await prisma.expense.findFirst({
