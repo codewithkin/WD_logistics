@@ -17,6 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Input } from "@/components/ui/input";
+import { EntityPicker } from "@/components/ui/entity-picker";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -83,26 +84,14 @@ interface MaintenanceRequest {
     assignedTo: { id: string; name: string } | null;
 }
 
-interface WorkshopMember {
-    id: string;
-    name: string;
-    email: string;
-}
-
 interface MaintenanceRequestsClientProps {
     requests: MaintenanceRequest[];
-    trucks: VehicleRef[];
-    trailers: VehicleRef[];
-    workshopMembers: WorkshopMember[];
     role: Role;
     currentUserId: string;
 }
 
 export function MaintenanceRequestsClient({
     requests,
-    trucks,
-    trailers,
-    workshopMembers,
     role,
     currentUserId,
 }: MaintenanceRequestsClientProps) {
@@ -128,7 +117,6 @@ export function MaintenanceRequestsClient({
     });
 
     const vehicleType = form.watch("vehicleType");
-    const vehicles = vehicleType === "trailer" ? trailers : trucks;
 
     // Workshop's list is already filtered server-side to their own unfinished
     // jobs, so the status dropdown only makes sense for the office.
@@ -289,29 +277,18 @@ export function MaintenanceRequestsClient({
                                                 <FormLabel>
                                                     {vehicleType === "trailer" ? "Trailer" : "Truck"}
                                                 </FormLabel>
-                                                <Select onValueChange={field.onChange} value={field.value}>
-                                                    <FormControl>
-                                                        <SelectTrigger>
-                                                            <SelectValue
-                                                                placeholder={`Select ${vehicleType}`}
-                                                            />
-                                                        </SelectTrigger>
-                                                    </FormControl>
-                                                    <SelectContent>
-                                                        {vehicles.length === 0 ? (
-                                                            <div className="px-2 py-3 text-sm text-muted-foreground">
-                                                                No {vehicleType}s on record yet.
-                                                            </div>
-                                                        ) : (
-                                                            vehicles.map((vehicle) => (
-                                                                <SelectItem key={vehicle.id} value={vehicle.id}>
-                                                                    {vehicle.registrationNo} - {vehicle.make}{" "}
-                                                                    {vehicle.model}
-                                                                </SelectItem>
-                                                            ))
-                                                        )}
-                                                    </SelectContent>
-                                                </Select>
+                                                <FormControl>
+                                                    <EntityPicker
+                                                        // Remounting on the type switch clears a truck
+                                                        // that was picked before the user changed their
+                                                        // mind and chose Trailer.
+                                                        key={vehicleType}
+                                                        kind={vehicleType === "trailer" ? "trailer" : "truck"}
+                                                        value={field.value}
+                                                        onChange={(id) => field.onChange(id ?? "")}
+                                                        placeholder={`Select ${vehicleType}`}
+                                                    />
+                                                </FormControl>
                                                 <FormMessage />
                                             </FormItem>
                                         )}
@@ -339,27 +316,20 @@ export function MaintenanceRequestsClient({
                                         render={({ field }) => (
                                             <FormItem>
                                                 <FormLabel>Assign to</FormLabel>
-                                                <Select onValueChange={field.onChange} value={field.value}>
-                                                    <FormControl>
-                                                        <SelectTrigger>
-                                                            <SelectValue placeholder="Leave unassigned" />
-                                                        </SelectTrigger>
-                                                    </FormControl>
-                                                    <SelectContent>
-                                                        <SelectItem value={UNASSIGNED}>
-                                                            Leave unassigned
-                                                        </SelectItem>
-                                                        {workshopMembers.map((member) => (
-                                                            <SelectItem key={member.id} value={member.id}>
-                                                                {member.name}
-                                                            </SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
+                                                <FormControl>
+                                                    <EntityPicker
+                                                        kind="user"
+                                                        value={field.value === UNASSIGNED ? null : field.value}
+                                                        onChange={(id) => field.onChange(id ?? UNASSIGNED)}
+                                                        clearable
+                                                        clearLabel="Leave unassigned"
+                                                        placeholder="Leave unassigned"
+                                                        lockedFilters={{ role: "workshop" }}
+                                                    />
+                                                </FormControl>
                                                 <FormDescription>
-                                                    {workshopMembers.length === 0
-                                                        ? "No workshop users yet — invite one under Users."
-                                                        : "Only workshop users appear here. They get a notification straight away."}
+                                                    Only workshop users appear here. They get a
+                                                    notification straight away.
                                                 </FormDescription>
                                                 <FormMessage />
                                             </FormItem>

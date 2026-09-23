@@ -6,7 +6,6 @@ import { getDateRangeFromParams } from "@/lib/period-utils";
 import { MaintenanceRequestsClient } from "./_components/maintenance-requests-client";
 import { WorkshopTaskCards } from "./_components/workshop-task-cards";
 import { MaintenanceHistoryPanel } from "./_components/maintenance-history-panel";
-import { getMaintenanceVehicles, getWorkshopMembers } from "./actions";
 import { UNFINISHED_STATUSES } from "./_lib/status";
 import { buildMaintenanceHistory } from "./_lib/history";
 
@@ -26,7 +25,7 @@ export default async function MaintenancePage({ searchParams }: MaintenancePageP
     // maintenance history is the point of this screen).
     const range = canManage ? getDateRangeFromParams(params, "3m") : null;
 
-    const [requests, vehicles, workshopMembers] = await Promise.all([
+    const [requests] = await Promise.all([
         prisma.maintenanceRequest.findMany({
             where: {
                 organizationId: session.organizationId,
@@ -60,8 +59,6 @@ export default async function MaintenancePage({ searchParams }: MaintenancePageP
             },
             orderBy: { date: "desc" },
         }),
-        canManage ? getMaintenanceVehicles() : Promise.resolve({ trucks: [], trailers: [] }),
-        canManage ? getWorkshopMembers() : Promise.resolve([]),
     ]);
 
     return (
@@ -82,9 +79,6 @@ export default async function MaintenancePage({ searchParams }: MaintenancePageP
 
             <MaintenanceRequestsClient
                 requests={requests}
-                trucks={vehicles.trucks}
-                trailers={vehicles.trailers}
-                workshopMembers={workshopMembers}
                 role={session.role}
                 currentUserId={session.user.id}
             />

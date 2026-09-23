@@ -7,7 +7,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Separator } from "@/components/ui/separator";
-import { getWorkshopMembers } from "../actions";
+
 import { MaintenanceDetailActions } from "../_components/maintenance-detail-actions";
 import { downtimeDaysFor } from "../_lib/history";
 
@@ -18,7 +18,6 @@ interface MaintenanceDetailPageProps {
 export default async function MaintenanceDetailPage({ params }: MaintenanceDetailPageProps) {
     const session = await requireRole(["admin", "supervisor", "workshop"]);
     const { id } = await params;
-    const canManage = session.role === "admin" || session.role === "supervisor";
 
     const request = await prisma.maintenanceRequest.findFirst({
         where: { id, organizationId: session.organizationId },
@@ -44,7 +43,6 @@ export default async function MaintenanceDetailPage({ params }: MaintenanceDetai
         notFound();
     }
 
-    const workshopMembers = canManage ? await getWorkshopMembers() : [];
     const vehicle = request.truck ?? request.trailer;
     const isTrailer = !!request.trailer;
     const vehicleHref = request.truck
@@ -177,7 +175,7 @@ export default async function MaintenanceDetailPage({ params }: MaintenanceDetai
                         assignedToId={request.assignedToId}
                         currentUserId={session.user.id}
                         role={session.role}
-                        workshopMembers={workshopMembers}
+                        assignedTo={request.assignedTo}
                         vehicleLabel={vehicle?.registrationNo ?? "this vehicle"}
                     />
                 </div>

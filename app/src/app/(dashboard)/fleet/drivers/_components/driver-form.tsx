@@ -7,6 +7,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { EntityPicker } from "@/components/ui/entity-picker";
+import type { EntityOption } from "@/lib/entity-picker/config";
 import { Textarea } from "@/components/ui/textarea";
 import {
     Form,
@@ -72,12 +74,13 @@ interface DriverFormProps {
         notes: string | null;
         assignedTruckId: string | null;
     };
-    availableTrucks: Truck[];
+    /** The truck the driver already has, so the picker reads as a plate. */
+    assignedTruck?: EntityOption;
     isSupervisor?: boolean;
     reminders?: ReminderDays;
 }
 
-export function DriverForm({ driver, availableTrucks, isSupervisor = false, reminders: initialReminders }: DriverFormProps) {
+export function DriverForm({ driver, assignedTruck, isSupervisor = false, reminders: initialReminders }: DriverFormProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
     const [reminders, setReminders] = useState<ReminderDays>(initialReminders ?? {});
@@ -374,24 +377,19 @@ export function DriverForm({ driver, availableTrucks, isSupervisor = false, remi
                         render={({ field }) => (
                             <FormItem>
                                 <FormLabel>Assigned Truck</FormLabel>
-                                <Select
-                                    onValueChange={(value) => field.onChange(value === "none" ? null : value)}
-                                    defaultValue={field.value ?? "none"}
-                                >
-                                    <FormControl>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select a truck" />
-                                        </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        <SelectItem value="none">No Truck Assigned</SelectItem>
-                                        {availableTrucks.map((truck) => (
-                                            <SelectItem key={truck.id} value={truck.id}>
-                                                {truck.registrationNo}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <FormControl>
+                                    <EntityPicker
+                                        kind="truck"
+                                        value={field.value ?? null}
+                                        onChange={(id) => field.onChange(id)}
+                                        initialSelected={assignedTruck}
+                                        clearable
+                                        clearLabel="No truck assigned"
+                                        placeholder="Select a truck"
+                                        defaultFilters={{ assignment: "unassigned" }}
+                                        hint="Filtered to trucks with no driver — widen the filter to take one over."
+                                    />
+                                </FormControl>
                                 <FormMessage />
                             </FormItem>
                         )}

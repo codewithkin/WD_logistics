@@ -172,41 +172,14 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
     }))
     .sort((a, b) => b.amount - a.amount);
 
-  // Get data for report generator
-  const [customers, trucks, trailers, reportTrips, reports] = await Promise.all([
-    prisma.customer.findMany({
-      where: { organizationId, status: "active" },
-      select: { id: true, name: true },
-      orderBy: { name: "asc" },
-    }),
-    prisma.truck.findMany({
-      where: { organizationId, status: "active" },
-      select: { id: true, registrationNo: true, make: true, model: true },
-      orderBy: { registrationNo: "asc" },
-    }),
-    prisma.trailer.findMany({
-      where: { organizationId, status: "active" },
-      select: { id: true, registrationNo: true, make: true, model: true },
-      orderBy: { registrationNo: "asc" },
-    }),
-    prisma.trip.findMany({
-      where: { organizationId },
-      select: {
-        id: true,
-        originCity: true,
-        destinationCity: true,
-        scheduledDate: true,
-        truck: { select: { registrationNo: true } },
-      },
-      orderBy: { scheduledDate: "desc" },
-      take: 200,
-    }),
-    prisma.report.findMany({
-      where: { organizationId },
-      orderBy: { createdAt: "desc" },
-      take: 20,
-    }),
-  ]);
+  // The report generator's customer/truck/trailer/trip choosers are pickers
+  // now and search for themselves, so only the report history is loaded here.
+  // The trip list in particular used to be capped at 200 rows.
+  const reports = await prisma.report.findMany({
+    where: { organizationId },
+    orderBy: { createdAt: "desc" },
+    take: 20,
+  });
 
   // Get the current tab from URL params
   const currentTab = params.tab || "overview";
@@ -242,10 +215,6 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
       </div>
 
       <ReportsClient
-        customers={customers}
-        trucks={trucks}
-        trailers={trailers}
-        reportTrips={reportTrips}
         initialReports={reports}
         dashboardContent={<ReportsDashboard data={dashboardData} periodLabel={dateRange.label} initialTab={currentTab} initialReportType={params.type} />}
       />

@@ -62,21 +62,8 @@ export default async function InventoryItemDetailPage({ params }: InventoryItemD
         }).format(amount);
     };
 
-    const [trucks, employees] = canManage
-        ? await Promise.all([
-            prisma.truck.findMany({
-                where: { organizationId },
-                select: { id: true, registrationNo: true, make: true, model: true },
-                orderBy: { registrationNo: "asc" },
-            }),
-            prisma.employee.findMany({
-                where: { organizationId },
-                select: { id: true, firstName: true, lastName: true },
-                orderBy: { firstName: "asc" },
-            }),
-        ])
-        : [[], []];
-
+    // Trucks and employees are no longer preloaded — the allocate dialog's
+    // pickers search for them.
     return (
         <div className="space-y-6">
             <PageHeader
@@ -237,8 +224,6 @@ export default async function InventoryItemDetailPage({ params }: InventoryItemD
                             unit={item.unit}
                             unitCost={item.unitCost}
                             showValue={canSeeValue}
-                            trucks={trucks}
-                            employees={employees}
                         />
                     )}
                 </CardHeader>

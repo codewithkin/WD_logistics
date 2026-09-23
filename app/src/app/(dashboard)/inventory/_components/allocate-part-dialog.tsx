@@ -7,6 +7,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { EntityPicker } from "@/components/ui/entity-picker";
+import type { EntityOption } from "@/lib/entity-picker/config";
 import { Textarea } from "@/components/ui/textarea";
 import {
     Dialog,
@@ -51,8 +53,6 @@ interface AllocatePartDialogProps {
     availableQuantity: number;
     unit: string | null;
     unitCost?: number | null;
-    trucks: { id: string; registrationNo: string; make: string; model: string }[];
-    employees: { id: string; firstName: string; lastName: string }[];
     /** Money values are admin-only, same rule as the rest of the Inventory pages. */
     showValue?: boolean;
 }
@@ -62,13 +62,13 @@ export function AllocatePartDialog({
     availableQuantity,
     unit,
     unitCost = null,
-    trucks,
-    employees,
     showValue = false,
 }: AllocatePartDialogProps) {
     const router = useRouter();
     const [open, setOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    // Kept so the success toast can name the truck the part went to.
+    const [pickedTruck, setPickedTruck] = useState<EntityOption | null>(null);
 
     const form = useForm<AllocateFormData>({
         resolver: zodResolver(allocateSchema) as any,
@@ -91,10 +91,10 @@ export function AllocatePartDialog({
 
             if (result.success) {
                 // Say what actually left the warehouse, and what it was worth.
-                const truck = trucks.find((t) => t.id === data.truckId);
+                const truck = pickedTruck?.id === data.truckId ? pickedTruck : null;
                 const value = showValue && unitCost != null ? unitCost * data.quantity : null;
                 toast.success(
-                    `Allocated ${data.quantity} ${unit || "units"}${truck ? ` to ${truck.registrationNo}` : ""}` +
+                    `Allocated ${data.quantity} ${unit || "units"}${truck ? ` to ${truck.label}` : ""}` +
                         (value != null ? ` — ${formatCurrency(value)}` : "")
                 );
                 setOpen(false);
@@ -133,20 +133,15 @@ export function AllocatePartDialog({
                             render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>Truck</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                        <FormControl>
-                                            <SelectTrigger className="w-full">
-                                                <SelectValue placeholder="Select truck" />
-                                            </SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                            {trucks.map((truck) => (
-                                                <SelectItem key={truck.id} value={truck.id}>
-                                                    {truck.registrationNo} - {truck.make} {truck.model}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                    <FormControl>
+                                        <EntityPicker
+                                            kind="truck"
+                                            value={field.value}
+                                            onChange={(id) => field.onChange(id ?? "")}
+                                            onSelect={setPickedTruck}
+                                            placeholder="Select truck"
+                                        />
+                                    </FormControl>
                                     <FormMessage />
                                 </FormItem>
                             )}
@@ -157,20 +152,15 @@ export function AllocatePartDialog({
                             render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>Allocated By</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                        <FormControl>
-                                            <SelectTrigger className="w-full">
-                                                <SelectValue placeholder="Select employee" />
-                                            </SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                            {employees.map((employee) => (
-                                                <SelectItem key={employee.id} value={employee.id}>
-                                                    {employee.firstName} {employee.lastName}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                    <FormControl>
+                                        <EntityPicker
+                                            kind="employee"
+                                            value={field.value}
+                                            onChange={(id) => field.onChange(id ?? "")}
+                                            placeholder="Select employee"
+                                            defaultFilters={{ status: "active" }}
+                                        />
+                                    </FormControl>
                                     <FormMessage />
                                 </FormItem>
                             )}

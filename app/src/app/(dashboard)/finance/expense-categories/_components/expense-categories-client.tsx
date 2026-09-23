@@ -32,6 +32,7 @@ import {
     FormDescription,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { EntityPicker } from "@/components/ui/entity-picker";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -314,20 +315,16 @@ export function ExpenseCategoriesClient({ categories, accounts, role }: ExpenseC
                     render={({ field }) => (
                         <FormItem>
                             <FormLabel>Default Account</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value}>
-                                <FormControl>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="No default account" />
-                                    </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                    {accounts.map((account) => (
-                                        <SelectItem key={account.id} value={account.id}>
-                                            {account.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <FormControl>
+                                <EntityPicker
+                                    kind="account"
+                                    value={field.value || null}
+                                    onChange={(id) => field.onChange(id ?? "")}
+                                    clearable
+                                    clearLabel="No default account"
+                                    placeholder="No default account"
+                                />
+                            </FormControl>
                             <FormDescription>
                                 Expenses in this category will draw from this account, and are blocked if it can&apos;t cover the amount.
                             </FormDescription>

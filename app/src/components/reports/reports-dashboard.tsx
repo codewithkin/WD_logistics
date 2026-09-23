@@ -51,10 +51,6 @@ interface ExpenseCategory {
 }
 
 interface ReportsDashboardProps {
-  customers?: { id: string; name: string }[];
-  trucks?: { id: string; registrationNo: string; make: string; model: string }[];
-  trailers?: { id: string; registrationNo: string; make: string; model: string }[];
-  reportTrips?: { id: string; originCity: string; destinationCity: string; scheduledDate: Date; truck: { registrationNo: string } | null }[];
   reports?: {
     id: string;
     type: string;
@@ -94,7 +90,7 @@ interface ReportsDashboardProps {
   isGenerating?: boolean;
 }
 
-export function ReportsDashboard({ data, periodLabel = "This Month", initialTab = "overview", initialReportType, onGeneratePDF, onGenerateCSV, onExportDashboard, isGenerating = false, customers = [], trucks = [], trailers = [], reportTrips = [], reports = [] }: ReportsDashboardProps) {
+export function ReportsDashboard({ data, periodLabel = "This Month", initialTab = "overview", initialReportType, onGeneratePDF, onGenerateCSV, onExportDashboard, isGenerating = false, reports = [] }: ReportsDashboardProps) {
   const {
     totalTrucks,
     activeTrucks,
@@ -571,7 +567,7 @@ export function ReportsDashboard({ data, periodLabel = "This Month", initialTab 
       </TabsContent>
 
       <TabsContent value="generate" className="space-y-6">
-        <ReportGenerator customers={customers} trucks={trucks} trailers={trailers} trips={reportTrips} initialReportType={initialReportType} />
+        <ReportGenerator initialReportType={initialReportType} />
         <ReportHistory reports={reports} />
       </TabsContent>
     </ReportsTabs>

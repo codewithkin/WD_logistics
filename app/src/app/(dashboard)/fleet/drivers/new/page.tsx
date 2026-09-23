@@ -12,7 +12,7 @@ export default async function NewDriverPage() {
                 description="Add a new driver to your fleet"
                 backHref="/fleet/drivers"
             />
-            <DriverForm availableTrucks={[]} />
+            <DriverForm />
         </div>
     );
 }

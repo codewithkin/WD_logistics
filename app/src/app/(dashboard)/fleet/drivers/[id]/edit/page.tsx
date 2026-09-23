@@ -15,24 +15,17 @@ export default async function EditDriverPage({ params }: EditDriverPageProps) {
 
     const driver = await prisma.driver.findFirst({
         where: { id, organizationId: session.organizationId },
+        include: {
+            assignedTruck: { select: { id: true, registrationNo: true, make: true, model: true } },
+        },
     });
 
     if (!driver) {
         notFound();
     }
 
-    // Get available trucks (unassigned or currently assigned to this driver)
-    const availableTrucks = await prisma.truck.findMany({
-        where: {
-            organizationId: session.organizationId,
-        },
-        select: {
-            id: true,
-            registrationNo: true,
-        },
-        orderBy: { registrationNo: "asc" },
-    });
-
+    // The truck picker searches for itself; only the current one is loaded,
+    // so its plate shows before the dialog is ever opened.
     const isSupervisor = session.role === "supervisor";
     const reminders = await getExpiryReminders(session.organizationId, "driver", driver.id);
 
@@ -43,7 +36,20 @@ export default async function EditDriverPage({ params }: EditDriverPageProps) {
                 description={`Update details for ${driver.firstName} ${driver.lastName}`}
                 backHref={`/fleet/drivers/${driver.id}`}
             />
-            <DriverForm driver={driver} availableTrucks={availableTrucks} isSupervisor={isSupervisor} reminders={reminders} />
+            <DriverForm
+                driver={driver}
+                assignedTruck={
+                    driver.assignedTruck
+                        ? {
+                              id: driver.assignedTruck.id,
+                              label: driver.assignedTruck.registrationNo,
+                              description: `${driver.assignedTruck.make} ${driver.assignedTruck.model}`,
+                          }
+                        : undefined
+                }
+                isSupervisor={isSupervisor}
+                reminders={reminders}
+            />
         </div>
     );
 }

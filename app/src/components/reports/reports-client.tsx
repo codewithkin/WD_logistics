@@ -19,20 +19,12 @@ interface Report {
 }
 
 interface ReportsClientProps {
-  customers: { id: string; name: string }[];
-  trucks: { id: string; registrationNo: string; make: string; model: string }[];
-  trailers: { id: string; registrationNo: string; make: string; model: string }[];
-  reportTrips: { id: string; originCity: string; destinationCity: string; scheduledDate: Date; truck: { registrationNo: string } | null }[];
   initialReports: Report[];
   dashboardContent: ReactElement<ComponentProps<typeof ReportsDashboard>, typeof ReportsDashboard>;
 }
 
 export function ReportsClient({
   dashboardContent,
-  customers,
-  trucks,
-  trailers,
-  reportTrips,
   initialReports,
 }: ReportsClientProps) {
   const [isPending, startTransition] = useTransition();
@@ -118,10 +110,6 @@ export function ReportsClient({
   // why the Generate button never appeared and Report History was always
   // empty. cloneElement doesn't care about type identity.
   return cloneElement(dashboardContent, {
-    customers,
-    trucks,
-    trailers,
-    reportTrips,
     reports: initialReports,
     onGeneratePDF: (reportType: string) => handleGenerateReport("pdf", reportType),
     onGenerateCSV: (reportType: string) => handleGenerateReport("csv", reportType),

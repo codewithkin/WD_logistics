@@ -42,6 +42,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { EntityPicker } from "@/components/ui/entity-picker";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { toast } from "sonner";
 import { Download, FileText, Loader2, FileSpreadsheet } from "lucide-react";
@@ -65,10 +66,6 @@ const reportFormSchema = z.object({
 type ReportFormValues = z.infer<typeof reportFormSchema>;
 
 interface ReportGeneratorProps {
-    customers?: { id: string; name: string }[];
-    trucks?: { id: string; registrationNo: string; make: string; model: string }[];
-    trailers?: { id: string; registrationNo: string; make: string; model: string }[];
-    trips?: { id: string; originCity: string; destinationCity: string; scheduledDate: Date; truck: { registrationNo: string } | null }[];
     /**
      * Report type to open pre-selected, from the `?type=` search param. Set
      * when the user arrived here from a "Generate this report" button or the
@@ -80,10 +77,6 @@ interface ReportGeneratorProps {
 }
 
 export function ReportGenerator({
-    customers = [],
-    trucks = [],
-    trailers = [],
-    trips = [],
     initialReportType,
     onReportGenerated,
 }: ReportGeneratorProps) {
@@ -330,20 +323,14 @@ export function ReportGenerator({
                                 render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Customer</FormLabel>
-                                        <Select onValueChange={field.onChange} value={field.value}>
-                                            <FormControl>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Select customer" />
-                                                </SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                {customers.map((customer) => (
-                                                    <SelectItem key={customer.id} value={customer.id}>
-                                                        {customer.name}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                        <FormControl>
+                                            <EntityPicker
+                                                kind="customer"
+                                                value={field.value || null}
+                                                onChange={(id) => field.onChange(id ?? "")}
+                                                placeholder="Select customer"
+                                            />
+                                        </FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}
@@ -358,20 +345,14 @@ export function ReportGenerator({
                                 render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Truck</FormLabel>
-                                        <Select onValueChange={field.onChange} value={field.value}>
-                                            <FormControl>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Select truck" />
-                                                </SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                {trucks.map((truck) => (
-                                                    <SelectItem key={truck.id} value={truck.id}>
-                                                        {truck.registrationNo} - {truck.make} {truck.model}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                        <FormControl>
+                                            <EntityPicker
+                                                kind="truck"
+                                                value={field.value || null}
+                                                onChange={(id) => field.onChange(id ?? "")}
+                                                placeholder="Select truck"
+                                            />
+                                        </FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}
@@ -385,20 +366,14 @@ export function ReportGenerator({
                                 render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Trailer</FormLabel>
-                                        <Select onValueChange={field.onChange} value={field.value}>
-                                            <FormControl>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Select trailer" />
-                                                </SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                {trailers.map((trailer) => (
-                                                    <SelectItem key={trailer.id} value={trailer.id}>
-                                                        {trailer.registrationNo} - {trailer.make} {trailer.model}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                        <FormControl>
+                                            <EntityPicker
+                                                kind="trailer"
+                                                value={field.value || null}
+                                                onChange={(id) => field.onChange(id ?? "")}
+                                                placeholder="Select trailer"
+                                            />
+                                        </FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}
@@ -412,21 +387,14 @@ export function ReportGenerator({
                                 render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Trip</FormLabel>
-                                        <Select onValueChange={field.onChange} value={field.value}>
-                                            <FormControl>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Select trip" />
-                                                </SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                {trips.map((trip) => (
-                                                    <SelectItem key={trip.id} value={trip.id}>
-                                                        {trip.originCity} → {trip.destinationCity}
-                                                        {trip.truck ? ` (${trip.truck.registrationNo})` : ""}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                        <FormControl>
+                                            <EntityPicker
+                                                kind="trip"
+                                                value={field.value || null}
+                                                onChange={(id) => field.onChange(id ?? "")}
+                                                placeholder="Select trip"
+                                            />
+                                        </FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}

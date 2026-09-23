@@ -5,15 +5,9 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { EntityPicker } from "@/components/ui/entity-picker";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
 import type { Role } from "@/lib/types";
 import {
     assignMaintenanceRequest,
@@ -29,7 +23,8 @@ interface MaintenanceDetailActionsProps {
     assignedToId: string | null;
     currentUserId: string;
     role: Role;
-    workshopMembers: { id: string; name: string }[];
+    /** The user currently assigned, so the picker reads as a name at once. */
+    assignedTo?: { id: string; name: string; email?: string } | null;
     vehicleLabel: string;
 }
 
@@ -39,7 +34,7 @@ export function MaintenanceDetailActions({
     assignedToId,
     currentUserId,
     role,
-    workshopMembers,
+    assignedTo,
     vehicleLabel,
 }: MaintenanceDetailActionsProps) {
     const router = useRouter();
@@ -87,19 +82,24 @@ export function MaintenanceDetailActions({
                 {canManage && !isDone && (
                     <div className="space-y-2">
                         <label className="text-sm font-medium">Assign to a workshop user</label>
-                        <Select value={assignee} onValueChange={setAssignee}>
-                            <SelectTrigger>
-                                <SelectValue placeholder="Unassigned" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value={UNASSIGNED}>Unassigned</SelectItem>
-                                {workshopMembers.map((member) => (
-                                    <SelectItem key={member.id} value={member.id}>
-                                        {member.name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                        <EntityPicker
+                            kind="user"
+                            value={assignee === UNASSIGNED ? null : assignee}
+                            onChange={(id) => setAssignee(id ?? UNASSIGNED)}
+                            initialSelected={
+                                assignedTo
+                                    ? {
+                                          id: assignedTo.id,
+                                          label: assignedTo.name,
+                                          description: assignedTo.email,
+                                      }
+                                    : undefined
+                            }
+                            clearable
+                            clearLabel="Unassigned"
+                            placeholder="Unassigned"
+                            lockedFilters={{ role: "workshop" }}
+                        />
                         <Button
                             className="w-full"
                             variant="outline"
@@ -121,11 +121,10 @@ export function MaintenanceDetailActions({
                             {isAssigning && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             Save assignment
                         </Button>
-                        {workshopMembers.length === 0 && (
-                            <p className="text-xs text-muted-foreground">
-                                No workshop users yet — invite one under Users.
-                            </p>
-                        )}
+                        <p className="text-xs text-muted-foreground">
+                            Only users with the workshop role can be assigned. If the
+                            list is empty, invite one under Users.
+                        </p>
                     </div>
                 )}
 
