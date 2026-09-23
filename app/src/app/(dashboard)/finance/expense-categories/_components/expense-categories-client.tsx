@@ -32,17 +32,12 @@ import {
     FormDescription,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import Link from "next/link";
 import { EntityPicker } from "@/components/ui/entity-picker";
+import { formatCurrency } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
-import { Plus, Pencil, Trash2, Truck, MapPin, User, Check, X } from "lucide-react";
+import { Plus, Pencil, Trash2, Truck, MapPin, User } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -73,6 +68,13 @@ interface Category {
     _count: {
         expenses: number;
     };
+    /**
+     * Spend inside the selected period, and how many expenses made it up.
+     * Both are zero for a viewer who may not see money — the page doesn't
+     * fetch the figures at all in that case.
+     */
+    periodAmount: number;
+    periodCount: number;
 }
 
 interface Account {
@@ -85,6 +87,9 @@ interface ExpenseCategoriesClientProps {
     categories: Category[];
     accounts: Account[];
     role: Role;
+    periodLabel: string;
+    /** Staff see the categories but not what they cost. */
+    showSpend: boolean;
 }
 
 const predefinedColors = [
@@ -101,7 +106,7 @@ const predefinedColors = [
     "#71717a", // gray
 ];
 
-export function ExpenseCategoriesClient({ categories, accounts, role }: ExpenseCategoriesClientProps) {
+export function ExpenseCategoriesClient({ categories, accounts, role, periodLabel, showSpend }: ExpenseCategoriesClientProps) {
     const router = useRouter();
     // Read-only for everyone but admin. The server actions enforce this too —
     // this only keeps controls that would always fail off the screen.
@@ -427,9 +432,26 @@ export function ExpenseCategoriesClient({ categories, accounts, role }: ExpenseC
                                         )}
                                     </TableCell>
                                     <TableCell>
-                                        <Badge variant="outline">
-                                            {category._count.expenses} {category._count.expenses === 1 ? "expense" : "expenses"}
-                                        </Badge>
+                                        {showSpend ? (
+                                            <>
+                                                <Link
+                                                    href={`/finance/expense-categories/${category.id}`}
+                                                    className="font-medium tabular-nums text-primary hover:underline"
+                                                    title={`See every ${category.name} expense in ${periodLabel.toLowerCase()}`}
+                                                >
+                                                    {formatCurrency(category.periodAmount)}
+                                                </Link>
+                                                <p className="text-xs text-muted-foreground">
+                                                    {category.periodCount} in {periodLabel.toLowerCase()} ·{" "}
+                                                    {category._count.expenses} all time
+                                                </p>
+                                            </>
+                                        ) : (
+                                            <Badge variant="outline">
+                                                {category._count.expenses}{" "}
+                                                {category._count.expenses === 1 ? "expense" : "expenses"}
+                                            </Badge>
+                                        )}
                                     </TableCell>
                                     <TableCell>
                                         <div className="flex gap-2">
