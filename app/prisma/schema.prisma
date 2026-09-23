@@ -105,6 +105,29 @@ model Organization {
   createdAt DateTime @default(now())
   metadata  String?
 
+  // Company details printed on every document the system generates.
+  //
+  // These used to be absent, so the invoice and receipt templates carried the
+  // address and phone numbers as hardcoded strings — meaning the client could
+  // not correct a typo without a code change. Blank falls back to the values
+  // in lib/documents/brand.ts, which match the client's printed stationery.
+  addressLine1  String?
+  addressLine2  String?
+  city          String?
+  country       String?
+  phone         String?
+  altPhone      String?
+  email         String?
+  website       String?
+  /** Printed as "VAT No." on the invoice. */
+  vatNumber     String?
+  /** Business partner number, printed beside the VAT number. */
+  bpNumber      String?
+  /** Free-form; appears under "Payment details" on invoices. */
+  bankDetails   String?
+  /** Short terms line at the foot of an invoice. */
+  invoiceTerms  String?
+
   members           Member[]
   invitations       Invitation[]
   trucks            Truck[]
