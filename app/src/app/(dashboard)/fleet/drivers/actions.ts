@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, requireRole } from "@/lib/session";
 import { gateChange } from "@/lib/edit-requests/gate";
+import { switchDriverTruck } from "@/lib/assignments";
 import { resolvePeriod, type PeriodInput } from "@/lib/period-range";
 import { DriverStatus } from "@/lib/types";
 import { generateDriverReportPDF, generateSingleDriverReportPDF } from "@/lib/reports/pdf-report-generator";
@@ -172,20 +173,23 @@ export async function updateDriver(
       }
     }
 
-    // Handle truck assignment
-    if (data.assignedTruckId !== undefined) {
-      // Unassign from old truck if changing
-      if (driver.assignedTruckId && driver.assignedTruckId !== data.assignedTruckId) {
-        // Note: We don't update the Truck model since it doesn't have assignedDriverId
-        // This is handled by the unique constraint on Driver.assignedTruckId
-      }
-
-      // Unassign any other driver from the new truck first
-      if (data.assignedTruckId) {
-        await prisma.driver.updateMany({
-          where: { assignedTruckId: data.assignedTruckId, NOT: { id } },
-          data: { assignedTruckId: null },
-        });
+    // Truck changes go through lib/assignments, which closes the old
+    // assignment and opens a new one. Doing it here rather than letting the
+    // update below write assignedTruckId is what keeps the history.
+    if (
+      data.assignedTruckId !== undefined &&
+      data.assignedTruckId !== driver.assignedTruckId
+    ) {
+      const result = await prisma.$transaction((tx) =>
+        switchDriverTruck(tx, {
+          organizationId: session.organizationId,
+          driverId: id,
+          truckId: data.assignedTruckId ?? null,
+          actorId: session.user.id,
+        }),
+      );
+      if (!result.success) {
+        return { success: false, error: result.error };
       }
     }
 
@@ -202,7 +206,8 @@ export async function updateDriver(
       internationalDrivingPermitExpiration: data.internationalDrivingPermitExpiration,
       status: data.status,
       notes: data.notes,
-      assignedTruckId: data.assignedTruckId,
+      // Deliberately not set here: switchDriverTruck above owns this field,
+      // and writing it twice would leave the assignment history behind.
     };
 
     // Only admins can update name fields

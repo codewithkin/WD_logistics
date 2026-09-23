@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, requireRole } from "@/lib/session";
 import { gateChange } from "@/lib/edit-requests/gate";
+import { switchDriverTruck, endTruckAssignment } from "@/lib/assignments";
 import { resolvePeriod } from "@/lib/period-range";
 import { earnedRevenueWhere } from "@/lib/metrics/revenue";
 import { TruckStatus } from "@/lib/types";
@@ -220,7 +221,15 @@ export async function updateTruck(
   }
 }
 
-export async function assignDriverToTruck(truckId: string, driverId: string | null) {
+export async function assignDriverToTruck(
+  truckId: string,
+  driverId: string | null,
+  /**
+   * When the change actually happened. Switches are usually entered days
+   * after the fact, and the snapshots are only as good as these dates.
+   */
+  effectiveDate?: Date,
+) {
   const session = await requireRole(["admin", "supervisor"]);
 
   try {
@@ -232,33 +241,33 @@ export async function assignDriverToTruck(truckId: string, driverId: string | nu
       return { success: false, error: "Truck not found" };
     }
 
-    // If assigning a new driver
+    // Every truck change goes through lib/assignments so the history is kept.
+    // These three statements used to write assignedTruckId directly, which
+    // threw away the previous assignment and made per-truck earnings
+    // unanswerable.
     if (driverId) {
-      const driver = await prisma.driver.findFirst({
-        where: { id: driverId, organizationId: session.organizationId },
-      });
-
-      if (!driver) {
-        return { success: false, error: "Driver not found" };
+      const result = await prisma.$transaction((tx) =>
+        switchDriverTruck(tx, {
+          organizationId: session.organizationId,
+          driverId,
+          truckId,
+          at: effectiveDate,
+          actorId: session.user.id,
+        }),
+      );
+      if (!result.success) {
+        return { success: false, error: result.error };
       }
-
-      // Unassign any driver currently assigned to this truck
-      await prisma.driver.updateMany({
-        where: { assignedTruckId: truckId },
-        data: { assignedTruckId: null },
-      });
-
-      // Assign the new driver to this truck
-      await prisma.driver.update({
-        where: { id: driverId },
-        data: { assignedTruckId: truckId },
-      });
     } else {
-      // Unassign any driver from this truck
-      await prisma.driver.updateMany({
-        where: { assignedTruckId: truckId },
-        data: { assignedTruckId: null },
-      });
+      await prisma.$transaction((tx) =>
+        endTruckAssignment(tx, {
+          organizationId: session.organizationId,
+          truckId,
+          at: effectiveDate,
+          actorId: session.user.id,
+          reason: "unassigned",
+        }),
+      );
     }
 
     revalidatePath("/fleet/trucks");
