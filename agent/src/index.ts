@@ -11,6 +11,17 @@ import whatsapp from "./routes/whatsapp";
 import testWhatsApp from "./routes/test-whatsapp";
 import webhooks from "./routes/webhooks";
 import { getAgentWhatsAppClient } from "./lib/whatsapp";
+import { notificationsApi } from "./lib/api-client";
+
+/**
+ * The organisation this bot belongs to.
+ *
+ * A delivery receipt arrives from WhatsApp, not from a request, so there is
+ * no per-call organisation context to read it from — unlike every other call
+ * in api-client. This deployment is single-organisation by design (see
+ * `organizationLimit: 1` in the app's auth config), so one env var is enough.
+ */
+const ORGANIZATION_ID = process.env.AGENT_ORGANIZATION_ID ?? "";
 import { 
   isAuthorizedNumber, 
   extractPhoneNumber, 
@@ -82,13 +93,22 @@ app.route("/webhooks", webhooks);
 // Backend route to send WhatsApp message
 app.post("/sendMessage", async (c) => {
   try {
-    const { phoneNumber, message } = await c.req.json();
+    const body = await c.req.json();
+    // `to` is what the app sends; `phoneNumber` is kept for older callers.
+    const phoneNumber = body.to ?? body.phoneNumber;
+    const message = body.message;
+
     if (!phoneNumber || !message) {
-      return c.json({ success: false, error: "Missing phoneNumber or message" }, 400);
+      return c.json({ success: false, error: "Missing 'to' or 'message'" }, 400);
     }
     const client = getAgentWhatsAppClient().getClient();
     if (!client) {
-      return c.json({ success: false, error: "WhatsApp client not initialized" }, 500);
+      // 503, not 500: the bot is unpaired rather than broken, and the app
+      // turns this into "pair it under Settings, then resend".
+      return c.json(
+        { success: false, error: "WhatsApp is not connected. Pair the bot and try again." },
+        503
+      );
     }
     // Format phone number for WhatsApp
     const formattedNumber = phoneNumber.replace(/\D/g, "") + "@c.us";
@@ -96,14 +116,18 @@ app.post("/sendMessage", async (c) => {
     // Check if number is registered on WhatsApp
     const isRegistered = await client.isRegisteredUser(formattedNumber);
     if (!isRegistered) {
-      return c.json({ success: false, error: "Phone number is not registered on WhatsApp" }, 400);
+      return c.json(
+        { success: false, error: `${phoneNumber} is not registered on WhatsApp` },
+        400
+      );
     }
 
     console.log("[LOG]: Sending message to:", formattedNumber);
-    await client.sendMessage(formattedNumber, message);
+    const sent = await client.sendMessage(formattedNumber, message);
 
-    console.log("[LOG]: should have sent message")
-    return c.json({ success: true });
+    // The message id is what a later delivery receipt refers back to. It used
+    // to be discarded, which made acks impossible to match to anything.
+    return c.json({ success: true, messageId: sent?.id?._serialized ?? null });
   } catch (error: any) {
     console.error("Failed to send WhatsApp message:", error);
     return c.json({ success: false, error: error?.message || "Unknown error" }, 500);
@@ -179,6 +203,19 @@ const initWhatsApp = async () => {
       console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
       
       // Setup incoming message handler
+      // A delivery receipt from WhatsApp: tell the app, so the trip page can
+      // say "delivered" or "read" rather than stopping at "sent".
+      client.on("message_ack", async ({ messageId, ack }: { messageId?: string; ack: number }) => {
+        if (!messageId || ack < 2) return;
+        try {
+          await notificationsApi.recordAck(ORGANIZATION_ID, messageId, ack);
+        } catch (error) {
+          // A lost receipt is not worth crashing the bot over; the
+          // message itself was already delivered.
+          console.error("[LOG]: could not record delivery receipt:", error);
+        }
+      });
+
       client.on("message_create", async (msg: any) => {
         try {
           // Log every received message

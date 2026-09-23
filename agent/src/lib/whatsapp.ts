@@ -171,6 +171,14 @@ export class AgentWhatsAppClient extends EventEmitter {
         console.error("❌ WhatsApp Auth Failed:", msg);
       });
 
+      // Delivery receipts. whatsapp-web.js raises message_ack when a message
+      // reaches the recipient's device (ack 2) and again when they open it
+      // (ack 3). Without this the app could say "sent" and nothing more,
+      // which is most of what item 5 was about.
+      this.client.on("message_ack", (msg: any, ack: number) => {
+        this.emit("message_ack", { messageId: msg?.id?._serialized, ack });
+      });
+
       // Only listen to message_create for outgoing and incoming messages
       // (message event is for incoming only, message_create is for all messages)
       this.client.on("message_create", (msg: any) => {

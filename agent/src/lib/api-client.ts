@@ -722,6 +722,23 @@ export const workflowsApi = {
 };
 
 // Export all APIs
+/**
+ * Delivery receipts, sent back to the app.
+ *
+ * The agent owns the WhatsApp session; the app owns the database. This is how
+ * an ack from one reaches the other, over the same action-dispatch protocol
+ * as every other call here.
+ */
+export const notificationsApi = {
+  recordAck: (organizationId: string, waMessageId: string, ack: number) =>
+    makeRequest<{ applied: boolean }>("notifications", {
+      organizationId,
+      action: "ack",
+      waMessageId,
+      ack,
+    }),
+};
+
 export const api = {
   trucks: trucksApi,
   drivers: driversApi,
@@ -730,6 +747,7 @@ export const api = {
   dashboard: dashboardApi,
   customers: customersApi,
   workflows: workflowsApi,
+  notifications: notificationsApi,
 };
 
 export default api;
