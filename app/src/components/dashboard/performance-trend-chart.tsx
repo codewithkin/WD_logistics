@@ -12,6 +12,7 @@ import {
 } from "recharts";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { MonthlyPerformanceTrend } from "@/lib/dashboard/performance-trend";
+import { shortMonthLabel } from "@/lib/metrics/monthly";
 
 interface PerformanceTrendChartProps {
     data: MonthlyPerformanceTrend[];
@@ -23,7 +24,14 @@ interface PerformanceTrendChartProps {
     };
 }
 
+/** Money series are formatted as currency; a trip count is not. The old
+    formatter guessed by magnitude (> 1000 meant dollars), which printed a
+    trip count of 1,200 as "$1,200" and a $40 expense as "40". */
+const MONEY_SERIES = new Set(["Revenue ($)", "Expenses ($)"]);
+
 export function PerformanceTrendChart({ data, periodLabel, periodTotals }: PerformanceTrendChartProps) {
+    // Same axis labels as the revenue chart directly above it.
+    const chartData = data.map((item) => ({ ...item, month: shortMonthLabel(item.month) }));
     // Use period totals if provided, otherwise calculate from data
     const totalRevenue = periodTotals?.revenue ?? data.reduce((sum, item) => sum + item.revenue, 0);
     const totalTrips = periodTotals?.trips ?? data.reduce((sum, item) => sum + item.tripCount, 0);
@@ -39,7 +47,7 @@ export function PerformanceTrendChart({ data, periodLabel, periodTotals }: Perfo
             <CardContent>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                     <div className="bg-green-50 dark:bg-green-950 p-4 rounded-lg">
-                        <p className="text-sm font-medium text-green-700 dark:text-green-200">Total Revenue</p>
+                        <p className="text-sm font-medium text-green-700 dark:text-green-200">Revenue earned</p>
                         <p className="text-2xl font-bold text-green-900 dark:text-green-100">
                             ${totalRevenue.toLocaleString("en-US", { maximumFractionDigits: 0 })}
                         </p>
@@ -68,7 +76,7 @@ export function PerformanceTrendChart({ data, periodLabel, periodTotals }: Perfo
                 <div className="w-full overflow-x-auto">
                 <div className="min-w-[560px] h-80">
                     <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={data} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                        <LineChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                             <defs>
                                 <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
                                     <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
@@ -85,7 +93,7 @@ export function PerformanceTrendChart({ data, periodLabel, periodTotals }: Perfo
                                 yAxisId="left"
                                 stroke="hsl(var(--muted-foreground))"
                                 style={{ fontSize: "12px" }}
-                                label={{ value: "Revenue ($)", angle: -90, position: "insideLeft" }}
+                                label={{ value: "Amount ($)", angle: -90, position: "insideLeft" }}
                                 tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
                             />
                             <YAxis
@@ -96,14 +104,11 @@ export function PerformanceTrendChart({ data, periodLabel, periodTotals }: Perfo
                                 label={{ value: "Trip Count", angle: 90, position: "insideRight" }}
                             />
                             <Tooltip
-                                formatter={(value) => {
-                                    if (typeof value === "number") {
-                                        if (value > 1000) {
-                                            return `$${value.toLocaleString()}`;
-                                        }
-                                        return value;
-                                    }
-                                    return value;
+                                formatter={(value, name) => {
+                                    if (typeof value !== "number") return value;
+                                    return MONEY_SERIES.has(String(name))
+                                        ? `$${value.toLocaleString()}`
+                                        : value.toLocaleString();
                                 }}
                                 contentStyle={{
                                     backgroundColor: "hsl(var(--background))",
@@ -147,11 +152,13 @@ export function PerformanceTrendChart({ data, periodLabel, periodTotals }: Perfo
                 {/* Trend Summary */}
                 <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
                     <p className="text-sm text-muted-foreground">
-                        Over the past 12 months, you've generated{" "}
+                        {periodLabel ? `Over ${periodLabel.toLowerCase()}` : "Over this period"}, you&apos;ve
+                        earned{" "}
                         <span className="font-semibold text-foreground">
                             ${totalRevenue.toLocaleString("en-US", { maximumFractionDigits: 0 })}
                         </span>{" "}
-                        in revenue from <span className="font-semibold text-foreground">{totalTrips}</span> trips,
+                        on completed trips, from{" "}
+                        <span className="font-semibold text-foreground">{totalTrips}</span> trips,
                         with total expenses of{" "}
                         <span className="font-semibold text-foreground">
                             ${totalExpenses.toLocaleString("en-US", { maximumFractionDigits: 0 })}

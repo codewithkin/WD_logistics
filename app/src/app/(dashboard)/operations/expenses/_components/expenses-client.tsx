@@ -11,6 +11,7 @@ interface Expense {
     description: string | null;
     amount: number;
     date: Date;
+    isPaid: boolean;
     receiptUrl: string | null;
     vendor: string | null;
     reference: string | null;
@@ -80,13 +81,16 @@ export function ExpensesClient({ expenses, categories, analytics, role, canExpor
     const filteredAnalytics = useMemo(() => {
         const totalExpenses = filteredExpenses.length;
         const totalAmount = filteredExpenses.reduce((sum, e) => sum + e.amount, 0);
-        // Note: Expense model doesn't have status field, so we set these to 0
-        const pendingExpenses = 0;
+        // Expense has no approval workflow, only `isPaid`. These were pinned
+        // at "nothing pending, everything paid", so the status chart and the
+        // two amount cards showed the same answer whatever the data said.
+        const paidList = filteredExpenses.filter((e) => e.isPaid);
+        const paidExpenses = paidList.length;
+        const pendingExpenses = totalExpenses - paidExpenses;
         const approvedExpenses = 0;
         const rejectedExpenses = 0;
-        const paidExpenses = totalExpenses; // Assume all are paid
-        const pendingAmount = 0;
-        const paidAmount = totalAmount;
+        const paidAmount = paidList.reduce((sum, e) => sum + e.amount, 0);
+        const pendingAmount = totalAmount - paidAmount;
 
         // Get category breakdown
         const categoryBreakdown = filteredExpenses.reduce((acc, e) => {
@@ -117,11 +121,12 @@ export function ExpensesClient({ expenses, categories, analytics, role, canExpor
         ? "All Categories"
         : categories.find(c => c.id === selectedCategory)?.name || "Unknown";
 
-    // Transform expenses for ExpensesAnalytics (add default status)
+    // ExpensesAnalytics wants a status string; derive it from isPaid rather
+    // than labelling every row "paid".
     const analyticsExpenses = filteredExpenses.map(e => ({
         ...e,
         description: e.description || "",
-        status: "paid" as const,
+        status: (e.isPaid ? "paid" : "pending") as "paid" | "pending",
     }));
 
     return (

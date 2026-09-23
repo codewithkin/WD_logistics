@@ -1,7 +1,16 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
+import {
+    Bar,
+    BarChart,
+    Cell,
+    LabelList,
+    ResponsiveContainer,
+    Tooltip,
+    XAxis,
+    YAxis,
+} from "recharts";
 import { TrendingUp, TrendingDown } from "lucide-react";
 
 interface TripRevenueExpenseChartProps {
@@ -9,15 +18,22 @@ interface TripRevenueExpenseChartProps {
     expenses: number;
 }
 
-const COLORS = ["#22c55e", "#ef4444"]; // green for revenue, red for expenses
+const REVENUE_COLOR = "#22c55e";
+const EXPENSE_COLOR = "#ef4444";
+const PROFIT_COLOR = "#3b82f6";
+const LOSS_COLOR = "#f97316";
 
 export function TripRevenueExpenseChart({ revenue, expenses }: TripRevenueExpenseChartProps) {
-    const data = [
-        { name: "Revenue", value: revenue },
-        { name: "Expenses", value: expenses },
-    ];
-
     const profit = revenue - expenses;
+
+    // Bars, not a pie. A pie says "these are slices of one whole", but expenses
+    // aren't part of revenue — they're subtracted from it, and a trip that
+    // loses money can't be drawn as a share of anything at all.
+    const data = [
+        { name: "Revenue", value: revenue, fill: REVENUE_COLOR },
+        { name: "Expenses", value: expenses, fill: EXPENSE_COLOR },
+        { name: profit >= 0 ? "Profit" : "Loss", value: profit, fill: profit >= 0 ? PROFIT_COLOR : LOSS_COLOR },
+    ];
     const profitMargin = revenue > 0 ? ((profit / revenue) * 100).toFixed(1) : 0;
     const isProfitable = profit >= 0;
 
@@ -36,23 +52,18 @@ export function TripRevenueExpenseChart({ revenue, expenses }: TripRevenueExpens
             <CardContent>
                 <div className="h-[200px]">
                     <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                            <Pie
-                                data={data}
-                                cx="50%"
-                                cy="50%"
-                                innerRadius={50}
-                                outerRadius={80}
-                                paddingAngle={2}
-                                dataKey="value"
-                                label={({ name, value }) => `$${value.toLocaleString()}`}
-                                labelLine={false}
-                            >
-                                {data.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                ))}
-                            </Pie>
+                        <BarChart data={data} layout="vertical" margin={{ left: 8, right: 56 }}>
+                            <XAxis type="number" hide />
+                            <YAxis
+                                type="category"
+                                dataKey="name"
+                                width={72}
+                                axisLine={false}
+                                tickLine={false}
+                                style={{ fontSize: "12px" }}
+                            />
                             <Tooltip
+                                cursor={{ fill: "transparent" }}
                                 formatter={(value: number) => [`$${value.toLocaleString()}`, ""]}
                                 contentStyle={{
                                     backgroundColor: "hsl(var(--background))",
@@ -60,8 +71,18 @@ export function TripRevenueExpenseChart({ revenue, expenses }: TripRevenueExpens
                                     borderRadius: "8px",
                                 }}
                             />
-                            <Legend />
-                        </PieChart>
+                            <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={26}>
+                                {data.map((entry) => (
+                                    <Cell key={entry.name} fill={entry.fill} />
+                                ))}
+                                <LabelList
+                                    dataKey="value"
+                                    position="right"
+                                    formatter={(value) => `$${Number(value).toLocaleString()}`}
+                                    style={{ fontSize: "12px" }}
+                                />
+                            </Bar>
+                        </BarChart>
                     </ResponsiveContainer>
                 </div>
                 <div className="mt-4 pt-4 border-t space-y-2">

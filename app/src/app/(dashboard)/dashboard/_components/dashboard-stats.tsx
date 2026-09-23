@@ -8,6 +8,7 @@ interface DashboardStatsProps {
         totalTrucks: number;
         tripsThisMonth: number;
         revenueThisMonth: number;
+        cashCollected: number;
         overdueInvoicesCount: number;
         periodLabel: string;
     };
@@ -45,7 +46,9 @@ export function DashboardStats({ stats, role, showFinancials = true }: Dashboard
             title: `Revenue (${periodLabel})`,
             value: `$${stats.revenueThisMonth.toLocaleString()}`,
             icon: DollarSign,
-            description: "from completed trips",
+            // Says which measure this is, because the card sits above charts
+            // that also say "revenue" — they all now mean completed trips.
+            description: `earned on completed trips · $${stats.cashCollected.toLocaleString()} collected`,
             roles: ["admin"] as Role[],
             requiresFinancials: true,
             bgGradient: "linear-gradient(to bottom right, rgba(34, 197, 94, 0.1), rgba(16, 185, 129, 0.1))",

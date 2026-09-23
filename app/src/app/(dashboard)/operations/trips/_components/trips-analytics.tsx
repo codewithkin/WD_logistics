@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { groupByMonth, lastMonths } from "@/lib/metrics/monthly";
 import { Download, FileSpreadsheet, TrendingUp, Truck, MapPin, DollarSign, CheckCircle, Clock, XCircle, Calendar, Loader2 } from "lucide-react";
 import {
     PieChart,
@@ -67,18 +68,21 @@ export function TripsAnalytics({ analytics, trips, canExport, periodLabel }: Tri
         { name: "Cancelled", value: analytics.cancelledTrips, color: STATUS_COLORS.cancelled },
     ].filter(d => d.value > 0);
 
-    // Group trips by month for bar chart
-    const monthlyData = trips.reduce((acc, trip) => {
-        const month = format(new Date(trip.scheduledDate), "MMM yyyy");
-        if (!acc[month]) {
-            acc[month] = { month, trips: 0, revenue: 0 };
-        }
-        acc[month].trips += 1;
-        acc[month].revenue += trip.revenue;
-        return acc;
-    }, {} as Record<string, { month: string; trips: number; revenue: number }>);
-
-    const monthlyChartData = Object.values(monthlyData).slice(-6);
+    // Trips arrive newest-first; groupByMonth sorts by month so the chart
+    // reads left to right and "last 6" really is the most recent six.
+    const monthlyChartData = lastMonths(
+        groupByMonth(
+            trips,
+            (trip) => trip.scheduledDate,
+            () => ({ trips: 0, revenue: 0 }),
+            (acc, trip) => ({
+                trips: acc.trips + 1,
+                // Cancelled trips earn nothing — counting them inflated the bar.
+                revenue: acc.revenue + (trip.status === "completed" ? trip.revenue : 0),
+            }),
+        ),
+        6,
+    ).map((group) => ({ month: group.month, ...group.value }));
 
     const handleExportCSV = () => {
         const headers = ["Origin", "Destination", "Status", "Revenue", "Mileage", "Date", "Truck", "Driver", "Customer"];
@@ -288,7 +292,10 @@ export function TripsAnalytics({ analytics, trips, canExport, periodLabel }: Tri
                 <Card>
                     <CardHeader>
                         <CardTitle>Monthly Trips & Revenue</CardTitle>
-                        <CardDescription>Last 6 months</CardDescription>
+                        <CardDescription>
+                            Most recent months in {periodLabel ? periodLabel.toLowerCase() : "this period"} ·
+                            revenue counts completed trips only
+                        </CardDescription>
                     </CardHeader>
                     <CardContent>
                         <div className="overflow-x-auto">

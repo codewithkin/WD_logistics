@@ -17,8 +17,10 @@ export interface DriverPerformanceMetric {
   totalTrips: number;
   revenue: number;
   completedTrips: number;
-  rating: number;
-  efficiency: number; // percentage
+  /** Completed trips that finished by their scheduled date (+24h). */
+  onTimeTrips: number;
+  /** onTimeTrips as a share of completed trips, 0-100. */
+  efficiency: number;
 }
 
 /**
@@ -70,15 +72,21 @@ export async function getDriverPerformanceData(
     const driverTrips = trips.filter((t) => t.driverId === driver.id);
 
     const totalTrips = driverTrips.length;
-    const completedTrips = driverTrips.filter((t) => t.status === "completed").length;
-    const revenue = driverTrips.reduce((sum, t) => sum + (t.revenue || 0), 0);
+    const completedList = driverTrips.filter((t) => t.status === "completed");
+    const completedTrips = completedList.length;
+    // Revenue counts finished work only, matching @/lib/metrics/revenue —
+    // a scheduled or cancelled trip has earned nothing yet.
+    const revenue = completedList.reduce((sum, t) => sum + (t.revenue || 0), 0);
 
-    const onTimeTrips = driverTrips.filter((t) => {
+    const onTimeTrips = completedList.filter((t) => {
       if (!t.endDate || !t.scheduledDate) return false;
       return t.endDate.getTime() <= t.scheduledDate.getTime() + buffer;
     }).length;
 
-    const onTimePercentage = totalTrips > 0 ? (onTimeTrips / totalTrips) * 100 : 0;
+    // Share of *completed* trips that landed on time. Dividing by every trip,
+    // including ones still scheduled, made a busy driver look worse the more
+    // work was booked ahead of them.
+    const onTimePercentage = completedTrips > 0 ? (onTimeTrips / completedTrips) * 100 : 0;
 
     return {
       driverId: driver.id,
@@ -86,7 +94,7 @@ export async function getDriverPerformanceData(
       totalTrips,
       revenue: Math.round(revenue * 100) / 100,
       completedTrips,
-      rating: 4.5, // Placeholder - can be enhanced with actual rating logic
+      onTimeTrips,
       efficiency: Math.round(onTimePercentage),
     };
   });

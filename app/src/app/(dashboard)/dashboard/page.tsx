@@ -18,6 +18,7 @@ import { QuickActions } from "./_components/quick-actions";
 import { DashboardPeriodSelector } from "./_components/dashboard-period-selector";
 import { getDateRangeFromParams } from "@/lib/period-utils";
 import { canViewFinancialData } from "@/lib/permissions";
+import { getCashCollected, getEarnedRevenue } from "@/lib/metrics/revenue";
 
 export const dynamic = "force-dynamic";
 
@@ -39,12 +40,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     const [
         truckStats,
         tripStats,
-        revenueStats,
+        earnedRevenue,
         overdueInvoices,
         revenueExpensesData,
         performanceTrendData,
         driverPerformanceData,
-        periodPayments,
+        cashCollected,
         periodExpenses,
         tripStatusData,
         fleetUtilizationData,
@@ -66,18 +67,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 },
             },
         }),
-        // Revenue within period
-        prisma.trip.aggregate({
-            where: {
-                organizationId,
-                status: "completed",
-                endDate: {
-                    gte: dateRange.from,
-                    lte: dateRange.to,
-                },
-            },
-            _sum: { revenue: true },
-        }),
+        // Revenue within period — the one definition, shared with both charts
+        // below (see @/lib/metrics/revenue).
+        getEarnedRevenue(organizationId, dateRange.from, dateRange.to),
         // Overdue invoices
         prisma.invoice.findMany({
             where: {
@@ -95,17 +87,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         getPerformanceTrendData(organizationId, dateRange.from, dateRange.to),
         // Driver performance data
         getDriverPerformanceData(organizationId, dateRange.from, dateRange.to),
-        // Period totals: Payments (revenue) within exact date range
-        prisma.payment.aggregate({
-            where: {
-                invoice: { organizationId },
-                paymentDate: {
-                    gte: dateRange.from,
-                    lte: dateRange.to,
-                },
-            },
-            _sum: { amount: true },
-        }),
+        // Cash actually banked in the period. Deliberately NOT called revenue:
+        // it moves when an old invoice is settled, which says nothing about how
+        // the fleet ran this period.
+        getCashCollected(organizationId, dateRange.from, dateRange.to),
         // Period totals: Expenses within exact date range
         prisma.expense.aggregate({
             where: {
@@ -140,9 +125,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         }),
     ]);
 
-    // Calculate exact period totals for charts
+    // Chart headline figures. Revenue is summed from the very buckets the
+    // charts plot, so a header can never disagree with the line above it.
     const periodTotals = {
-        revenue: periodPayments._sum.amount || 0,
+        revenue: revenueExpensesData.reduce((sum, m) => sum + m.revenue, 0),
         expenses: periodExpenses._sum.amount || 0,
         trips: tripStats,
     };
@@ -161,7 +147,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         activeTrucks: fleetStatus.active,
         totalTrucks,
         tripsThisMonth: tripStats,
-        revenueThisMonth: revenueStats._sum.revenue || 0,
+        revenueThisMonth: earnedRevenue,
+        cashCollected,
         overdueInvoicesCount: overdueInvoices.length,
         periodLabel: dateRange.label,
     };

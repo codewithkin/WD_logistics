@@ -61,6 +61,7 @@ export default async function DriversPage({ searchParams }: DriversPageProps) {
     const activeDrivers = drivers.filter(d => d.status === "active").length;
     const inactiveDrivers = drivers.filter(d => d.status === "inactive").length;
     const onLeaveDrivers = drivers.filter(d => d.status === "on_leave").length;
+    const suspendedDrivers = drivers.filter(d => d.status === "suspended").length;
     const terminatedDrivers = drivers.filter(d => d.status === "terminated").length;
     const driversWithTruck = drivers.filter(d => d.assignedTruck !== null).length;
     const driversWithoutTruck = drivers.filter(d => d.assignedTruck === null).length;
@@ -72,12 +73,16 @@ export default async function DriversPage({ searchParams }: DriversPageProps) {
         activeDrivers,
         inactiveDrivers,
         onLeaveDrivers,
+        suspendedDrivers,
         terminatedDrivers,
         driversWithTruck,
         driversWithoutTruck,
         totalTrips,
         totalRevenue,
-        licenseBreakdown: [] as Array<{ type: string; count: number }>,
+        // Was hardcoded to [], so the chart below it never rendered at all.
+        // Licence *type* isn't recorded; what the office actually chases is
+        // expiry, which is recorded and already drives the reminder cron.
+        licenseBreakdown: buildLicenceStatus(drivers),
     };
 
     const canCreate = role === "admin" || role === "supervisor";
@@ -107,4 +112,27 @@ export default async function DriversPage({ searchParams }: DriversPageProps) {
             <DriversTable drivers={drivers as any} role={role} showFinancials={showFinancials} />
         </div>
     );
+}
+
+/** Licence expiry buckets for the drivers chart: what needs renewing, and when. */
+function buildLicenceStatus(
+    drivers: { licenseExpiration: Date | null }[],
+): Array<{ type: string; count: number }> {
+    const now = new Date();
+    const soon = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+    const buckets = { expired: 0, expiringSoon: 0, valid: 0, unknown: 0 };
+    for (const driver of drivers) {
+        if (!driver.licenseExpiration) buckets.unknown += 1;
+        else if (driver.licenseExpiration < now) buckets.expired += 1;
+        else if (driver.licenseExpiration <= soon) buckets.expiringSoon += 1;
+        else buckets.valid += 1;
+    }
+
+    return [
+        { type: "Expired", count: buckets.expired },
+        { type: "Expires within 30 days", count: buckets.expiringSoon },
+        { type: "Valid", count: buckets.valid },
+        { type: "No expiry recorded", count: buckets.unknown },
+    ].filter((bucket) => bucket.count > 0);
 }

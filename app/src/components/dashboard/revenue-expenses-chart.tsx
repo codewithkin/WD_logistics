@@ -14,6 +14,7 @@ import {
 } from "recharts";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { MonthlyRevenueExpense } from "@/lib/dashboard/revenue-expenses";
+import { shortMonthLabel } from "@/lib/metrics/monthly";
 
 interface RevenueExpensesChartProps {
     data: MonthlyRevenueExpense[];
@@ -25,10 +26,11 @@ interface RevenueExpensesChartProps {
 }
 
 export function RevenueExpensesChart({ data, periodLabel, periodTotals }: RevenueExpensesChartProps) {
-    // Format data for chart
+    // Keep the year on the label. Stripping it to "Jan" made a 1y or all-time
+    // period read as a repeating list of the same twelve months.
     const chartData = data.map((item) => ({
         ...item,
-        month: item.month.split(" ")[0], // Show just month abbreviation
+        month: shortMonthLabel(item.month),
     }));
 
     // Use period totals if provided, otherwise calculate from data
@@ -40,12 +42,15 @@ export function RevenueExpensesChart({ data, periodLabel, periodTotals }: Revenu
         <Card>
             <CardHeader>
                 <CardTitle>Revenue vs Expenses</CardTitle>
-                <CardDescription>{periodLabel ? `Data for ${periodLabel}` : "Monthly comparison"}</CardDescription>
+                <CardDescription>
+                    {periodLabel ? `Data for ${periodLabel}` : "Monthly comparison"} · revenue counts
+                    completed trips, not cash received
+                </CardDescription>
             </CardHeader>
             <CardContent>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
                     <div className="bg-green-50 dark:bg-green-950 p-4 rounded-lg">
-                        <p className="text-sm font-medium text-green-700 dark:text-green-200">Total Revenue</p>
+                        <p className="text-sm font-medium text-green-700 dark:text-green-200">Revenue earned</p>
                         <p className="text-2xl font-bold text-green-900 dark:text-green-100">
                             ${totalRevenue.toLocaleString("en-US", { maximumFractionDigits: 0 })}
                         </p>
@@ -92,7 +97,13 @@ export function RevenueExpensesChart({ data, periodLabel, periodTotals }: Revenu
                             <YAxis
                                 stroke="hsl(var(--muted-foreground))"
                                 style={{ fontSize: "12px" }}
-                                tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
+                                tickFormatter={(value) =>
+                                    // "$0k" for everything under a thousand was
+                                    // the old behaviour on small datasets.
+                                    Math.abs(value) >= 1000
+                                        ? `$${(value / 1000).toFixed(0)}k`
+                                        : `$${value}`
+                                }
                             />
                             <Tooltip
                                 formatter={(value) => `$${(value as number).toLocaleString()}`}

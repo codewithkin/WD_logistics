@@ -11,7 +11,6 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { DriverPerformanceMetric } from "@/lib/dashboard/driver-performance";
-import { Star } from "lucide-react";
 
 interface DriverPerformanceTableProps {
     data: DriverPerformanceMetric[];
@@ -80,7 +79,7 @@ export function DriverPerformanceTable({ data, periodLabel }: DriverPerformanceT
                         </p>
                     </div>
                     <div className="bg-purple-50 dark:bg-purple-950 p-4 rounded-lg">
-                        <p className="text-sm font-medium text-purple-700 dark:text-purple-200">Avg Efficiency</p>
+                        <p className="text-sm font-medium text-purple-700 dark:text-purple-200">Avg on-time rate</p>
                         <p className="text-2xl font-bold text-purple-900 dark:text-purple-100">{avgEfficiency}%</p>
                     </div>
                 </div>
@@ -93,8 +92,8 @@ export function DriverPerformanceTable({ data, periodLabel }: DriverPerformanceT
                                 <TableHead className="text-right font-semibold">Trips</TableHead>
                                 <TableHead className="text-right font-semibold">Completed</TableHead>
                                 <TableHead className="text-right font-semibold">Revenue</TableHead>
-                                <TableHead className="text-center font-semibold">Rating</TableHead>
-                                <TableHead className="text-right font-semibold">Efficiency</TableHead>
+                                <TableHead className="text-center font-semibold">On time</TableHead>
+                                <TableHead className="text-right font-semibold">On-time rate</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -122,18 +121,18 @@ export function DriverPerformanceTable({ data, periodLabel }: DriverPerformanceT
                                         <TableCell className="text-right font-medium">
                                             ${driver.revenue.toLocaleString("en-US", { maximumFractionDigits: 0 })}
                                         </TableCell>
-                                        <TableCell>
-                                            <div className="flex items-center justify-center gap-1">
-                                                {Array.from({ length: 5 }).map((_, i) => (
-                                                    <Star
-                                                        key={i}
-                                                        className={`w-4 h-4 ${i < Math.floor(driver.rating)
-                                                            ? "fill-yellow-400 text-yellow-400"
-                                                            : "text-gray-300 dark:text-gray-600"
-                                                            }`}
-                                                    />
-                                                ))}
-                                            </div>
+                                        {/* Was five stars driven by a hardcoded
+                                            4.5 for every driver — it told the
+                                            reader nothing. This is the real
+                                            count behind the rate beside it. */}
+                                        <TableCell className="text-center">
+                                            {driver.completedTrips > 0 ? (
+                                                <span className="text-sm">
+                                                    {driver.onTimeTrips}/{driver.completedTrips}
+                                                </span>
+                                            ) : (
+                                                <span className="text-sm text-muted-foreground">—</span>
+                                            )}
                                         </TableCell>
                                         <TableCell className="text-right">
                                             <div className={`p-2 rounded-lg ${efficiencyColor.bgClass}`}>

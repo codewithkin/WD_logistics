@@ -38,6 +38,7 @@ interface DriversAnalyticsProps {
         activeDrivers: number;
         inactiveDrivers: number;
         onLeaveDrivers: number;
+        suspendedDrivers: number;
         terminatedDrivers: number;
         driversWithTruck: number;
         driversWithoutTruck: number;
@@ -55,6 +56,9 @@ const STATUS_COLORS = {
     active: "#10b981",
     inactive: "#6b7280",
     on_leave: "#f59e0b",
+    // Drivers can be suspended (see schema) — without this the slice drew grey
+    // and unlabelled.
+    suspended: "#f97316",
     terminated: "#ef4444",
 };
 
@@ -70,6 +74,7 @@ export function DriversAnalytics({ analytics, drivers, canExport, periodLabel, s
         { name: "Active", value: analytics.activeDrivers, color: STATUS_COLORS.active },
         { name: "Inactive", value: analytics.inactiveDrivers, color: STATUS_COLORS.inactive },
         { name: "On Leave", value: analytics.onLeaveDrivers, color: STATUS_COLORS.on_leave },
+        { name: "Suspended", value: analytics.suspendedDrivers, color: STATUS_COLORS.suspended },
         { name: "Terminated", value: analytics.terminatedDrivers, color: STATUS_COLORS.terminated },
     ].filter(d => d.value > 0);
 
@@ -329,8 +334,8 @@ export function DriversAnalytics({ analytics, drivers, canExport, periodLabel, s
             {analytics.licenseBreakdown.length > 0 && (
                 <Card>
                     <CardHeader>
-                        <CardTitle>License Types</CardTitle>
-                        <CardDescription>Distribution by license type</CardDescription>
+                        <CardTitle>Licence status</CardTitle>
+                        <CardDescription>Driver licences by expiry</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <div className="h-64">

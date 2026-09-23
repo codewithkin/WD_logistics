@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { groupByMonth, lastMonths } from "@/lib/metrics/monthly";
 import { Download, FileSpreadsheet, DollarSign, Clock, CheckCircle, XCircle, CreditCard, TrendingUp, Loader2 } from "lucide-react";
 import {
     PieChart,
@@ -78,18 +79,17 @@ export function ExpensesAnalytics({ analytics, expenses, canExport, categoryId, 
         { name: "Paid", value: analytics.paidExpenses, color: STATUS_COLORS.paid },
     ].filter(d => d.value > 0);
 
-    // Group expenses by month for bar chart
-    const monthlyData = expenses.reduce((acc, expense) => {
-        const month = format(new Date(expense.date), "MMM yyyy");
-        if (!acc[month]) {
-            acc[month] = { month, count: 0, amount: 0 };
-        }
-        acc[month].count += 1;
-        acc[month].amount += expense.amount;
-        return acc;
-    }, {} as Record<string, { month: string; count: number; amount: number }>);
-
-    const monthlyChartData = Object.values(monthlyData).slice(-6);
+    // Same fix as the trips chart: sort by month before taking the last six,
+    // or the "last 6 months" bars are the six oldest, drawn backwards.
+    const monthlyChartData = lastMonths(
+        groupByMonth(
+            expenses,
+            (expense) => expense.date,
+            () => ({ count: 0, amount: 0 }),
+            (acc, expense) => ({ count: acc.count + 1, amount: acc.amount + expense.amount }),
+        ),
+        6,
+    ).map((group) => ({ month: group.month, ...group.value }));
 
     const handleExportCSV = () => {
         const headers = ["Description", "Amount", "Date", "Status", "Category", "Trip/Truck"];
@@ -304,7 +304,9 @@ export function ExpensesAnalytics({ analytics, expenses, canExport, categoryId, 
                 <Card>
                     <CardHeader>
                         <CardTitle>Monthly Expenses</CardTitle>
-                        <CardDescription>Last 6 months</CardDescription>
+                        <CardDescription>
+                            Most recent months in {periodLabel ? periodLabel.toLowerCase() : "this period"}
+                        </CardDescription>
                     </CardHeader>
                     <CardContent>
                         <div className="overflow-x-auto">

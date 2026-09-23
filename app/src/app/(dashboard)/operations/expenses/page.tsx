@@ -69,13 +69,15 @@ export default async function ExpensesPage({ searchParams }: ExpensesPageProps) 
     // Calculate analytics
     const totalExpenses = expenses.length;
     const totalAmount = expenses.reduce((sum, e) => sum + e.amount, 0);
-    // Note: Expense model doesn't have status field, so we set these to defaults
-    const pendingExpenses = 0;
+    // Expense has no approval workflow — only `isPaid`. These used to be
+    // hardcoded (pending 0, everything "paid"), so the status chart drew a
+    // single full circle no matter what the data said.
+    const paidExpenses = expenses.filter((e) => e.isPaid).length;
+    const pendingExpenses = totalExpenses - paidExpenses;
     const approvedExpenses = 0;
     const rejectedExpenses = 0;
-    const paidExpenses = totalExpenses; // Assume all are paid
-    const pendingAmount = 0;
-    const paidAmount = totalAmount;
+    const paidAmount = expenses.filter((e) => e.isPaid).reduce((sum, e) => sum + e.amount, 0);
+    const pendingAmount = totalAmount - paidAmount;
 
     // Get category breakdown
     const categoryBreakdown = expenses.reduce((acc, e) => {
