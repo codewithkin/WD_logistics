@@ -30,7 +30,7 @@ Read these three files together:
 | T4 | 2 filters everywhere, 16 push notifications, 1+18 truck cost breakdown, 26 invoice | ❌ not started |
 | T5 | 4 edit requests + money-in lock, 25 driver-truck snapshots, 3+27 branded documents | ❌ not started |
 
-Six commits so far, all on `main`, **not pushed** (`b36b48c` is where this round started):
+Commits so far, all on `main`, **not pushed** (`b36b48c` is where this round started). The ones below predate the "Working conventions" section in `CLAUDE.md`, so they carry attribution trailers and `17d6a8d` batches eight feature items — deliberately left as they are. Everything from `28525c9` onward follows the convention: one commit per todo, no trailer.
 
 ```
 385715a docs: update PROGRESS.md after the graph audit
