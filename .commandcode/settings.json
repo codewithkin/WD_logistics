@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Shell(dir:*)",
+      "Shell(findstr:*)",
+      "Shell(npx tsc --noEmit 2 >& 1)",
+      "Shell(git add app/src/lib/permissions.ts; git commit -F - <<'EOF' feat(accounts): split money-in and money-out permissions Supervisors may keep recording money taken out of an account, but money coming in is now an admin-only control point. Replaces the single canRecordAccountMovements predicate with direction-aware canRecordMoneyIn / canRecordMoneyOut helpers. Co-authored-by: CommandCodeBot <noreply@commandcode.ai> EOF)",
+      "Shell(dir /b /s *fx_data* 2>nul)",
+      "Shell(dir /b /s \"%USERPROFILE%\\*fx_data*\" 2>nul & dir /b /s \"%USERPROFILE%\\Desktop\\*fx_data*\" 2>nul)"
+    ],
+    "deny": [],
+    "defaultMode": "default"
+  }
+}
