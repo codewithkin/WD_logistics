@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Download, FileText, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { exportTruckExpensesPDF } from "../../actions";
+import { usePeriodRange } from "@/lib/use-period-range";
 
 interface ExportTruckExpensesButtonProps {
     /** Omit to export every truck's expenses in one report. */
@@ -19,11 +20,13 @@ export function ExportTruckExpensesButton({
     size = "sm",
 }: ExportTruckExpensesButtonProps) {
     const [isLoading, setIsLoading] = useState(false);
+    // The file covers the same window the page is showing.
+    const period = usePeriodRange("3m");
 
     const handleExport = async () => {
         setIsLoading(true);
         try {
-            const result = await exportTruckExpensesPDF(truckId);
+            const result = await exportTruckExpensesPDF(truckId, period.payload);
 
             if (!result.success) {
                 toast.error(result.error || "Failed to export expenses");

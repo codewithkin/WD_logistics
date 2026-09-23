@@ -1467,12 +1467,14 @@ export function generateDashboardSummaryPDF(data: {
   outstandingInvoices: { invoiceNumber: string; total: number; dueDate: Date | null; customer: { name: string } }[];
   topCustomersByRevenue: { name: string; revenue: number }[];
   expensesWithCategories: { category: string; amount: number }[];
+  /** The window the caller actually charted; printed in the header. */
+  period?: { startDate: Date; endDate: Date };
 }) {
   const config: ReportConfig = {
     title: "Dashboard Summary Report",
     subtitle: "Organization Performance Overview",
     reportType: "dashboard-summary",
-    period: {
+    period: data.period ?? {
       startDate: new Date(new Date().setMonth(new Date().getMonth() - 1)),
       endDate: new Date(),
     },

@@ -1,4 +1,6 @@
 import { PageHeader } from "@/components/layout/page-header";
+import { PagePeriodSelector } from "@/components/ui/page-period-selector";
+import { getDateRangeFromParams } from "@/lib/period-utils";
 import { requireRole } from "@/lib/session";
 import prisma from "@/lib/prisma";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,8 +13,14 @@ import { canViewExpensesPage } from "@/lib/permissions";
 import { redirect } from "next/navigation";
 import { ExportTruckExpensesButton } from "./_components/export-truck-expenses-button";
 
-export default async function ExpensesByTruckPage() {
+interface ExpensesByTruckPageProps {
+    searchParams: Promise<{ period?: string; from?: string; to?: string }>;
+}
+
+export default async function ExpensesByTruckPage({ searchParams }: ExpensesByTruckPageProps) {
     const user = await requireRole(["admin", "supervisor"]);
+    const params = await searchParams;
+    const dateRange = getDateRangeFromParams(params, "3m");
 
     // Check if user can view expenses page
     if (!canViewExpensesPage(user.role)) {
@@ -26,6 +34,9 @@ export default async function ExpensesByTruckPage() {
         },
         include: {
             truckExpenses: {
+                where: {
+                    expense: { date: { gte: dateRange.from, lte: dateRange.to } },
+                },
                 include: {
                     expense: {
                         include: {
@@ -62,10 +73,13 @@ export default async function ExpensesByTruckPage() {
 
     return (
         <div className="flex flex-col gap-6">
-            <PageHeader
-                title="Expenses by Truck"
-                description="View all expenses assigned to each truck"
-            />
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <PageHeader
+                    title="Expenses by Truck"
+                    description={`Expenses assigned to each truck — ${dateRange.label}`}
+                />
+                <PagePeriodSelector defaultPreset="3m" />
+            </div>
 
             <div className="flex flex-wrap items-center justify-between gap-4">
                 <Link href="/finance/expenses">
@@ -88,7 +102,7 @@ export default async function ExpensesByTruckPage() {
             {trucksWithTotals.length === 0 ? (
                 <Card>
                     <CardContent className="py-8 text-center text-muted-foreground">
-                        No truck expenses found
+                        No truck expenses in {dateRange.label.toLowerCase()}
                     </CardContent>
                 </Card>
             ) : (

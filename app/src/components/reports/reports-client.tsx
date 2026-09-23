@@ -2,9 +2,9 @@
 
 import { cloneElement, useTransition } from "react";
 import { toast } from "sonner";
+import { usePeriodRange } from "@/lib/use-period-range";
 import { generateReport, type GenerateReportInput } from "@/app/(dashboard)/reports/actions";
 import { exportDashboardPDF } from "@/app/(dashboard)/reports/actions";
-import { startOfMonth, endOfMonth, subMonths } from "date-fns";
 import { ReportsDashboard } from "./reports-dashboard";
 import type { ReactElement, ComponentProps } from "react";
 
@@ -28,13 +28,15 @@ export function ReportsClient({
   initialReports,
 }: ReportsClientProps) {
   const [isPending, startTransition] = useTransition();
+  const period = usePeriodRange("1m");
 
   // reportType comes from whichever tab the user is on — it used to be
   // hardcoded to "revenue" regardless.
   const handleGenerateReport = (format: "pdf" | "csv", reportType: string) => {
-    const now = new Date();
-    const startDate = startOfMonth(subMonths(now, 1));
-    const endDate = endOfMonth(subMonths(now, 1));
+    // Quick Generate used to always produce last calendar month, whatever the
+    // page's period selector said. It follows the selector now.
+    const startDate = period.from;
+    const endDate = period.to;
 
     startTransition(async () => {
       try {
@@ -75,7 +77,7 @@ export function ReportsClient({
   const handleExportDashboard = () => {
     startTransition(async () => {
       try {
-        const result = await exportDashboardPDF();
+        const result = await exportDashboardPDF(period.payload);
 
         if (result.success && result.pdf) {
           const byteCharacters = atob(result.pdf);

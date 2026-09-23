@@ -1,6 +1,8 @@
 import { requireRole } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/layout/page-header";
+import { PagePeriodSelector } from "@/components/ui/page-period-selector";
+import { getDateRangeFromParams } from "@/lib/period-utils";
 import { InventoryTable } from "./_components/inventory-table";
 import { InventorySummary } from "./_components/inventory-summary";
 import { StockMovementsTable } from "./_components/stock-movements-table";
@@ -9,11 +11,15 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Boxes, History, Plus } from "lucide-react";
 
-const STOCK_HISTORY_LIMIT = 1000;
+interface InventoryPageProps {
+    searchParams: Promise<{ period?: string; from?: string; to?: string }>;
+}
 
-export default async function InventoryPage() {
+export default async function InventoryPage({ searchParams }: InventoryPageProps) {
     const session = await requireRole(["admin", "supervisor"]);
     const { role, organizationId } = session;
+    const params = await searchParams;
+    const dateRange = getDateRangeFromParams(params, "3m");
 
     const [items, movements] = await Promise.all([
         prisma.inventoryItem.findMany({
@@ -32,9 +38,11 @@ export default async function InventoryPage() {
             orderBy: { name: "asc" },
         }),
         prisma.stockMovement.findMany({
-            where: { organizationId },
+            where: {
+                organizationId,
+                createdAt: { gte: dateRange.from, lte: dateRange.to },
+            },
             orderBy: { createdAt: "desc" },
-            take: STOCK_HISTORY_LIMIT,
             include: {
                 performedBy: { select: { name: true } },
                 inventoryItem: { select: { id: true, name: true, unit: true, unitCost: true } },
@@ -69,15 +77,18 @@ export default async function InventoryPage() {
 
     return (
         <div className="space-y-6">
-            <PageHeader
-                title="Inventory"
-                description="Track spare parts and warehouse stock"
-                action={
-                    canManage
-                        ? { label: "Add Item", href: "/inventory/new", icon: Plus }
-                        : undefined
-                }
-            />
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <PageHeader
+                    title="Inventory"
+                    description="Track spare parts and warehouse stock"
+                    action={
+                        canManage
+                            ? { label: "Add Item", href: "/inventory/new", icon: Plus }
+                            : undefined
+                    }
+                />
+                <PagePeriodSelector defaultPreset="3m" />
+            </div>
 
             <InventorySummary
                 totalItems={totalItems}
@@ -105,7 +116,8 @@ export default async function InventoryPage() {
                         <CardContent className="p-6">
                             <p className="text-sm text-muted-foreground mb-4">
                                 Everything that came into or went out of the warehouse
-                                {movements.length === STOCK_HISTORY_LIMIT && ` (latest ${STOCK_HISTORY_LIMIT} movements)`}.
+                                during {dateRange.label.toLowerCase()}. Stock levels on
+                                the Items tab are current, not period-bound.
                             </p>
                             <StockMovementsTable movements={movements} showItem showValue={canSeeValue} />
                         </CardContent>

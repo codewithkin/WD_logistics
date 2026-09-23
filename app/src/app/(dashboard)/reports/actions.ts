@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
+import { resolvePeriod, previousPeriod, type PeriodInput } from "@/lib/period-range";
 import { z } from "zod";
 import {
   fetchProfitPerUnitData,
@@ -493,16 +494,20 @@ export async function deleteReport(reportId: string) {
 /**
  * Export dashboard summary as PDF
  */
-export async function exportDashboardPDF() {
+export async function exportDashboardPDF(period?: PeriodInput) {
   const session = await requireRole(["admin"]);
   const { organizationId } = session;
 
   try {
-    const now = new Date();
-    const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const thisMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+    // The export used to compare this calendar month against last, whatever
+    // period the page was showing. It now follows the selector, and compares
+    // against the window of the same length immediately before it.
+    const range = resolvePeriod(period, "1m");
+    const prior = previousPeriod(range);
+    const thisMonthStart = range.from;
+    const thisMonthEnd = range.to;
+    const lastMonthStart = prior.from;
+    const lastMonthEnd = prior.to;
 
     // Fetch fleet data
     const [totalTrucks, activeTrucks, totalDrivers, activeDrivers] = await Promise.all([
@@ -672,6 +677,7 @@ export async function exportDashboardPDF() {
         revenue: c.revenue,
       })),
       expensesWithCategories,
+      period: { startDate: range.from, endDate: range.to },
     });
 
     return {

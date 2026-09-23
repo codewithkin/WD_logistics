@@ -1,4 +1,6 @@
 import { PageHeader } from "@/components/layout/page-header";
+import { PagePeriodSelector } from "@/components/ui/page-period-selector";
+import { getDateRangeFromParams } from "@/lib/period-utils";
 import { requireRole } from "@/lib/session";
 import prisma from "@/lib/prisma";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,8 +13,14 @@ import { ArrowLeft, MapPin, Calendar, Truck as TruckIcon } from "lucide-react";
 import { canViewExpensesPage } from "@/lib/permissions";
 import { redirect } from "next/navigation";
 
-export default async function ExpensesByTripPage() {
+interface ExpensesByTripPageProps {
+    searchParams: Promise<{ period?: string; from?: string; to?: string }>;
+}
+
+export default async function ExpensesByTripPage({ searchParams }: ExpensesByTripPageProps) {
     const user = await requireRole(["admin", "supervisor"]);
+    const params = await searchParams;
+    const dateRange = getDateRangeFromParams(params, "3m");
 
     // Check if user can view expenses page
     if (!canViewExpensesPage(user.role)) {
@@ -23,6 +31,7 @@ export default async function ExpensesByTripPage() {
     const trips = await prisma.trip.findMany({
         where: {
             organizationId: user.organizationId,
+            scheduledDate: { gte: dateRange.from, lte: dateRange.to },
         },
         include: {
             truck: true,
@@ -64,10 +73,13 @@ export default async function ExpensesByTripPage() {
 
     return (
         <div className="flex flex-col gap-6">
-            <PageHeader
-                title="Expenses by Trip"
-                description="View all expenses assigned to each trip"
-            />
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <PageHeader
+                    title="Expenses by Trip"
+                    description={`Expenses assigned to each trip — ${dateRange.label}`}
+                />
+                <PagePeriodSelector defaultPreset="3m" />
+            </div>
 
             <div className="flex flex-wrap items-center justify-between gap-4">
                 <Link href="/finance/expenses">

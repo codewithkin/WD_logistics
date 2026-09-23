@@ -13,6 +13,7 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { usePeriodRange } from "@/lib/use-period-range";
 import { StatusBadge } from "@/components/ui/status-badge";
 import {
     DropdownMenu,
@@ -84,6 +85,9 @@ export function TrucksTable({ trucks, role, periodLabel, showFinancials = true }
     const [isDeleting, setIsDeleting] = useState(false);
     const [exportDialogOpen, setExportDialogOpen] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
+    // The export follows the period selector, not a fixed last-month
+    // window — the file now matches the rows on screen.
+    const period = usePeriodRange("3m");
 
     const canEdit = role === "admin" || role === "supervisor";
     const canDelete = role === "admin";
@@ -158,8 +162,8 @@ export function TrucksTable({ trucks, role, periodLabel, showFinancials = true }
 
             const result = await exportTrucksPDF({
                 truckIds,
-                startDate: new Date(new Date().setMonth(new Date().getMonth() - 1)),
-                endDate: new Date(),
+                startDate: period.from,
+                endDate: period.to,
             });
 
             if (result.success && result.pdf) {

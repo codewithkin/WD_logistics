@@ -31,6 +31,7 @@ import { Input } from "@/components/ui/input";
 import { MoreHorizontal, Pencil, Trash2, Receipt as ReceiptIcon, Search, Filter, X, Truck, MapPin, Plus, Loader2, User } from "lucide-react";
 import Link from "next/link";
 import { deleteExpense, exportExpensesPDF } from "../actions";
+import { usePeriodRange } from "@/lib/use-period-range";
 import { useRouter } from "next/navigation";
 import { formatCurrency } from "@/lib/utils";
 
@@ -73,6 +74,7 @@ export function ExpensesTableClient({ expenses }: ExpensesTableProps) {
     const router = useRouter();
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState("");
+    const period = usePeriodRange("1m");
     const [categoryFilter, setCategoryFilter] = useState<string>("all");
     const [truckFilter, setTruckFilter] = useState<string>("all");
     const [tripFilter, setTripFilter] = useState<string>("all");
@@ -183,7 +185,7 @@ export function ExpensesTableClient({ expenses }: ExpensesTableProps) {
     useEffect(() => {
         const handleExportPDF = async () => {
             try {
-                const result = await exportExpensesPDF();
+                const result = await exportExpensesPDF(period.payload);
                 if (result.success) {
                     // Convert base64 to blob
                     const byteCharacters = atob(result.data);
@@ -265,7 +267,7 @@ export function ExpensesTableClient({ expenses }: ExpensesTableProps) {
             const dataToExport = scope === "current-page" ? paginatedExpenses : filteredExpenses;
 
             if (exportType === "pdf") {
-                const result = await exportExpensesPDF();
+                const result = await exportExpensesPDF(period.payload);
                 if (result.success) {
                     // Convert base64 to blob
                     const byteCharacters = atob(result.data);

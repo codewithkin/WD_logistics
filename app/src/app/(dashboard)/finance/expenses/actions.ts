@@ -1,6 +1,7 @@
 "use server";
 
 import { requireRole } from "@/lib/session";
+import { resolvePeriod, type PeriodInput } from "@/lib/period-range";
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { generateExpenseReportPDF } from "@/lib/reports/pdf-report-generator";
@@ -507,12 +508,17 @@ export async function getExpensesForCharts(days: number = 30) {
   };
 }
 
-export async function exportExpensesPDF() {
+export async function exportExpensesPDF(period?: PeriodInput) {
   const user = await requireRole(["admin", "supervisor", "staff"]);
+
+  // Follows the page's period selector rather than dumping every expense
+  // ever recorded into one PDF.
+  const range = resolvePeriod(period, "1m");
 
   const expenses = await prisma.expense.findMany({
     where: {
       organizationId: user.organizationId,
+      date: { gte: range.from, lte: range.to },
     },
     include: {
       category: {
@@ -537,11 +543,6 @@ export async function exportExpensesPDF() {
     orderBy: { date: "desc" },
   });
 
-  // Get date range from expenses
-  const dates = expenses.map((e) => new Date(e.date).getTime());
-  const startDate = dates.length > 0 ? new Date(Math.min(...dates)) : new Date();
-  const endDate = dates.length > 0 ? new Date(Math.max(...dates)) : new Date();
-
   try {
     const pdfBytes = generateExpenseReportPDF({
       expenses: expenses.map((expense) => ({
@@ -553,7 +554,7 @@ export async function exportExpensesPDF() {
         trips: expense.tripExpenses.map((te) => `${te.trip.originCity}→${te.trip.destinationCity}`),
         drivers: expense.driverExpenses.map((de) => `${de.driver.firstName} ${de.driver.lastName}`),
       })),
-      period: { startDate, endDate },
+      period: { startDate: range.from, endDate: range.to },
     });
 
     const base64 = Buffer.from(pdfBytes).toString("base64");
@@ -577,13 +578,18 @@ export async function exportExpensesPDF() {
  * truck's expenses and per-truck totals on screen but offered no way to take
  * any of it away.
  */
-export async function exportTruckExpensesPDF(truckId?: string) {
+export async function exportTruckExpensesPDF(truckId?: string, period?: PeriodInput) {
   const session = await requireRole(["admin", "supervisor"]);
 
   try {
+    // The export covers the period the page is showing, not all of history.
+    const range = resolvePeriod(period, "3m");
     const truckExpenses = await prisma.truckExpense.findMany({
       where: {
-        expense: { organizationId: session.organizationId },
+        expense: {
+          organizationId: session.organizationId,
+          date: { gte: range.from, lte: range.to },
+        },
         ...(truckId ? { truckId } : {}),
       },
       include: {
@@ -594,7 +600,10 @@ export async function exportTruckExpensesPDF(truckId?: string) {
     });
 
     if (truckExpenses.length === 0) {
-      return { success: false as const, error: "There are no truck expenses to export yet." };
+      return {
+        success: false as const,
+        error: `There are no truck expenses in ${range.label.toLowerCase()} to export.`,
+      };
     }
 
     // One truck: the category column is enough. All trucks: lead the
@@ -621,11 +630,12 @@ export async function exportTruckExpensesPDF(truckId?: string) {
       )
     ).sort((a, b) => b.amount - a.amount);
 
-    const dates = truckExpenses.map((te) => te.expense.date.getTime());
+    // The header prints the period that was asked for, not the span of the
+    // rows that happened to match — an empty February must still say February.
     const pdfBytes = generateExpenseReportPDF({
       expenses,
       byCategory,
-      period: { startDate: new Date(Math.min(...dates)), endDate: new Date(Math.max(...dates)) },
+      period: { startDate: range.from, endDate: range.to },
     });
 
     const label = truckId

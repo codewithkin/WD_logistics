@@ -227,6 +227,11 @@ function PeriodSelectorInner({
                     params.set("to", period.to.toISOString());
                 }
 
+                // A narrower period usually has fewer pages, so staying on
+                // page 7 of the old result set lands the user on an empty
+                // table and looks like the filter returned nothing.
+                params.delete("page");
+
                 router.push(`${pathname}?${params.toString()}`, { scroll: false });
             }
         },

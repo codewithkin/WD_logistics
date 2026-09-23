@@ -13,6 +13,7 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { usePeriodRange } from "@/lib/use-period-range";
 import { StatusBadge } from "@/components/ui/status-badge";
 import {
     DropdownMenu,
@@ -79,6 +80,9 @@ export function InvoicesTable({ invoices, role, showFinancials = true }: Invoice
     const [isDeleting, setIsDeleting] = useState(false);
     const [exportDialogOpen, setExportDialogOpen] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
+    // The export follows the period selector, not a fixed last-month
+    // window — the file now matches the rows on screen.
+    const period = usePeriodRange("1m");
     const [sendingInvoiceId, setSendingInvoiceId] = useState<string | null>(null);
 
     const canEdit = role === "admin" || role === "supervisor";
@@ -150,8 +154,8 @@ export function InvoicesTable({ invoices, role, showFinancials = true }: Invoice
 
             const result = await exportInvoicesPDF({
                 invoiceIds,
-                startDate: new Date(new Date().setMonth(new Date().getMonth() - 1)),
-                endDate: new Date(),
+                startDate: period.from,
+                endDate: period.to,
             });
 
             if (result.success) {
