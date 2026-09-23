@@ -24,7 +24,11 @@ import {
     Download,
 } from "lucide-react";
 import { format } from "date-fns";
-import { NotifyDriverButton } from "./_components/notify-driver-button";
+import {
+    TripMessageStatus,
+} from "./_components/trip-message-status";
+import { getTripMessages } from "@/lib/whatsapp/trip-messages";
+import { driverWhatsAppNumber } from "@/lib/whatsapp/trip-messages";
 import { TripProfitLossTable } from "./_components/trip-profit-loss-table";
 import { TripRevenueExpenseChart } from "./_components/trip-revenue-expense-chart";
 import { ExportTripButton } from "./_components/export-trip-button";
@@ -92,6 +96,10 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
 
     // Pending Revenue = Invoice balance that hasn't been paid yet
     const pendingRevenue = isCredit && !isInvoicePaid ? invoiceBalance : 0;
+
+    // Every attempt made for this trip, so a resend cannot hide an earlier
+    // failure.
+    const tripMessages = await getTripMessages(trip.id);
 
     return (
         <div>
@@ -216,13 +224,6 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
                                 >
                                     {trip.driver.firstName} {trip.driver.lastName}
                                 </Link>
-                                <NotifyDriverButton
-                                    tripId={trip.id}
-                                    driverName={`${trip.driver.firstName} ${trip.driver.lastName}`}
-                                    driverPhone={trip.driver.whatsappNumber}
-                                    driverEmail={trip.driver.email}
-                                    alreadyNotified={trip.driverNotified}
-                                />
                             </div>
                         </div>
                         {trip.customer && (
@@ -468,6 +469,15 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
                     } : null}
                 />
             )}
+
+            {/* Whether the driver was actually told — item 5. */}
+            <TripMessageStatus
+                tripId={trip.id}
+                messages={tripMessages}
+                driverName={`${trip.driver.firstName} ${trip.driver.lastName}`}
+                driverHasNumber={Boolean(driverWhatsAppNumber(trip.driver))}
+                canResend={session.role === "admin" || session.role === "supervisor"}
+            />
         </div>
     );
 }

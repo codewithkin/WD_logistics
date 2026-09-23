@@ -193,6 +193,23 @@ export function TripForm({ trip, selected, showFinancials = true }: TripFormProp
 
             if (result.success) {
                 toast.success(isEditing ? "Trip updated successfully" : "Trip created successfully");
+
+                // The driver message is sent as part of creating the trip, and
+                // it can fail independently — the agent may be down, or the
+                // driver may have no number. Saying so here is the whole point
+                // of item 5: the trip still saved, but nobody has been told.
+                const notify = (result as { notify?: { status: string; error?: string } }).notify;
+                if (notify && notify.status !== "sent") {
+                    toast.warning(
+                        notify.error ??
+                            "The trip was saved, but the driver could not be messaged.",
+                        {
+                            description:
+                                "Open the trip to see why, and to resend once it is fixed.",
+                            duration: 10000,
+                        },
+                    );
+                }
                 if (isEditing) {
                     router.push("/operations/trips");
                 } else {

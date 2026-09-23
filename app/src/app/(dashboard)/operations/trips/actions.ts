@@ -96,9 +96,16 @@ export async function createTrip(data: {
       });
     }
 
-    // Notify driver via WhatsApp (preferred) and Email (backup)
-    notifyDriverTripAssignment(trip.id, session.organizationId).catch((err) => 
-      console.error("Failed to notify driver:", err)
+    // Tell the driver, and record whether it arrived. This used to be
+    // fire-and-forget — the result was discarded and a tick logged either
+    // way, which is exactly how a driver ends up saying "what message?".
+    //
+    // Awaited rather than floated, so the outcome can be returned to the form
+    // and the user warned. sendTripMessage never throws, so the agent being
+    // down still cannot stop a trip being created.
+    const notifyOutcome = await sendTripMessageForTrip(
+      trip.id,
+      session.organizationId,
     );
 
     // Send admin notification
@@ -479,3 +486,68 @@ export async function exportSingleTripReport(tripId: string) {
   }
 }
 
+
+
+/**
+ * Loads a freshly-created trip and sends its driver the assignment message.
+ *
+ * Kept here rather than inline so `createTrip` reads as one thing, and so the
+ * message template is shared with the manual resend on the trip page.
+ */
+async function sendTripMessageForTrip(
+  tripId: string,
+  organizationId: string,
+): Promise<{ status: string; error?: string }> {
+  try {
+    const { driverWhatsAppNumber, sendTripMessage } = await import(
+      "@/lib/whatsapp/trip-messages"
+    );
+    const { buildTripMessage } = await import("./_lib/message-template");
+
+    const trip = await prisma.trip.findFirst({
+      where: { id: tripId, organizationId },
+      include: {
+        driver: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            phone: true,
+            whatsappNumber: true,
+          },
+        },
+        truck: { select: { registrationNo: true } },
+        customer: { select: { name: true } },
+        organization: { select: { name: true } },
+      },
+    });
+
+    if (!trip) return { status: "failed", error: "Trip not found" };
+
+    const target = driverWhatsAppNumber(trip.driver);
+    if (!target) {
+      return {
+        status: "skipped",
+        error: `${trip.driver.firstName} has no WhatsApp or phone number on record.`,
+      };
+    }
+
+    const outcome = await sendTripMessage({
+      tripId: trip.id,
+      organizationId,
+      driverId: trip.driver.id,
+      driverName: `${trip.driver.firstName} ${trip.driver.lastName}`,
+      phone: target.number,
+      message: buildTripMessage(trip),
+      trigger: "auto",
+    });
+
+    return { status: outcome.status, error: outcome.error };
+  } catch (error) {
+    console.error("Failed to send the trip message:", error);
+    return {
+      status: "failed",
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}

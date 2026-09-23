@@ -1,128 +1,81 @@
 "use server";
 
+/**
+ * Telling a driver about their trip, and recording whether it arrived.
+ *
+ * This file used to hold a second, divergent send path: it used the app's own
+ * in-process WhatsApp client rather than the agent's, referenced
+ * `trip.tripNumber` (a column that does not exist, and which therefore put
+ * the word "undefined" in the message), refused outright when a driver had no
+ * `whatsappNumber` even when their phone number would have worked, and set
+ * `driverNotified` without recording anything about the attempt.
+ *
+ * All of that now goes through lib/whatsapp/trip-messages.
+ */
+
+import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
-import { sendTripAssignmentEmail } from "@/lib/email";
-import { sendTripAssignmentNotification } from "@/lib/whatsapp/notifications";
-import { format } from "date-fns";
+import {
+  driverWhatsAppNumber,
+  sendTripMessage,
+} from "@/lib/whatsapp/trip-messages";
+import { buildTripMessage } from "../_lib/message-template";
 
 /**
- * Notify driver about trip assignment via WhatsApp
+ * Sends (or resends) the trip message to the driver.
+ *
+ * Returns rather than throws: the trip page shows the outcome, and a failure
+ * here is information, not an error the user needs to see as a crash.
  */
-export async function notifyDriverByWhatsApp(tripId: string) {
+export async function resendTripMessage(tripId: string) {
   const session = await requireRole(["admin", "supervisor"]);
 
-  try {
-    // Fetch trip with driver and truck details
-    const trip = await prisma.trip.findFirst({
-      where: { 
-        id: tripId,
-        organizationId: session.organizationId 
+  const trip = await prisma.trip.findFirst({
+    where: { id: tripId, organizationId: session.organizationId },
+    include: {
+      driver: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          phone: true,
+          whatsappNumber: true,
+        },
       },
-      include: {
-        driver: { select: { firstName: true, lastName: true, whatsappNumber: true } },
-        truck: { select: { registrationNo: true } },
-      },
-    });
+      truck: { select: { registrationNo: true } },
+      customer: { select: { name: true } },
+      organization: { select: { name: true } },
+    },
+  });
 
-    if (!trip) {
-      return { success: false, error: "Trip not found" };
-    }
+  if (!trip) {
+    return { success: false as const, error: "Trip not found" };
+  }
 
-    if (!trip.driver.whatsappNumber) {
-      return { success: false, error: "Driver has no WhatsApp number configured" };
-    }
-
-    const result = await sendTripAssignmentNotification({
-      driverPhone: trip.driver.whatsappNumber,
-      driverName: `${trip.driver.firstName} ${trip.driver.lastName}`,
-      tripNumber: trip.tripNumber,
-      origin: trip.originCity,
-      destination: trip.destinationCity,
-      departureDate: format(trip.scheduledDate, "PPP"),
-      truckPlate: trip.truck.registrationNo,
-    });
-
-    if (!result.success) {
-      return { success: false, error: result.message };
-    }
-
-    // Mark as notified
-    await prisma.trip.update({
-      where: { id: tripId },
-      data: { 
-        driverNotified: true, 
-        notifiedAt: new Date() 
-      },
-    });
-
-    return { success: true };
-  } catch (error) {
-    console.error("Failed to notify driver via WhatsApp:", error);
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : "Failed to send WhatsApp notification" 
+  // Falls back to the phone number rather than refusing outright, and records
+  // which number was actually used.
+  const target = driverWhatsAppNumber(trip.driver);
+  if (!target) {
+    return {
+      success: false as const,
+      error: `${trip.driver.firstName} has no WhatsApp number or phone number on record.`,
     };
   }
-}
 
-/**
- * Notify driver about trip assignment via Email
- */
-export async function notifyDriverByEmail(tripId: string) {
-  const session = await requireRole(["admin", "supervisor"]);
+  const outcome = await sendTripMessage({
+    tripId: trip.id,
+    organizationId: session.organizationId,
+    driverId: trip.driver.id,
+    driverName: `${trip.driver.firstName} ${trip.driver.lastName}`,
+    phone: target.number,
+    message: buildTripMessage(trip),
+    trigger: "manual",
+  });
 
-  try {
-    // Fetch trip with driver and truck details
-    const trip = await prisma.trip.findFirst({
-      where: { 
-        id: tripId,
-        organizationId: session.organizationId 
-      },
-      include: {
-        driver: { select: { firstName: true, lastName: true, email: true } },
-        truck: { select: { registrationNo: true } },
-        customer: { select: { name: true } },
-        organization: { select: { name: true } },
-      },
-    });
+  revalidatePath(`/operations/trips/${tripId}`);
 
-    if (!trip) {
-      return { success: false, error: "Trip not found" };
-    }
-
-    if (!trip.driver.email) {
-      return { success: false, error: "Driver has no email address configured" };
-    }
-
-    await sendTripAssignmentEmail({
-      driverEmail: trip.driver.email,
-      driverName: `${trip.driver.firstName} ${trip.driver.lastName}`,
-      origin: trip.originCity,
-      destination: trip.destinationCity,
-      scheduledDate: trip.scheduledDate,
-      loadDescription: trip.loadDescription || undefined,
-      truckRegistration: trip.truck.registrationNo,
-      customerName: trip.customer?.name || undefined,
-      notes: trip.notes || undefined,
-      organizationName: trip.organization?.name || undefined,
-    });
-
-    // Mark as notified
-    await prisma.trip.update({
-      where: { id: tripId },
-      data: { 
-        driverNotified: true, 
-        notifiedAt: new Date() 
-      },
-    });
-
-    return { success: true };
-  } catch (error) {
-    console.error("Failed to notify driver:", error);
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : "Failed to send email notification" 
-    };
-  }
+  return outcome.status === "failed"
+    ? { success: false as const, error: outcome.error }
+    : { success: true as const };
 }
