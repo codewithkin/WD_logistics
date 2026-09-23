@@ -19,7 +19,9 @@ import { Loader2, Trash2 } from "lucide-react";
 import { wipeAllData } from "../actions";
 import { toast } from "sonner";
 
-const CONFIRM_WORD = "WIPE";
+// Must match what wipeAllData checks server-side: the typed phrase is the
+// confirmation, not just a client-side gate on the button.
+const CONFIRM_WORD = "DELETE ALL DATA";
 
 export function DangerZone() {
     const router = useRouter();
@@ -30,7 +32,7 @@ export function DangerZone() {
     const handleWipe = async () => {
         setIsWiping(true);
         try {
-            const result = await wipeAllData();
+            const result = await wipeAllData(confirmText);
             if (result.success) {
                 toast.success(`All operational data wiped (${result.deleted} records removed)`);
                 setDialogOpen(false);
@@ -56,7 +58,8 @@ export function DangerZone() {
                 <CardDescription>
                     Wipe all operational data from this system. This permanently deletes trips,
                     trucks, drivers, customers, suppliers, invoices, payments, expenses,
-                    inventory, reports, notifications and edit requests.
+                    inventory, reports, notifications and edit requests, and resets the
+                    three account balances to their starting figures.
                 </CardDescription>
             </CardHeader>
             <CardContent>

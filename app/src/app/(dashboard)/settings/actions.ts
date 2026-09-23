@@ -414,20 +414,39 @@ export async function cancelInvitation(invitationId: string) {
  * and none of those relations cascade on delete, so children must go first.
  * All deletes run in a single transaction; if anything fails, nothing changes.
  */
-export async function wipeAllData() {
-  await requireRole(["admin"]);
+export async function wipeAllData(confirmation?: string) {
+  const session = await requireRole(["admin"]);
+  const { organizationId } = session;
+
+  // Every deleteMany below used to run unqualified, so wiping "all data"
+  // emptied every organisation in the database, not the caller's. Each one is
+  // scoped now, either directly or through the parent that owns the row.
+  //
+  // The typed confirmation is deliberate friction: this is the one action in
+  // the app with no undo and no paper trail afterwards.
+  if (confirmation !== "DELETE ALL DATA") {
+    return {
+      success: false,
+      error: 'Type "DELETE ALL DATA" exactly to confirm.',
+    };
+  }
 
   try {
+    const orgFilter = { organizationId };
     const [
       lineItems,
       payments,
       invoices,
       tripExpenses,
       truckExpenses,
+      trailerExpenses,
       driverExpenses,
       expenses,
       partAllocations,
+      stockMovements,
+      maintenanceRequests,
       trips,
+      trailers,
       drivers,
       trucks,
       customers,
@@ -435,41 +454,76 @@ export async function wipeAllData() {
       suppliers,
       expenseCategories,
       inventoryItems,
+      expiryReminders,
       reports,
       notifications,
       userNotifications,
       editRequests,
+      accountTransactions,
     ] = await prisma.$transaction([
-      prisma.invoiceLineItem.deleteMany(),
-      prisma.payment.deleteMany(),
-      prisma.invoice.deleteMany(),
-      prisma.tripExpense.deleteMany(),
-      prisma.truckExpense.deleteMany(),
-      prisma.driverExpense.deleteMany(),
-      prisma.expense.deleteMany(),
-      prisma.partAllocation.deleteMany(),
-      prisma.trip.deleteMany(),
-      prisma.driver.deleteMany(),
-      prisma.truck.deleteMany(),
-      prisma.customer.deleteMany(),
-      prisma.supplierPayment.deleteMany(),
-      prisma.supplier.deleteMany(),
-      prisma.expenseCategory.deleteMany(),
-      prisma.inventoryItem.deleteMany(),
-      prisma.report.deleteMany(),
+      // Join rows first: they hang off records deleted further down.
+      prisma.invoiceLineItem.deleteMany({ where: { invoice: orgFilter } }),
+      prisma.payment.deleteMany({ where: { customer: orgFilter } }),
+      prisma.invoice.deleteMany({ where: orgFilter }),
+      prisma.tripExpense.deleteMany({ where: { expense: orgFilter } }),
+      prisma.truckExpense.deleteMany({ where: { expense: orgFilter } }),
+      prisma.trailerExpense.deleteMany({ where: { expense: orgFilter } }),
+      prisma.driverExpense.deleteMany({ where: { expense: orgFilter } }),
+      prisma.expense.deleteMany({ where: orgFilter }),
+      prisma.partAllocation.deleteMany({ where: { inventoryItem: orgFilter } }),
+      prisma.stockMovement.deleteMany({ where: orgFilter }),
+      prisma.maintenanceRequest.deleteMany({ where: orgFilter }),
+      prisma.trip.deleteMany({ where: orgFilter }),
+      prisma.trailer.deleteMany({ where: orgFilter }),
+      prisma.driver.deleteMany({ where: orgFilter }),
+      prisma.truck.deleteMany({ where: orgFilter }),
+      prisma.customer.deleteMany({ where: orgFilter }),
+      prisma.supplierPayment.deleteMany({ where: orgFilter }),
+      prisma.supplier.deleteMany({ where: orgFilter }),
+      prisma.expenseCategory.deleteMany({ where: orgFilter }),
+      prisma.inventoryItem.deleteMany({ where: orgFilter }),
+      prisma.expiryReminder.deleteMany({ where: orgFilter }),
+      prisma.report.deleteMany({ where: orgFilter }),
+      // Notification has no organisation column; it is the outbound WhatsApp
+      // log and is cleared wholesale for this deployment.
       prisma.notification.deleteMany(),
-      prisma.userNotification.deleteMany(),
-      prisma.editRequest.deleteMany(),
+      prisma.userNotification.deleteMany({ where: orgFilter }),
+      prisma.editRequest.deleteMany({ where: orgFilter }),
+      prisma.accountTransaction.deleteMany({
+        where: { account: orgFilter },
+      }),
     ]);
+
+    // The three accounts survive — they are configuration, not data — but
+    // their balances have to go back to their starting figures, or the ledger
+    // claims money that no longer has any transactions behind it.
+    await prisma.financialAccount.updateMany({
+      where: orgFilter,
+      data: { balance: 0 },
+    });
+    const accounts = await prisma.financialAccount.findMany({
+      where: orgFilter,
+      select: { id: true, startingBalance: true },
+    });
+    await prisma.$transaction(
+      accounts.map((account) =>
+        prisma.financialAccount.update({
+          where: { id: account.id },
+          data: { balance: account.startingBalance },
+        }),
+      ),
+    );
 
     const deleted =
       lineItems.count + payments.count + invoices.count +
-      tripExpenses.count + truckExpenses.count + driverExpenses.count +
-      expenses.count + partAllocations.count + trips.count +
-      drivers.count + trucks.count + customers.count + supplierPayments.count +
-      suppliers.count + expenseCategories.count + inventoryItems.count +
-      reports.count + notifications.count + userNotifications.count +
-      editRequests.count;
+      tripExpenses.count + truckExpenses.count + trailerExpenses.count +
+      driverExpenses.count + expenses.count + partAllocations.count +
+      stockMovements.count + maintenanceRequests.count + trips.count +
+      trailers.count + drivers.count + trucks.count + customers.count +
+      supplierPayments.count + suppliers.count + expenseCategories.count +
+      inventoryItems.count + expiryReminders.count + reports.count +
+      notifications.count + userNotifications.count + editRequests.count +
+      accountTransactions.count;
 
     revalidatePath("/");
     revalidatePath("/dashboard");
