@@ -12,6 +12,7 @@ interface EditRequestsPageProps {
 export default async function EditRequestsPage({ searchParams }: EditRequestsPageProps) {
     const session = await requireAuth();
     const { role, user } = session;
+    const canApprove = role === "admin";
     const params = await searchParams;
     const dateRange = getDateRangeFromParams(params, "3m");
 
@@ -22,6 +23,9 @@ export default async function EditRequestsPage({ searchParams }: EditRequestsPag
     // to scroll out of the admin's view.
     const editRequests = await prisma.editRequest.findMany({
         where: {
+            // Scoped by organisation: listing, the sidebar badge and approval
+            // all used to reach across every organisation in the database.
+            organizationId: session.organizationId,
             ...(isStaff ? { requestedById: user.id } : {}),
             OR: [
                 { createdAt: { gte: dateRange.from, lte: dateRange.to } },
@@ -59,7 +63,12 @@ export default async function EditRequestsPage({ searchParams }: EditRequestsPag
                 />
                 <PagePeriodSelector defaultPreset="3m" />
             </div>
-            <EditRequestsTable editRequests={editRequests} role={role} />
+            <EditRequestsTable
+                editRequests={editRequests}
+                role={role}
+                currentUserId={user.id}
+                canApprove={canApprove}
+            />
         </div>
     );
 }
