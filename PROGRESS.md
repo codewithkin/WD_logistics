@@ -1,6 +1,6 @@
 # PROGRESS — client feature round (27 items)
 
-**Last updated:** 2026-09-23 (second pass), handing off from a local Claude Code session to a cloud session.
+**Last updated:** 2026-09-23 (second pass), handing off from a local Claude Code session to a cloud session. Working tree is clean; nothing is pushed.
 
 Read these three files together:
 
@@ -30,9 +30,10 @@ Read these three files together:
 | T4 | 2 filters everywhere, 16 push notifications, 1+18 truck cost breakdown, 26 invoice | ❌ not started |
 | T5 | 4 edit requests + money-in lock, 25 driver-truck snapshots, 3+27 branded documents | ❌ not started |
 
-Five commits so far, all on `main`, **not pushed**:
+Six commits so far, all on `main`, **not pushed** (`b36b48c` is where this round started):
 
 ```
+385715a docs: update PROGRESS.md after the graph audit
 0b3b075 fix(charts): one definition of revenue, and graphs that say what they mean
 ec61ae0 docs: session handoff — PROGRESS.md, the feature plan and the client's list
 17d6a8d feat(maintenance): trailers, assignment, task details and visible fix notes
@@ -52,6 +53,7 @@ f6133b8 Merge website-design-b: client chose Design B (v2) for the website
 6. **Marquee (item 10)**: "DR CONGO".
 7. **Driver snapshots (item 25)**: a driver's per-truck period includes trip costs, driver costs **and** truck-level costs dated inside that period.
 8. **Invoice (item 26)**: the client is adding a photo of their physical invoice to `designs/photos/`. **T4-D is blocked until that image exists** — check for it before starting item 26. If it still isn't there, ask; don't guess the field list.
+   - ⚠️ **`designs/` is untracked** (not ignored — just never committed; 6.5 MB of source photos, five of which are already duplicated in `site/public/images/`). It exists only on the local machine, so **a cloud session cannot see the invoice photo until someone commits it.** Commit that one file when it arrives rather than the whole folder.
 
 ---
 

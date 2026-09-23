@@ -1,5 +1,7 @@
 # WD Logistics — Feature Round (27 items): Tiers + Implementation Plan
 
+> **This plan is the "what and how". For live status, read `PROGRESS.md` first** — it records what is done, what was verified in a browser, and the traps hit along the way. As of 2026-09-23: T1 complete, T2 complete, T3 complete except items 5 and 22, T4 and T5 untouched. Where the two files disagree, `PROGRESS.md` is newer.
+
 ## Context
 
 The client sent 27 feature/fix requests (Notion export `WD Logistics Features ….md`). Several were "done" in earlier rounds but never actually worked: edit requests (asked for 3 rounds running), push notifications, and the maintenance fix-note. This plan was built by reading the real code. Every claim cites the file where the problem was found. The point is to ship each item **with acceptance criteria that get checked in a browser, per role**, not just to write the code.
@@ -32,11 +34,15 @@ The client sent 27 feature/fix requests (Notion export `WD Logistics Features �
 
 Step 0 → T1 (item 6 first) → T2 → T3 → T4-A filters → T5-C document kit (needed by 26 and 1/18) → T4-D invoice → T4-B truck breakdown → T4-C push → T5-A edit requests → T5-B driver snapshots → final audit.
 
+**Where that stands (2026-09-23):** Step 0, T1, T2 and T3 are done bar items 5 and 22, which were deferred because item 5 needs the agent running and item 22 reads better once T4-A's filters exist. Resume at **T4-A**.
+
 Push goes before edit requests because edit requests rely on notifying the admin.
 
 ---
 
 ## Step 0 — Pre-flight (do not skip)
+
+> **Status:** points 1-4 and 7-8 are done (baseline recorded at **88 `error TS` lines**; four role logins exist via `app/prisma/dev-fixtures.ts`; the local database is migrated). **Points 5 and 6 are still outstanding** — the `FIX_PLAN.md` gotcha #4 rewrite and the `lessons/*.md` permission updates belong with item 4 (T5-A), since that is when the behaviour they describe actually changes.
 
 1. Run `git status` and `git log --oneline -20`. Other sessions commit concurrently.
 2. `app/next.config.ts` has `typescript.ignoreBuildErrors: true`, so **type errors ship to prod silently**. The `tripNumber: undefined` WhatsApp bug is proof. Record a baseline with `bunx tsc --noEmit > baseline.txt`. After each item, diff against it: **zero new errors** is a hard gate.
@@ -51,7 +57,7 @@ Push goes before edit requests because edit requests rely on notifying the admin
 
 # T1 — Trivial
 
-### 6. Merge `website-design-b` into main (FIRST TASK)
+### 6. Merge `website-design-b` into main — ✅ DONE (`f6133b8`)
 - `git merge --no-ff website-design-b` from main. This adds `site/`, a separate Next 16 app with its own `package.json` and `Dockerfile` (`output: "standalone"`, context `site/`).
 - **Do not merge `website-design-a`.** It conflicts on `.claude/launch.json` and was rejected.
 - Pitfalls:
@@ -64,7 +70,7 @@ Push goes before edit requests because edit requests rely on notifying the admin
   - Home, about and contact render in the preview.
   - `app/` still builds.
 
-### 7. Hero text must not cover the trucks (`site/src/app/page.tsx:102-216`, `PhotoBlock.tsx`)
+### 7. Hero text must not cover the trucks — ✅ DONE (`b340dee`) (`site/src/app/page.tsx:102-216`, `PhotoBlock.tsx`)
 - Currently the H1, paragraph card, stats and a "same-day quote" card all sit **on top of** `fleet-lineup-yard.jpg`: top-left and bottom-right on desktop, stacked from the top on mobile.
 - Fix:
   - Split the hero into (a) the photo block with **no overlaid content except, at most, a small pill** and (b) a text band directly **below** it.
@@ -77,7 +83,7 @@ Push goes before edit requests because edit requests rely on notifying the admin
   - No horizontal scroll.
   - LCP image still has `priority`.
 
-### 8. Copy: SADC, not "Zimbabwe" (the client wrote "SADZ", meaning SADC)
+### 8. ✅ DONE (`b340dee`) — Copy: SADC, not "Zimbabwe" (the client wrote "SADZ", meaning SADC)
 - Replace every Zimbabwe-limiting phrase found in:
   - `page.tsx` lines 12, 14, 19, 21, 46, 106, 116, 119, 127, 160, 446
   - `layout.tsx` lines 30, 33, 38-54
@@ -94,7 +100,7 @@ Push goes before edit requests because edit requests rely on notifying the admin
 - Pitfall: the stats "4,100+ loads" and "98% on-time" are placeholders. Ask the client to confirm real figures before launch, and don't invent new ones.
 - **Accept when:** a grep for `Zimbabwe` in `site/src` returns only address and location lines. Each remaining hit is justified in the PR description.
 
-### 9. Motto "Efficiency in Motion"
+### 9. Motto "Efficiency in Motion" — ✅ DONE (`b340dee`)
 - It becomes the landing H1, replacing "Zimbabwe's load, moved on time". It is the first text on the page and the heading moved below the photo in item 7.
 - Also use it in:
   - the `<title>` template (`WD Logistics — Efficiency in Motion`)
@@ -110,13 +116,13 @@ Push goes before edit requests because edit requests rely on notifying the admin
   - It appears in the footer and in `<title>`.
   - There is exactly one H1 per page.
 
-### 10. Marquee → countries
+### 10. Marquee → countries — ✅ DONE (`b340dee`)
 - `ROUTES` (`page.tsx:50-61`) becomes `["ZIMBABWE","ZAMBIA","MOZAMBIQUE","DR CONGO","SOUTH AFRICA"]`.
 - Pitfall: the loop animates `translateX(-50%)` over `[...ROUTES, ...ROUTES]`. With only 5 short items, one copy is narrower than a 1920 px viewport, which leaves a visible gap or jump. Repeat the list enough times that one half is wider than the widest viewport (e.g. 4 copies per half). Shorten the 28 s duration proportionally so the scroll speed stays the same.
 - Keep the `prefers-reduced-motion` handling.
 - **Accept when:** at 1920 px the marquee is seamless with no gap, and it is static under reduced motion.
 
-### 20. Trailer — no cross-border permit
+### 20. Trailer — no cross-border permit — ✅ VERIFIED ALREADY TRUE (question open with client)
 - The `Trailer` model and trailer form currently have **no** cross-border fields. Only `Truck` has them (`schema.prisma:201-202`, rendered via `EXPIRY_FIELDS.truck` in `lib/expiry-reminders.ts:16-17`).
 - Before closing the item:
   - Ask the client where they saw it. The likely candidates are the truck form or an expiry-reminder dialog.
@@ -125,7 +131,7 @@ Push goes before edit requests because edit requests rely on notifying the admin
 - **Do not remove it from trucks.**
 - **Accept when:** the trailer create, edit and detail pages, trailer PDFs and the reminders UI show no cross-border field. The truck still has one.
 
-### 23. Only admin creates expense categories
+### 23. Only admin creates expense categories — ✅ DONE (`17d6a8d`)
 - Server:
   - `finance/expense-categories/actions.ts:16` (create), `:49` (update) and `:94` (delete) become `requireRole(["admin"])`.
   - Return a typed error rather than a redirect. `requireRole` redirects (`session.ts:69-79`), which a client action caller sees as a failed fetch, so add an `assertRole()` helper that returns `{success:false,error}`.
@@ -140,7 +146,7 @@ Push goes before edit requests because edit requests rely on notifying the admin
 
 # T2 — Small
 
-### 12. Maintenance fix-note not showing + the "success criteria" mandate
+### 12. ✅ DONE (`17d6a8d`) — Maintenance fix-note not showing + the "success criteria" mandate
 - Root cause: `fixedNotes`, `fixedAt` and `fixedBy.name` are saved (`maintenance/actions.ts:60-68`) and fetched (`page.tsx:12-20`) but **never rendered** in `maintenance-requests-client.tsx:253-323`.
 - Fix:
   - Add "Fixed by / Assigned to" and "Fixed on" columns.
@@ -163,7 +169,7 @@ Push goes before edit requests because edit requests rely on notifying the admin
   - Admin sees the note, fixer and time in the list, on the details page and in the notification/push.
   - An empty note is rejected.
 
-### 15. Maintenance task details page — `maintenance/[id]/page.tsx`
+### 15. Maintenance task details page — ✅ DONE (`17d6a8d`) — `maintenance/[id]/page.tsx`
 - Shows:
   - the target (truck or trailer, linked)
   - reported by and when
@@ -181,7 +187,7 @@ Push goes before edit requests because edit requests rely on notifying the admin
   - Every field is visible and long notes wrap.
   - A workshop user opening another worker's task ID by URL gets 404.
 
-### 21. Workshop never sees fixed tasks; admin and supervisor do
+### 21. Workshop never sees fixed tasks — ✅ DONE (`17d6a8d`); admin and supervisor do
 - Today the status filter defaults to "open" in the client only, and fixed rows are still fetched (`client.tsx:88`, `page.tsx:12-20`).
 - Fix it **server-side**: for workshop, `where: { organizationId, assignedToId: session.user.id, status: { not: "fixed" } }`.
 - Hide the status dropdown for workshop.
@@ -192,7 +198,7 @@ Push goes before edit requests because edit requests rely on notifying the admin
   - It can't be reached by URL.
   - Admin still sees it under Fixed and All.
 
-### 17. Maintenance history filter (admin/supervisor only)
+### 17. Maintenance history filter — ✅ DONE (`17d6a8d`)
 - **Maintenance page:** add a "Most maintained" view (a tab or panel, admin/supervisor only). It ranks trucks and trailers by request count in the selected period, using the universal `PeriodSelector` + `getDateRangeFromParams`. Columns:
   - count
   - open vs fixed
@@ -206,7 +212,7 @@ Push goes before edit requests because edit requests rely on notifying the admin
   - Changing the period changes the numbers.
   - Workshop and staff can't see the panel (server-checked).
 
-### 11. Footer wordmark: WD from the logo + "LOGISTICS" as text
+### 11. Footer wordmark: WD from the logo — ✅ DONE (`b340dee`, traced SVG — see PROGRESS.md) + "LOGISTICS" as text
 - Currently `WD LOGISTICS` is plain text (`CtaFooter.tsx:98-100`). The only logo assets are raster: `app/public/logo.png` 512², `logo-mark.png` (WD plus the Africa outline), `site/public/images/logo.jpg` 532×296. **No SVG exists.**
 - Need a "WD-only" asset without the Africa outline. The Africa outline sits behind the letters, so a simple crop won't remove it cleanly.
 - Plan:
@@ -221,7 +227,7 @@ Push goes before edit requests because edit requests rely on notifying the admin
 
 # T3 — Medium
 
-### 19 + 13. Maintenance on trailers; assign a workshop worker (one migration)
+### 19 + 13. Maintenance on trailers; assign a workshop worker — ✅ DONE (`17d6a8d`)
 Schema, `MaintenanceRequest`:
 - `truckId String?`
 - add `trailerId String?` plus a relation (add `maintenanceRequests` back-relation on `Trailer`)
@@ -259,7 +265,7 @@ Pitfalls:
 - Reassigning to B moves it and notifies both.
 - The DB rejects a row with both or neither vehicle.
 
-### 14. Workshop "today" view, only their tasks
+### 14. Workshop "today" view — ✅ DONE (`17d6a8d`) except the daily push digest (needs T4-C)
 - The maintenance page for workshop gets summary cards at the top:
   - Today's tasks (`date` within today in CAT)
   - Overdue (`date` < today and not fixed)
@@ -340,7 +346,7 @@ Pitfalls:
 - Pitfall: an expense linked to 2 trucks must appear once in the table, not once per link. Use `expense.findMany` with `some` filters, not a join-table scan.
 - **Accept when:** the filter combinations return the same totals as a hand SQL query, and the export matches the screen.
 
-### 24. Graph audit — fix each concrete defect
+### 24. Graph audit — ✅ DONE (`0b3b075`); see PROGRESS.md for the before/after table
 1. **One revenue definition.** Create `lib/metrics/revenue.ts`:
    - **Revenue (earned)** = `trip.revenue` of trips with status `completed`, dated by `endDate ?? scheduledDate`, excluding cancelled.
    - **Cash collected** = payments.
