@@ -125,6 +125,7 @@ model Organization {
   notifications     UserNotification[]
   expiryReminders   ExpiryReminder[]
   stockMovements    StockMovement[]
+  editRequests      EditRequest[]
 
   @@map("organization")
 }
@@ -160,10 +161,25 @@ model Invitation {
 // EDIT REQUEST SYSTEM (For Staff Edits requiring approval)
 // =============================================================================
 
+// A change a non-admin wants made, waiting for an admin to accept or refuse.
+//
+// Everything needed to replay the change lives here: `proposedData` is the
+// validated payload the form produced, and `originalData` is a snapshot of
+// the same fields as they were when the request was raised — which is what
+// lets the approval screen show a real before/after diff and warn when the
+// record has moved on since.
 model EditRequest {
   id              String   @id @default(cuid())
+  // Without this, listing, counting and approving all reached across every
+  // organisation in the database.
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   entityType      String   // e.g., "truck", "driver", "expense"
   entityId        String
+  /** update | delete */
+  action          String   @default("update")
+  /** "Truck ABC 222" — so the list reads without loading every record. */
+  entityLabel     String?
   originalData    Json
   proposedData    Json
   reason          String
@@ -173,10 +189,16 @@ model EditRequest {
   approvedById    String?
   approvedBy      User?    @relation("ApprovedBy", fields: [approvedById], references: [id])
   approvedAt      DateTime?
+  /** When the change was actually written to the record. */
+  appliedAt       DateTime?
+  /** Set when applying failed; the request stays pending so it can be retried. */
+  applyError      String?
   rejectionReason String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
+  @@index([organizationId, status])
+  @@index([entityType, entityId])
   @@map("edit_request")
 }
 
