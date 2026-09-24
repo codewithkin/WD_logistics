@@ -55,22 +55,26 @@ export function weakerRole(a: string, b: string): string {
 }
 
 /**
- * Whether this caller may see money at all.
+ * Money, split exactly as the web app splits it.
  *
- * Settings tells an admin that the `readonly` level "changes nothing, sees no
- * money", and that is the promise the person granting it is relying on. It was
- * not true: `list_trips` returned each trip's revenue and `list_customers`
- * returned each customer's outstanding balance, so a yard hand could ask for
- * the month's trips and add them up. Hiding the financial *tools* is not
- * enough when an operational tool carries the figures.
+ * ACCESS_CONTROL.md: the assistant mirrors the web rules, where *earnings*
+ * (revenue, profit, margin) are admin-only and *billing* (invoices, payments,
+ * what a customer owes) reaches supervisors too. Staff see no money at all,
+ * and `readonly` — which has no web equivalent, sitting below staff — sees
+ * none either.
  *
- * Staff and above keep these — staff are promised invoices, supervisors record
- * payments, and neither is possible without amounts. The heavier financial
- * operations (summary, truck costs, fleet ranking, driver performance) stay
- * admin-only, matching lib/permissions.canViewFinancialData.
+ * This replaced a single `seesMoney(role) { return role !== "readonly" }`,
+ * which handed every supervisor and staff member each trip's revenue through
+ * `list_trips`. Hiding the financial *tools* is not enough when an
+ * operational tool carries the figures: a contact could ask for the month's
+ * trips and add them up.
  */
-function seesMoney(role: string): boolean {
-  return role !== "readonly";
+function seesEarnings(level: string): boolean {
+  return level === "admin";
+}
+
+function seesBilling(level: string): boolean {
+  return level === "admin" || level === "supervisor";
 }
 
 export interface OperationContext {
@@ -253,7 +257,7 @@ const readOperations: Operation[] = [
         take: Math.min((a.limit as number) ?? 20, 50),
       });
 
-      if (seesMoney(ctx.role)) return trips;
+      if (seesEarnings(ctx.role)) return trips;
       // The key is omitted rather than zeroed: a zero reads as "this trip
       // earned nothing", which is worse than it plainly not being there.
       return trips.map((trip) => ({
@@ -273,7 +277,7 @@ const readOperations: Operation[] = [
   {
     name: "list_customers",
     description:
-      "List customers. Their outstanding balance is included for staff and above.",
+      "List customers. Their outstanding balance is included for supervisors and admins.",
     requires: "readonly",
     schema: z.object({
       search: z.string().optional(),
@@ -287,7 +291,7 @@ const readOperations: Operation[] = [
           organizationId: ctx.organizationId,
           // "Who owes us" is itself a financial question; for a readonly
           // caller the filter is ignored rather than answered indirectly.
-          ...(a.owingOnly && seesMoney(ctx.role) ? { balance: { gt: 0 } } : {}),
+          ...(a.owingOnly && seesBilling(ctx.role) ? { balance: { gt: 0 } } : {}),
           ...(a.search
             ? { name: { contains: a.search, mode: "insensitive" } }
             : {}),
@@ -304,7 +308,7 @@ const readOperations: Operation[] = [
         take: Math.min(a.limit ?? 20, 50),
       });
 
-      if (seesMoney(ctx.role)) return customers;
+      if (seesBilling(ctx.role)) return customers;
       return customers.map((customer) => ({
         id: customer.id,
         name: customer.name,
@@ -318,7 +322,7 @@ const readOperations: Operation[] = [
   {
     name: "list_invoices",
     description: "List invoices, optionally only unpaid or overdue ones.",
-    requires: "staff",
+    requires: "supervisor",
     schema: z.object({
       ...periodArgs,
       status: z.string().optional(),
@@ -474,7 +478,7 @@ const readOperations: Operation[] = [
     name: "get_expense_breakdown",
     description:
       "What the company spent in a period, broken down by expense category and by cost type (fuel, maintenance, tyres, tolls, salaries...). Use this to compare spending between categories — it answers in one call.",
-    requires: "admin",
+    requires: "supervisor",
     schema: z.object({ ...periodArgs }),
     handler: async (args, ctx) => {
       const a = args as Record<string, string | undefined>;
@@ -514,7 +518,7 @@ const readOperations: Operation[] = [
     name: "get_truck_costs",
     description:
       "Where one truck's money goes: category breakdown, fuel per km, workshop downtime, against the fleet average. Answers 'is this truck losing money and why'.",
-    requires: "admin",
+    requires: "supervisor",
     schema: z.object({
       truckId: z.string().describe("The truck's id, from list_trucks"),
       ...periodArgs,

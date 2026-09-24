@@ -135,6 +135,17 @@ The assistant's own four contact levels map straight across:
 | `staff` | staff |
 | `readonly` | below staff — fleet and trip *facts* only, **no money of any kind** |
 
+Money splits the same way it does on the web, and this is where it was got
+wrong once: a single "not readonly" check handed every supervisor and staff
+member each trip's revenue through `list_trips`.
+
+| Figure | Who |
+|---|---|
+| Trip revenue, profit, margin, financial summary, fleet ranking | **admin** |
+| Truck costs, expense breakdown, account balances | admin, supervisor |
+| Invoices, payments, what a customer owes | admin, supervisor |
+| Anything at all | not staff, not readonly |
+
 Two rules that already hold and must keep holding:
 
 - The effective level is the **weaker** of the contact's level and their
