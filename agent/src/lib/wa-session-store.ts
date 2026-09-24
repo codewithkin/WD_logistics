@@ -31,13 +31,22 @@ const TABLE = "whatsapp_session";
  * app has run its migrations — on a fresh stack, or when the two deploy
  * independently. Creating it if absent removes that ordering dependency, and
  * is a no-op once the migration has run.
+ *
+ * **Must stay byte-for-byte equivalent to what the migration produces**
+ * (app/prisma/migrations/20260924123653_whatsapp_remote_session). Whichever
+ * of the two gets there first is the shape the database keeps, so if they
+ * disagree the table silently differs between deployments and Prisma reports
+ * drift against a table it never writes to. `updated_at` used to be
+ * `TIMESTAMPTZ DEFAULT now()` here and `TIMESTAMP(3) DEFAULT
+ * CURRENT_TIMESTAMP` there; the migration's spelling is the one Prisma's
+ * DateTime maps to, so it wins.
  */
 const CREATE_TABLE = `
   CREATE TABLE IF NOT EXISTS ${TABLE} (
     session     TEXT PRIMARY KEY,
     data        BYTEA NOT NULL,
     size_bytes  INTEGER NOT NULL,
-    updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+    updated_at  TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
   )
 `;
 
