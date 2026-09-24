@@ -64,7 +64,13 @@ function jsonSchemaToZod(schema: Record<string, unknown>): z.ZodTypeAny {
         }
         shape[key] = required.has(key) ? field : field.optional();
       }
-      return z.object(shape);
+      // Unknown keys pass through rather than failing validation. The agent's
+      // copy of the schema is a hint for the model; the app is the authority
+      // and rejects a bad argument with a sentence the model can act on
+      // ("Those arguments aren't right: ..."). Failing here instead throws
+      // before the call is ever made, which kills the whole turn over one
+      // invented field and leaves the sender with "something went wrong".
+      return z.object(shape).passthrough();
     }
     default:
       return z.unknown();

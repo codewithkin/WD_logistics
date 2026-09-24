@@ -5,9 +5,23 @@
  * environment variable instead of a deploy — which matters here because
  * model names move and this bot is answering a business's real questions.
  *
- * The default is Gemini Flash: it is fast and cheap, which suits a WhatsApp
- * assistant where somebody is waiting on their phone, and it handles tool
- * calling well enough for the dozen-odd tools each caller gets.
+ * The default is Gemini Flash Lite, chosen by measurement rather than
+ * reputation. Against the same eleven checks in
+ * scripts/live-assistant-check.ts, all of which it passes:
+ *
+ *   gemini-3.5-flash, medium reasoning   $0.0131/msg   9.7s   (the first default)
+ *   gemini-3.5-flash, low reasoning      $0.0105/msg   6.5s
+ *   gemini-3.5-flash-lite, low reasoning $0.0018/msg   5.3s   <- this
+ *
+ * Seven times cheaper and nearly twice as fast for the same answers, because
+ * this assistant does lookups and one-sentence replies, not deliberation.
+ * Roughly $1.79 per thousand messages. If answers start looking careless, set
+ * ASSISTANT_MODEL to google/gemini-3.5-flash and re-run the checks.
+ *
+ * Note where the money goes: about 5,500 of the ~5,550 tokens in a turn are
+ * the prompt, nearly all of it tool definitions sent on every message. The
+ * reply itself is tens of tokens. Cutting tool count or description length
+ * moves the bill far more than anything about the answer does.
  *
  * ⚠️ The default id must be one OpenRouter actually serves. The first default
  * written here, "google/gemini-3-flash", did not exist — the catalogue offers
@@ -24,7 +38,7 @@ const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || "";
 
 /** Override with ASSISTANT_MODEL to pin a different model. */
 export const ASSISTANT_MODEL =
-  process.env.ASSISTANT_MODEL || "google/gemini-3.5-flash";
+  process.env.ASSISTANT_MODEL || "google/gemini-3.5-flash-lite";
 
 /**
  * Where the model actually lives.
@@ -36,6 +50,25 @@ export const ASSISTANT_MODEL =
  */
 export const ASSISTANT_BASE_URL =
   process.env.ASSISTANT_BASE_URL || "https://openrouter.ai/api/v1";
+
+/**
+ * How hard the model thinks before answering.
+ *
+ * The Gemini flash models are reasoning models: they emit thinking tokens,
+ * those tokens are billed as *output* (the dearest rate), and they are most
+ * of the bill and most of the wait on a short reply — a one-word answer
+ * measured 7 prompt tokens against 91 completion tokens, 90 of them
+ * reasoning.
+ *
+ * "low" is the default here because of what this assistant is for: someone
+ * in a yard asking what a truck cost last month. That is a lookup and a
+ * sentence, not a problem to deliberate over. Raise it if the answers start
+ * looking careless — the cost and the latency go up together.
+ */
+export type ReasoningEffort = "low" | "medium" | "high";
+
+export const ASSISTANT_REASONING_EFFORT: ReasoningEffort =
+  (process.env.ASSISTANT_REASONING_EFFORT as ReasoningEffort) || "low";
 
 /**
  * Where the key came from, so a missing one is obvious at boot rather than on
@@ -67,7 +100,13 @@ const openrouter = createOpenAI({
 });
 
 export function assistantModel() {
-  return openrouter(ASSISTANT_MODEL);
+  // The provider forwards this as `reasoning_effort`, which OpenRouter
+  // accepts for the Gemini flash models (check `supported_parameters` on
+  // https://openrouter.ai/api/v1/models before assuming a new model takes it;
+  // one that does not simply ignores it).
+  return openrouter(ASSISTANT_MODEL, {
+    reasoningEffort: ASSISTANT_REASONING_EFFORT,
+  });
 }
 
 export function logModelConfiguration(): void {
@@ -80,5 +119,7 @@ export function logModelConfiguration(): void {
     ASSISTANT_BASE_URL === "https://openrouter.ai/api/v1"
       ? "OpenRouter"
       : ASSISTANT_BASE_URL;
-  console.log(`🤖 [assistant] model: ${ASSISTANT_MODEL} via ${where}`);
+  console.log(
+    `🤖 [assistant] model: ${ASSISTANT_MODEL} via ${where} (reasoning: ${ASSISTANT_REASONING_EFFORT})`,
+  );
 }

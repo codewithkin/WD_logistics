@@ -14,6 +14,8 @@ import { Agent } from "@mastra/core/agent";
 import { assistantModel } from "../lib/model";
 import { buildToolsForCaller } from "../tools/app-tools";
 import { logExchange } from "../lib/assistant-client";
+import { ASSISTANT_MODEL } from "../lib/model";
+import { costOf, type TokenUsage } from "../lib/pricing";
 
 const TODAY = () =>
   new Date().toLocaleDateString("en-GB", {
@@ -80,6 +82,8 @@ export interface AssistantReply {
   didWrite: boolean;
   toolCalls: Array<{ tool: string; args: unknown; ok: boolean }>;
   error?: string;
+  /** What this turn cost, when the model reported its usage. */
+  usage?: TokenUsage & { costUsd: number | null };
 }
 
 /**
@@ -157,18 +161,45 @@ export async function answerMessage(params: {
       result.text?.trim() ||
       "I got that, but I don't have anything useful to say back. Try asking a different way.";
 
+    // Token counts come back on the result; the price does not, so it is
+    // worked out here and stored with the exchange. Reasoning tokens are
+    // billed as output and are most of the cost of a short reply, so they are
+    // recorded separately rather than buried in the completion count.
+    const raw = result.usage as
+      | { promptTokens?: number; completionTokens?: number; totalTokens?: number }
+      | undefined;
+    const reasoning = (
+      result.providerMetadata as
+        | { openai?: { reasoningTokens?: number } }
+        | undefined
+    )?.openai?.reasoningTokens;
+
+    const usage = raw
+      ? {
+          promptTokens: raw.promptTokens ?? 0,
+          completionTokens: raw.completionTokens ?? 0,
+          reasoningTokens: reasoning,
+          costUsd: costOf(ASSISTANT_MODEL, {
+            promptTokens: raw.promptTokens ?? 0,
+            completionTokens: raw.completionTokens ?? 0,
+          }),
+        }
+      : undefined;
+
     await logExchange({
       phone: params.phone,
       direction: "inbound",
       body: params.message,
       toolCalls: caller.toolCalls(),
       didWrite: caller.didWrite(),
+      usage,
     });
 
     return {
       text,
       didWrite: caller.didWrite(),
       toolCalls: caller.toolCalls(),
+      usage,
     };
   } catch (error) {
     const message =

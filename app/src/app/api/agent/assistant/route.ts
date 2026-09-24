@@ -263,6 +263,17 @@ export async function POST(request: NextRequest) {
       const toolCalls = body?.toolCalls ?? null;
       const didWrite = Boolean(body?.didWrite);
 
+      // What the model turn cost, so an admin can see the assistant's spend
+      // per contact rather than only a total on the provider's dashboard.
+      const usage = body?.usage as
+        | {
+            promptTokens?: number;
+            completionTokens?: number;
+            reasoningTokens?: number;
+            costUsd?: number | null;
+          }
+        | undefined;
+
       await prisma.$transaction([
         prisma.whatsAppMessage.create({
           data: {
@@ -273,6 +284,10 @@ export async function POST(request: NextRequest) {
             body: text.slice(0, 4000),
             toolCalls: toolCalls ?? undefined,
             didWrite,
+            promptTokens: usage?.promptTokens ?? null,
+            completionTokens: usage?.completionTokens ?? null,
+            reasoningTokens: usage?.reasoningTokens ?? null,
+            costUsd: usage?.costUsd ?? null,
             error: body?.error ? String(body.error).slice(0, 500) : null,
           },
         }),

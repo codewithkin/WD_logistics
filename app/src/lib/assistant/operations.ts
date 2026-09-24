@@ -745,7 +745,14 @@ export function operationManifest(role: string) {
       name: operation.name,
       description: operation.description,
       writes: Boolean(operation.writes),
-      schema: z.toJSONSchema(operation.schema),
+      // `io: "input"` matters. A field written `z.number().optional().default(20)`
+      // is optional going in and guaranteed coming out, and the default
+      // ("output") view marks it **required** — so every list tool advertised
+      // `limit` as mandatory. A model that omitted it had its tool call
+      // rejected by the agent's own validation, which killed the whole turn
+      // rather than the one call. One model happened always to send `limit`
+      // and another did not; that was luck, not correctness.
+      schema: z.toJSONSchema(operation.schema, { io: "input" }),
     }),
   );
 }

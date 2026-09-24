@@ -1065,6 +1065,16 @@ model WhatsAppMessage {
   toolCalls      Json?
   /** Set when a tool changed data, so writes can be found quickly. */
   didWrite       Boolean  @default(false)
+
+  /**
+   * What the model turn cost. Captured per exchange so an admin can see what
+   * the assistant is actually spending, and on whom — a reasoning model bills
+   * its thinking as output tokens, which is most of the bill on short replies.
+   */
+  promptTokens     Int?
+  completionTokens Int?
+  reasoningTokens  Int?
+  costUsd          Float?
   error          String?
 
   createdAt      DateTime @default(now())

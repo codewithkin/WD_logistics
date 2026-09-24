@@ -124,6 +124,12 @@ export async function logExchange(params: {
   toolCalls?: unknown;
   didWrite?: boolean;
   error?: string;
+  usage?: {
+    promptTokens: number;
+    completionTokens: number;
+    reasoningTokens?: number;
+    costUsd: number | null;
+  };
 }): Promise<void> {
   await call({
     action: "log",
@@ -133,6 +139,7 @@ export async function logExchange(params: {
     toolCalls: params.toolCalls,
     didWrite: params.didWrite,
     error: params.error,
+    usage: params.usage,
   }).catch(() => {
     // A lost transcript entry must never swallow the reply itself.
   });
