@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { Role } from "@/lib/types";
-import { generateRandomPassword, sendSupervisorCredentials, sendEmail } from "@/lib/email";
+import { passwordProblem } from "@/lib/passwords";
+import { generateRandomPassword, sendSupervisorCredentials, sendNewUserCredentials, sendEmail } from "@/lib/email";
 import { auth } from "@/lib/auth";
 import { notifyUserInvited, notifySupervisorCreated, notifyUserRoleChanged, notifyUserRemoved } from "@/lib/notifications";
 
@@ -360,26 +361,6 @@ ${organization?.name || "WD Logistics"} Team
 }
 
 /**
- * The minimum a password must be to be accepted anywhere in this app.
- *
- * better-auth enforces its own minimum on sign-up but not on a direct write
- * to the account row, which is what setting a password this way does — so
- * without this an admin could set a one-character password and lock nothing
- * out at all.
- */
-export const MIN_PASSWORD_LENGTH = 8;
-
-export function passwordProblem(password: string): string | null {
-  if (password.length < MIN_PASSWORD_LENGTH) {
-    return `A password must be at least ${MIN_PASSWORD_LENGTH} characters.`;
-  }
-  if (/^\s|\s$/.test(password)) {
-    return "A password can't start or end with a space — it is too easy to mistype.";
-  }
-  return null;
-}
-
-/**
  * Sets a chosen password on any account in the organisation, the admin's own
  * included.
  *
@@ -466,5 +447,130 @@ ${organization?.name || "WD Logistics"}`,
   } catch (error) {
     console.error("Failed to set password:", error);
     return { success: false as const, error: "Failed to set the password" };
+  }
+}
+
+/**
+ * Creates a user of any role and hands back everything needed to get them in.
+ *
+ * `createSupervisor` did this for exactly one role and its email said
+ * "You have been added as a Supervisor" regardless, while `inviteUser`
+ * refused anyone who did not already have an account — its own comment said
+ * "in a real app, you would send an invitation email here". Neither could
+ * actually onboard somebody.
+ *
+ * Returns the sign-in link and the generated password so the caller can pass
+ * them on directly, which is what an admin standing in the yard, or the
+ * WhatsApp assistant, actually needs. The email is still sent; a failure to
+ * send is reported but does not undo the account.
+ */
+export async function createUserWithRole(data: {
+  name: string;
+  email: string;
+  role: Role;
+}) {
+  const session = await requireRole(["admin"]);
+
+  const email = data.email.trim().toLowerCase();
+  const name = data.name.trim();
+
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    return { success: false as const, error: "That doesn't look like an email address." };
+  }
+  if (name.length < 2) {
+    return { success: false as const, error: "Give them a name." };
+  }
+
+  try {
+    const existing = await prisma.user.findUnique({ where: { email } });
+
+    if (existing) {
+      // They exist but may not be in this organisation — that is an
+      // add-to-organisation, not an error.
+      const member = await prisma.member.findFirst({
+        where: { userId: existing.id, organizationId: session.organizationId },
+      });
+      if (member) {
+        return {
+          success: false as const,
+          error: `${email} is already on the team as ${member.role}.`,
+        };
+      }
+
+      await prisma.member.create({
+        data: {
+          userId: existing.id,
+          organizationId: session.organizationId,
+          role: data.role,
+        },
+      });
+      revalidatePath("/users");
+      return {
+        success: true as const,
+        added: true as const,
+        name: existing.name,
+        email,
+        role: data.role,
+        signInUrl: `${process.env.BETTER_AUTH_URL || "http://localhost:3000"}/sign-in`,
+        message: `${existing.name} already had an account and has been added as ${data.role}. They sign in with their existing password.`,
+      };
+    }
+
+    const password = generateRandomPassword(12);
+    const ctx = await auth.$context;
+    const hashed = await ctx.password.hash(password);
+
+    const user = await prisma.user.create({
+      data: { name, email, emailVerified: true },
+    });
+    await prisma.account.create({
+      data: {
+        userId: user.id,
+        accountId: user.id,
+        providerId: "credential",
+        password: hashed,
+      },
+    });
+    await prisma.member.create({
+      data: {
+        userId: user.id,
+        organizationId: session.organizationId,
+        role: data.role,
+      },
+    });
+
+    notifyUserInvited(
+      { email, role: data.role },
+      session.organizationId,
+      { name: session.user.name, email: session.user.email, role: session.role },
+    ).catch((err) => console.error("Failed to send admin notification:", err));
+
+    const signInUrl = `${process.env.BETTER_AUTH_URL || "http://localhost:3000"}/sign-in`;
+
+    let emailed = true;
+    try {
+      await sendNewUserCredentials({ email, name, password, role: data.role });
+    } catch (emailError) {
+      console.warn("User created but the welcome email failed:", emailError);
+      emailed = false;
+    }
+
+    revalidatePath("/users");
+    return {
+      success: true as const,
+      added: false as const,
+      name,
+      email,
+      role: data.role,
+      password,
+      signInUrl,
+      emailed,
+      message: emailed
+        ? `${name} can sign in at ${signInUrl} — their details have been emailed to ${email}.`
+        : `${name} was created, but the email could not be sent. Pass the details on yourself.`,
+    };
+  } catch (error) {
+    console.error("Failed to create user:", error);
+    return { success: false as const, error: "Failed to create the user" };
   }
 }

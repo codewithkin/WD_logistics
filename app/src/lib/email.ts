@@ -873,3 +873,71 @@ ${orgName}
     `.trim(),
   });
 }
+
+const ROLE_BLURB: Record<string, string> = {
+  admin: "You have full access, including finances and reports.",
+  supervisor: "You can manage trips, fleet and day-to-day operations.",
+  staff: "You can view records and create new ones; edits go to an admin for approval.",
+  workshop: "You can see and work through the maintenance jobs assigned to you.",
+};
+
+/**
+ * Welcomes a new user of any role and gives them their way in.
+ *
+ * `sendSupervisorCredentials` said "You have been added as a Supervisor"
+ * whatever role the person was actually given, which was wrong for three of
+ * the four.
+ */
+export async function sendNewUserCredentials(params: {
+  email: string;
+  name: string;
+  password: string;
+  role: string;
+}) {
+  const appUrl = process.env.BETTER_AUTH_URL || "http://localhost:3000";
+  const signInUrl = `${appUrl}/sign-in`;
+  const blurb = ROLE_BLURB[params.role] ?? "";
+
+  return sendEmail({
+    to: params.email,
+    subject: "Your WD Logistics account",
+    text: `Hello ${params.name},
+
+An account has been created for you at WD Logistics as ${params.role}.
+${blurb}
+
+Sign in here: ${signInUrl}
+
+  Email:    ${params.email}
+  Password: ${params.password}
+
+Please change your password once you are in — click your name in the top
+right, then Account.
+
+WD Logistics`,
+    html: `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #1f2937;">
+  <div style="max-width: 560px; margin: 0 auto; padding: 24px;">
+    <h2 style="color:#16a34a; margin-bottom: 4px;">Your WD Logistics account</h2>
+    <p>Hello ${params.name},</p>
+    <p>An account has been created for you as <strong>${params.role}</strong>. ${blurb}</p>
+
+    <div style="background:#f9fafb; border-left:4px solid #16a34a; padding:16px; margin:20px 0;">
+      <p style="margin:4px 0;"><strong>Email:</strong> ${params.email}</p>
+      <p style="margin:4px 0;"><strong>Password:</strong> ${params.password}</p>
+    </div>
+
+    <p><a href="${signInUrl}" style="display:inline-block; background:#16a34a; color:#ffffff; padding:12px 22px; border-radius:6px; text-decoration:none;">Sign in</a></p>
+
+    <p style="color:#6b7280; font-size:14px; margin-top:24px;">
+      Please change your password once you are in — click your name in the top
+      right, then Account.
+    </p>
+  </div>
+</body>
+</html>`.trim(),
+  });
+}

@@ -27,6 +27,7 @@ import {
 import { toE164 } from "@/lib/whatsapp/trip-messages";
 import { z } from "zod";
 import { runAsActor } from "@/lib/acting-session";
+import { redactMessageBody, redactValue } from "@/lib/assistant/redact";
 import type { Role } from "@/lib/types";
 
 /**
@@ -281,8 +282,11 @@ export async function POST(request: NextRequest) {
             contactId: contact.id,
             direction,
             phone: toE164(phone) ?? phone,
-            body: text.slice(0, 4000),
-            toolCalls: toolCalls ?? undefined,
+            // Setting a password means typing one into a chat. The audit
+            // trail should record that it happened, not what it was.
+            body: redactMessageBody(text).slice(0, 4000),
+            toolCalls:
+              toolCalls === null ? undefined : (redactValue(toolCalls) as object),
             didWrite,
             promptTokens: usage?.promptTokens ?? null,
             completionTokens: usage?.completionTokens ?? null,

@@ -731,8 +731,13 @@ const readOperations: Operation[] = [
 // Writes live in their own module so the boundary stays visible; they are
 // concatenated here because the dispatcher and manifest want one list.
 import { writeOperations } from "@/lib/assistant/write-operations";
+import { adminOperations } from "@/lib/assistant/admin-operations";
 
-export const OPERATIONS: Operation[] = [...readOperations, ...writeOperations];
+export const OPERATIONS: Operation[] = [
+  ...readOperations,
+  ...writeOperations,
+  ...adminOperations,
+];
 
 export function findOperation(name: string): Operation | undefined {
   return OPERATIONS.find((operation) => operation.name === name);
