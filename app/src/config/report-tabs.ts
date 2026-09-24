@@ -23,7 +23,15 @@ export const TAB_REPORT_TYPES: Record<string, string[]> = {
     "expenses",
     "customer-statement",
   ],
-  fleet: ["truck-cost-breakdown", "profit-per-unit", "truck-profitability", "trip-summary"],
+  fleet: [
+    "truck-cost-breakdown",
+    "fuel-report",
+    "maintenance-downtime",
+    "driver-performance",
+    "profit-per-unit",
+    "truck-profitability",
+    "trip-summary",
+  ],
 };
 
 export const TAB_LABELS: Record<string, string> = {

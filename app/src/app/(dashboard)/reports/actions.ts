@@ -40,6 +40,9 @@ import {
 // Input validation schema
 const generateReportSchema = z.object({
   reportType: z.enum([
+    "fuel-report",
+    "maintenance-downtime",
+    "driver-performance",
     "profit-loss",
     "aged-receivables",
     "creditors",
@@ -103,6 +106,114 @@ export async function generateReport(
       // Item 1's "separate report": the same figures as the on-screen
       // breakdown, reading from lib/metrics/truck-costs so the two can never
       // disagree. One truck when truckId is given, the whole fleet otherwise.
+      // ---- Fleet. Fuel and downtime reuse the definitions in
+      // lib/metrics/truck-costs (category `kind` for fuel, raised-until-fixed
+      // for downtime) so a report and a truck's own page cannot disagree.
+      case "fuel-report": {
+        const { fetchFuelReportData } = await import("@/lib/reports/fleet-fetchers");
+        const { generateFuelReportPDF } = await import(
+          "@/lib/documents/fleet-reports"
+        );
+        const { generateFuelReportCSV } = await import("@/lib/reports/fleet-csv");
+
+        const organization = await prisma.organization.findUnique({
+          where: { id: organizationId },
+        });
+        const data = await fetchFuelReportData(organizationId, start, end);
+
+        if (format === "pdf") {
+          fileBuffer = generateFuelReportPDF({ organization, data });
+          mimeType = "application/pdf";
+          fileExtension = "pdf";
+        } else {
+          fileBuffer = Buffer.from(
+            generateFuelReportCSV(data, {
+              company: organization?.name,
+              period: `${startDate} to ${endDate}`,
+            }),
+            "utf-8",
+          );
+          mimeType = "text/csv";
+          fileExtension = "csv";
+        }
+        filename = `fuel-report-${startDate}-to-${endDate}.${fileExtension}`;
+        break;
+      }
+
+      case "maintenance-downtime": {
+        const { fetchMaintenanceReportData } = await import(
+          "@/lib/reports/fleet-fetchers"
+        );
+        const { generateMaintenanceReportPDF } = await import(
+          "@/lib/documents/fleet-reports"
+        );
+        const { generateMaintenanceReportCSV } = await import(
+          "@/lib/reports/fleet-csv"
+        );
+
+        const organization = await prisma.organization.findUnique({
+          where: { id: organizationId },
+        });
+        const data = await fetchMaintenanceReportData(organizationId, start, end);
+
+        if (format === "pdf") {
+          fileBuffer = generateMaintenanceReportPDF({ organization, data });
+          mimeType = "application/pdf";
+          fileExtension = "pdf";
+        } else {
+          fileBuffer = Buffer.from(
+            generateMaintenanceReportCSV(data, {
+              company: organization?.name,
+              period: `${startDate} to ${endDate}`,
+            }),
+            "utf-8",
+          );
+          mimeType = "text/csv";
+          fileExtension = "csv";
+        }
+        filename = `maintenance-downtime-${startDate}-to-${endDate}.${fileExtension}`;
+        break;
+      }
+
+      case "driver-performance": {
+        const { fetchDriverPerformanceReportData } = await import(
+          "@/lib/reports/fleet-fetchers"
+        );
+        const { generateDriverPerformanceReportPDF } = await import(
+          "@/lib/documents/fleet-reports"
+        );
+        const { generateDriverPerformanceReportCSV } = await import(
+          "@/lib/reports/fleet-csv"
+        );
+
+        const organization = await prisma.organization.findUnique({
+          where: { id: organizationId },
+        });
+        const data = await fetchDriverPerformanceReportData(
+          organizationId,
+          start,
+          end,
+        );
+
+        if (format === "pdf") {
+          fileBuffer = generateDriverPerformanceReportPDF({ organization, data });
+          mimeType = "application/pdf";
+          fileExtension = "pdf";
+        } else {
+          fileBuffer = Buffer.from(
+            generateDriverPerformanceReportCSV(data, {
+              company: organization?.name,
+              period: `${startDate} to ${endDate}`,
+            }),
+            "utf-8",
+          );
+          mimeType = "text/csv";
+          fileExtension = "csv";
+        }
+        filename = `driver-performance-${startDate}-to-${endDate}.${fileExtension}`;
+        break;
+      }
+
       // ---- The four money reports. Each reads figures computed once in
       // lib/reports/finance-fetchers, so the PDF, the CSV and the screen can
       // never disagree about what the business earned or owes.

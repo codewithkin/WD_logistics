@@ -23,6 +23,53 @@ export interface ReportConfig {
 }
 
 export const reportConfigs: Record<string, ReportConfig> = {
+  "fuel-report": {
+    id: "fuel-report",
+    name: "Fuel Report",
+    description:
+      "Fuel spend and cost per kilometre for every truck, ranked heaviest first and compared against the fleet average.",
+    periods: ["monthly", "quarterly", "yearly", "custom"],
+    formats: ["pdf", "csv"],
+    fields: [
+      { key: "registrationNo", label: "Truck", type: "string" },
+      { key: "kilometres", label: "Distance", type: "number" },
+      { key: "fuelSpend", label: "Fuel", type: "currency" },
+      { key: "fuelPerKm", label: "Per km", type: "currency" },
+      { key: "fuelShareOfRevenue", label: "% of revenue", type: "percentage" },
+    ],
+  },
+  "maintenance-downtime": {
+    id: "maintenance-downtime",
+    name: "Maintenance & Downtime",
+    description:
+      "Workshop jobs raised, fixed and still open per vehicle, with days off the road and what the workshop cost.",
+    periods: ["monthly", "quarterly", "yearly", "custom"],
+    formats: ["pdf", "csv"],
+    fields: [
+      { key: "vehicle", label: "Vehicle", type: "string" },
+      { key: "raised", label: "Raised", type: "number" },
+      { key: "fixed", label: "Fixed", type: "number" },
+      { key: "stillOpen", label: "Open", type: "number" },
+      { key: "downtimeDays", label: "Downtime (days)", type: "number" },
+      { key: "maintenanceSpend", label: "Spend", type: "currency" },
+    ],
+  },
+  "driver-performance": {
+    id: "driver-performance",
+    name: "Driver Performance",
+    description:
+      "Trips, distance, revenue and driver costs for every driver with activity in the period.",
+    periods: ["monthly", "quarterly", "yearly", "custom"],
+    formats: ["pdf", "csv"],
+    fields: [
+      { key: "driver", label: "Driver", type: "string" },
+      { key: "trips", label: "Trips", type: "number" },
+      { key: "revenue", label: "Revenue", type: "currency" },
+      { key: "expenses", label: "Driver costs", type: "currency" },
+      { key: "profit", label: "Profit", type: "currency" },
+      { key: "margin", label: "Margin %", type: "percentage" },
+    ],
+  },
   "profit-loss": {
     id: "profit-loss",
     name: "Profit & Loss Statement",
