@@ -164,4 +164,162 @@ export const reportOperations: Operation[] = [
       };
     },
   },
+
+  {
+    name: "create_pdf",
+    description:
+      "Turn figures you already have into a PDF and send it in this chat. For when someone wants a document of something you just worked out, or a report list_reports does not cover. It renders what you give it — it looks nothing up.",
+    requires: "admin",
+    writes: false,
+    schema: z.object({
+      title: z.string().describe("Heading, e.g. 'Fleet ranking by profit'"),
+      subtitle: z.string().optional(),
+      summary: z
+        .array(
+          z.object({
+            label: z.string(),
+            value: z.union([z.string(), z.number()]),
+            format: z.enum(["currency", "percentage", "number", "text"]).optional(),
+          }),
+        )
+        .optional()
+        .describe("Up to 6 headline figures, shown as tiles under the title"),
+      sections: z
+        .array(
+          z.object({
+            title: z.string(),
+            columns: z
+              .array(
+                z.object({
+                  header: z.string().describe("Column heading"),
+                  key: z.string().describe("Matching key in every row"),
+                  format: z
+                    .enum(["currency", "percentage", "number", "date", "text"])
+                    .optional(),
+                  align: z.enum(["left", "center", "right"]).optional(),
+                }),
+              )
+              .min(1),
+            rows: z
+              .array(z.record(z.string(), z.union([z.string(), z.number(), z.null()])))
+              .describe("One object per row, keyed by the column keys"),
+            totalColumns: z
+              .array(z.string())
+              .optional()
+              .describe("Column keys to total in a bottom row"),
+          }),
+        )
+        .min(1)
+        .describe("One table per section"),
+      notes: z.array(z.string()).optional().describe("Footnotes, e.g. what the figures exclude"),
+      from: z.string().optional().describe("ISO start of the period covered"),
+      to: z.string().optional().describe("ISO end of the period covered"),
+    }),
+    handler: async (args, ctx: OperationContext) => {
+      const a = args as {
+        title: string;
+        subtitle?: string;
+        summary?: Array<{ label: string; value: string | number; format?: string }>;
+        sections: Array<{
+          title: string;
+          columns: Array<{ header: string; key: string; format?: string; align?: string }>;
+          rows: Array<Record<string, string | number | null>>;
+          totalColumns?: string[];
+        }>;
+        notes?: string[];
+        from?: string;
+        to?: string;
+      };
+
+      // An empty table renders as a title over nothing, which looks broken
+      // rather than empty. Say so instead, so the model writes a sentence.
+      const populated = a.sections.filter((section) => section.rows.length > 0);
+      if (populated.length === 0) {
+        return {
+          error:
+            "There are no rows to put in the document. Say the figures in the chat instead of sending an empty PDF.",
+        };
+      }
+
+      // Guardrails against a model that has miscounted: a PDF nobody can
+      // read is worse than a refusal.
+      const totalRows = populated.reduce((sum, section) => sum + section.rows.length, 0);
+      if (totalRows > 2000) {
+        return {
+          error: `That would be ${totalRows} rows, which is too long to read on a phone. Narrow it down, or run the full report from the web app.`,
+        };
+      }
+
+      const to = a.to ? new Date(a.to) : new Date();
+      const from = a.from
+        ? new Date(a.from)
+        : new Date(new Date(to).setMonth(to.getMonth() - 1));
+      const validRange = !Number.isNaN(from.getTime()) && !Number.isNaN(to.getTime());
+
+      const organization = await prisma.organization.findUnique({
+        where: { id: ctx.organizationId },
+      });
+
+      const { PDFReportGenerator } = await import("@/lib/reports/pdf-report-generator");
+
+      const generator = new PDFReportGenerator(
+        {
+          title: a.title,
+          subtitle: a.subtitle,
+          reportType: "assistant-document",
+          period: {
+            startDate: validRange ? from : new Date(),
+            endDate: validRange ? to : new Date(),
+          },
+          summary: a.summary?.slice(0, 6).map((item) => ({
+            label: item.label,
+            value: item.value,
+            format: item.format as "currency" | "percentage" | "number" | "text" | undefined,
+          })),
+          sections: populated.map((section) => ({
+            title: section.title,
+            columns: section.columns.map((column) => ({
+              header: column.header,
+              key: column.key,
+              format: column.format as
+                | "currency"
+                | "percentage"
+                | "number"
+                | "date"
+                | "text"
+                | undefined,
+              align: column.align as "left" | "center" | "right" | undefined,
+            })),
+            // A key the model leaves off a row needs no filling in: the
+            // generator's formatCell already prints an em dash for null,
+            // undefined and empty alike. Verified against a rendered file.
+            data: section.rows.map((row) => ({ ...row })),
+            showTotal: Boolean(section.totalColumns?.length),
+            totalLabel: "Total",
+            totalColumns: section.totalColumns,
+          })),
+          notes: a.notes,
+          companyName: organization?.name ?? "WD Logistics",
+        },
+        organization,
+      );
+
+      const bytes = Buffer.from(generator.generate());
+
+      return {
+        document: a.title,
+        rows: totalRows,
+        sizeKb: Math.round(bytes.length / 1024),
+        sending: true,
+
+        // Lifted out by the agent before the model sees it — same envelope
+        // generate_report uses; app-tools.ts looks for exactly this key.
+        attachment: {
+          filename: friendlyFilename(a.title, from, to, "pdf"),
+          mimeType: "application/pdf",
+          base64: bytes.toString("base64"),
+        },
+      };
+    },
+  },
 ];
