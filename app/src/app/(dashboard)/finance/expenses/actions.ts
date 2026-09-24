@@ -31,6 +31,13 @@ export interface ExpenseFormData {
   amount: number;
   date: Date;
   notes?: string;
+  /**
+   * A photographed receipt. The column has always existed and the form type
+   * refers to it, but neither create nor update wrote it — so a receipt
+   * attached here was silently dropped. The operations-side expense actions
+   * have handled it all along.
+   */
+  receiptUrl?: string;
   truckIds?: string[];
   trailerIds?: string[];
   tripIds?: string[];
@@ -76,6 +83,7 @@ export async function createExpense(data: ExpenseFormData): Promise<ExpenseActio
           amount: data.amount,
           date: data.date,
           notes: data.notes,
+          receiptUrl: data.receiptUrl,
           isBusinessExpense: data.isBusinessExpense || false,
           supplierId: data.isBusinessExpense ? data.supplierId : undefined,
           truckExpenses: !data.isBusinessExpense && data.truckIds?.length
@@ -260,6 +268,7 @@ export async function updateExpense(id: string, data: ExpenseFormData,
           amount: data.amount,
           date: data.date,
           notes: data.notes,
+          receiptUrl: data.receiptUrl,
           isBusinessExpense: data.isBusinessExpense || false,
           supplierId: data.isBusinessExpense ? data.supplierId : null,
         },

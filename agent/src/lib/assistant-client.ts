@@ -116,6 +116,54 @@ export async function invoke(
   return call<unknown>({ action: "invoke", phone, operation, args });
 }
 
+/**
+ * Stores a file the sender attached, and returns where it went.
+ *
+ * The agent never holds an R2 key — the bytes go to the app, which owns the
+ * storage credentials. A failure here is reported rather than thrown, so a
+ * blurry photo does not cost somebody their message.
+ */
+export async function uploadFile(params: {
+  phone: string;
+  base64: string;
+  mimeType: string;
+  filename: string;
+}): Promise<{ url: string; sizeKb: number } | { error: string }> {
+  try {
+    const response = await fetch(`${WEB_APP_URL}/api/agent/upload`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": AGENT_API_KEY,
+        "x-organization-id": process.env.AGENT_ORGANIZATION_ID || "unknown",
+      },
+      body: JSON.stringify(params),
+      signal: AbortSignal.timeout(60_000),
+    });
+
+    if (!response.ok) {
+      return { error: `The system returned ${response.status} storing that file.` };
+    }
+
+    const result = (await response.json()) as {
+      success: boolean;
+      data?: { url: string; sizeKb: number };
+      error?: string;
+    };
+
+    return result.success && result.data
+      ? result.data
+      : { error: result.error ?? "The file could not be stored." };
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error && error.name === "TimeoutError"
+          ? "Storing that file took too long."
+          : "Could not reach the system to store that file.",
+    };
+  }
+}
+
 /** Writes an exchange to the transcript, which is also the audit trail. */
 export async function logExchange(params: {
   phone: string;

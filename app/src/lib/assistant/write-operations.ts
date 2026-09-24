@@ -138,6 +138,12 @@ export const writeOperations: Operation[] = [
         .boolean()
         .optional()
         .describe("True for general overheads not tied to a truck, trip or driver"),
+      receiptUrl: z
+        .string()
+        .optional()
+        .describe(
+          "URL of a receipt the sender photographed. Use the one given in the message; never invent it.",
+        ),
     }),
     handler: async (args, ctx) => {
       const a = args as {
@@ -149,6 +155,7 @@ export const writeOperations: Operation[] = [
         date?: string;
         vendor?: string;
         isBusinessExpense?: boolean;
+        receiptUrl?: string;
       };
 
       const category = await findCategory(ctx, a.category);
@@ -187,6 +194,7 @@ export const writeOperations: Operation[] = [
         amount: a.amount,
         date: a.date ? new Date(a.date) : new Date(),
         notes,
+        receiptUrl: a.receiptUrl,
         isBusinessExpense: isBusiness,
         truckIds,
         trailerIds: [],
@@ -201,6 +209,7 @@ export const writeOperations: Operation[] = [
             category: category.row.name,
             truck: a.truck ?? null,
             driver: a.driver ?? null,
+            receiptAttached: Boolean(a.receiptUrl),
           }
         : { error: result.error ?? "Could not record the expense." };
     },

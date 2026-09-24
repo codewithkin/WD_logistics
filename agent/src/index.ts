@@ -12,6 +12,7 @@ import testWhatsApp from "./routes/test-whatsapp";
 import webhooks from "./routes/webhooks";
 import { getAgentWhatsAppClient } from "./lib/whatsapp";
 import { answerMessage } from "./agents/assistant";
+import { uploadFile } from "./lib/assistant-client";
 import { logModelConfiguration } from "./lib/model";
 import { notificationsApi } from "./lib/api-client";
 
@@ -269,9 +270,49 @@ const initWhatsApp = async () => {
           // that needed a redeploy to change.
           console.log(`🔐 Checking the contact list...`);
 
+          // A photographed receipt arrives as media with the description in
+          // the caption. Store it first and tell the model where it went, so
+          // "fuel, 250, KBZ 456H" with a photo becomes an expense with the
+          // receipt attached rather than an expense and a lost photo.
+          let messageText: string = msg.body || "";
+          if (msg.hasMedia) {
+            try {
+              console.log(`📥 Downloading the attached file...`);
+              const media = await msg.downloadMedia();
+              if (media?.data) {
+                const stored = await uploadFile({
+                  phone: phoneNumber,
+                  base64: media.data,
+                  mimeType: media.mimetype,
+                  filename: media.filename || `receipt-${Date.now()}.jpg`,
+                });
+
+                if ("url" in stored) {
+                  console.log(`🧾 Stored (${stored.sizeKb}KB) at ${stored.url}`);
+                  messageText =
+                    `${messageText}
+
+[The sender attached a file, already stored at ${stored.url} — ` +
+                    `use exactly this URL as receiptUrl if they are recording an expense. ` +
+                    `If they have not said what it is for, ask.]`.trim();
+                } else {
+                  console.log(`⚠️  Could not store the file: ${stored.error}`);
+                  messageText = `${messageText}
+
+[The sender attached a file but it could not be stored: ${stored.error}]`;
+                }
+              }
+            } catch (mediaError) {
+              console.error(`❌ Could not download the attachment:`, mediaError);
+              messageText = `${messageText}
+
+[The sender attached a file but it could not be downloaded.]`;
+            }
+          }
+
           const reply = await answerMessage({
             phone: phoneNumber,
-            message: msg.body,
+            message: messageText,
           });
 
           if (reply.error) {
