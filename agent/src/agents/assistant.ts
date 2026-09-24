@@ -20,6 +20,7 @@ import {
 import { logExchange } from "../lib/assistant-client";
 import { ASSISTANT_MODEL } from "../lib/model";
 import { costOf, type TokenUsage } from "../lib/pricing";
+import { assistantMemory, conversationFor } from "../lib/agent-memory";
 
 const TODAY = () =>
   new Date().toLocaleDateString("en-GB", {
@@ -117,6 +118,16 @@ export async function answerMessage(params: {
   phone: string;
   message: string;
   history?: Array<{ role: "user" | "assistant"; content: string }>;
+  /**
+   * Keep this exchange in the caller's conversation, and recall earlier ones.
+   * On by default — a phone conversation is a conversation.
+   *
+   * The checks in scripts/live-assistant-check.ts turn it off: they replay
+   * their own `history`, and they run against real numbers, so remembering
+   * would both write test chatter into someone's actual thread and make each
+   * case depend on whichever ran before it.
+   */
+  remember?: boolean;
 }): Promise<AssistantReply> {
   // Building the tool set talks to the app over HTTP, so it can fail. It used
   // to sit outside the try below, which meant a refused or unreachable app
@@ -151,6 +162,14 @@ export async function answerMessage(params: {
     };
   }
 
+  // Only authorised callers get a thread. An unknown number is turned away
+  // above without ever reaching here, and storing the conversations of people
+  // we refuse to talk to would be a pile of stranger's phone numbers and
+  // messages kept for no reason.
+  const remember = params.remember !== false;
+  const memory = remember ? assistantMemory() : null;
+  const conversation = memory ? conversationFor(params.phone) : null;
+
   const agent = new Agent({
     name: "WD Logistics Assistant",
     instructions: instructions({
@@ -159,6 +178,7 @@ export async function answerMessage(params: {
       organizationName: "WD Logistics",
     }),
     model: assistantModel(),
+    ...(memory ? { memory } : {}),
     // Tools are built at runtime from the app's manifest, so their types
     // cannot be known statically. The server validates every call against the
     // operation's own schema and required role, so this cast loses no safety
@@ -179,6 +199,11 @@ export async function answerMessage(params: {
         // Enough hops to list, pick and then act, without letting a confused
         // model loop for a minute while somebody waits on their phone.
         maxSteps: 8,
+        // Mastra loads this thread's recent turns in front of the message and
+        // writes both sides back when the turn finishes. Omitted entirely
+        // when there is no store, because passing a thread without one makes
+        // the call fail rather than simply not remember.
+        ...(conversation ? { memory: conversation } : {}),
       },
     );
 

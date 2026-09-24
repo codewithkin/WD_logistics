@@ -223,6 +223,10 @@ for (const c of CASES) {
     phone: c.phone,
     message: c.ask,
     history: c.history,
+    // These run against real numbers. Remembering would write test chatter
+    // into somebody's actual conversation, and would make each case depend
+    // on whichever ran before it; `history` above is the context under test.
+    remember: false,
   });
   const ms = Date.now() - started;
   const tools = reply.toolCalls.map((t) => t.tool);
