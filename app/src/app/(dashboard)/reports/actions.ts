@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { resolvePeriod, previousPeriod, type PeriodInput } from "@/lib/period-range";
 import { z } from "zod";
+import { unstable_rethrow } from "next/navigation";
 import {
   fetchProfitPerUnitData,
   fetchRevenueData,
@@ -630,8 +631,35 @@ export async function generateReport(
         const data = await fetchProfitPerUnitData(organizationId, start, end);
 
         if (format === "pdf") {
+          // The generator takes `units` with a `unitNumber`, plus totals it
+          // does not compute itself. This passed `trucks` instead, so the PDF
+          // died on `data.units.length` every single time it was generated —
+          // a crash that shipped because next.config.ts ignores type errors.
+          const totals = data.reduce(
+            (acc, row) => ({
+              trips: acc.trips + row.trips,
+              revenue: acc.revenue + row.revenue,
+              expenses: acc.expenses + row.expenses,
+              profit: acc.profit + row.profit,
+              profitMargin: 0,
+            }),
+            { trips: 0, revenue: 0, expenses: 0, profit: 0, profitMargin: 0 },
+          );
+          totals.profitMargin =
+            totals.revenue > 0
+              ? Math.round((totals.profit / totals.revenue) * 10000) / 100
+              : 0;
+
           const pdfBytes = generateProfitPerUnitPDF({
-            trucks: data,
+            units: data.map((row) => ({
+              unitNumber: `${row.registrationNo} (${row.make} ${row.model})`,
+              trips: row.trips,
+              revenue: row.revenue,
+              expenses: row.expenses,
+              profit: row.profit,
+              profitMargin: row.profitMargin,
+            })),
+            totals,
             period: periodObj,
           });
           fileBuffer = pdfBytes;
@@ -885,12 +913,10 @@ export async function generateReport(
 
         const data = await fetchExpenseData(organizationId, start, end, scope);
 
-        if (data.length === 0) {
-          return {
-            success: false,
-            error: "No expenses were recorded for that selection in this period.",
-          };
-        }
+        // A period with no rows produces a report that says so, rather than
+        // an error. Refusing made "nothing was spent on this trailer"
+        // indistinguishable from "the export broke", and the document kit
+        // already prints a stated empty line in place of a bare table.
 
         if (format === "pdf") {
           const pdfBytes = generateExpenseReportPDF({
@@ -960,6 +986,12 @@ export async function generateReport(
       reportId: report.id,
     };
   } catch (error) {
+    // requireRole() redirects rather than throwing a normal error, and Next
+    // signals that by throwing. Swallowing it turned a non-admin's blocked
+    // request into a toast reading "NEXT_REDIRECT"; unstable_rethrow lets
+    // the framework's own control-flow errors through untouched.
+    unstable_rethrow(error);
+
     console.error("Error generating report:", error);
     return {
       success: false,
