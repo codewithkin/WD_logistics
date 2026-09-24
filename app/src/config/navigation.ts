@@ -196,7 +196,10 @@ export const navigationSections: NavSection[] = [
         title: "Edit Requests",
         href: "/edit-requests",
         icon: ClipboardEdit,
-        roles: ["admin", "supervisor", "staff"],
+        // Admin only — ACCESS_CONTROL.md. Staff and supervisors raise
+        // requests through the ordinary edit forms; the queue is the
+        // approver's screen and nobody else's.
+        roles: ["admin"],
         badge: "pending",
       },
     ],

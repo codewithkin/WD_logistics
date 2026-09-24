@@ -1,4 +1,5 @@
-import { requireAuth } from "@/lib/session";
+import { pageAccess } from "@/lib/session";
+import { NoAccess } from "@/components/layout/no-access";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/layout/page-header";
 import { PagePeriodSelector } from "@/components/ui/page-period-selector";
@@ -10,13 +11,27 @@ interface EditRequestsPageProps {
 }
 
 export default async function EditRequestsPage({ searchParams }: EditRequestsPageProps) {
-    const session = await requireAuth();
+    // Admin only — ACCESS_CONTROL.md. This page used requireAuth, so every
+    // signed-in user could open the approval queue and read what staff and
+    // supervisors had proposed, along with the before-and-after of each
+    // record. A supervisor seeing it in production is what prompted writing
+    // the access rules down.
+    const access = await pageAccess(["admin"]);
+    if (!access.allowed) {
+        return (
+            <NoAccess
+                role={access.role}
+                what="the edit request queue"
+                who="an administrator"
+            />
+        );
+    }
+
+    const { session } = access;
     const { role, user } = session;
-    const canApprove = role === "admin";
+    const canApprove = true;
     const params = await searchParams;
     const dateRange = getDateRangeFromParams(params, "3m");
-
-    const isStaff = role === "staff";
 
     // Dated by when the request was raised, but anything still pending stays
     // on the list however old it is — an unanswered request must not be able
@@ -26,7 +41,6 @@ export default async function EditRequestsPage({ searchParams }: EditRequestsPag
             // Scoped by organisation: listing, the sidebar badge and approval
             // all used to reach across every organisation in the database.
             organizationId: session.organizationId,
-            ...(isStaff ? { requestedById: user.id } : {}),
             OR: [
                 { createdAt: { gte: dateRange.from, lte: dateRange.to } },
                 { status: "pending" },
@@ -55,11 +69,7 @@ export default async function EditRequestsPage({ searchParams }: EditRequestsPag
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <PageHeader
                     title="Edit Requests"
-                    description={
-                        isStaff
-                            ? `Your edit requests and their status — ${dateRange.label}`
-                            : `Requests from staff and supervisors — ${dateRange.label}`
-                    }
+                    description={`Requests from staff and supervisors — ${dateRange.label}`}
                 />
                 <PagePeriodSelector defaultPreset="3m" />
             </div>

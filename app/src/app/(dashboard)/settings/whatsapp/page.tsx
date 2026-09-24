@@ -1,13 +1,16 @@
 import { PageHeader } from '@/components/layout/page-header';
-import { getServerSession } from '@/lib/session';
-import { redirect } from 'next/navigation';
+import { pageAccess } from '@/lib/session';
+import { NoAccess } from '@/components/layout/no-access';
 import { WhatsAppIntegration } from './_components/whatsapp-integration';
 
 export default async function WhatsAppSettingsPage() {
-    const session = await getServerSession();
-    if (!session?.organizationId) {
-        redirect('/sign-in');
+    // Admin only. This page had no role check at all — any signed-in user,
+    // workshop included, could reach the WhatsApp pairing screen.
+    const access = await pageAccess(['admin']);
+    if (!access.allowed) {
+        return <NoAccess role={access.role} what="WhatsApp settings" />;
     }
+    const { session } = access;
 
     return (
         <div className="space-y-6">

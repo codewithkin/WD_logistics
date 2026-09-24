@@ -108,3 +108,30 @@ export async function requireRole(allowedRoles: Role[]): Promise<ServerSession> 
   
   return session;
 }
+/**
+ * The guard every dashboard page should use.
+ *
+ * Unlike `requireRole`, which silently redirects, this hands the page back a
+ * decision so it can render the no-access page instead — a bounce looks like
+ * a broken link (ACCESS_CONTROL.md, "Denied access"). Signed-out users still
+ * go to /sign-in, because there is nothing to explain to someone who has not
+ * logged in.
+ *
+ *   const access = await pageAccess(["admin"]);
+ *   if (!access.allowed) return <NoAccess role={access.role} what="reports" />;
+ *   const { session } = access;
+ */
+export async function pageAccess(
+  allowedRoles: Role[],
+): Promise<
+  | { allowed: true; session: ServerSession; role: Role }
+  | { allowed: false; role: Role }
+> {
+  const session = await requireAuth();
+
+  if (!allowedRoles.includes(session.role)) {
+    return { allowed: false, role: session.role };
+  }
+
+  return { allowed: true, session, role: session.role };
+}

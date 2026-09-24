@@ -14,17 +14,24 @@ export default async function DashboardLayout({
     // Check if SHOW_EXPENSES is enabled (for supervisor access to expenses)
     const showExpenses = process.env.SHOW_EXPENSES === "true";
 
-    // Run auth + sidebar badge count concurrently so every navigation doesn't
-    // serialize two database round-trips before the shell can render.
-    const [session, pendingEditRequests] = await Promise.all([
-        requireAuth(),
-        // TODO(T5-A): scope this by organisation once EditRequest carries one.
-        prisma.editRequest.count({
-            where: {
-                status: "pending",
-            },
-        }),
-    ]);
+    const session = await requireAuth();
+
+    // The pending-requests badge belongs to the approver. It is counted only
+    // for an admin — the queue is admin-only (ACCESS_CONTROL.md), so showing
+    // anyone else a number for a page they cannot open both leaks that
+    // requests exist and offers a dead link.
+    //
+    // It is also scoped by organisation now. The TODO that stood here counted
+    // pending requests across every organisation in the database.
+    const pendingEditRequests =
+        session.role === "admin"
+            ? await prisma.editRequest.count({
+                  where: {
+                      organizationId: session.organizationId,
+                      status: "pending",
+                  },
+              })
+            : 0;
 
     return (
         <SessionProvider

@@ -51,7 +51,10 @@ export async function getEditRequestDiff(id: string): Promise<{
   entityMissing?: boolean;
   href?: string;
 }> {
-  const session = await requireAuth();
+  // Admin only, matching the page. Org-scoping alone was not enough: any
+  // signed-in colleague could read the before-and-after of any request,
+  // which is the whole content of the record being changed.
+  const session = await assertRole(["admin"]);
 
   const request = await prisma.editRequest.findFirst({
     where: { id, organizationId: session.organizationId },
