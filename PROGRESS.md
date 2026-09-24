@@ -443,6 +443,25 @@ rather than asked. Each is cheap to reverse:
 10. **The default model is `google/gemini-3-flash`** — fast and cheap, which
     suits someone waiting on their phone. Env-overridable and logged at boot.
 
+## Branches
+
+Only `main` exists, locally and on origin. The design branches were cleaned up
+on 2026-09-24:
+
+- `website-design-b` — **merged** into `main` (`f6133b8`), zero unmerged
+  commits at deletion. Its work is the `site/` directory you are running.
+- `website-design-a` — **never merged, deleted on the client's instruction**
+  ("design a is no longer needed at all, we won't go back to it"). It had 7
+  commits that existed nowhere else, tip **`2844e0d`**. That SHA is written
+  down here rather than kept as a branch: until git garbage-collects the
+  objects, `git branch design-a-restored 2844e0d` brings it back. After a
+  `git gc --prune`, it is gone for good.
+
+Two stale agent worktrees under `.claude/worktrees/` were holding those
+branches checked out and had to be removed first. Neither contained
+uncommitted work — only untracked copies of `.claude/` and `designs/`, both
+already committed on `main`.
+
 ## Ops the client must do
 
 - New Coolify application for `site/` (base directory `site/`).
