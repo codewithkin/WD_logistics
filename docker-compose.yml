@@ -169,7 +169,7 @@ services:
       # was read at import and thrown on, so a missing key crash-looped the
       # container and the deploy rolled back.
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
-      ASSISTANT_MODEL: ${ASSISTANT_MODEL:-google/gemini-3.5-flash-lite}
+      ASSISTANT_MODEL: ${ASSISTANT_MODEL:-}
       ASSISTANT_REASONING_EFFORT: ${ASSISTANT_REASONING_EFFORT:-low}
       MASTRA_LOG_LEVEL: ${MASTRA_LOG_LEVEL:-info}
 

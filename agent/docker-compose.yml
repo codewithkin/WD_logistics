@@ -23,7 +23,7 @@ services:
       - NODE_ENV=production
       - PORT=${PORT:-3001}
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
-      - ASSISTANT_MODEL=${ASSISTANT_MODEL:-google/gemini-3.5-flash-lite}
+      - ASSISTANT_MODEL=${ASSISTANT_MODEL:-}
       - ASSISTANT_REASONING_EFFORT=${ASSISTANT_REASONING_EFFORT:-low}
       - WEB_APP_URL=${WEB_APP_URL:-http://localhost:3000}
       - AGENT_API_KEY=${AGENT_API_KEY}
