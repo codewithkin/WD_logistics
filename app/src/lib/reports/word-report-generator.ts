@@ -1,19 +1,28 @@
 "use server";
 
+/**
+ * The customer detail report as a .docx.
+ *
+ * Rebuilt on `lib/documents/word-kit`, which carries the same logo, palette
+ * and shaded table headers as the PDFs. Before this, the same report looked
+ * like it came from a different company depending on whether you pressed
+ * "PDF" or "Word": grey Calibri, a centred text wordmark and no logo at all.
+ *
+ * The data shape is unchanged, so the caller in customers/actions.ts did not
+ * have to move.
+ */
+
+import { Document, Packer, Paragraph } from "docx";
 import {
-  Document,
-  Packer,
-  Paragraph,
-  TextRun,
-  Table,
-  TableRow,
-  TableCell,
-  WidthType,
-  AlignmentType,
-  BorderStyle,
-  HeadingLevel,
-  convertInchesToTwip,
-} from "docx";
+  brandFooter,
+  brandHeader,
+  brandTable,
+  kpiTable,
+  notesBlock,
+  sectionHeading,
+  sectionProperties,
+  titleBlock,
+} from "@/lib/documents/word-kit";
 
 interface CustomerReportData {
   customer: {
@@ -62,340 +71,170 @@ interface CustomerReportData {
   organizationName: string;
 }
 
-function formatDate(date: Date | string): string {
-  const d = new Date(date);
-  return d.toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "short",
+function formatDate(date: Date | string | null): string {
+  if (!date) return "—";
+  const value = new Date(date);
+  if (Number.isNaN(value.getTime())) return "—";
+  return value.toLocaleDateString("en-GB", {
     day: "numeric",
+    month: "short",
+    year: "numeric",
   });
 }
 
 function formatCurrency(amount: number): string {
-  return `$${amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return `$${amount.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
 }
 
-function createTableHeaderCell(text: string): TableCell {
-  return new TableCell({
-    children: [
-      new Paragraph({
-        children: [
-          new TextRun({
-            text,
-            bold: true,
-            size: 20,
-          }),
-        ],
-        alignment: AlignmentType.CENTER,
-      }),
-    ],
-    shading: { fill: "e0e0e0" },
-    margins: { top: 80, bottom: 80, left: 100, right: 100 },
-  });
-}
+export async function generateCustomerDetailReportWord(
+  data: CustomerReportData,
+): Promise<Uint8Array> {
+  // The header reads the organisation's own details; only the name reaches
+  // this function, so it is passed through as the one field that differs.
+  const organization = { name: data.organizationName };
 
-function createTableCell(text: string, alignment: typeof AlignmentType[keyof typeof AlignmentType] = AlignmentType.LEFT): TableCell {
-  return new TableCell({
-    children: [
-      new Paragraph({
-        children: [new TextRun({ text, size: 20 })],
-        alignment,
-      }),
-    ],
-    margins: { top: 60, bottom: 60, left: 100, right: 100 },
-  });
-}
-
-export async function generateCustomerDetailReportWord(data: CustomerReportData): Promise<Uint8Array> {
   const doc = new Document({
     sections: [
       {
-        properties: {
-          page: {
-            margin: {
-              top: convertInchesToTwip(0.75),
-              right: convertInchesToTwip(0.75),
-              bottom: convertInchesToTwip(0.75),
-              left: convertInchesToTwip(0.75),
-            },
-          },
-        },
+        properties: sectionProperties(),
+        headers: { default: brandHeader(organization) },
+        footers: { default: brandFooter(organization) },
         children: [
-          // Header
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: data.organizationName || "WD Logistics",
-                bold: true,
-                size: 36,
-              }),
-            ],
-            alignment: AlignmentType.CENTER,
-            spacing: { after: 200 },
-          }),
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: "Customer Detail Report",
-                bold: true,
-                size: 28,
-                color: "666666",
-              }),
-            ],
-            alignment: AlignmentType.CENTER,
-            spacing: { after: 400 },
-          }),
+          ...titleBlock(
+            "Customer Statement",
+            `${data.customer.name} · generated ${formatDate(data.generatedAt)}`,
+          ),
 
-          // Customer Information Section
-          new Paragraph({
-            text: "Customer Information",
-            heading: HeadingLevel.HEADING_2,
-            spacing: { before: 200, after: 200 },
-          }),
-          new Table({
-            width: { size: 100, type: WidthType.PERCENTAGE },
-            borders: {
-              top: { style: BorderStyle.SINGLE, size: 1 },
-              bottom: { style: BorderStyle.SINGLE, size: 1 },
-              left: { style: BorderStyle.SINGLE, size: 1 },
-              right: { style: BorderStyle.SINGLE, size: 1 },
-              insideHorizontal: { style: BorderStyle.SINGLE, size: 1 },
-              insideVertical: { style: BorderStyle.SINGLE, size: 1 },
+          kpiTable([
+            { label: "Trips", value: String(data.summary.totalTrips) },
+            { label: "Invoiced", value: formatCurrency(data.summary.totalInvoiced) },
+            { label: "Paid", value: formatCurrency(data.summary.totalPaid) },
+            { label: "Outstanding", value: formatCurrency(data.summary.totalOwed) },
+          ]),
+
+          sectionHeading("Customer"),
+          brandTable(
+            [
+              { header: "Field", width: 25 },
+              { header: "Detail", width: 75 },
+            ],
+            [
+              ["Name", data.customer.name],
+              ["Status", data.customer.status],
+              ["Email", data.customer.email ?? "—"],
+              ["Phone", data.customer.phone ?? "—"],
+              ["Address", data.customer.address ?? "—"],
+              ["Account balance", formatCurrency(data.customer.balance)],
+            ],
+          ),
+
+          sectionHeading("Trips"),
+          brandTable(
+            [
+              { header: "Trip" },
+              { header: "Route" },
+              { header: "Started" },
+              { header: "Ended" },
+              { header: "Status" },
+              { header: "Fare", align: "right" },
+            ],
+            data.trips.map((trip) => [
+              trip.tripNumber,
+              `${trip.origin} - ${trip.destination}`,
+              formatDate(trip.startDate),
+              formatDate(trip.endDate),
+              trip.status,
+              formatCurrency(trip.fare),
+            ]),
+            {
+              total: [
+                "Total",
+                "",
+                "",
+                "",
+                `${data.summary.totalTrips} trips`,
+                formatCurrency(data.trips.reduce((sum, t) => sum + t.fare, 0)),
+              ],
+              emptyMessage: "No trips recorded for this customer.",
             },
-            rows: [
-              new TableRow({
-                children: [
-                  createTableHeaderCell("Name"),
-                  createTableCell(data.customer.name),
-                  createTableHeaderCell("Status"),
-                  createTableCell(data.customer.status),
-                ],
-              }),
-              new TableRow({
-                children: [
-                  createTableHeaderCell("Email"),
-                  createTableCell(data.customer.email || "N/A"),
-                  createTableHeaderCell("Phone"),
-                  createTableCell(data.customer.phone || "N/A"),
-                ],
-              }),
-              new TableRow({
-                children: [
-                  createTableHeaderCell("Address"),
-                  createTableCell(data.customer.address || "N/A"),
-                  createTableHeaderCell("Balance"),
-                  createTableCell(
-                    `${formatCurrency(Math.abs(data.customer.balance))} ${data.customer.balance > 0 ? "(Credit)" : data.customer.balance < 0 ? "(Owed)" : ""}`
-                  ),
-                ],
-              }),
-            ],
-          }),
+          ),
 
-          // Summary Section
-          new Paragraph({
-            text: "Account Summary",
-            heading: HeadingLevel.HEADING_2,
-            spacing: { before: 400, after: 200 },
-          }),
-          new Table({
-            width: { size: 100, type: WidthType.PERCENTAGE },
-            borders: {
-              top: { style: BorderStyle.SINGLE, size: 1 },
-              bottom: { style: BorderStyle.SINGLE, size: 1 },
-              left: { style: BorderStyle.SINGLE, size: 1 },
-              right: { style: BorderStyle.SINGLE, size: 1 },
-              insideHorizontal: { style: BorderStyle.SINGLE, size: 1 },
-              insideVertical: { style: BorderStyle.SINGLE, size: 1 },
+          sectionHeading("Invoices"),
+          brandTable(
+            [
+              { header: "Invoice" },
+              { header: "Issued" },
+              { header: "Due" },
+              { header: "Status" },
+              { header: "Total", align: "right" },
+              { header: "Paid", align: "right" },
+              { header: "Balance", align: "right" },
+            ],
+            data.invoices.map((invoice) => [
+              invoice.invoiceNumber,
+              formatDate(invoice.issueDate),
+              formatDate(invoice.dueDate),
+              invoice.status,
+              formatCurrency(invoice.total),
+              formatCurrency(invoice.amountPaid),
+              formatCurrency(invoice.balance),
+            ]),
+            {
+              total: [
+                "Total",
+                "",
+                "",
+                "",
+                formatCurrency(data.summary.totalInvoiced),
+                formatCurrency(data.summary.totalPaid),
+                formatCurrency(data.summary.totalOwed),
+              ],
+              emptyMessage: "No invoices raised for this customer.",
             },
-            rows: [
-              new TableRow({
-                children: [
-                  createTableHeaderCell("Total Trips"),
-                  createTableCell(data.summary.totalTrips.toString(), AlignmentType.CENTER),
-                  createTableHeaderCell("Total Invoiced"),
-                  createTableCell(formatCurrency(data.summary.totalInvoiced), AlignmentType.RIGHT),
-                ],
-              }),
-              new TableRow({
-                children: [
-                  createTableHeaderCell("Total Paid"),
-                  createTableCell(formatCurrency(data.summary.totalPaid), AlignmentType.RIGHT),
-                  createTableHeaderCell("Amount Owed"),
-                  createTableCell(formatCurrency(data.summary.totalOwed), AlignmentType.RIGHT),
-                ],
-              }),
+          ),
+
+          sectionHeading("Payments"),
+          brandTable(
+            [
+              { header: "Date" },
+              { header: "Invoice" },
+              { header: "Method" },
+              { header: "Reference" },
+              { header: "Amount", align: "right" },
             ],
-          }),
+            data.payments.map((payment) => [
+              formatDate(payment.paymentDate),
+              payment.invoiceNumber,
+              payment.method,
+              payment.reference ?? "—",
+              formatCurrency(payment.amount),
+            ]),
+            {
+              total: [
+                "Total",
+                "",
+                "",
+                "",
+                formatCurrency(
+                  data.payments.reduce((sum, p) => sum + p.amount, 0),
+                ),
+              ],
+              emptyMessage: "No payments received from this customer.",
+            },
+          ),
 
-          // Trips Section
-          new Paragraph({
-            text: "Trip History",
-            heading: HeadingLevel.HEADING_2,
-            spacing: { before: 400, after: 200 },
-          }),
-          ...(data.trips.length > 0
-            ? [
-                new Table({
-                  width: { size: 100, type: WidthType.PERCENTAGE },
-                  borders: {
-                    top: { style: BorderStyle.SINGLE, size: 1 },
-                    bottom: { style: BorderStyle.SINGLE, size: 1 },
-                    left: { style: BorderStyle.SINGLE, size: 1 },
-                    right: { style: BorderStyle.SINGLE, size: 1 },
-                    insideHorizontal: { style: BorderStyle.SINGLE, size: 1 },
-                    insideVertical: { style: BorderStyle.SINGLE, size: 1 },
-                  },
-                  rows: [
-                    new TableRow({
-                      children: [
-                        createTableHeaderCell("Trip #"),
-                        createTableHeaderCell("Origin"),
-                        createTableHeaderCell("Destination"),
-                        createTableHeaderCell("Start Date"),
-                        createTableHeaderCell("Status"),
-                        createTableHeaderCell("Fare"),
-                      ],
-                    }),
-                    ...data.trips.map(
-                      (trip) =>
-                        new TableRow({
-                          children: [
-                            createTableCell(trip.tripNumber),
-                            createTableCell(trip.origin),
-                            createTableCell(trip.destination),
-                            createTableCell(formatDate(trip.startDate)),
-                            createTableCell(trip.status),
-                            createTableCell(formatCurrency(trip.fare), AlignmentType.RIGHT),
-                          ],
-                        })
-                    ),
-                  ],
-                }),
-              ]
-            : [
-                new Paragraph({
-                  text: "No trips found for this customer.",
-                  spacing: { after: 200 },
-                }),
-              ]),
+          ...notesBlock(
+            "About this statement",
+            "Invoiced is the total raised against this customer; paid is what " +
+              "has been received against those invoices; outstanding is the " +
+              "difference. Trip fares are shown for reference and may differ " +
+              "from the invoiced total where a trip has not yet been billed.",
+          ),
 
-          // Invoices Section
-          new Paragraph({
-            text: "Invoice History",
-            heading: HeadingLevel.HEADING_2,
-            spacing: { before: 400, after: 200 },
-          }),
-          ...(data.invoices.length > 0
-            ? [
-                new Table({
-                  width: { size: 100, type: WidthType.PERCENTAGE },
-                  borders: {
-                    top: { style: BorderStyle.SINGLE, size: 1 },
-                    bottom: { style: BorderStyle.SINGLE, size: 1 },
-                    left: { style: BorderStyle.SINGLE, size: 1 },
-                    right: { style: BorderStyle.SINGLE, size: 1 },
-                    insideHorizontal: { style: BorderStyle.SINGLE, size: 1 },
-                    insideVertical: { style: BorderStyle.SINGLE, size: 1 },
-                  },
-                  rows: [
-                    new TableRow({
-                      children: [
-                        createTableHeaderCell("Invoice #"),
-                        createTableHeaderCell("Issue Date"),
-                        createTableHeaderCell("Due Date"),
-                        createTableHeaderCell("Total"),
-                        createTableHeaderCell("Paid"),
-                        createTableHeaderCell("Balance"),
-                        createTableHeaderCell("Status"),
-                      ],
-                    }),
-                    ...data.invoices.map(
-                      (invoice) =>
-                        new TableRow({
-                          children: [
-                            createTableCell(invoice.invoiceNumber),
-                            createTableCell(formatDate(invoice.issueDate)),
-                            createTableCell(formatDate(invoice.dueDate)),
-                            createTableCell(formatCurrency(invoice.total), AlignmentType.RIGHT),
-                            createTableCell(formatCurrency(invoice.amountPaid), AlignmentType.RIGHT),
-                            createTableCell(formatCurrency(invoice.balance), AlignmentType.RIGHT),
-                            createTableCell(invoice.status),
-                          ],
-                        })
-                    ),
-                  ],
-                }),
-              ]
-            : [
-                new Paragraph({
-                  text: "No invoices found for this customer.",
-                  spacing: { after: 200 },
-                }),
-              ]),
-
-          // Payments Section
-          new Paragraph({
-            text: "Payment History",
-            heading: HeadingLevel.HEADING_2,
-            spacing: { before: 400, after: 200 },
-          }),
-          ...(data.payments.length > 0
-            ? [
-                new Table({
-                  width: { size: 100, type: WidthType.PERCENTAGE },
-                  borders: {
-                    top: { style: BorderStyle.SINGLE, size: 1 },
-                    bottom: { style: BorderStyle.SINGLE, size: 1 },
-                    left: { style: BorderStyle.SINGLE, size: 1 },
-                    right: { style: BorderStyle.SINGLE, size: 1 },
-                    insideHorizontal: { style: BorderStyle.SINGLE, size: 1 },
-                    insideVertical: { style: BorderStyle.SINGLE, size: 1 },
-                  },
-                  rows: [
-                    new TableRow({
-                      children: [
-                        createTableHeaderCell("Invoice #"),
-                        createTableHeaderCell("Payment Date"),
-                        createTableHeaderCell("Method"),
-                        createTableHeaderCell("Reference"),
-                        createTableHeaderCell("Amount"),
-                      ],
-                    }),
-                    ...data.payments.map(
-                      (payment) =>
-                        new TableRow({
-                          children: [
-                            createTableCell(payment.invoiceNumber),
-                            createTableCell(formatDate(payment.paymentDate)),
-                            createTableCell(payment.method),
-                            createTableCell(payment.reference || "N/A"),
-                            createTableCell(formatCurrency(payment.amount), AlignmentType.RIGHT),
-                          ],
-                        })
-                    ),
-                  ],
-                }),
-              ]
-            : [
-                new Paragraph({
-                  text: "No payments found for this customer.",
-                  spacing: { after: 200 },
-                }),
-              ]),
-
-          // Footer
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: `Generated on ${formatDate(data.generatedAt)}`,
-                size: 18,
-                color: "888888",
-              }),
-            ],
-            alignment: AlignmentType.CENTER,
-            spacing: { before: 600 },
-          }),
+          new Paragraph(""),
         ],
       },
     ],
