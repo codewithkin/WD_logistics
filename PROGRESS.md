@@ -1,6 +1,6 @@
 # PROGRESS — client feature round (27 items)
 
-**Last updated:** 2026-09-24 (fourth pass). Working tree clean; nothing pushed.
+**Last updated:** 2026-09-24 (fifth pass). Working tree clean; nothing pushed.
 
 Read these together:
 
@@ -271,7 +271,7 @@ Three decisions worth knowing before changing anything here:
 
 1. **The dev server caches the Prisma client.** After `prisma migrate dev`, `prisma.pushDelivery` was `undefined` at runtime until the server was restarted, even though `bunx prisma generate` had run and typecheck was clean. Restart after every migration.
 2. **`server-only` breaks throwaway `bun` scripts.** Any module importing it (`lib/period-range.ts`, the registry) throws "cannot be imported from a Client Component" when run outside Next. Either stub `node_modules/server-only/index.js` for the run and restore it, or copy the logic into the script.
-3. **The typecheck baseline moved, twice.** It is **74** as of this fourth pass (it was 85 at the end of the third, 88 before that) — more pre-existing errors were fixed along the way than were introduced. **Record 74 as the new floor.** `next.config.ts` still sets `ignoreBuildErrors: true`, so type errors ship.
+3. **The typecheck baseline keeps moving down.** It is **72** as of this fifth pass (74 after the fourth, 85 after the third, 88 before that) — more pre-existing errors get fixed along the way than are introduced. **Record 72 as the new floor.** `next.config.ts` still sets `ignoreBuildErrors: true`, so type errors ship: one of them was a PDF that crashed on every generation (pitfall 12).
 4. **Python `re.sub` replacement strings eat backslashes.** A batch edit across 13 forms wrote `\"` into the source and broke every one of them. Use a plain `str.replace` for anything containing quotes.
 5. **Prisma rejects an index signature as `orderBy`.** A helper returning `Record<string, "asc"|"desc">` fails to typecheck, and — worse — the resulting error silently degrades `include` inference for the whole query, producing a cascade of "property does not exist" errors that look unrelated. Give the helper a generic and name the Prisma input type at the call site.
 6. **`take` + totals is a recurring bug shape in this codebase.** Three separate places (customer detail, single truck report, single driver report) summed a truncated list. When you see a `take:` near a total, check it.
@@ -279,32 +279,60 @@ Three decisions worth knowing before changing anything here:
 8. **Zod strips unknown keys by default, and for a write that is dangerous.** A model calling `adjust_stock` with `{direction: "out", quantity: 3}` had `direction` silently discarded and *added* three parts to the warehouse. Every assistant schema is parsed `.strict()` now. Apply the same thinking anywhere a model's output becomes a write.
 9. **`as Parameters<typeof someAction>[0]` is how a wrong payload ships.** Five write operations carried that cast; removing them showed that `record_expense` was passing `description` and `vendor` to an action that accepts neither, so the text a driver typed was dropped on the floor. If a payload needs a cast to compile, the payload is wrong.
 10. **`Expense` has no `description` column** — the free text lives in `notes`. There is no `createdById` on it either; expenses are not attributed to a user.
+11. **`tsx watch` and a WhatsApp session do not mix.** `bun run dev` restarts the agent on every save, and with no SIGINT handler Node died without closing Chromium; the next boot opened a second Chromium on the same profile directory, which corrupts it and makes WhatsApp drop the linked device. It looks exactly like "the session unauthenticated itself after I scanned". Use `bun run dev:whatsapp` (no watcher) when pairing. Note `LocalAuth.logout()` is the only thing that deletes the session folder, and nothing in this codebase calls it — rule that out first.
+12. **A type error here is not theoretical.** `profit-per-unit`'s PDF passed `{ trucks }` to a generator expecting `{ units, totals }` and crashed on *every* generation; the type error had been sitting in the baseline the whole time. When auditing, actually run the thing — this was invisible to reading and to `tsc` counting.
+13. **`requireRole` redirects, and a `catch` will swallow it.** `generateReport` turned a non-admin's blocked request into a toast reading "NEXT_REDIRECT". Any server action with a try/catch around a `requireRole` needs `unstable_rethrow(error)` first.
+14. **The `@/` alias only resolves inside `app/`.** A throwaway `bun` script kept in the scratchpad cannot import `@/lib/...`; copy it into `app/` to run, then delete it.
 
 ---
 
 ## What is left, in the order recommended
 
-All 27 items are implemented. What remains is genuinely remaining, not
-half-done:
+All 27 items are implemented, and item 27's report list is now complete.
+What remains:
 
-1. **Item 27's report list is only partly built.** The plan names roughly a
-   dozen new reports; one (`truck-cost-breakdown`) was added. Still missing:
-   P&L statement, aged receivables, creditors, cash flow by account, fuel
-   report, customer profitability, expense category report, document expiry
-   report, inventory valuation, driver performance report, trip P&L. Every
-   one of them is a data-fetcher plus a `drawTable`/`drawKpiRow` call against
-   the kit in `lib/documents/` — the pattern is established, the work is
-   volume.
-2. **Word export was never moved onto the brand kit.** `lib/reports/word-report-generator.ts`
-   still produces the old unstyled `.docx` while the PDFs are branded. Either
-   restyle it or drop the format.
-3. **CSV has no metadata header.** The plan asked for the company, period and
-   generated-at stamp above the rows; `csv-generator.ts` still starts at the
-   header row.
-4. **The assistant has never spoken to a model.** Everything up to the model
+1. **The assistant has never spoken to a model.** Everything up to the model
    call is verified end to end (see below), but `OPENROUTER_API_KEY` is not
    set anywhere, so `answerMessage()` itself has not run. This is the single
-   biggest untested surface in the feature.
+   biggest untested surface in the codebase.
+2. **No click-through in a real browser, three passes running.** Everything is
+   verified by running the real server actions, HTTP fetches and database
+   assertions. The Reports UI in particular now has 23 report types and a new
+   CSV checkbox that nobody has clicked.
+3. **WhatsApp has never been paired end to end.** The session-drop fix is
+   reasoned from the code and the library's own source, not observed on a
+   healed session — see "Pitfalls" 11.
+
+### Reports — the full set (item 27 complete)
+
+Twenty-three report types, each with a PDF and a CSV, all on the brand kit:
+
+| Area | Reports |
+|---|---|
+| Money | profit-loss, cash-flow, aged-receivables, creditors, account-ledger, revenue, expenses, customer-statement, expense-categories, customer-profitability |
+| Fleet | truck-cost-breakdown, fuel-report, maintenance-downtime, driver-performance, profit-per-unit, truck-profitability, truck-expenses, trailer-expenses |
+| Operations | trip-pnl, trip-summary, trip-expenses, document-expiry, inventory-valuation |
+
+Registration for a new report is four files: `config/reports.ts`,
+`config/report-tabs.ts`, a case in `reports/actions.ts`, and the CSV. New
+multi-section reports use `lib/reports/csv-sections.ts` rather than
+hand-rolling a header block.
+
+**Definitions decided here, because they are judgement calls and the reports
+state them on their face:**
+
+- *Ageing* counts days past the **due** date, never days since the invoice was
+  raised. Supplier debt ages from the expense date plus that supplier's terms.
+- *Cash out* is supplier payments plus spending that never went through a
+  supplier — an expense owed to a supplier is counted when the supplier is
+  paid, so the same money never leaves twice.
+- *Customer profitability* and *trip P&L* are **contribution**, not net
+  profit: they carry the costs booked against the trip, not a share of
+  standing truck costs or overheads.
+- *Fuel* is found by the category's cost `kind`, never by matching the
+  category name.
+- *Downtime* counts from a job being raised until it is marked fixed; an open
+  job counts up to today.
 
 ## Verification actually done this pass
 
@@ -346,6 +374,29 @@ against the live dev server and the real database:
   baseline**: expenses $6,735,952 and completed-trip revenue $20,008,160,
   both exact. The two test contacts were deleted, so the assistant currently
   authorises nobody.
+
+**Fifth pass — reports.** Every claim here was produced by running the real
+`generateReport` server action (driven through `lib/acting-session`, the same
+mechanism the WhatsApp assistant uses), not by reading code:
+
+- **All 23 report types generate in both formats: 46 of 46.** PDFs verified to
+  start with `%PDF`; CSVs non-empty.
+- **The reports agree with each other and with the dashboard.** P&L,
+  profit-per-unit, customer profitability, trip P&L and driver performance
+  each independently arrive at revenue **$20,008,160**; customer profitability
+  and trip P&L each arrive at profit **$16,225,832**; the fuel report's figure
+  for KCD 012J ($392,662 over 12,525 km) is identical to what that truck's own
+  page computes; the expense-category breakdown re-sums to the total three
+  ways (category, cost type, month).
+- **Ageing was tested with fixtures placed in each bucket**, and all five
+  landed correctly (current / 1-30 / 31-60 / 61-90 / 90+), including the
+  supplier-terms arithmetic. Fixtures were removed afterwards and the totals
+  confirmed back to baseline.
+- **A period with no data produces a valid document, not an error**, checked
+  across five report types against the year 2000.
+- **Reports stay admin-only**: supervisor, staff and workshop are all turned
+  away by the real action; only admin gets bytes back.
+- `bun run build` compiles for both services.
 
 What was **not** checked this pass:
 
