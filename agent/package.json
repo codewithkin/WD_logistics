@@ -8,7 +8,8 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "dev:whatsapp": "tsx src/index.ts",
-    "check:whatsapp": "tsx scripts/check-whatsapp-session.ts"
+    "check:whatsapp": "tsx scripts/check-whatsapp-session.ts",
+    "check:assistant": "tsx scripts/live-assistant-check.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "^1.3.22",
