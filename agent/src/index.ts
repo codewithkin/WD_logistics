@@ -11,6 +11,8 @@ import whatsapp from "./routes/whatsapp";
 import testWhatsApp from "./routes/test-whatsapp";
 import webhooks from "./routes/webhooks";
 import { getAgentWhatsAppClient } from "./lib/whatsapp";
+import { answerMessage } from "./agents/assistant";
+import { logModelConfiguration } from "./lib/model";
 import { notificationsApi } from "./lib/api-client";
 
 /**
@@ -33,6 +35,10 @@ import { logisticsAgent } from "./agents/logistics-agent";
 import qrcode from "qrcode-terminal"
 
 const app = new Hono();
+
+// Print the model and key status at boot: a missing OPENROUTER_API_KEY
+// otherwise shows up as the assistant silently never replying.
+logModelConfiguration();
 
 // Allowed origins for CORS
 const allowedOrigins = [
@@ -248,50 +254,32 @@ const initWhatsApp = async () => {
             return;
           }
           
-          // Check if sender is authorized
-          console.log(`🔐 Checking authorization...`);
-          const isAuthorized = isAuthorizedNumber(phoneNumber);
-          
-          if (!isAuthorized) {
-            console.log(`⛔ EARLY RETURN: Unauthorized number`);
-            console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
-            return;
+          // Who is this? The allowlist lives in the app now, managed by an
+          // admin under Settings, rather than in three environment variables
+          // that needed a redeploy to change.
+          console.log(`🔐 Checking the contact list...`);
+
+          const reply = await answerMessage({
+            phone: phoneNumber,
+            message: msg.body,
+          });
+
+          if (reply.error) {
+            console.log(`⚠️ Assistant reported a problem: ${reply.error}`);
           }
-          
-          // ✅ MESSAGE PASSED ALL CHECKS - LOG IT
-          console.log(`\n✅ MESSAGE PASSED ALL CHECKS ✅`);
-          console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
-          console.log(`✓ From authorized number: ${phoneNumber}`);
-          
-          // Get user's name for personalization
-          const userName = getAuthorizedUserName(phoneNumber);
-          console.log(`✓ User identified as: ${userName || 'Unknown'}`);
-          
-          console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
-          console.log(`📝 Processing message with AI agent...`);
-          
-          // Get organization ID from environment (default to first org)
-          // In production, you might want to map phone numbers to specific organizations
-          const organizationId = "default-org-id"; // TODO: Map authorized numbers to their org IDs
-          
-          // Build context with user identification
-          const userContext = userName 
-            ? `[User: ${userName}] [Organization ID: ${organizationId}]\n\n` 
-            : `[Organization ID: ${organizationId}]\n\n`;
-          
-          // Process with AI agent (full access to business data)
-          const response = await logisticsAgent.generate([
-            {
-              role: "user",
-              content: `${userContext}${msg.body}`,
-            },
-          ]);
-          
-          console.log(`💬 Generated response (${response.text.length} characters)`);
-          console.log(`   Preview: "${response.text.substring(0, 60)}${response.text.length > 60 ? '...' : ''}"`);
-          
-          // Reply to the message
-          await replyToMessage(msg, response.text);
+          if (reply.didWrite) {
+            console.log(`✍️  This message changed data — see the transcript.`);
+          }
+          console.log(
+            `🔧 Tools used: ${
+              reply.toolCalls.length === 0
+                ? "none"
+                : reply.toolCalls.map((c) => `${c.tool}${c.ok ? "" : " (failed)"}`).join(", ")
+            }`
+          );
+          console.log(`💬 Replying (${reply.text.length} characters)`);
+
+          await replyToMessage(msg, reply.text);
           console.log(`✅ Message sent to ${phoneNumber}`);
           console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
           
