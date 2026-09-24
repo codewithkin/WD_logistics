@@ -264,8 +264,8 @@ async function getRecentActivity(organizationId: string, params: { limit?: numbe
     recentPayments: recentPayments.map((payment) => ({
       id: payment.id,
       type: "payment",
-      invoiceNumber: payment.invoice.invoiceNumber,
-      customerName: payment.invoice.customer.name,
+      invoiceNumber: payment.invoice?.invoiceNumber ?? null,
+      customerName: payment.invoice?.customer.name ?? null,
       amount: payment.amount,
       method: payment.method,
       date: payment.paymentDate.toISOString(),

@@ -64,7 +64,10 @@ export function TripRevenueExpenseChart({ revenue, expenses }: TripRevenueExpens
                             />
                             <Tooltip
                                 cursor={{ fill: "transparent" }}
-                                formatter={(value: number) => [`$${value.toLocaleString()}`, ""]}
+                                formatter={(value) => [
+                                    `$${Number(value).toLocaleString()}`,
+                                    "",
+                                ]}
                                 contentStyle={{
                                     backgroundColor: "hsl(var(--background))",
                                     border: "1px solid hsl(var(--border))",

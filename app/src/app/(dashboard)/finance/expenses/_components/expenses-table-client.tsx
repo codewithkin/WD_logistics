@@ -35,7 +35,13 @@ import { usePeriodRange } from "@/lib/use-period-range";
 import { useRouter } from "next/navigation";
 import { formatCurrency } from "@/lib/utils";
 
-interface Expense {
+/**
+ * The shape this table needs. Exported so the overview that feeds it uses the
+ * same declaration rather than a second, near-identical copy — the two had
+ * drifted (driverExpenses optional in one, required in the other), which is
+ * what TypeScript meant by "two different types with this name".
+ */
+export interface Expense {
     id: string;
     amount: number;
     description: string | null;

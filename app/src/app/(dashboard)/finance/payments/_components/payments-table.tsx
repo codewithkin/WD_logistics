@@ -50,6 +50,10 @@ interface Payment {
     method: string;
     customMethod: string | null;
     reference: string | null;
+    /**
+     * Null for a payment recorded without an invoice behind it — the schema
+     * allows it, and the WhatsApp assistant can create one that way.
+     */
     invoice: {
         id: string;
         invoiceNumber: string;
@@ -57,7 +61,7 @@ interface Payment {
             id: string;
             name: string;
         };
-    };
+    } | null;
 }
 
 interface PaymentsTableProps {
@@ -84,8 +88,8 @@ export function PaymentsTable({ payments, role, showFinancials = true }: Payment
 
     const filteredPayments = payments.filter((payment) => {
         return (
-            payment.invoice.invoiceNumber.toLowerCase().includes(search.toLowerCase()) ||
-            payment.invoice.customer.name.toLowerCase().includes(search.toLowerCase()) ||
+            (payment.invoice?.invoiceNumber ?? "").toLowerCase().includes(search.toLowerCase()) ||
+            (payment.invoice?.customer.name ?? "").toLowerCase().includes(search.toLowerCase()) ||
             payment.reference?.toLowerCase().includes(search.toLowerCase())
         );
     });
@@ -243,20 +247,30 @@ export function PaymentsTable({ payments, role, showFinancials = true }: Payment
                                     <TableRow key={payment.id}>
                                         <TableCell>{format(payment.paymentDate, "MMM d, yyyy")}</TableCell>
                                         <TableCell>
-                                            <Link
-                                                href={`/finance/invoices/${payment.invoice.id}`}
-                                                className="font-medium text-primary hover:underline"
-                                            >
-                                                {payment.invoice.invoiceNumber}
-                                            </Link>
+                                            {payment.invoice ? (
+                                                <Link
+                                                    href={`/finance/invoices/${payment.invoice.id}`}
+                                                    className="font-medium text-primary hover:underline"
+                                                >
+                                                    {payment.invoice.invoiceNumber}
+                                                </Link>
+                                            ) : (
+                                                <span className="text-muted-foreground">
+                                                    No invoice
+                                                </span>
+                                            )}
                                         </TableCell>
                                         <TableCell>
-                                            <Link
-                                                href={`/customers/${payment.invoice.customer.id}`}
-                                                className="text-primary hover:underline"
-                                            >
-                                                {payment.invoice.customer.name}
-                                            </Link>
+                                            {payment.invoice ? (
+                                                <Link
+                                                    href={`/customers/${payment.invoice.customer.id}`}
+                                                    className="text-primary hover:underline"
+                                                >
+                                                    {payment.invoice.customer.name}
+                                                </Link>
+                                            ) : (
+                                                <span className="text-muted-foreground">—</span>
+                                            )}
                                         </TableCell>
                                         <TableCell>
                                             {payment.method === "other" && payment.customMethod ? (

@@ -373,8 +373,9 @@ export async function exportPaymentsPDF(options?: {
     });
 
     const paymentData = payments.map((pmt) => ({
-      invoiceNumber: pmt.invoice.invoiceNumber,
-      customer: pmt.invoice.customer.name,
+      // A payment can stand alone, with no invoice behind it.
+      invoiceNumber: pmt.invoice?.invoiceNumber ?? "—",
+      customer: pmt.invoice?.customer.name ?? "—",
       amount: pmt.amount,
       paymentDate: pmt.paymentDate,
       method: pmt.method,
@@ -413,19 +414,17 @@ export async function downloadPaymentReceiptPDF(paymentId: string) {
   const session = await requireRole(["admin", "supervisor"]);
   const { generatePaymentReceiptPDF } = await import("@/lib/reports/receipt-generator");
 
+  // Scoped through the customer, not the invoice: `invoiceId` is optional, so
+  // filtering on the invoice relation made every direct payment report
+  // "Payment not found" and no receipt could ever be issued for one.
   const payment = await prisma.payment.findFirst({
     where: {
       id: paymentId,
-      invoice: {
-        organizationId: session.organizationId,
-      },
+      customer: { organizationId: session.organizationId },
     },
     include: {
-      invoice: {
-        include: {
-          customer: true,
-        },
-      },
+      customer: true,
+      invoice: true,
     },
   });
 
@@ -448,17 +447,21 @@ export async function downloadPaymentReceiptPDF(paymentId: string) {
       reference: payment.reference,
       notes: payment.notes,
     },
-    invoice: {
-      invoiceNumber: payment.invoice.invoiceNumber,
-      total: payment.invoice.total,
-      amountPaid: payment.invoice.amountPaid,
-      balance: payment.invoice.balance,
-    },
+    // The receipt template already renders without an invoice block; it just
+    // has to be told there isn't one.
+    invoice: payment.invoice
+      ? {
+          invoiceNumber: payment.invoice.invoiceNumber,
+          total: payment.invoice.total,
+          amountPaid: payment.invoice.amountPaid,
+          balance: payment.invoice.balance,
+        }
+      : null,
     customer: {
-      name: payment.invoice.customer.name,
-      email: payment.invoice.customer.email,
-      phone: payment.invoice.customer.phone,
-      address: payment.invoice.customer.address,
+      name: payment.customer.name,
+      email: payment.customer.email,
+      phone: payment.customer.phone,
+      address: payment.customer.address,
     },
     organization: {
       name: organization?.name || "Unknown",

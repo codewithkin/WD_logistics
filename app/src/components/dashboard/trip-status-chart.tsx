@@ -59,14 +59,26 @@ export function TripStatusChart({ data }: TripStatusChartProps) {
                         <ResponsiveContainer width="100%" height={300}>
                             <PieChart>
                                 <Pie
-                                    data={data}
+                                    // Recharts' own data type is an index-signature
+                                    // shape; a named interface is not assignable to
+                                    // it even when every field matches.
+                                    data={data as unknown as Record<string, unknown>[]}
                                     cx="50%"
                                     cy="50%"
                                     innerRadius={60}
                                     outerRadius={100}
                                     paddingAngle={2}
                                     dataKey="count"
-                                    label={({ status, percentage }) => `${status} (${percentage.toFixed(0)}%)`}
+                                    // recharts hands the whole row to the label
+                                    // callback but types the argument as
+                                    // PieLabelRenderProps, which declares none of the
+                                    // row's own fields. Reading it back through the
+                                    // real shape is honest about that, and keeps the
+                                    // access type-checked from here on.
+                                    label={(props) => {
+                                        const row = props as unknown as TripStatusData;
+                                        return `${row.status} (${row.percentage.toFixed(0)}%)`;
+                                    }}
                                 >
                                     {data.map((entry, index) => (
                                         <Cell key={`cell-${index}`} fill={entry.color} />

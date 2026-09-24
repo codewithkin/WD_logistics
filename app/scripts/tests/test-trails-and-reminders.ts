@@ -237,3 +237,9 @@ if (failures.length > 0) {
   for (const f of failures) console.log(`  - ${f}`);
   process.exit(1);
 }
+
+// Nothing is imported at the top level here — every dependency is pulled in
+// with a dynamic import inside the test bodies — so TypeScript treats this as
+// a script rather than a module and rejects the top-level awaits. This makes
+// it a module without changing what it does.
+export {};

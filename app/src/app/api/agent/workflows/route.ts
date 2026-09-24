@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { validateAgentRequest } from "@/lib/agent-auth";
+import { Prisma } from "@/generated/prisma/client";
+import { validateAgentRequest, getOrganizationId } from "@/lib/agent-auth";
 
 // Trip Notification Actions
 async function getUpcomingTripsForNotification(
@@ -113,8 +114,15 @@ async function createNotification(data: {
   message: string;
   status: string;
   metadata: Record<string, unknown>;
+  organizationId?: string;
 }) {
-  await prisma.notification.create({ data });
+  const { metadata, ...rest } = data;
+  await prisma.notification.create({
+    // Prisma types a Json column as InputJsonValue, which an open
+    // Record<string, unknown> does not satisfy; the cast is at the boundary
+    // rather than widening the function's own signature.
+    data: { ...rest, metadata: metadata as Prisma.InputJsonValue },
+  });
 }
 
 async function updateNotificationStatus(
@@ -253,7 +261,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: validation.error }, { status: 401 });
   }
 
-  const { organizationId } = validation;
+  // validateAgentRequest only answers "is this the agent" — it has never
+  // returned an organisation. Destructuring one off it left organizationId
+  // permanently undefined, so every request to this endpoint fell straight
+  // into the 400 below and the whole workflows API was dead. The id comes
+  // from the x-organization-id header, the same as every other agent route.
+  const organizationId = getOrganizationId(request);
   if (!organizationId) {
     return NextResponse.json({ error: "Missing organization ID" }, { status: 400 });
   }

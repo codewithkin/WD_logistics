@@ -745,8 +745,14 @@ export interface TripAssignmentEmailData {
   driverEmail: string;
   driverName: string;
   origin: string;
+  /** Street address, where one was recorded — the depot, not just the city. */
+  originAddress?: string;
   destination: string;
+  destinationAddress?: string;
   scheduledDate: Date;
+  /** Planned window, where the trip has one. */
+  startDate?: Date;
+  endDate?: Date;
   loadDescription?: string;
   truckRegistration: string;
   customerName?: string;
@@ -777,9 +783,11 @@ Hello ${data.driverName},
 
 You have been assigned a new trip:
 
-FROM: ${data.origin}
-TO: ${data.destination}
+FROM: ${data.origin}${data.originAddress ? ` (${data.originAddress})` : ""}
+TO: ${data.destination}${data.destinationAddress ? ` (${data.destinationAddress})` : ""}
 DATE: ${formatDate(data.scheduledDate)}
+${data.startDate ? `STARTS: ${formatDate(data.startDate)}` : ""}
+${data.endDate ? `DUE BACK: ${formatDate(data.endDate)}` : ""}
 TRUCK: ${data.truckRegistration}
 ${data.customerName ? `CUSTOMER: ${data.customerName}` : ""}
 ${data.loadDescription ? `LOAD: ${data.loadDescription}` : ""}
@@ -819,9 +827,9 @@ ${orgName}
       <p>You have been assigned a new trip. Please find the details below:</p>
       
       <div class="route">
-        <strong style="font-size: 18px;">${data.origin}</strong>
+        <strong style="font-size: 18px;">${data.origin}</strong>${data.originAddress ? `<br><span style="font-size: 13px; color: #6b7280;">${data.originAddress}</span>` : ""}
         <span class="route-arrow">→</span>
-        <strong style="font-size: 18px;">${data.destination}</strong>
+        <strong style="font-size: 18px;">${data.destination}</strong>${data.destinationAddress ? `<br><span style="font-size: 13px; color: #6b7280;">${data.destinationAddress}</span>` : ""}
       </div>
 
       <div class="trip-details">

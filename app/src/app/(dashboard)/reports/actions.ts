@@ -685,8 +685,18 @@ export async function generateReport(
         const data = await fetchRevenueData(organizationId, start, end);
         
         if (format === "pdf") {
+          // The fetcher calls it `invoiceNo` and carries the trip; the
+          // generator wants `invoiceNumber` and a `description`. Passing the
+          // rows straight through left the Invoice # column blank on every
+          // revenue PDF ever produced, and dropped the trip entirely.
           const pdfBytes = generateRevenueReportPDF({
-            items: data,
+            items: data.map((row) => ({
+              date: row.date,
+              customer: row.customer,
+              invoiceNumber: row.invoiceNo,
+              description: row.trip,
+              amount: row.amount,
+            })),
             period: periodObj,
           });
           fileBuffer = pdfBytes;

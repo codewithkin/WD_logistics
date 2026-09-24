@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Plus, FileSpreadsheet, BarChart3, DollarSign, Receipt, Truck, MapPin, List, FileText, Download, User } from "lucide-react";
 import Link from "next/link";
-import { ExpensesTableClient } from "./expenses-table-client";
+import { ExpensesTableClient, type Expense } from "./expenses-table-client";
 import { ExpenseCharts } from "./expense-charts";
 import { formatCurrency } from "@/lib/utils";
 
@@ -28,36 +28,6 @@ interface Category {
     };
 }
 
-interface Expense {
-    id: string;
-    amount: number;
-    description: string | null;
-    date: Date;
-    category: {
-        id: string;
-        name: string;
-        color: string | null;
-    };
-    truckExpenses: Array<{
-        truck: {
-            registrationNo: string;
-        };
-    }>;
-    tripExpenses: Array<{
-        trip: {
-            id: string;
-            originCity: string;
-            destinationCity: string;
-        };
-    }>;
-    driverExpenses?: Array<{
-        driver: {
-            id: string;
-            firstName: string;
-            lastName: string;
-        };
-    }>;
-}
 
 interface ExpensesOverviewProps {
     categories: Category[];

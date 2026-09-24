@@ -290,13 +290,27 @@ export function ExpensesAnalytics({ analytics, expenses, canExport, categoryId, 
                                         paddingAngle={2}
                                         dataKey="amount"
                                         nameKey="name"
-                                        label={({ name, amount }) => `${name}: $${amount.toLocaleString()}`}
+                                        // See the note in trip-status-chart: recharts
+                                        // passes the row but types it as
+                                        // PieLabelRenderProps, which declares none of
+                                        // its fields.
+                                        label={(props) => {
+                                            const row = props as unknown as {
+                                                name: string;
+                                                amount: number;
+                                            };
+                                            return `${row.name}: $${row.amount.toLocaleString()}`;
+                                        }}
                                     >
                                         {analytics.categoryBreakdown.map((entry, index) => (
                                             <Cell key={`cell-${index}`} fill={CATEGORY_COLORS[index % CATEGORY_COLORS.length]} />
                                         ))}
                                     </Pie>
-                                    <Tooltip formatter={(value: number) => `$${value.toLocaleString()}`} />
+                                    <Tooltip
+                                        formatter={(value) =>
+                                            `$${Number(value).toLocaleString()}`
+                                        }
+                                    />
                                     <Legend />
                                 </PieChart>
                             </ResponsiveContainer>
@@ -324,9 +338,14 @@ export function ExpensesAnalytics({ analytics, expenses, canExport, categoryId, 
                                             backgroundColor: "hsl(var(--background))",
                                             border: "1px solid hsl(var(--border))",
                                         }}
-                                        formatter={(value: number, name: string) => {
-                                            if (name === "amount") return [`$${value.toLocaleString()}`, "Amount"];
-                                            return [value, name];
+                                        formatter={(value, name) => {
+                                            if (name === "amount") {
+                                                return [
+                                                    `$${Number(value).toLocaleString()}`,
+                                                    "Amount",
+                                                ];
+                                            }
+                                            return [String(value), String(name)];
                                         }}
                                     />
                                     <Legend />

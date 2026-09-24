@@ -18,11 +18,10 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true
   },
-  eslint: {
-    // Matches the typescript setting above: `next build` shouldn't fail a
-    // Docker image build over lint findings that don't block `next dev`.
-    ignoreDuringBuilds: true
-  },
+  // Next 16 removed the built-in ESLint integration (and `next lint` with it),
+  // so there is no `eslint.ignoreDuringBuilds` to set any more — the key was
+  // dead config that only TypeScript was complaining about. `next build` no
+  // longer runs ESLint at all; lint with `bun run lint`.
   // Allow <Image>/next/image to render files served from Cloudflare R2's
   // public URL (R2_PUBLIC_URL — see src/lib/r2.ts). Derived from the env var
   // so a different bucket/custom domain doesn't need a code change — falls

@@ -364,7 +364,8 @@ export async function exportCustomerDetailWord(customerId: string) {
         paymentDate: p.paymentDate,
         method: p.method,
         reference: p.reference,
-        invoiceNumber: p.invoice.invoiceNumber,
+        // Payments need not be tied to an invoice.
+        invoiceNumber: p.invoice?.invoiceNumber ?? "—",
       })),
       summary: {
         totalTrips,
