@@ -20,9 +20,48 @@
  */
 
 import fs from "fs";
+import path from "path";
 import { Pool } from "pg";
 
 const TABLE = "whatsapp_session";
+
+/** The places RemoteAuth has put the archive, newest convention first. */
+export function sessionArchiveCandidates(dataPath: string, session: string): string[] {
+  return [
+    // Current whatsapp-web.js: RemoteAuth.compressSession() writes
+    // path.join(this.dataPath, `${this.sessionName}.zip`).
+    path.join(path.resolve(dataPath), `${session}.zip`),
+    // Older versions wrote it relative to the working directory.
+    path.resolve(`${session}.zip`),
+  ];
+}
+
+/**
+ * Finds the archive RemoteAuth just wrote, or explains where it looked.
+ *
+ * Exported so scripts/check-whatsapp-session.ts can prove the convention
+ * still matches the installed library — guessing it wrong is what produced
+ * `ENOENT ... open 'RemoteAuth-agent-whatsapp.zip'` on every backup.
+ */
+export async function resolveSessionArchive(
+  dataPath: string,
+  session: string,
+): Promise<string> {
+  const candidates = sessionArchiveCandidates(dataPath, session);
+
+  for (const candidate of candidates) {
+    try {
+      await fs.promises.access(candidate);
+      return candidate;
+    } catch {
+      // Try the next one.
+    }
+  }
+
+  throw new Error(
+    `RemoteAuth did not leave an archive for "${session}". Looked in: ${candidates.join(", ")}`,
+  );
+}
 
 /**
  * Created here as well as in the app's Prisma schema.
@@ -53,8 +92,15 @@ const CREATE_TABLE = `
 export class PostgresSessionStore {
   private pool: Pool;
   private ready: Promise<void> | null = null;
+  private dataPath: string;
 
-  constructor(connectionString: string) {
+  /**
+   * @param dataPath the same directory handed to RemoteAuth's `dataPath`.
+   *                 It is where the library writes the archive, and it does
+   *                 not tell the store where that is — see save().
+   */
+  constructor(connectionString: string, dataPath: string) {
+    this.dataPath = path.resolve(dataPath);
     this.pool = new Pool({
       connectionString,
       // One or two connections is plenty: this is touched on boot and then
@@ -87,30 +133,65 @@ export class PostgresSessionStore {
   }
 
   /**
+   * Where RemoteAuth just wrote the archive.
+   *
+   * `store.save()` is called with the session name and nothing else, so the
+   * store has to know the path by convention — and the convention changed.
+   * Current whatsapp-web.js compresses to `<dataPath>/<session>.zip`
+   * (RemoteAuth.compressSession), older versions wrote `<session>.zip`
+   * relative to the working directory. Reading the old location against the
+   * current library is what produced
+   *
+   *   ENOENT: no such file or directory, open 'RemoteAuth-agent-whatsapp.zip'
+   *
+   * on every single backup. Try where the library puts it now, fall back to
+   * the old spot, so neither version breaks us.
+   */
+  private locateArchive(session: string): Promise<string> {
+    return resolveSessionArchive(this.dataPath, session);
+  }
+
+  /**
    * Stores the archive RemoteAuth has just written.
    *
-   * It compresses to `<session>.zip` in the working directory and then calls
-   * this with only the session name — the path is a convention of the
-   * library, not something it passes.
+   * **Never throws.** RemoteAuth calls this from an un-caught `setInterval`
+   * (its backupSync) and from afterAuthReady, so a rejection here becomes an
+   * unhandled rejection and Node kills the agent — which is exactly what
+   * happened: a backup failure took down a perfectly healthy WhatsApp
+   * connection, and the restart then tripped over the session lock the dead
+   * process had left behind.
+   *
+   * A failed backup is not fatal. The live session is still in Chromium and
+   * the next cycle tries again; what matters is that the failure is loud and
+   * that `lastSavedAt` visibly stops advancing.
    */
   async save(options: { session: string }): Promise<void> {
-    await this.ensureTable();
-    const file = `${options.session}.zip`;
-    const data = await fs.promises.readFile(file);
+    try {
+      await this.ensureTable();
+      const file = await this.locateArchive(options.session);
+      const data = await fs.promises.readFile(file);
 
-    await this.pool.query(
-      `INSERT INTO ${TABLE} (session, data, size_bytes, updated_at)
-       VALUES ($1, $2, $3, now())
-       ON CONFLICT (session) DO UPDATE
-         SET data = EXCLUDED.data,
-             size_bytes = EXCLUDED.size_bytes,
-             updated_at = now()`,
-      [options.session, data, data.length],
-    );
+      await this.pool.query(
+        `INSERT INTO ${TABLE} (session, data, size_bytes, updated_at)
+         VALUES ($1, $2, $3, now())
+         ON CONFLICT (session) DO UPDATE
+           SET data = EXCLUDED.data,
+               size_bytes = EXCLUDED.size_bytes,
+               updated_at = now()`,
+        [options.session, data, data.length],
+      );
 
-    console.log(
-      `💾 [whatsapp] session saved to Postgres (${(data.length / 1024 / 1024).toFixed(1)} MB)`,
-    );
+      console.log(
+        `💾 [whatsapp] session saved to Postgres (${(data.length / 1024 / 1024).toFixed(1)} MB)`,
+      );
+    } catch (error) {
+      console.error(
+        `❌ [whatsapp] session backup failed; the pairing is still live but is ` +
+          `no longer being copied to Postgres, so a redeploy would lose it. ` +
+          `Retrying on the next backup cycle.`,
+        error,
+      );
+    }
   }
 
   /** Writes the stored archive to the path RemoteAuth asks for. */

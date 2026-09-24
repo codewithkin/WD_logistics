@@ -59,7 +59,10 @@ function buildAuthStrategy() {
     });
   }
 
-  sessionStore = sessionStore ?? new PostgresSessionStore(connectionString);
+  // The store is given the same dataPath as RemoteAuth below: that is where
+  // the library writes the archive it then asks the store to save.
+  sessionStore =
+    sessionStore ?? new PostgresSessionStore(connectionString, WHATSAPP_AUTH_PATH);
   console.log("🗄️  [whatsapp] session stored in Postgres; survives redeploys");
 
   return new RemoteAuth({
