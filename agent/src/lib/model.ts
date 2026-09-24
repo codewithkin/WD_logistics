@@ -9,10 +9,13 @@
  * assistant where somebody is waiting on their phone, and it handles tool
  * calling well enough for the dozen-odd tools each caller gets.
  *
- * ⚠️ If the default id is ever wrong (OpenRouter renames models from time to
- * time), set ASSISTANT_MODEL and no code change is needed. The startup log
- * prints which id is in use, and a bad id fails on the first message with the
- * provider's own error rather than silently.
+ * ⚠️ The default id must be one OpenRouter actually serves. The first default
+ * written here, "google/gemini-3-flash", did not exist — the catalogue offers
+ * "google/gemini-3-flash-preview" and "google/gemini-3.5-flash" but no plain
+ * "gemini-3-flash" — so the assistant would have failed on its first real
+ * message. Check against https://openrouter.ai/api/v1/models before changing
+ * it. Set ASSISTANT_MODEL to override without a deploy; the startup log
+ * prints the id in use, and a bad one fails loudly with the provider's error.
  */
 
 import { createOpenAI } from "@ai-sdk/openai";
@@ -21,7 +24,7 @@ const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || "";
 
 /** Override with ASSISTANT_MODEL to pin a different model. */
 export const ASSISTANT_MODEL =
-  process.env.ASSISTANT_MODEL || "google/gemini-3-flash";
+  process.env.ASSISTANT_MODEL || "google/gemini-3.5-flash";
 
 /**
  * Where the model actually lives.

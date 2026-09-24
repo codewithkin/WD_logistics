@@ -54,6 +54,25 @@ export function weakerRole(a: string, b: string): string {
   return (ROLE_RANK[a] ?? -1) <= (ROLE_RANK[b] ?? -1) ? a : b;
 }
 
+/**
+ * Whether this caller may see money at all.
+ *
+ * Settings tells an admin that the `readonly` level "changes nothing, sees no
+ * money", and that is the promise the person granting it is relying on. It was
+ * not true: `list_trips` returned each trip's revenue and `list_customers`
+ * returned each customer's outstanding balance, so a yard hand could ask for
+ * the month's trips and add them up. Hiding the financial *tools* is not
+ * enough when an operational tool carries the figures.
+ *
+ * Staff and above keep these — staff are promised invoices, supervisors record
+ * payments, and neither is possible without amounts. The heavier financial
+ * operations (summary, truck costs, fleet ranking, driver performance) stay
+ * admin-only, matching lib/permissions.canViewFinancialData.
+ */
+function seesMoney(role: string): boolean {
+  return role !== "readonly";
+}
+
 export interface OperationContext {
   organizationId: string;
   /** The contact's role, already resolved from their phone number. */
@@ -209,7 +228,7 @@ const readOperations: Operation[] = [
     handler: async (args, ctx) => {
       const a = args as Record<string, string | number | undefined>;
       const range = resolveRange(a.period as string, a.from as string, a.to as string);
-      return prisma.trip.findMany({
+      const trips = await prisma.trip.findMany({
         where: {
           organizationId: ctx.organizationId,
           scheduledDate: { gte: range.from, lte: range.to },
@@ -233,12 +252,28 @@ const readOperations: Operation[] = [
         orderBy: { scheduledDate: "desc" },
         take: Math.min((a.limit as number) ?? 20, 50),
       });
+
+      if (seesMoney(ctx.role)) return trips;
+      // The key is omitted rather than zeroed: a zero reads as "this trip
+      // earned nothing", which is worse than it plainly not being there.
+      return trips.map((trip) => ({
+        id: trip.id,
+        originCity: trip.originCity,
+        destinationCity: trip.destinationCity,
+        scheduledDate: trip.scheduledDate,
+        status: trip.status,
+        driverNotified: trip.driverNotified,
+        truck: trip.truck,
+        driver: trip.driver,
+        customer: trip.customer,
+      }));
     },
   },
 
   {
     name: "list_customers",
-    description: "List customers with their outstanding balance.",
+    description:
+      "List customers. Their outstanding balance is included for staff and above.",
     requires: "readonly",
     schema: z.object({
       search: z.string().optional(),
@@ -247,10 +282,12 @@ const readOperations: Operation[] = [
     }),
     handler: async (args, ctx) => {
       const a = args as { search?: string; owingOnly?: boolean; limit?: number };
-      return prisma.customer.findMany({
+      const customers = await prisma.customer.findMany({
         where: {
           organizationId: ctx.organizationId,
-          ...(a.owingOnly ? { balance: { gt: 0 } } : {}),
+          // "Who owes us" is itself a financial question; for a readonly
+          // caller the filter is ignored rather than answered indirectly.
+          ...(a.owingOnly && seesMoney(ctx.role) ? { balance: { gt: 0 } } : {}),
           ...(a.search
             ? { name: { contains: a.search, mode: "insensitive" } }
             : {}),
@@ -266,6 +303,15 @@ const readOperations: Operation[] = [
         orderBy: { name: "asc" },
         take: Math.min(a.limit ?? 20, 50),
       });
+
+      if (seesMoney(ctx.role)) return customers;
+      return customers.map((customer) => ({
+        id: customer.id,
+        name: customer.name,
+        phone: customer.phone,
+        email: customer.email,
+        status: customer.status,
+      }));
     },
   },
 
@@ -420,6 +466,46 @@ const readOperations: Operation[] = [
         profit: money(revenue - totalExpenses),
         margin: revenue > 0 ? `${(((revenue - totalExpenses) / revenue) * 100).toFixed(1)}%` : "n/a",
         outstandingFromCustomers: money(outstanding._sum.balance ?? 0),
+      };
+    },
+  },
+
+  {
+    name: "get_expense_breakdown",
+    description:
+      "What the company spent in a period, broken down by expense category and by cost type (fuel, maintenance, tyres, tolls, salaries...). Use this to compare spending between categories — it answers in one call.",
+    requires: "admin",
+    schema: z.object({ ...periodArgs }),
+    handler: async (args, ctx) => {
+      const a = args as Record<string, string | undefined>;
+      const range = resolveRange(a.period, a.from, a.to);
+
+      // The same figures the "Expenses by Category" report prints, so the
+      // number quoted over WhatsApp and the number on the PDF are one number.
+      const { fetchExpenseCategoryReportData } = await import(
+        "@/lib/reports/operations-fetchers"
+      );
+      const data = await fetchExpenseCategoryReportData(
+        ctx.organizationId,
+        range.from,
+        range.to,
+      );
+
+      return {
+        period: range.label,
+        total: money(data.total),
+        entries: data.entries,
+        byCostType: data.byKind.map((k) => ({
+          type: k.kind,
+          amount: money(k.total),
+          share: `${k.share.toFixed(1)}%`,
+        })),
+        byCategory: data.rows.slice(0, 15).map((r) => ({
+          category: r.category,
+          type: r.kind,
+          amount: money(r.total),
+          share: `${r.share.toFixed(1)}%`,
+        })),
       };
     },
   },
