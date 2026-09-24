@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -57,6 +58,7 @@ const reportFormSchema = z.object({
         to: z.date(),
     }),
     format: z.enum(["pdf", "csv"]),
+    includeMetadata: z.boolean().optional(),
     customerId: z.string().optional(),
     truckId: z.string().optional(),
     trailerId: z.string().optional(),
@@ -113,11 +115,13 @@ export function ReportGenerator({
             period: presetPeriod,
             dateRange: defaultDateRange,
             format: "pdf",
+            includeMetadata: true,
         },
     });
 
     const selectedReportType = form.watch("reportType");
     const selectedPeriod = form.watch("period");
+    const selectedFormat = form.watch("format");
     const reportConfig = selectedReportType ? reportConfigs[selectedReportType] : null;
 
     // Auto-set date range based on period selection
@@ -168,6 +172,7 @@ export function ReportGenerator({
                     endDate: values.dateRange.to.toISOString(),
                     period: values.period,
                     format: values.format,
+                    includeMetadata: values.includeMetadata,
                     customerId: values.customerId,
                     truckId: values.truckId,
                     trailerId: values.trailerId,
@@ -432,6 +437,36 @@ export function ReportGenerator({
                                 </FormItem>
                             )}
                         />
+
+                        {/* Only meaningful for CSV: a PDF always carries its
+                            own header, and a spreadsheet being imported by a
+                            script wants the first row to be column names. */}
+                        {selectedFormat === "csv" && (
+                            <FormField
+                                control={form.control}
+                                name="includeMetadata"
+                                render={({ field }) => (
+                                    <FormItem className="flex flex-row items-start gap-3 rounded-md border p-3">
+                                        <FormControl>
+                                            <Checkbox
+                                                checked={field.value ?? true}
+                                                onCheckedChange={field.onChange}
+                                            />
+                                        </FormControl>
+                                        <div className="space-y-1 leading-none">
+                                            <FormLabel className="cursor-pointer">
+                                                Include the title and period above the data
+                                            </FormLabel>
+                                            <p className="text-xs text-muted-foreground">
+                                                Helpful when someone opens the file. Turn it off
+                                                so the first row is column names, for importing
+                                                into another system.
+                                            </p>
+                                        </div>
+                                    </FormItem>
+                                )}
+                            />
+                        )}
 
                         {selectedPeriod && selectedPeriod !== "custom" && (
                             <div className="text-sm text-muted-foreground">

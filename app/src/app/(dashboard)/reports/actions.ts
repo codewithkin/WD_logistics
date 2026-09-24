@@ -12,10 +12,6 @@ import {
   fetchTripSummaryData,
   fetchTruckProfitabilityData,
   fetchAccountLedgerData,
-  getCustomerList,
-  getTruckList,
-  getTrailerList,
-  getTripList,
 } from "@/lib/reports/data-fetchers";
 import {
   generateProfitPerUnitCSV,
@@ -68,6 +64,12 @@ const generateReportSchema = z.object({
   endDate: z.string(),
   period: z.string(),
   format: z.enum(["pdf", "csv"]),
+  /**
+   * Whether a CSV carries its title, period and generated-at above the data.
+   * On by default because these files are opened in Excel by people far more
+   * often than they are parsed by scripts; turn it off for a clean import.
+   */
+  includeMetadata: z.boolean().optional(),
   customerId: z.string().optional(),
   truckId: z.string().optional(),
   trailerId: z.string().optional(),
@@ -97,6 +99,7 @@ export async function generateReport(
 
     const validated = generateReportSchema.parse(input);
     const { reportType, startDate, endDate, period, format, customerId, truckId, trailerId, tripId } = validated;
+    const includeMetadata = validated.includeMetadata ?? true;
 
     const start = new Date(startDate);
     const end = new Date(endDate);
@@ -134,6 +137,7 @@ export async function generateReport(
             generateCustomerProfitabilityCSV(data, {
               company: organization?.name,
               period: `${startDate} to ${endDate}`,
+              includeMetadata,
             }),
             "utf-8",
           );
@@ -163,6 +167,7 @@ export async function generateReport(
             generateExpenseCategoryReportCSV(data, {
               company: organization?.name,
               period: `${startDate} to ${endDate}`,
+              includeMetadata,
             }),
             "utf-8",
           );
@@ -192,6 +197,7 @@ export async function generateReport(
             generateDocumentExpiryReportCSV(data, {
               company: organization?.name,
               period: `As at ${endDate}, next 90 days`,
+              includeMetadata,
             }),
             "utf-8",
           );
@@ -221,6 +227,7 @@ export async function generateReport(
             generateInventoryValuationCSV(data, {
               company: organization?.name,
               period: `${startDate} to ${endDate}`,
+              includeMetadata,
             }),
             "utf-8",
           );
@@ -250,6 +257,7 @@ export async function generateReport(
             generateTripPnLCSV(data, {
               company: organization?.name,
               period: `${startDate} to ${endDate}`,
+              includeMetadata,
             }),
             "utf-8",
           );
@@ -284,6 +292,7 @@ export async function generateReport(
             generateFuelReportCSV(data, {
               company: organization?.name,
               period: `${startDate} to ${endDate}`,
+              includeMetadata,
             }),
             "utf-8",
           );
@@ -319,6 +328,7 @@ export async function generateReport(
             generateMaintenanceReportCSV(data, {
               company: organization?.name,
               period: `${startDate} to ${endDate}`,
+              includeMetadata,
             }),
             "utf-8",
           );
@@ -358,6 +368,7 @@ export async function generateReport(
             generateDriverPerformanceReportCSV(data, {
               company: organization?.name,
               period: `${startDate} to ${endDate}`,
+              includeMetadata,
             }),
             "utf-8",
           );
@@ -396,6 +407,7 @@ export async function generateReport(
             generateProfitAndLossCSV(data, {
               company: organization?.name,
               period: `${startDate} to ${endDate}`,
+              includeMetadata,
             }),
             "utf-8",
           );
@@ -433,6 +445,7 @@ export async function generateReport(
             generateAgedReceivablesCSV(data, {
               company: organization?.name,
               period: `As at ${endDate}`,
+              includeMetadata,
             }),
             "utf-8",
           );
@@ -466,6 +479,7 @@ export async function generateReport(
             generateCreditorsCSV(data, {
               company: organization?.name,
               period: `As at ${endDate}`,
+              includeMetadata,
             }),
             "utf-8",
           );
@@ -499,6 +513,7 @@ export async function generateReport(
             generateCashFlowCSV(data, {
               company: organization?.name,
               period: `${startDate} to ${endDate}`,
+              includeMetadata,
             }),
             "utf-8",
           );
@@ -972,18 +987,10 @@ export async function getReportHistory(limit: number = 20) {
 /**
  * Get customers for the dropdown in customer statement report
  */
-export async function getCustomersForReport() {
-  const session = await requireRole(["admin"]);
-  return getCustomerList(session.organizationId);
-}
 
 /**
  * Get trucks for the dropdown in truck performance report
  */
-export async function getTrucksForReport() {
-  const session = await requireRole(["admin"]);
-  return getTruckList(session.organizationId);
-}
 
 /**
  * Delete a report record

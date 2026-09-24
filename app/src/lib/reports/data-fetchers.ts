@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { isDebitTransaction } from "@/lib/accounts";
+import { earnedRevenueWhere } from "@/lib/metrics/revenue";
 import type {
   ProfitPerUnitData,
   RevenueData,
@@ -23,13 +24,11 @@ export async function fetchProfitPerUnitData(
     where: { organizationId },
     include: {
       trips: {
-        where: {
-          status: "completed",
-          endDate: {
-            gte: startDate,
-            lte: endDate,
-          },
-        },
+        // The one definition of earned revenue, shared with the dashboard and
+        // the P&L. Matching on endDate alone silently dropped a trip marked
+        // completed without one, so this report and the dashboard could
+        // disagree about the same truck.
+        where: earnedRevenueWhere(organizationId, startDate, endDate),
         include: {
           tripExpenses: {
             include: { expense: true },
@@ -359,11 +358,7 @@ export async function fetchTruckProfitabilityData(
   }
 
   const trips = await prisma.trip.findMany({
-    where: {
-      truckId,
-      status: "completed",
-      endDate: { gte: startDate, lte: endDate },
-    },
+    where: earnedRevenueWhere(organizationId, startDate, endDate, { truckId }),
     include: {
       tripExpenses: {
         include: { expense: { include: { category: true } } },
@@ -476,51 +471,4 @@ export async function fetchAccountLedgerData(
   }
 
   return results;
-}
-
-/**
- * Get list of customers for dropdown
- */
-export async function getCustomerList(organizationId: string) {
-  return prisma.customer.findMany({
-    where: { organizationId, status: "active" },
-    select: { id: true, name: true },
-    orderBy: { name: "asc" },
-  });
-}
-
-/**
- * Get list of trucks for dropdown
- */
-export async function getTruckList(organizationId: string) {
-  return prisma.truck.findMany({
-    where: { organizationId, status: "active" },
-    select: { id: true, registrationNo: true, make: true, model: true },
-    orderBy: { registrationNo: "asc" },
-  });
-}
-
-/** Trailer picker options for the report generator. */
-export async function getTrailerList(organizationId: string) {
-  return prisma.trailer.findMany({
-    where: { organizationId, status: "active" },
-    select: { id: true, registrationNo: true, make: true, model: true },
-    orderBy: { registrationNo: "asc" },
-  });
-}
-
-/** Trip picker options for the report generator. */
-export async function getTripList(organizationId: string) {
-  return prisma.trip.findMany({
-    where: { organizationId },
-    select: {
-      id: true,
-      originCity: true,
-      destinationCity: true,
-      scheduledDate: true,
-      truck: { select: { registrationNo: true } },
-    },
-    orderBy: { scheduledDate: "desc" },
-    take: 200,
-  });
 }
