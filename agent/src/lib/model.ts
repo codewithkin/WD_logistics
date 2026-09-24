@@ -5,18 +5,25 @@
  * environment variable instead of a deploy — which matters here because
  * model names move and this bot is answering a business's real questions.
  *
- * The default is Gemini Flash Lite, chosen by measurement rather than
- * reputation. Against the same eleven checks in
- * scripts/live-assistant-check.ts, all of which it passes:
+ * The default is Gemini 3.5 Flash. Measured against the checks in
+ * scripts/live-assistant-check.ts:
  *
- *   gemini-3.5-flash, medium reasoning   $0.0131/msg   9.7s   (the first default)
- *   gemini-3.5-flash, low reasoning      $0.0105/msg   6.5s
- *   gemini-3.5-flash-lite, low reasoning $0.0018/msg   5.3s   <- this
+ *   gemini-3.5-flash, medium reasoning   $0.0131/msg   9.7s
+ *   gemini-3.5-flash, low reasoning      $0.0105/msg   6.5s   <- this
+ *   gemini-3.5-flash-lite, low reasoning $0.0018/msg   5.3s   (the previous default)
  *
- * Seven times cheaper and nearly twice as fast for the same answers, because
- * this assistant does lookups and one-sentence replies, not deliberation.
- * Roughly $1.79 per thousand messages. If answers start looking careless, set
- * ASSISTANT_MODEL to google/gemini-3.5-flash and re-run the checks.
+ * Lite was the default first, on the argument that this assistant does
+ * lookups and one-sentence replies rather than deliberation, and it is six
+ * times cheaper. It was moved up a step after real use showed the difference
+ * the price was hiding: asked for "a PDF" with a report named one message
+ * earlier, lite lost the thread and printed its own working into the chat —
+ * "The user asked for a PDF without specifying which report. Since there is
+ * no prior context..." — in front of a customer. Flash is roughly $10.50 per
+ * thousand messages against lite's $1.79, which on this traffic is a rounding
+ * error next to an assistant that reads as confused.
+ *
+ * Drop back to google/gemini-3.5-flash-lite via ASSISTANT_MODEL if the bill
+ * ever matters more than the polish; re-run the checks either way.
  *
  * Note where the money goes: about 5,500 of the ~5,550 tokens in a turn are
  * the prompt, nearly all of it tool definitions sent on every message. The
@@ -38,7 +45,7 @@ const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || "";
 
 /** Override with ASSISTANT_MODEL to pin a different model. */
 export const ASSISTANT_MODEL =
-  process.env.ASSISTANT_MODEL || "google/gemini-3.5-flash-lite";
+  process.env.ASSISTANT_MODEL || "google/gemini-3.5-flash";
 
 /**
  * Where the model actually lives.
