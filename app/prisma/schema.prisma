@@ -44,6 +44,7 @@ model User {
   stockMovements              StockMovement[]
   assignmentsStarted          DriverTruckAssignment[] @relation("AssignmentStarted")
   assignmentsEnded            DriverTruckAssignment[] @relation("AssignmentEnded")
+  whatsappContacts            WhatsAppContact[]
 
   @@map("user")
 }
@@ -152,6 +153,7 @@ model Organization {
   stockMovements    StockMovement[]
   editRequests      EditRequest[]
   driverAssignments DriverTruckAssignment[]
+  whatsappContacts  WhatsAppContact[]
 
   @@map("organization")
 }
@@ -1002,6 +1004,74 @@ model UserNotification {
   @@index([userId, isRead, isDismissed])
   @@index([organizationId, createdAt])
   @@map("user_notification")
+}
+
+// Someone the admin has allowed to talk to the WhatsApp assistant.
+//
+// The allowlist used to be three environment variables — an admin number and
+// two developer numbers, hardcoded in the agent. Adding a yard manager meant
+// a redeploy, and there was no way to give one person narrower access than
+// another. This is that list, managed from Settings.
+//
+// `role` mirrors the app's own roles deliberately: whatever a person can do
+// through the web app is what they can do by message, and nothing more.
+model WhatsAppContact {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  name           String
+  /** E.164, normalised on write — this is the lookup key. */
+  phone          String   @unique
+  /** admin | supervisor | staff | readonly */
+  role           String   @default("readonly")
+  isActive       Boolean  @default(true)
+
+  /** Optional link to a dashboard user, for attributing what they change. */
+  userId         String?
+  user           User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  notes          String?
+  lastSeenAt     DateTime?
+  /** Rolling count, so an admin can see who actually uses it. */
+  messageCount   Int      @default(0)
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  conversations  WhatsAppMessage[]
+
+  @@index([organizationId, isActive])
+  @@map("whatsapp_contact")
+}
+
+// The transcript, and the audit trail for anything the assistant changed.
+//
+// A WhatsApp assistant that can write to the database needs a record of who
+// asked for what and what it did — otherwise "who deleted that trip?" has no
+// answer at all.
+model WhatsAppMessage {
+  id             String   @id @default(cuid())
+  organizationId String
+  contactId      String?
+  contact        WhatsAppContact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+
+  /** inbound | outbound */
+  direction      String
+  phone          String
+  body           String
+
+  /** Tool calls the assistant made answering this, for the audit trail. */
+  toolCalls      Json?
+  /** Set when a tool changed data, so writes can be found quickly. */
+  didWrite       Boolean  @default(false)
+  error          String?
+
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId, createdAt])
+  @@index([contactId, createdAt])
+  @@map("whatsapp_message")
 }
 
 // =============================================================================
