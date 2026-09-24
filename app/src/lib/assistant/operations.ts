@@ -732,11 +732,13 @@ const readOperations: Operation[] = [
 // concatenated here because the dispatcher and manifest want one list.
 import { writeOperations } from "@/lib/assistant/write-operations";
 import { adminOperations } from "@/lib/assistant/admin-operations";
+import { crudOperations } from "@/lib/assistant/crud-operations";
 
 export const OPERATIONS: Operation[] = [
   ...readOperations,
   ...writeOperations,
   ...adminOperations,
+  ...crudOperations,
 ];
 
 export function findOperation(name: string): Operation | undefined {
