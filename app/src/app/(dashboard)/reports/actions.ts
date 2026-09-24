@@ -40,6 +40,11 @@ import {
 // Input validation schema
 const generateReportSchema = z.object({
   reportType: z.enum([
+    "customer-profitability",
+    "expense-categories",
+    "document-expiry",
+    "inventory-valuation",
+    "trip-pnl",
     "fuel-report",
     "maintenance-downtime",
     "driver-performance",
@@ -106,6 +111,155 @@ export async function generateReport(
       // Item 1's "separate report": the same figures as the on-screen
       // breakdown, reading from lib/metrics/truck-costs so the two can never
       // disagree. One truck when truckId is given, the whole fleet otherwise.
+      // ---- Commercial and operational. Customer profitability and trip
+      // P&L are contribution figures: they carry the costs booked against
+      // the trip, not a share of standing truck costs or overheads, and
+      // each document says so on its face.
+      case "customer-profitability": {
+        const { fetchCustomerProfitabilityData } = await import("@/lib/reports/operations-fetchers");
+        const { generateCustomerProfitabilityPDF } = await import("@/lib/documents/operations-reports");
+        const { generateCustomerProfitabilityCSV } = await import("@/lib/reports/operations-csv");
+
+        const organization = await prisma.organization.findUnique({
+          where: { id: organizationId },
+        });
+        const data = await fetchCustomerProfitabilityData(organizationId, start, end);
+
+        if (format === "pdf") {
+          fileBuffer = generateCustomerProfitabilityPDF({ organization, data });
+          mimeType = "application/pdf";
+          fileExtension = "pdf";
+        } else {
+          fileBuffer = Buffer.from(
+            generateCustomerProfitabilityCSV(data, {
+              company: organization?.name,
+              period: `${startDate} to ${endDate}`,
+            }),
+            "utf-8",
+          );
+          mimeType = "text/csv";
+          fileExtension = "csv";
+        }
+        filename = `customer-profitability-${startDate}-to-${endDate}.${fileExtension}`;
+        break;
+      }
+
+      case "expense-categories": {
+        const { fetchExpenseCategoryReportData } = await import("@/lib/reports/operations-fetchers");
+        const { generateExpenseCategoryReportPDF } = await import("@/lib/documents/operations-reports");
+        const { generateExpenseCategoryReportCSV } = await import("@/lib/reports/operations-csv");
+
+        const organization = await prisma.organization.findUnique({
+          where: { id: organizationId },
+        });
+        const data = await fetchExpenseCategoryReportData(organizationId, start, end);
+
+        if (format === "pdf") {
+          fileBuffer = generateExpenseCategoryReportPDF({ organization, data });
+          mimeType = "application/pdf";
+          fileExtension = "pdf";
+        } else {
+          fileBuffer = Buffer.from(
+            generateExpenseCategoryReportCSV(data, {
+              company: organization?.name,
+              period: `${startDate} to ${endDate}`,
+            }),
+            "utf-8",
+          );
+          mimeType = "text/csv";
+          fileExtension = "csv";
+        }
+        filename = `expense-categories-${startDate}-to-${endDate}.${fileExtension}`;
+        break;
+      }
+
+      case "document-expiry": {
+        const { fetchDocumentExpiryReportData } = await import("@/lib/reports/operations-fetchers");
+        const { generateDocumentExpiryReportPDF } = await import("@/lib/documents/operations-reports");
+        const { generateDocumentExpiryReportCSV } = await import("@/lib/reports/operations-csv");
+
+        const organization = await prisma.organization.findUnique({
+          where: { id: organizationId },
+        });
+        const data = await fetchDocumentExpiryReportData(organizationId, end, 90);
+
+        if (format === "pdf") {
+          fileBuffer = generateDocumentExpiryReportPDF({ organization, data });
+          mimeType = "application/pdf";
+          fileExtension = "pdf";
+        } else {
+          fileBuffer = Buffer.from(
+            generateDocumentExpiryReportCSV(data, {
+              company: organization?.name,
+              period: `As at ${endDate}, next 90 days`,
+            }),
+            "utf-8",
+          );
+          mimeType = "text/csv";
+          fileExtension = "csv";
+        }
+        filename = `document-expiry-${endDate}.${fileExtension}`;
+        break;
+      }
+
+      case "inventory-valuation": {
+        const { fetchInventoryValuationData } = await import("@/lib/reports/operations-fetchers");
+        const { generateInventoryValuationPDF } = await import("@/lib/documents/operations-reports");
+        const { generateInventoryValuationCSV } = await import("@/lib/reports/operations-csv");
+
+        const organization = await prisma.organization.findUnique({
+          where: { id: organizationId },
+        });
+        const data = await fetchInventoryValuationData(organizationId, start, end);
+
+        if (format === "pdf") {
+          fileBuffer = generateInventoryValuationPDF({ organization, data });
+          mimeType = "application/pdf";
+          fileExtension = "pdf";
+        } else {
+          fileBuffer = Buffer.from(
+            generateInventoryValuationCSV(data, {
+              company: organization?.name,
+              period: `${startDate} to ${endDate}`,
+            }),
+            "utf-8",
+          );
+          mimeType = "text/csv";
+          fileExtension = "csv";
+        }
+        filename = `inventory-valuation-${endDate}.${fileExtension}`;
+        break;
+      }
+
+      case "trip-pnl": {
+        const { fetchTripPnLData } = await import("@/lib/reports/operations-fetchers");
+        const { generateTripPnLPDF } = await import("@/lib/documents/operations-reports");
+        const { generateTripPnLCSV } = await import("@/lib/reports/operations-csv");
+
+        const organization = await prisma.organization.findUnique({
+          where: { id: organizationId },
+        });
+        const data = await fetchTripPnLData(organizationId, start, end);
+
+        if (format === "pdf") {
+          fileBuffer = generateTripPnLPDF({ organization, data });
+          mimeType = "application/pdf";
+          fileExtension = "pdf";
+        } else {
+          fileBuffer = Buffer.from(
+            generateTripPnLCSV(data, {
+              company: organization?.name,
+              period: `${startDate} to ${endDate}`,
+            }),
+            "utf-8",
+          );
+          mimeType = "text/csv";
+          fileExtension = "csv";
+        }
+        filename = `trip-pnl-${startDate}-to-${endDate}.${fileExtension}`;
+        break;
+      }
+
       // ---- Fleet. Fuel and downtime reuse the definitions in
       // lib/metrics/truck-costs (category `kind` for fuel, raised-until-fixed
       // for downtime) so a report and a truck's own page cannot disagree.

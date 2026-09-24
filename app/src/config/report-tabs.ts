@@ -12,13 +12,23 @@ import { reportConfigs } from "@/config/reports";
  * button generates when you don't pick something more specific.
  */
 export const TAB_REPORT_TYPES: Record<string, string[]> = {
-  overview: ["revenue", "expenses", "trip-summary"],
+  overview: [
+    "profit-loss",
+    "trip-pnl",
+    "customer-profitability",
+    "document-expiry",
+    "revenue",
+    "expenses",
+    "trip-summary",
+  ],
   financial: [
     "profit-loss",
     "cash-flow",
     "aged-receivables",
     "creditors",
     "account-ledger",
+    "customer-profitability",
+    "expense-categories",
     "revenue",
     "expenses",
     "customer-statement",
@@ -31,6 +41,9 @@ export const TAB_REPORT_TYPES: Record<string, string[]> = {
     "profit-per-unit",
     "truck-profitability",
     "trip-summary",
+    "trip-pnl",
+    "document-expiry",
+    "inventory-valuation",
   ],
 };
 

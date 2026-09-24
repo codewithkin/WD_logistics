@@ -23,6 +23,85 @@ export interface ReportConfig {
 }
 
 export const reportConfigs: Record<string, ReportConfig> = {
+  "customer-profitability": {
+    id: "customer-profitability",
+    name: "Customer Profitability",
+    description:
+      "Which customers are worth having — trips, revenue, average rate, rate per kilometre, trip costs and what they still owe.",
+    periods: ["monthly", "quarterly", "yearly", "custom"],
+    formats: ["pdf", "csv"],
+    fields: [
+      { key: "customer", label: "Customer", type: "string" },
+      { key: "trips", label: "Trips", type: "number" },
+      { key: "revenue", label: "Revenue", type: "currency" },
+      { key: "averageRate", label: "Avg rate", type: "currency" },
+      { key: "profit", label: "Profit", type: "currency" },
+      { key: "margin", label: "Margin %", type: "percentage" },
+      { key: "outstanding", label: "Outstanding", type: "currency" },
+    ],
+  },
+  "expense-categories": {
+    id: "expense-categories",
+    name: "Expenses by Category",
+    description:
+      "Every expense category with its total, average and largest entry, grouped by cost type and by month.",
+    periods: ["daily", "weekly", "monthly", "quarterly", "yearly", "custom"],
+    formats: ["pdf", "csv"],
+    fields: [
+      { key: "category", label: "Category", type: "string" },
+      { key: "kind", label: "Cost type", type: "string" },
+      { key: "entries", label: "Entries", type: "number" },
+      { key: "total", label: "Total", type: "currency" },
+      { key: "average", label: "Average", type: "currency" },
+      { key: "share", label: "Share %", type: "percentage" },
+    ],
+  },
+  "document-expiry": {
+    id: "document-expiry",
+    name: "Document Expiry",
+    description:
+      "Licences, permits, insurance and certificates that have expired or expire within 90 days — trucks, trailers and drivers, plus anything with no date recorded at all.",
+    periods: ["monthly", "quarterly", "custom"],
+    formats: ["pdf", "csv"],
+    fields: [
+      { key: "entity", label: "Type", type: "string" },
+      { key: "subject", label: "Truck / person", type: "string" },
+      { key: "document", label: "Document", type: "string" },
+      { key: "expiresOn", label: "Expires", type: "date" },
+      { key: "daysRemaining", label: "Days", type: "number" },
+    ],
+  },
+  "inventory-valuation": {
+    id: "inventory-valuation",
+    name: "Inventory Valuation",
+    description:
+      "What the storeroom is worth, what is at or below its minimum, and every stock movement in the period.",
+    periods: ["monthly", "quarterly", "yearly", "custom"],
+    formats: ["pdf", "csv"],
+    fields: [
+      { key: "name", label: "Item", type: "string" },
+      { key: "quantity", label: "Quantity", type: "number" },
+      { key: "unitCost", label: "Unit cost", type: "currency" },
+      { key: "value", label: "Value", type: "currency" },
+    ],
+  },
+  "trip-pnl": {
+    id: "trip-pnl",
+    name: "Trip Profit & Loss",
+    description:
+      "Revenue, costs, profit and margin for every completed trip, with the thinnest five called out.",
+    periods: ["daily", "weekly", "monthly", "quarterly", "yearly", "custom"],
+    formats: ["pdf", "csv"],
+    fields: [
+      { key: "date", label: "Date", type: "date" },
+      { key: "route", label: "Route", type: "string" },
+      { key: "truck", label: "Truck", type: "string" },
+      { key: "revenue", label: "Revenue", type: "currency" },
+      { key: "expenses", label: "Costs", type: "currency" },
+      { key: "profit", label: "Profit", type: "currency" },
+      { key: "margin", label: "Margin %", type: "percentage" },
+    ],
+  },
   "fuel-report": {
     id: "fuel-report",
     name: "Fuel Report",
