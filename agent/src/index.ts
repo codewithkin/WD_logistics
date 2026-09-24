@@ -291,6 +291,31 @@ const initWhatsApp = async () => {
 
           await replyToMessage(msg, reply.text);
 
+          // Messages the sender asked to have passed on to somebody else.
+          // The app has already recorded each one against the person who
+          // asked, so a failure here updates that record rather than
+          // disappearing.
+          for (const out of reply.outbound) {
+            try {
+              const sent = await client.sendMessage(out.phone, out.text);
+              console.log(`📨 Passed a message on to ${out.phone}`);
+              await notificationsApi
+                .markSent(out.notificationId, sent?.id)
+                .catch(() => {});
+            } catch (sendError) {
+              const why =
+                sendError instanceof Error ? sendError.message : "unknown error";
+              console.error(`❌ Could not message ${out.phone}:`, why);
+              await notificationsApi
+                .markFailed(out.notificationId, why)
+                .catch(() => {});
+              await replyToMessage(
+                msg,
+                `I couldn't deliver that message — ${why}. Nothing was sent.`,
+              );
+            }
+          }
+
           // A generated report comes back as a file the model never saw. Send
           // it after the sentence about it, so the chat reads as an answer
           // followed by the document rather than a document out of nowhere.

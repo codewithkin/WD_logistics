@@ -11,6 +11,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withAgentAuth } from "@/lib/agent-auth";
 import { applyDeliveryAck, getTripMessages } from "@/lib/whatsapp/trip-messages";
+import { prisma } from "@/lib/prisma";
 
 export async function POST(request: NextRequest) {
   // Same guard as every other agent route: returns a response when the
@@ -35,6 +36,46 @@ export async function POST(request: NextRequest) {
 
       const result = await applyDeliveryAck(waMessageId, ack);
       return NextResponse.json({ success: true, data: result });
+    }
+
+    // The assistant records a message before the agent tries to send it, so
+    // that a failure leaves a trace rather than nothing. These two close the
+    // loop once the agent knows what happened.
+    case "markSent": {
+      const id: string | undefined = body?.notificationId;
+      if (!id) {
+        return NextResponse.json(
+          { success: false, error: "notificationId is required" },
+          { status: 400 },
+        );
+      }
+      await prisma.notification.updateMany({
+        where: { id },
+        data: {
+          status: "sent",
+          sentAt: new Date(),
+          ...(body?.waMessageId ? { waMessageId: String(body.waMessageId) } : {}),
+        },
+      });
+      return NextResponse.json({ success: true });
+    }
+
+    case "markFailed": {
+      const id: string | undefined = body?.notificationId;
+      if (!id) {
+        return NextResponse.json(
+          { success: false, error: "notificationId is required" },
+          { status: 400 },
+        );
+      }
+      await prisma.notification.updateMany({
+        where: { id },
+        data: {
+          status: "failed",
+          error: body?.error ? String(body.error).slice(0, 500) : "Unknown error",
+        },
+      });
+      return NextResponse.json({ success: true });
     }
 
     case "listForTrip": {

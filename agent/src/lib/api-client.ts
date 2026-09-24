@@ -730,6 +730,26 @@ export const workflowsApi = {
  * as every other call here.
  */
 export const notificationsApi = {
+  /** The assistant passed a message on successfully. */
+  markSent: (notificationId: string, waMessageId?: string) =>
+    makeRequest<{ success: boolean }>("notifications", {
+      // The organisation is resolved from the notification row itself; the
+      // header only satisfies the shared request contract.
+      organizationId: process.env.AGENT_ORGANIZATION_ID || "unknown",
+      action: "markSent",
+      notificationId,
+      waMessageId,
+    }),
+
+  /** It could not be delivered; the reason is kept with the record. */
+  markFailed: (notificationId: string, error: string) =>
+    makeRequest<{ success: boolean }>("notifications", {
+      organizationId: process.env.AGENT_ORGANIZATION_ID || "unknown",
+      action: "markFailed",
+      notificationId,
+      error,
+    }),
+
   recordAck: (organizationId: string, waMessageId: string, ack: number) =>
     makeRequest<{ applied: boolean }>("notifications", {
       organizationId,

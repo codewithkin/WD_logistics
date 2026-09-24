@@ -90,6 +90,13 @@ export interface Attachment {
   base64: string;
 }
 
+/** A message the assistant was asked to send to somebody else. */
+export interface OutboundMessage {
+  notificationId: string;
+  phone: string;
+  text: string;
+}
+
 export async function buildToolsForCaller(phone: string): Promise<{
   authorized: boolean;
   name?: string;
@@ -100,12 +107,15 @@ export async function buildToolsForCaller(phone: string): Promise<{
   toolCalls: () => Array<{ tool: string; args: unknown; ok: boolean }>;
   /** Files a tool produced, to be sent alongside the reply. */
   attachments: () => Attachment[];
+  /** Messages to put on the wire to other people. */
+  outbound: () => OutboundMessage[];
 }> {
   const manifest = await fetchManifest(phone);
 
   let wroteSomething = false;
   const calls: Array<{ tool: string; args: unknown; ok: boolean }> = [];
   const files: Attachment[] = [];
+  const outbox: OutboundMessage[] = [];
 
   const tools: Record<string, ReturnType<typeof createTool>> = {};
 
@@ -134,10 +144,19 @@ export async function buildToolsForCaller(phone: string): Promise<{
         if (result.success && result.data && typeof result.data === "object") {
           const data = result.data as Record<string, unknown> & {
             attachment?: Attachment;
+            outboundMessage?: OutboundMessage;
           };
           if (data.attachment?.base64) {
             files.push(data.attachment);
             const { attachment: _lifted, ...rest } = data;
+            return rest;
+          }
+          // Same reasoning as an attachment, for a different reason: the
+          // recipient's number is not the model's business, and it has no
+          // reason to see it again after asking for the send.
+          if (data.outboundMessage?.phone) {
+            outbox.push(data.outboundMessage);
+            const { outboundMessage: _queued, ...rest } = data;
             return rest;
           }
         }
@@ -160,5 +179,6 @@ export async function buildToolsForCaller(phone: string): Promise<{
     didWrite: () => wroteSomething,
     toolCalls: () => calls,
     attachments: () => files,
+    outbound: () => outbox,
   };
 }

@@ -734,6 +734,7 @@ import { writeOperations } from "@/lib/assistant/write-operations";
 import { adminOperations } from "@/lib/assistant/admin-operations";
 import { crudOperations } from "@/lib/assistant/crud-operations";
 import { reportOperations } from "@/lib/assistant/report-operations";
+import { messagingOperations } from "@/lib/assistant/messaging-operations";
 
 export const OPERATIONS: Operation[] = [
   ...readOperations,
@@ -741,6 +742,7 @@ export const OPERATIONS: Operation[] = [
   ...adminOperations,
   ...crudOperations,
   ...reportOperations,
+  ...messagingOperations,
 ];
 
 export function findOperation(name: string): Operation | undefined {
