@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { requireAuth } from "@/lib/session";
+import { pageAccess } from "@/lib/session";
+import { NoAccess } from "@/components/layout/no-access";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/layout/page-header";
 import { PagePeriodSelector } from "@/components/ui/page-period-selector";
@@ -26,7 +27,11 @@ interface TrailerDetailPageProps {
 export default async function TrailerDetailPage({ params, searchParams }: TrailerDetailPageProps) {
     const { id } = await params;
     const query = await searchParams;
-    const session = await requireAuth();
+    const access = await pageAccess(["admin", "supervisor", "staff"]);
+    if (!access.allowed) {
+        return <NoAccess role={access.role} what="trailer details" />;
+    }
+    const session = access.session;
     const { role, organizationId } = session;
     const dateRange = getDateRangeFromParams(query, "3m");
 

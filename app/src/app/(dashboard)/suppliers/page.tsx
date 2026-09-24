@@ -1,4 +1,5 @@
-import { requireAuth } from "@/lib/session";
+import { pageAccess } from "@/lib/session";
+import { NoAccess } from "@/components/layout/no-access";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/layout/page-header";
 import { SuppliersTable } from "./_components/suppliers-table";
@@ -15,7 +16,11 @@ interface SuppliersPageProps {
 
 export default async function SuppliersPage({ searchParams }: SuppliersPageProps) {
     const params = await searchParams;
-    const session = await requireAuth();
+    const access = await pageAccess(["admin", "supervisor"]);
+    if (!access.allowed) {
+        return <NoAccess role={access.role} what="suppliers" />;
+    }
+    const session = access.session;
     const { role, organizationId } = session;
 
     // Get date range from URL params

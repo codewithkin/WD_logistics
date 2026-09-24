@@ -1,4 +1,5 @@
-import { requireAuth } from "@/lib/session";
+import { pageAccess } from "@/lib/session";
+import { NoAccess } from "@/components/layout/no-access";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/layout/page-header";
 import { TripsTable } from "./_components/trips-table";
@@ -16,7 +17,11 @@ interface TripsPageProps {
 
 export default async function TripsPage({ searchParams }: TripsPageProps) {
     const params = await searchParams;
-    const session = await requireAuth();
+    const access = await pageAccess(["admin", "supervisor", "staff"]);
+    if (!access.allowed) {
+        return <NoAccess role={access.role} what="trips" />;
+    }
+    const session = access.session;
     const { role, organizationId } = session;
 
     // Get date range from URL params

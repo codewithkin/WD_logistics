@@ -1,4 +1,5 @@
-import { requireAuth } from "@/lib/session";
+import { pageAccess } from "@/lib/session";
+import { NoAccess } from "@/components/layout/no-access";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/layout/page-header";
 import { CustomersTable } from "./_components/customers-table";
@@ -14,7 +15,11 @@ interface CustomersPageProps {
 
 export default async function CustomersPage({ searchParams }: CustomersPageProps) {
     const params = await searchParams;
-    const session = await requireAuth();
+    const access = await pageAccess(["admin", "supervisor"]);
+    if (!access.allowed) {
+        return <NoAccess role={access.role} what="customers" />;
+    }
+    const session = access.session;
     const { role, organizationId } = session;
 
     // Get date range from URL params

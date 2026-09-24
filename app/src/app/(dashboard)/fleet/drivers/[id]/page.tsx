@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { requireAuth } from "@/lib/session";
+import { pageAccess } from "@/lib/session";
+import { NoAccess } from "@/components/layout/no-access";
 import { prisma } from "@/lib/prisma";
 import { canViewFinancialData } from "@/lib/permissions";
 import { PageHeader } from "@/components/layout/page-header";
@@ -25,7 +26,11 @@ interface DriverDetailPageProps {
 export default async function DriverDetailPage({ params, searchParams }: DriverDetailPageProps) {
     const { id } = await params;
     const searchParamsData = await searchParams;
-    const session = await requireAuth();
+    const access = await pageAccess(["admin", "supervisor", "staff"]);
+    if (!access.allowed) {
+        return <NoAccess role={access.role} what="driver details" />;
+    }
+    const session = access.session;
     const { role, organizationId } = session;
 
     // Get date range from URL params

@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { requireAuth } from "@/lib/session";
+import { pageAccess } from "@/lib/session";
+import { NoAccess } from "@/components/layout/no-access";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,7 +27,11 @@ interface InvoiceDetailPageProps {
 
 export default async function InvoiceDetailPage({ params }: InvoiceDetailPageProps) {
     const { id } = await params;
-    const session = await requireAuth();
+    const access = await pageAccess(["admin", "supervisor"]);
+    if (!access.allowed) {
+        return <NoAccess role={access.role} what="invoice details" />;
+    }
+    const session = access.session;
     const { role, organizationId } = session;
 
     const invoice = await prisma.invoice.findFirst({

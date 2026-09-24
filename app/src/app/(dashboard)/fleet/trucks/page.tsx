@@ -1,4 +1,5 @@
-import { requireAuth } from "@/lib/session";
+import { pageAccess } from "@/lib/session";
+import { NoAccess } from "@/components/layout/no-access";
 import { prisma } from "@/lib/prisma";
 import { canViewFinancialData } from "@/lib/permissions";
 import { PageHeader } from "@/components/layout/page-header";
@@ -15,7 +16,11 @@ interface TrucksPageProps {
 
 export default async function TrucksPage({ searchParams }: TrucksPageProps) {
     const params = await searchParams;
-    const session = await requireAuth();
+    const access = await pageAccess(["admin", "supervisor", "staff"]);
+    if (!access.allowed) {
+        return <NoAccess role={access.role} what="the truck list" />;
+    }
+    const session = access.session;
     const { role, organizationId } = session;
 
     // Get date range from URL params

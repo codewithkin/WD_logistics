@@ -165,6 +165,23 @@ export function canViewFinancialData(role: Role): boolean {
 }
 
 /**
+ * Who may see what things *cost* — expenses, maintenance spend, cost per km.
+ *
+ * Distinct from `canViewFinancialData`, which governs what the business
+ * *earns*: revenue, profit and margin. A supervisor records spending, so they
+ * need cost figures to do the job; what the company makes is the owner's
+ * business. That one sentence is the whole access model for money — see
+ * ACCESS_CONTROL.md.
+ *
+ * Before this existed, detail pages gated costs behind the admin-only
+ * financial check, so supervisors saw no figures at all and had to guess
+ * whether a truck was expensive.
+ */
+export function canViewCostData(role: Role): boolean {
+  return role === "admin" || role === "supervisor";
+}
+
+/**
  * Who may write to an existing record without asking.
  *
  * Only the admin. Everyone else's edit becomes an EditRequest carrying a real

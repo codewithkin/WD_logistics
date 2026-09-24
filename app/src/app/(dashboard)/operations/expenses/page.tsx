@@ -1,4 +1,5 @@
-import { requireAuth } from "@/lib/session";
+import { pageAccess } from "@/lib/session";
+import { NoAccess } from "@/components/layout/no-access";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/layout/page-header";
 import { ExpensesClient } from "./_components/expenses-client";
@@ -16,7 +17,11 @@ interface ExpensesPageProps {
 
 export default async function ExpensesPage({ searchParams }: ExpensesPageProps) {
     const params = await searchParams;
-    const session = await requireAuth();
+    const access = await pageAccess(["admin", "supervisor"]);
+    if (!access.allowed) {
+        return <NoAccess role={access.role} what="expenses" />;
+    }
+    const session = access.session;
     const { role, organizationId } = session;
 
     // Check if user can view expenses page

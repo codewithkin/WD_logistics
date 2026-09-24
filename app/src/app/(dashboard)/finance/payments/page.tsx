@@ -1,4 +1,5 @@
-import { requireAuth } from "@/lib/session";
+import { pageAccess } from "@/lib/session";
+import { NoAccess } from "@/components/layout/no-access";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/layout/page-header";
 import { PaymentsTable } from "./_components/payments-table";
@@ -17,7 +18,11 @@ interface PaymentsPageProps {
 
 export default async function PaymentsPage({ searchParams }: PaymentsPageProps) {
     const params = await searchParams;
-    const session = await requireAuth();
+    const access = await pageAccess(["admin", "supervisor"]);
+    if (!access.allowed) {
+        return <NoAccess role={access.role} what="payments" />;
+    }
+    const session = access.session;
     const { role, organizationId } = session;
 
     // Get date range from URL params

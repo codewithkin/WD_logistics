@@ -1,4 +1,5 @@
-import { requireAuth } from "@/lib/session";
+import { pageAccess } from "@/lib/session";
+import { NoAccess } from "@/components/layout/no-access";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/layout/page-header";
 import { PagePeriodSelector } from "@/components/ui/page-period-selector";
@@ -13,7 +14,11 @@ interface EmployeesPageProps {
 }
 
 export default async function EmployeesPage({ searchParams }: EmployeesPageProps) {
-    const session = await requireAuth();
+    const access = await pageAccess(["admin", "supervisor"]);
+    if (!access.allowed) {
+        return <NoAccess role={access.role} what="employees" />;
+    }
+    const session = access.session;
     const { role, organizationId } = session;
     const params = await searchParams;
     const dateRange = getDateRangeFromParams(params, "1y");

@@ -1,8 +1,9 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { requireAuth } from "@/lib/session";
+import { pageAccess } from "@/lib/session";
+import { NoAccess } from "@/components/layout/no-access";
 import { prisma } from "@/lib/prisma";
-import { canViewFinancialData } from "@/lib/permissions";
+import { canViewCostData, canViewFinancialData } from "@/lib/permissions";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -29,7 +30,11 @@ interface TruckDetailPageProps {
 export default async function TruckDetailPage({ params, searchParams }: TruckDetailPageProps) {
     const { id } = await params;
     const searchParamsData = await searchParams;
-    const session = await requireAuth();
+    const access = await pageAccess(["admin", "supervisor", "staff"]);
+    if (!access.allowed) {
+        return <NoAccess role={access.role} what="truck details" />;
+    }
+    const session = access.session;
     const { role, organizationId } = session;
 
     // Get date range from URL params
@@ -95,12 +100,16 @@ export default async function TruckDetailPage({ params, searchParams }: TruckDet
     const profitLoss = totalRevenue - totalExpenses;
 
     const canEdit = role === "admin" || role === "supervisor";
-    const showFinancials = canViewFinancialData(role);
+    // A supervisor may see what the truck *costs* — that is their job. What
+    // it *earns* is the owner's business (ACCESS_CONTROL.md). Two predicates,
+    // because one gate made supervisors blind to costs as well.
+    const showCosts = canViewCostData(role);
+    const showEarnings = canViewFinancialData(role);
 
     // The paper trail for "is this truck losing money, and where" — admin
     // only, and not fetched at all otherwise, so it never travels in the RSC
     // payload for a supervisor.
-    const costBreakdown = showFinancials
+    const costBreakdown = showCosts
         ? await getTruckCostBreakdown(organizationId, id, {
               from: dateRange.from,
               to: dateRange.to,
@@ -156,8 +165,10 @@ export default async function TruckDetailPage({ params, searchParams }: TruckDet
             </div>
 
             {/* Financial Summary for Selected Period */}
-            {showFinancials && (
-                <div className="grid gap-4 md:grid-cols-4 mb-6">
+            {showCosts && (
+                <div
+                    className={`grid gap-4 mb-6 ${showEarnings ? "md:grid-cols-4" : "md:grid-cols-2"}`}
+                >
                     <Card>
                         <CardHeader className="pb-2">
                             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
@@ -169,16 +180,18 @@ export default async function TruckDetailPage({ params, searchParams }: TruckDet
                             <p className="text-xs text-muted-foreground">{completedTrips} completed</p>
                         </CardContent>
                     </Card>
-                    <Card>
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                                <DollarSign className="h-4 w-4" /> Revenue
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <p className="text-2xl font-bold text-green-600">{formatCurrency(totalRevenue)}</p>
-                        </CardContent>
-                    </Card>
+                    {showEarnings && (
+                        <Card>
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                                    <DollarSign className="h-4 w-4" /> Revenue
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <p className="text-2xl font-bold text-green-600">{formatCurrency(totalRevenue)}</p>
+                            </CardContent>
+                        </Card>
+                    )}
                     <Card>
                         <CardHeader className="pb-2">
                             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
@@ -189,19 +202,21 @@ export default async function TruckDetailPage({ params, searchParams }: TruckDet
                             <p className="text-2xl font-bold text-red-600">{formatCurrency(totalExpenses)}</p>
                         </CardContent>
                     </Card>
-                    <Card>
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                                {profitLoss >= 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
-                                Profit/Loss
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <p className={`text-2xl font-bold ${profitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                {formatCurrency(profitLoss)}
-                            </p>
-                        </CardContent>
-                    </Card>
+                    {showEarnings && (
+                        <Card>
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                                    {profitLoss >= 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+                                    Profit/Loss
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <p className={`text-2xl font-bold ${profitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                    {formatCurrency(profitLoss)}
+                                </p>
+                            </CardContent>
+                        </Card>
+                    )}
                 </div>
             )}
 
