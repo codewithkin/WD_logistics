@@ -157,10 +157,15 @@ services:
       WEB_APP_URL: ${WEB_APP_URL}
       AGENT_API_KEY: ${AGENT_API_KEY:?AGENT_API_KEY is required and must match the app service}
 
-      # The WhatsApp pairing is stored here so it survives a redeploy. The
-      # agent touches exactly one table (whatsapp_session) and nothing else;
-      # everything about the business still goes through the app over HTTP.
+      # The WhatsApp pairing is stored here so it survives a redeploy, and
+      # so is the assistant's conversation memory — the latter in its own
+      # `mastra` schema, deliberately outside the `public` one Prisma owns,
+      # so the app's migrations never see tables they did not create.
+      # Nothing about the business goes this way; that is all HTTP still.
       DATABASE_URL: postgresql://${POSTGRES_USER:-wdlogistics}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-wdlogistics}
+      # How many past turns the assistant is shown. Higher costs more per
+      # message, since the history rides along with every one.
+      ASSISTANT_MEMORY_TURNS: ${ASSISTANT_MEMORY_TURNS:-10}
 
       # AI. One provider and one key for both the WhatsApp assistant and the
       # web chat widget. Deliberately NOT marked required with `:?` — the

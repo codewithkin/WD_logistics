@@ -28,6 +28,11 @@ services:
       - WEB_APP_URL=${WEB_APP_URL:-http://localhost:3000}
       - AGENT_API_KEY=${AGENT_API_KEY}
       - MASTRA_LOG_LEVEL=${MASTRA_LOG_LEVEL:-info}
+      # Holds the WhatsApp pairing and the assistant's conversation memory.
+      # Without it the bot still answers, but forgets every message the
+      # moment it has replied — and re-pairing is demanded each deploy.
+      - DATABASE_URL=${DATABASE_URL:-}
+      - ASSISTANT_MEMORY_TURNS=${ASSISTANT_MEMORY_TURNS:-10}
       # WhatsApp bot — disabled unless explicitly turned on (see src/index.ts)
       - ENABLE_WHATSAPP=${ENABLE_WHATSAPP:-false}
       - TEST_MODE=${TEST_MODE:-false}
