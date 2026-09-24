@@ -1,26 +1,13 @@
 /**
- * Application Constants
- * 
- * Centralized configuration for authorized WhatsApp access.
+ * Constants for the WhatsApp session.
+ *
+ * This used to hold the allowlist too — three phone numbers read from
+ * ADMIN_WHATSAPP_NUMBER and WHATSAPP_DEVELOPER_NUMBER_ONE/TWO, which meant a
+ * redeploy to let a new supervisor message the bot. That list now lives in
+ * the database as WhatsAppContact rows, managed under Settings, and the
+ * assistant checks it on every message. The variables and the functions that
+ * read them are gone rather than left to rot.
  */
-
-/**
- * Get environment variables with logging for debugging
- */
-function loadAuthNumbers() {
-  const admin = process.env.ADMIN_WHATSAPP_NUMBER || "";
-  const dev1 = process.env.WHATSAPP_DEVELOPER_NUMBER_ONE || "";
-  const dev2 = process.env.WHATSAPP_DEVELOPER_NUMBER_TWO || "";
-  
-  console.log("📱 Loading authorized WhatsApp numbers:");
-  console.log(`  - ADMIN_WHATSAPP_NUMBER: ${admin ? "✅ loaded" : "❌ missing"}`);
-  console.log(`  - DEVELOPER_NUMBER_ONE: ${dev1 ? "✅ loaded" : "❌ missing"}`);
-  console.log(`  - DEVELOPER_NUMBER_TWO: ${dev2 ? "✅ loaded" : "❌ missing"}`);
-  
-  return { admin, dev1, dev2 };
-}
-
-const { admin: ADMIN_WHATSAPP_NUMBER, dev1: DEVELOPER_NUMBER_ONE, dev2: DEVELOPER_NUMBER_TWO } = loadAuthNumbers();
 
 // Store bot's own number (set at runtime after WhatsApp connects)
 let BOT_PHONE_NUMBER: string | null = null;
@@ -40,85 +27,8 @@ export function getBotPhoneNumber(): string | null {
   return BOT_PHONE_NUMBER;
 }
 
-/**
- * Get all authorized phone numbers (excluding bot number)
- */
-export function getAuthorizedNumbers(): string[] {
-  const numbers = [
-    ADMIN_WHATSAPP_NUMBER,
-    DEVELOPER_NUMBER_ONE,
-    DEVELOPER_NUMBER_TWO,
-  ].filter(num => num && num.length > 5);
-  
-  console.log(`📋 Authorized numbers (${numbers.length}):`, numbers.map(n => normalizePhoneNumber(n)));
-  
-  return numbers;
-}
 
-/**
- * Check if a phone number is authorized to use the AI assistant
- * Includes: admin number, developer numbers, and bot's own number
- */
-export function isAuthorizedNumber(phoneNumber: string): boolean {
-  const normalized = normalizePhoneNumber(phoneNumber);
-  console.log(`🔍 Checking authorization for: ${phoneNumber} (normalized: ${normalized})`);
-  
-  // Check if it's the bot's own number
-  if (BOT_PHONE_NUMBER) {
-    const botNormalized = normalizePhoneNumber(BOT_PHONE_NUMBER);
-    if (botNormalized === normalized) {
-      console.log(`✅ Matched bot number`);
-      return true;
-    }
-  }
-  
-  // Check against authorized numbers
-  const authorizedNumbers = getAuthorizedNumbers();
-  const isAuthorized = authorizedNumbers.some(
-    (authNumber) => {
-      const authNormalized = normalizePhoneNumber(authNumber);
-      const matches = authNormalized === normalized;
-      if (matches) {
-        console.log(`✅ Matched authorized number: ${authNumber} (normalized: ${authNormalized})`);
-      }
-      return matches;
-    }
-  );
-  
-  if (!isAuthorized) {
-    console.log(`❌ Not authorized. Checked against: ${authorizedNumbers.map(n => normalizePhoneNumber(n)).join(", ")}`);
-  }
-  
-  return isAuthorized;
-}
 
-/**
- * Get the name/title of an authorized user based on their phone number
- * Used for personalized greetings and references
- */
-export function getAuthorizedUserName(phoneNumber: string): string | null {
-  const normalized = normalizePhoneNumber(phoneNumber);
-  
-  // Check if it's the admin
-  if (ADMIN_WHATSAPP_NUMBER && normalizePhoneNumber(ADMIN_WHATSAPP_NUMBER) === normalized) {
-    return "Mr Dziruni";
-  }
-  
-  // Check if it's one of the developers
-  if (
-    (DEVELOPER_NUMBER_ONE && normalizePhoneNumber(DEVELOPER_NUMBER_ONE) === normalized) ||
-    (DEVELOPER_NUMBER_TWO && normalizePhoneNumber(DEVELOPER_NUMBER_TWO) === normalized)
-  ) {
-    return "Kin";
-  }
-  
-  // Check if it's the bot's own number
-  if (BOT_PHONE_NUMBER && normalizePhoneNumber(BOT_PHONE_NUMBER) === normalized) {
-    return "Bot";
-  }
-  
-  return null;
-}
 
 /**
  * Format a phone number for WhatsApp (webjs format)

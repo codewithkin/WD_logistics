@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
-import { logisticsAgent } from "../agents/logistics-agent";
+import { getLogisticsAgent } from "../agents/logistics-agent";
 
 const chat = new Hono();
 
@@ -42,7 +42,7 @@ chat.post("/", zValidator("json", chatRequestSchema), async (c) => {
     ];
 
     // Generate response from the agent
-    const response = await logisticsAgent.generate(messages);
+    const response = await getLogisticsAgent().generate(messages);
 
     return c.json({
       success: true,
@@ -88,7 +88,7 @@ chat.post("/stream", zValidator("json", chatRequestSchema), async (c) => {
   return streamSSE(c, async (stream) => {
     try {
       // Stream response from the agent
-      const response = await logisticsAgent.stream(messages);
+      const response = await getLogisticsAgent().stream(messages);
 
       for await (const chunk of response.textStream) {
         await stream.writeSSE({
@@ -122,7 +122,7 @@ chat.get("/health", (c) => {
   return c.json({
     status: "healthy",
     agent: "logistics-agent",
-    tools: Object.keys(logisticsAgent.tools || {}).length,
+    tools: Object.keys(getLogisticsAgent().tools || {}).length,
   });
 });
 

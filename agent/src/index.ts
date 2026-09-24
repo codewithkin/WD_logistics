@@ -14,6 +14,7 @@ import { getAgentWhatsAppClient } from "./lib/whatsapp";
 import { answerMessage } from "./agents/assistant";
 import { uploadFile } from "./lib/assistant-client";
 import { logModelConfiguration } from "./lib/model";
+import { checkConfiguration } from "./lib/config-check";
 import { notificationsApi } from "./lib/api-client";
 
 /**
@@ -25,14 +26,11 @@ import { notificationsApi } from "./lib/api-client";
  * `organizationLimit: 1` in the app's auth config), so one env var is enough.
  */
 const ORGANIZATION_ID = process.env.AGENT_ORGANIZATION_ID ?? "";
-import { 
-  isAuthorizedNumber, 
-  extractPhoneNumber, 
+import {
+  extractPhoneNumber,
   shouldIgnoreMessage,
   setBotPhoneNumber,
-  getAuthorizedUserName 
 } from "./lib/constants";
-import { logisticsAgent } from "./agents/logistics-agent";
 import qrcode from "qrcode-terminal"
 
 const app = new Hono();
@@ -144,6 +142,10 @@ app.post("/sendMessage", async (c) => {
 // Start server
 const port = Number(process.env.PORT) || 3001;
 
+// Reported before the server starts, so a misconfigured deploy says what is
+// wrong in its own logs rather than crash-looping over it.
+const { fatal } = checkConfiguration();
+
 serve({
   fetch: app.fetch,
   port,
@@ -172,6 +174,13 @@ const initWhatsApp = async () => {
         "process and re-opens the session, which can unlink your device. " +
         "Use `bun run dev:whatsapp` (no watcher) when you need the bot paired.",
     );
+  }
+
+  if (fatal.length > 0) {
+    console.warn(
+      "⏭️  Skipping WhatsApp: the service is missing required configuration.",
+    );
+    return;
   }
 
   console.log("🔄 Initializing WhatsApp client...");

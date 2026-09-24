@@ -157,17 +157,26 @@ services:
       WEB_APP_URL: ${WEB_APP_URL}
       AGENT_API_KEY: ${AGENT_API_KEY:?AGENT_API_KEY is required and must match the app service}
 
-      # AI (Mastra / OpenAI)
-      OPENAI_API_KEY: ${OPENAI_API_KEY:?OPENAI_API_KEY is required}
+      # AI. One provider and one key for both the WhatsApp assistant and the
+      # web chat widget. Deliberately NOT marked required with `:?` — the
+      # service starts without it and says which feature is disabled, rather
+      # than refusing to come up at all. It used to be OPENAI_API_KEY, which
+      # was read at import and thrown on, so a missing key crash-looped the
+      # container and the deploy rolled back.
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      ASSISTANT_MODEL: ${ASSISTANT_MODEL:-google/gemini-3.5-flash-lite}
+      ASSISTANT_REASONING_EFFORT: ${ASSISTANT_REASONING_EFFORT:-low}
       MASTRA_LOG_LEVEL: ${MASTRA_LOG_LEVEL:-info}
 
       # WhatsApp bot — disabled unless explicitly turned on (see
       # src/index.ts); enabling it launches Chromium at boot and requires
       # scanning a pairing QR code from `docker compose logs -f agent`.
+      # Who may message the bot is managed under Settings -> WhatsApp
+      # assistant and stored in the database, so the old three-number
+      # allowlist variables are gone; adding someone no longer needs a
+      # redeploy.
       ENABLE_WHATSAPP: ${ENABLE_WHATSAPP:-false}
-      ADMIN_WHATSAPP_NUMBER: ${ADMIN_WHATSAPP_NUMBER:-}
-      WHATSAPP_DEVELOPER_NUMBER_ONE: ${WHATSAPP_DEVELOPER_NUMBER_ONE:-}
-      WHATSAPP_DEVELOPER_NUMBER_TWO: ${WHATSAPP_DEVELOPER_NUMBER_TWO:-}
+      AGENT_ORGANIZATION_ID: ${AGENT_ORGANIZATION_ID:-}
       TEST_MODE: ${TEST_MODE:-false}
       # Where LocalAuth stores the bot's session — must match the volume
       # mount below so a redeploy doesn't force re-scanning the QR code.

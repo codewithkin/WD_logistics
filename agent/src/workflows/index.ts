@@ -1,5 +1,5 @@
 import { api } from "../lib/api-client";
-import { logisticsAgent } from "../agents/logistics-agent";
+import { getLogisticsAgent } from "../agents/logistics-agent";
 import { tripAssignmentTemplate, invoiceReminderTemplate, type TripMessageData, type InvoiceMessageData } from "../lib/message-templates";
 
 export interface WorkflowResult {
@@ -211,7 +211,7 @@ Please provide:
 2. Any items requiring immediate attention
 3. Key action items for tomorrow`;
 
-    const response = await logisticsAgent.generate([
+    const response = await getLogisticsAgent().generate([
       {
         role: "user",
         content: `[Organization ID: ${organizationId}]\n\n${summaryPrompt}`,
