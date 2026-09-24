@@ -24,6 +24,17 @@ export const ASSISTANT_MODEL =
   process.env.ASSISTANT_MODEL || "google/gemini-3-flash";
 
 /**
+ * Where the model actually lives.
+ *
+ * OpenRouter by default. It is overridable so the assistant can be pointed at
+ * a company gateway, a self-hosted proxy, or — the reason it exists — a stub
+ * server during testing, which is the only way to exercise the tool-calling
+ * loop without spending real tokens on every run.
+ */
+export const ASSISTANT_BASE_URL =
+  process.env.ASSISTANT_BASE_URL || "https://openrouter.ai/api/v1";
+
+/**
  * Where the key came from, so a missing one is obvious at boot rather than on
  * the first customer message.
  */
@@ -43,7 +54,7 @@ export function modelConfigurationProblem(): string | null {
  */
 const openrouter = createOpenAI({
   apiKey: OPENROUTER_API_KEY,
-  baseURL: "https://openrouter.ai/api/v1",
+  baseURL: ASSISTANT_BASE_URL,
   // Shows up in OpenRouter's dashboard, which is how spend gets attributed
   // when several things share an account.
   headers: {
@@ -62,5 +73,9 @@ export function logModelConfiguration(): void {
     console.warn(`⚠️  [assistant] ${problem}`);
     return;
   }
-  console.log(`🤖 [assistant] model: ${ASSISTANT_MODEL} via OpenRouter`);
+  const where =
+    ASSISTANT_BASE_URL === "https://openrouter.ai/api/v1"
+      ? "OpenRouter"
+      : ASSISTANT_BASE_URL;
+  console.log(`🤖 [assistant] model: ${ASSISTANT_MODEL} via ${where}`);
 }

@@ -94,7 +94,17 @@ export async function fetchManifest(phone: string): Promise<{
     tools: ToolManifestEntry[];
   }>({ action: "manifest", phone });
 
-  return result.data ?? { authorized: false, tools: [] };
+  // The app answers an unknown number with `{ authorized: false }` and no
+  // tools key at all, so `?? {}` is not enough — the nullish coalescing sees
+  // a truthy object and leaves `tools` undefined. Normalising here is what
+  // stops a stranger's message crashing the agent.
+  const data = result.data;
+  return {
+    authorized: data?.authorized ?? false,
+    name: data?.name,
+    role: data?.role,
+    tools: data?.tools ?? [],
+  };
 }
 
 /** Runs one operation as this caller. */

@@ -102,9 +102,11 @@ export async function POST(request: NextRequest) {
   // assistant turns this into "I don't have you on the list — ask an admin to
   // add you under Settings."
   if (!contact) {
+    // `tools: []` rather than an absent key: a caller iterating the manifest
+    // should get an empty list, not undefined.
     return NextResponse.json({
       success: true,
-      data: { authorized: false },
+      data: { authorized: false, tools: [] },
     });
   }
 

@@ -90,7 +90,24 @@ export async function answerMessage(params: {
   message: string;
   history?: Array<{ role: "user" | "assistant"; content: string }>;
 }): Promise<AssistantReply> {
-  const caller = await buildToolsForCaller(params.phone);
+  // Building the tool set talks to the app over HTTP, so it can fail. It used
+  // to sit outside the try below, which meant a refused or unreachable app
+  // threw straight out of answerMessage and took the WhatsApp message handler
+  // with it — the sender just got silence.
+  let caller: Awaited<ReturnType<typeof buildToolsForCaller>>;
+  try {
+    caller = await buildToolsForCaller(params.phone);
+  } catch (error) {
+    console.error("[assistant] could not work out what this caller may do:", error);
+    return {
+      text:
+        "I can't reach the system right now, so I can't answer that. " +
+        "Try again in a moment.",
+      didWrite: false,
+      toolCalls: [],
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
 
   if (!caller.authorized) {
     return {

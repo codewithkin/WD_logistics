@@ -94,7 +94,7 @@ export async function buildToolsForCaller(phone: string): Promise<{
 
   const tools: Record<string, ReturnType<typeof createTool>> = {};
 
-  for (const entry of manifest.tools as ToolManifestEntry[]) {
+  for (const entry of (manifest.tools ?? []) as ToolManifestEntry[]) {
     const inputSchema = jsonSchemaToZod(entry.schema) as z.ZodObject<
       Record<string, z.ZodTypeAny>
     >;
