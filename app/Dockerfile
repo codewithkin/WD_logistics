@@ -161,14 +161,20 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
 
 # Startup sequence, all needing the real DATABASE_URL that only exists at
 # container start (not the placeholder ARG'd in during build):
-#   1. `prisma migrate deploy` (via node_modules/.bin, plain Node) applies
+#   1. `prisma/resolve-whatsapp-session-migration.mjs` (plain Node — it only
+#      needs `pg`) reconciles one migration whose table the agent may have
+#      created first. Without it a database in that state can't deploy at
+#      all: Prisma refuses to run anything while a migration is marked
+#      failed. Read the script's header for the full story. It is a no-op on
+#      every database that isn't in that specific state.
+#   2. `prisma migrate deploy` (via node_modules/.bin, plain Node) applies
 #      any pending migrations before the server takes traffic.
-#   2. `prisma/ensure-admin.mjs` (via `bun` — see the apt/npm step above for
+#   3. `prisma/ensure-admin.mjs` (via `bun` — see the apt/npm step above for
 #      why) guarantees one organization + one admin user exist. It is NOT
 #      prisma/seed.ts (which wipes and regenerates all demo data every run)
 #      — this only creates what's missing and is safe on every boot/redeploy.
 #      Override its defaults via SEED_ADMIN_EMAIL/SEED_ADMIN_PASSWORD/etc.
-#   3. `next start` (via node_modules/.bin, plain Node) takes over as PID 1
+#   4. `next start` (via node_modules/.bin, plain Node) takes over as PID 1
 #      via `exec`, so it receives SIGTERM directly for a clean shutdown
 #      instead of leaving it with the shell.
 #
@@ -176,4 +182,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
 # Next's CLI under Bun's own runtime isn't something this app has been
 # verified against, so Bun here is scoped to installing packages and running
 # the one script that needs its TypeScript-transpiling import resolution.
-CMD ["sh", "-c", "node_modules/.bin/prisma migrate deploy && bun prisma/ensure-admin.mjs && exec node_modules/.bin/next start"]
+CMD ["sh", "-c", "node prisma/resolve-whatsapp-session-migration.mjs && node_modules/.bin/prisma migrate deploy && bun prisma/ensure-admin.mjs && exec node_modules/.bin/next start"]
