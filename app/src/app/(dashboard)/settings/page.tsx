@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { SettingsLayout } from "./_components/settings-layout";
 import { GeneralSettings } from "./_components/general-settings";
 import { NotificationsSettings } from "./_components/notifications-settings";
+import { WhatsAppContacts } from "./_components/whatsapp-contacts";
 import { OrganisationSettings } from "./_components/organisation-settings";
 import { MembersSettings } from "./_components/members-settings";
 import { DangerZone } from "./_components/danger-zone";
@@ -73,7 +74,13 @@ export default async function SettingsPage() {
                     </>
                 ),
                 notifications: (
-                    <NotificationsSettings preferences={defaultNotificationPreferences} />
+                    <>
+                        <NotificationsSettings preferences={defaultNotificationPreferences} />
+                        {/* Who may talk to the WhatsApp assistant. It sits with
+                            notifications because that is what it is: another
+                            channel, with its own allowlist. */}
+                        <WhatsAppContacts />
+                    </>
                 ),
                 organisation: <OrganisationSettings organisation={organisationData} />,
                 members: (

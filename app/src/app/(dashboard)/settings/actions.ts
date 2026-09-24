@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { hashPassword } from "better-auth/crypto";
 import { prisma } from "@/lib/prisma";
-import { requireRole } from "@/lib/session";
+import { requireRole, assertRole } from "@/lib/session";
 import { sendEmail, generateRandomPassword } from "@/lib/email";
 
 export async function updateOrganizationSettings(data: {
@@ -534,4 +534,186 @@ export async function wipeAllData(confirmation?: string) {
     console.error("Failed to wipe data:", error);
     return { success: false, error: "Failed to wipe data" };
   }
+}
+
+// ============================================================================
+// WHATSAPP ASSISTANT CONTACTS
+// ============================================================================
+
+/**
+ * Who may talk to the assistant.
+ *
+ * The allowlist was three environment variables, so adding a yard manager
+ * meant a redeploy and everyone on the list had identical access. These
+ * actions manage it from Settings, with a role per person that means exactly
+ * what it means in the app — nobody gains anything by messaging rather than
+ * logging in.
+ */
+
+export interface WhatsAppContactRow {
+  id: string;
+  name: string;
+  phone: string;
+  role: string;
+  isActive: boolean;
+  notes: string | null;
+  lastSeenAt: Date | null;
+  messageCount: number;
+  userId: string | null;
+  /** The linked account's name, for the list. */
+  userName: string | null;
+}
+
+const ASSISTANT_ROLES = ["readonly", "staff", "supervisor", "admin"];
+
+export async function listWhatsAppContacts(): Promise<WhatsAppContactRow[]> {
+  const session = await assertRole(["admin"]);
+
+  const rows = await prisma.whatsAppContact.findMany({
+    where: { organizationId: session.organizationId },
+    select: {
+      id: true,
+      name: true,
+      phone: true,
+      role: true,
+      isActive: true,
+      notes: true,
+      lastSeenAt: true,
+      messageCount: true,
+      userId: true,
+      user: { select: { name: true } },
+    },
+    orderBy: [{ isActive: "desc" }, { name: "asc" }],
+  });
+
+  return rows.map(({ user, ...row }) => ({ ...row, userName: user?.name ?? null }));
+}
+
+/**
+ * The accounts a contact can be linked to.
+ *
+ * Recording anything by message runs the app's own server actions as that
+ * account, so this is the list of people whose name a change can be filed
+ * under.
+ */
+export async function listLinkableUsers(): Promise<
+  Array<{ id: string; name: string; email: string; role: string }>
+> {
+  const session = await assertRole(["admin"]);
+
+  const members = await prisma.member.findMany({
+    where: { organizationId: session.organizationId },
+    select: {
+      role: true,
+      user: { select: { id: true, name: true, email: true } },
+    },
+    orderBy: { user: { name: "asc" } },
+  });
+
+  return members
+    .filter((member) => member.user)
+    .map((member) => ({
+      id: member.user.id,
+      name: member.user.name,
+      email: member.user.email,
+      role: member.role,
+    }));
+}
+
+export async function saveWhatsAppContact(input: {
+  id?: string;
+  name: string;
+  phone: string;
+  role: string;
+  isActive: boolean;
+  notes?: string;
+  /** Dashboard account to record their changes under; null for read-only. */
+  userId?: string | null;
+}): Promise<{ success: true } | { success: false; error: string }> {
+  const session = await assertRole(["admin"]);
+
+  const name = input.name.trim();
+  if (name.length < 2) {
+    return { success: false, error: "Give them a name." };
+  }
+  if (!ASSISTANT_ROLES.includes(input.role)) {
+    return { success: false, error: `Unknown role: ${input.role}` };
+  }
+
+  // Normalised on write, so 0772958986 and +263 77 295 8986 are one person
+  // rather than two rows with different access.
+  const { toE164 } = await import("@/lib/whatsapp/trip-messages");
+  const phone = toE164(input.phone);
+  if (!phone) {
+    return { success: false, error: "That doesn't look like a phone number." };
+  }
+
+  const clash = await prisma.whatsAppContact.findFirst({
+    where: { phone, ...(input.id ? { NOT: { id: input.id } } : {}) },
+    select: { name: true },
+  });
+  if (clash) {
+    return {
+      success: false,
+      error: `${phone} is already on the list as ${clash.name}.`,
+    };
+  }
+
+  // A link is only accepted to somebody who is actually in this organisation —
+  // otherwise it would be a way to file changes under an outsider's name.
+  let userId: string | null = null;
+  if (input.userId) {
+    const member = await prisma.member.findFirst({
+      where: { userId: input.userId, organizationId: session.organizationId },
+      select: { userId: true },
+    });
+    if (!member) {
+      return { success: false, error: "That account isn't in this organisation." };
+    }
+    userId = member.userId;
+  }
+
+  const data = {
+    name,
+    phone,
+    role: input.role,
+    isActive: input.isActive,
+    notes: input.notes?.trim() || null,
+    userId,
+  };
+
+  if (input.id) {
+    const existing = await prisma.whatsAppContact.findFirst({
+      where: { id: input.id, organizationId: session.organizationId },
+      select: { id: true },
+    });
+    if (!existing) return { success: false, error: "Contact not found." };
+    await prisma.whatsAppContact.update({ where: { id: input.id }, data });
+  } else {
+    await prisma.whatsAppContact.create({
+      data: { ...data, organizationId: session.organizationId },
+    });
+  }
+
+  revalidatePath("/settings");
+  return { success: true };
+}
+
+export async function deleteWhatsAppContact(
+  id: string,
+): Promise<{ success: true } | { success: false; error: string }> {
+  const session = await assertRole(["admin"]);
+
+  const existing = await prisma.whatsAppContact.findFirst({
+    where: { id, organizationId: session.organizationId },
+    select: { id: true },
+  });
+  if (!existing) return { success: false, error: "Contact not found." };
+
+  // The transcript survives: WhatsAppMessage.contactId is SetNull, so the
+  // audit trail of what they changed is not deleted along with their access.
+  await prisma.whatsAppContact.delete({ where: { id } });
+
+  revalidatePath("/settings");
+  return { success: true };
 }
