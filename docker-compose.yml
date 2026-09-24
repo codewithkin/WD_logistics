@@ -157,6 +157,11 @@ services:
       WEB_APP_URL: ${WEB_APP_URL}
       AGENT_API_KEY: ${AGENT_API_KEY:?AGENT_API_KEY is required and must match the app service}
 
+      # The WhatsApp pairing is stored here so it survives a redeploy. The
+      # agent touches exactly one table (whatsapp_session) and nothing else;
+      # everything about the business still goes through the app over HTTP.
+      DATABASE_URL: postgresql://${POSTGRES_USER:-wdlogistics}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-wdlogistics}
+
       # AI. One provider and one key for both the WhatsApp assistant and the
       # web chat widget. Deliberately NOT marked required with `:?` — the
       # service starts without it and says which feature is disabled, rather

@@ -73,7 +73,29 @@ export function extractPhoneNumber(whatsappId: string): string {
  * Returns true for: broadcast messages, status updates, group messages
  */
 export function shouldIgnoreMessage(whatsappFrom: string): boolean {
-  return whatsappFrom.includes("@lid") || whatsappFrom.includes("@g.us");
+  // Status updates arrive as the literal address `status@broadcast`. They
+  // were NOT being ignored — only @lid and @g.us were — so the assistant
+  // tried to answer somebody's status video and crashed in wwebjs with
+  // "canCheckStatusRankingPosterGating is not a function", because a status
+  // cannot be replied to at all.
+  if (whatsappFrom === "status@broadcast") return true;
+  if (whatsappFrom.endsWith("@broadcast")) return true;
+  // Groups and channels: the assistant answers people.
+  if (whatsappFrom.endsWith("@g.us")) return true;
+  if (whatsappFrom.endsWith("@newsletter")) return true;
+
+  // @lid is NOT ignored any more. WhatsApp has begun addressing ordinary
+  // people by a "linked identity" rather than their phone number, and
+  // treating that as non-personal meant real messages from real contacts
+  // were silently dropped — the sender saw no reply and nothing explained
+  // why. The number behind a lid is resolved from the message's contact
+  // instead; see resolveSenderNumber in index.ts.
+  return false;
+}
+
+/** True when the address is a linked identity rather than a phone number. */
+export function isLinkedIdentity(whatsappFrom: string): boolean {
+  return whatsappFrom.endsWith("@lid");
 }
 
 /**

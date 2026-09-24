@@ -6,11 +6,12 @@
  */
 
 import pkg from "whatsapp-web.js";
-const { Client, LocalAuth } = pkg;
+const { Client, LocalAuth, RemoteAuth } = pkg;
 import { EventEmitter } from "events";
 import QRCode from "qrcode";
 import path from "path";
 import { acquireSessionLock, type SessionLock } from "./whatsapp-session";
+import { PostgresSessionStore } from "./wa-session-store";
 
 // Where the WhatsApp session (LocalAuth) is stored. Defaults to an absolute
 // path under the process working directory so the auth state survives
@@ -18,6 +19,66 @@ import { acquireSessionLock, type SessionLock } from "./whatsapp-session";
 // volume (see Dockerfile + docker-compose.yml). Override via
 // WHATSAPP_AUTH_PATH to point at the volume explicitly if the CWD differs.
 const WHATSAPP_AUTH_PATH = process.env.WHATSAPP_AUTH_PATH || path.resolve(process.cwd(), ".wwebjs_auth");
+
+/** One name for the stored session, so a redeploy finds what the last one saved. */
+const SESSION_NAME = "agent-whatsapp";
+
+/**
+ * How often the session is copied to Postgres. The library refuses anything
+ * under a minute, and more often than that buys nothing: the session only
+ * changes materially when WhatsApp rotates keys.
+ */
+const BACKUP_INTERVAL_MS = 5 * 60 * 1000;
+
+let sessionStore: PostgresSessionStore | null = null;
+
+/**
+ * Where the pairing is kept.
+ *
+ * With DATABASE_URL set, the session lives in Postgres and survives redeploys,
+ * rebuilds and the container filesystem being thrown away — which is what was
+ * happening: LocalAuth keeps the pairing inside a Chromium profile directory,
+ * so every deploy demanded a fresh QR scan.
+ *
+ * Without it, LocalAuth is used exactly as before. That keeps a laptop
+ * working with no database, and it is a fallback rather than the default
+ * because on a hosted deploy it will lose the session.
+ */
+function buildAuthStrategy() {
+  const connectionString = process.env.DATABASE_URL;
+
+  if (!connectionString) {
+    console.warn(
+      "⚠️  [whatsapp] DATABASE_URL is not set, so the session is being kept on " +
+        "disk. It will be lost on the next redeploy and the QR code will have " +
+        "to be scanned again.",
+    );
+    return new LocalAuth({
+      clientId: SESSION_NAME,
+      dataPath: WHATSAPP_AUTH_PATH,
+    });
+  }
+
+  sessionStore = sessionStore ?? new PostgresSessionStore(connectionString);
+  console.log("🗄️  [whatsapp] session stored in Postgres; survives redeploys");
+
+  return new RemoteAuth({
+    clientId: SESSION_NAME,
+    dataPath: WHATSAPP_AUTH_PATH,
+    store: sessionStore,
+    backupSyncIntervalMs: BACKUP_INTERVAL_MS,
+  });
+}
+
+/** When the session was last copied to Postgres, for the status endpoint. */
+export async function sessionLastSavedAt(): Promise<Date | null> {
+  if (!sessionStore) return null;
+  try {
+    return await sessionStore.lastSavedAt(SESSION_NAME);
+  } catch {
+    return null;
+  }
+}
 
 export interface WhatsAppMessage {
   id: string;
@@ -123,10 +184,7 @@ export class AgentWhatsAppClient extends EventEmitter {
 
       this.client = new Client({
         puppeteer: puppeteerConfig,
-        authStrategy: new LocalAuth({
-          clientId: "agent-whatsapp",
-          dataPath: WHATSAPP_AUTH_PATH,
-        }),
+        authStrategy: buildAuthStrategy(),
       });
 
       // Generate QR code for first-time connection
@@ -234,10 +292,7 @@ export class AgentWhatsAppClient extends EventEmitter {
           
           this.client = new Client({
             puppeteer: puppeteerConfig,
-            authStrategy: new LocalAuth({
-              clientId: "agent-whatsapp",
-              dataPath: WHATSAPP_AUTH_PATH,
-            }),
+            authStrategy: buildAuthStrategy(),
           });
           
           // Re-attach event handlers

@@ -8,7 +8,7 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
-import { getAgentWhatsAppClient } from "../lib/whatsapp";
+import { getAgentWhatsAppClient, sessionLastSavedAt } from "../lib/whatsapp";
 import { getMemoryManager, getRateLimiter, getInputGuard } from "../lib/memory";
 import { api } from "../lib/api-client";
 import {
@@ -319,6 +319,9 @@ whatsapp.get("/status", zValidator("query", statusSchema), async (c) => {
       queuedMessages: client.getQueueLength(),
       lastError: state.lastError,
       qrCode: state.qrCode,
+      // When the pairing was last copied to Postgres. Null means it is being
+      // kept on disk instead, and will not survive a redeploy.
+      sessionBackedUpAt: (await sessionLastSavedAt())?.toISOString() ?? null,
     });
   } catch (error) {
     console.error("WhatsApp status error:", error);

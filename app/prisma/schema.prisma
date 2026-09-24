@@ -1162,3 +1162,23 @@ model NotificationPreference {
   @@index([userId])
   @@map("notification_preference")
 }
+
+/// The WhatsApp pairing, so it survives a redeploy.
+///
+/// whatsapp-web.js's LocalAuth keeps the session inside a Chromium profile on
+/// disk, which a container throws away on every build — so each deploy asked
+/// for a fresh QR scan. RemoteAuth zips that profile and hands it to a store;
+/// this table is the store (see agent/src/lib/wa-session-store.ts).
+///
+/// Written and read only by the agent, which is the one exception to it not
+/// touching Postgres: the payload is opaque browser state, several megabytes,
+/// saved every few minutes. It is declared here so Prisma knows the table
+/// exists and migrations do not try to drop it.
+model WhatsAppSession {
+  session   String   @id
+  data      Bytes
+  sizeBytes Int      @map("size_bytes")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("whatsapp_session")
+}

@@ -39,6 +39,8 @@ interface AgentStatus {
     messagesSent: number;
     queuedMessages: number;
     lastError: string | null;
+    /** When the pairing was last copied to Postgres; null means disk-only. */
+    sessionBackedUpAt: string | null;
 }
 
 const AGENT_BASE_URL =
@@ -148,6 +150,21 @@ export function WhatsAppIntegration({ organizationId }: { organizationId: string
                                 `, ${agent.queuedMessages} waiting to go out`}
                             . Keep the phone online — WhatsApp Web stops working when
                             the paired phone is off for too long.
+                        </p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                            {agent.sessionBackedUpAt ? (
+                                <>
+                                    Pairing saved to the database{' '}
+                                    {new Date(agent.sessionBackedUpAt).toLocaleString('en-GB')} — it
+                                    will survive a redeploy.
+                                </>
+                            ) : (
+                                <span className="text-amber-600">
+                                    The pairing is only on the server&apos;s disk. It will be
+                                    lost on the next redeploy and this code will have to be
+                                    scanned again. Set <code>DATABASE_URL</code> on the agent.
+                                </span>
+                            )}
                         </p>
                     </div>
                 )}

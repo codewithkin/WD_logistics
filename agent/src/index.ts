@@ -28,6 +28,7 @@ import { notificationsApi } from "./lib/api-client";
 const ORGANIZATION_ID = process.env.AGENT_ORGANIZATION_ID ?? "";
 import {
   extractPhoneNumber,
+  isLinkedIdentity,
   shouldIgnoreMessage,
   setBotPhoneNumber,
 } from "./lib/constants";
@@ -242,6 +243,50 @@ const initWhatsApp = async () => {
         }
       });
 
+      /**
+       * The sender's phone number, whatever address WhatsApp used.
+       *
+       * Returns null when it genuinely cannot be determined, which is better
+       * than guessing: a wrong number means the assistant either refuses a
+       * legitimate colleague or, worse, treats them as somebody else.
+       */
+      const resolveSenderNumber = async (msg: any): Promise<string | null> => {
+        if (!isLinkedIdentity(msg.from)) {
+          const direct = extractPhoneNumber(msg.from);
+          return direct === "+" ? null : direct;
+        }
+
+        console.log(`   Address is a linked identity; resolving the number...`);
+        try {
+          const contact = await msg.getContact();
+          // `number` is the userid wwebjs puts on a Contact; `id.user` is the
+          // address's own left-hand side. For a lid contact the first is the
+          // phone number and the second is the lid, but that has changed
+          // before, so both are tried and both are logged.
+          const candidates: Array<[string, unknown]> = [
+            ["contact.number", contact?.number],
+            ["contact.id.user", contact?.id?.user],
+          ];
+
+          for (const [where, value] of candidates) {
+            const digits = String(value ?? "").replace(/\D/g, "");
+            console.log(`      ${where}: ${value ?? "(none)"}`);
+            // A lid is a long opaque integer; a real number carries a country
+            // code and is shorter. Anything under 15 digits that is not the
+            // lid itself is the number we want.
+            if (digits.length >= 8 && digits.length <= 15 && !msg.from.startsWith(digits)) {
+              return `+${digits}`;
+            }
+          }
+
+          console.log(`      none of them looked like a phone number`);
+          return null;
+        } catch (error) {
+          console.error(`      could not read the contact:`, error);
+          return null;
+        }
+      };
+
       client.on("message_create", async (msg: any) => {
         try {
           // Log every received message
@@ -261,9 +306,23 @@ const initWhatsApp = async () => {
             return;
           }
           
-          // Extract phone number from WhatsApp ID
-          const phoneNumber = extractPhoneNumber(msg.from);
-          console.log(`📱 Extracted phone: ${phoneNumber}`);
+          // Work out who actually sent this.
+          //
+          // `msg.from` is usually `263771234567@c.us`, which is the number.
+          // WhatsApp increasingly addresses people as `57321287889014@lid`
+          // instead — a linked identity that is *not* a phone number, and
+          // reading digits out of it produces a number belonging to nobody.
+          // The contact behind the message still knows the real one, so ask
+          // it. Every source is logged: if a future WhatsApp change moves the
+          // number again, the logs will say which field still had it.
+          const phoneNumber = await resolveSenderNumber(msg);
+          if (!phoneNumber) {
+            console.log(`⚠️ EARLY RETURN: could not work out the sender's number`);
+            console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+`);
+            return;
+          }
+          console.log(`📱 Sender: ${phoneNumber}`);
           console.log(`   Bot phone number: ${botPhoneNumber}`);
           
           // Check if it's the bot's own number and ignore

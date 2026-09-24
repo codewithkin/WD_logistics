@@ -84,7 +84,13 @@ Commit message style:
 
 ### Two-service split and how they talk
 
-`agent` never touches Postgres or Prisma. Instead:
+`agent` never touches Postgres or Prisma, with **one deliberate exception**:
+the WhatsApp pairing. `agent/src/lib/wa-session-store.ts` reads and writes the
+`whatsapp_session` table directly with `pg`, because whatsapp-web.js's
+RemoteAuth hands the store a multi-megabyte zip of Chromium profile state
+every few minutes and pushing that through the app as base64 would be slower
+and no safer. It is one table, opaque bytes, no joins, nothing about the
+business. Everything else still goes over HTTP. Otherwise:
 
 - `agent/src/lib/api-client.ts` wraps all outbound calls into typed namespaces (`trucksApi`, `driversApi`, `tripsApi`, `invoicesApi`, `dashboardApi`, `customersApi`, `workflowsApi`). Every call POSTs to `app`'s `POST /api/agent/<resource>` with `{ action, ...params }` in the body and `x-api-key` / `x-organization-id` headers.
 - On the `app` side, `src/app/api/agent/{trucks,drivers,trips,invoices,customers,dashboard,workflows}/route.ts` are the only handlers that respond to this traffic. They validate the shared secret via `src/lib/agent-auth.ts` (`validateAgentRequest` / `withAgentAuth`), then dispatch on the `action` string to Prisma queries and return `{ success, data }`.
