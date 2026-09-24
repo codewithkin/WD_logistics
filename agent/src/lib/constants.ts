@@ -58,10 +58,14 @@ export function formatForWhatsApp(phoneNumber: string): string {
  * To: +263789859332
  */
 export function extractPhoneNumber(whatsappId: string): string {
-  // Extract just the number part
-  const phoneNumber = whatsappId.replace(/@c\.us|@lid|@g\.us/g, "");
-  // Add + prefix for international format
-  return `+${phoneNumber}`;
+  // Everything before the @ is the address; everything before a colon in
+  // *that* is the number. WhatsApp addresses a specific linked device as
+  // `263772958986:12@c.us`, and keeping the `:12` produced +26377295898612
+  // once the app normalised it — a number matching no contact, so the sender
+  // was told they were not on the list while the number was in fact correct.
+  const address = whatsappId.split("@")[0] ?? "";
+  const digits = (address.split(":")[0] ?? "").replace(/\D/g, "");
+  return `+${digits}`;
 }
 
 /**

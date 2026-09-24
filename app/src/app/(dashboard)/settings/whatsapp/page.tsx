@@ -2,6 +2,7 @@ import { PageHeader } from '@/components/layout/page-header';
 import { pageAccess } from '@/lib/session';
 import { NoAccess } from '@/components/layout/no-access';
 import { WhatsAppIntegration } from './_components/whatsapp-integration';
+import { WhatsAppContacts } from '../_components/whatsapp-contacts';
 
 export default async function WhatsAppSettingsPage() {
     // Admin only. This page had no role check at all — any signed-in user,
@@ -16,10 +17,15 @@ export default async function WhatsAppSettingsPage() {
         <div className="space-y-6">
             <PageHeader
                 title="WhatsApp Integration"
-                description="Connect your WhatsApp account to send notifications to drivers and customers"
+                description="Pair the phone, and choose who the assistant answers."
             />
 
             <WhatsAppIntegration organizationId={session.organizationId} />
+
+            {/* Who the bot replies to lives here, next to the pairing it
+                depends on, rather than buried under Notifications where
+                nobody found it. */}
+            <WhatsAppContacts />
         </div>
     );
 }

@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { toWhatsAppId } from "@/lib/whatsapp/wa-id";
 import { hashPassword } from "better-auth/crypto";
 import { prisma } from "@/lib/prisma";
 import { requireRole, assertRole } from "@/lib/session";
@@ -562,6 +563,12 @@ export interface WhatsAppContactRow {
   userId: string | null;
   /** The linked account's name, for the list. */
   userName: string | null;
+  /**
+   * The id WhatsApp actually addresses this person by. Shown so a wrong
+   * number is visible rather than silently never matching an inbound
+   * message.
+   */
+  waId: string | null;
 }
 
 const ASSISTANT_ROLES = ["readonly", "staff", "supervisor", "admin"];
@@ -586,7 +593,11 @@ export async function listWhatsAppContacts(): Promise<WhatsAppContactRow[]> {
     orderBy: [{ isActive: "desc" }, { name: "asc" }],
   });
 
-  return rows.map(({ user, ...row }) => ({ ...row, userName: user?.name ?? null }));
+  return rows.map(({ user, ...row }) => ({
+    ...row,
+    userName: user?.name ?? null,
+    waId: toWhatsAppId(row.phone),
+  }));
 }
 
 /**

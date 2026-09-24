@@ -208,6 +208,11 @@ export function WhatsAppContacts() {
                     </TableCell>
                     <TableCell className="whitespace-nowrap tabular-nums">
                       {contact.phone}
+                      {contact.waId && (
+                        <p className="font-mono text-[11px] text-muted-foreground">
+                          {contact.waId}
+                        </p>
+                      )}
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline">
