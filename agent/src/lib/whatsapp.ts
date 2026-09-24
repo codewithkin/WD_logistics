@@ -10,6 +10,7 @@ const { Client, LocalAuth } = pkg;
 import { EventEmitter } from "events";
 import QRCode from "qrcode";
 import path from "path";
+import { acquireSessionLock, type SessionLock } from "./whatsapp-session";
 
 // Where the WhatsApp session (LocalAuth) is stored. Defaults to an absolute
 // path under the process working directory so the auth state survives
@@ -51,6 +52,8 @@ export class AgentWhatsAppClient extends EventEmitter {
   };
   private messageQueue: Array<{ to: string; message: string; retries: number }> = [];
   private isProcessing = false;
+  /** Held for as long as this process owns the Chromium profile. */
+  private sessionLock: SessionLock | null = null;
 
   constructor() {
     super();
@@ -70,6 +73,20 @@ export class AgentWhatsAppClient extends EventEmitter {
     try {
       if (this.client) {
         return this.state.status === "ready";
+      }
+
+      // Claim the Chromium profile before launching anything. Two clients on
+      // one profile is what makes a freshly scanned session drop moments
+      // later, and it is far better to refuse to start than to corrupt it.
+      try {
+        this.sessionLock = acquireSessionLock(WHATSAPP_AUTH_PATH);
+      } catch (lockError) {
+        this.state.status = "error";
+        this.state.lastError =
+          lockError instanceof Error ? lockError.message : "Session already in use";
+        this.emit("status", this.state);
+        console.error(`❌ ${this.state.lastError}`);
+        return false;
       }
 
       this.state.status = "connecting";
@@ -421,9 +438,15 @@ export class AgentWhatsAppClient extends EventEmitter {
    */
   async disconnect(): Promise<void> {
     if (this.client) {
+      // destroy() closes Chromium and waits for it, which is what actually
+      // flushes the session to disk. Skipping it — as an unhandled SIGINT
+      // does — is how a scanned session comes back unauthenticated.
       await this.client.destroy();
       this.client = null;
     }
+
+    this.sessionLock?.release();
+    this.sessionLock = null;
 
     this.state.status = "disconnected";
     this.state.phoneNumber = null;

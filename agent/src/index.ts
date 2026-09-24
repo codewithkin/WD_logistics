@@ -163,6 +163,16 @@ const initWhatsApp = async () => {
     return;
   }
 
+  // tsx watch restarts on every save. Each restart is a fresh Chromium
+  // against the same profile, which is exactly what unlinks the device.
+  if (process.env.TSX_WATCH || process.argv.some((a) => a.includes("watch"))) {
+    console.warn(
+      "⚠️  WhatsApp is enabled under a file watcher. Every save restarts the " +
+        "process and re-opens the session, which can unlink your device. " +
+        "Use `bun run dev:whatsapp` (no watcher) when you need the bot paired.",
+    );
+  }
+
   console.log("🔄 Initializing WhatsApp client...");
   try {
     const client = getAgentWhatsAppClient();
@@ -325,6 +335,39 @@ const initWhatsApp = async () => {
     console.error("❌ Failed to initialize WhatsApp client:", error);
   }
 };
+
+/**
+ * Close Chromium before the process goes away.
+ *
+ * Without this, every restart — and `bun run dev` is `tsx watch`, so that is
+ * every file save — killed Node while Chromium still held the WhatsApp
+ * session open. The browser was left behind holding the profile directory,
+ * the next boot opened a second Chromium against the same profile, and
+ * WhatsApp dropped the linked device. The symptom is a session that
+ * unauthenticates itself a moment after the QR code is scanned.
+ */
+let shuttingDown = false;
+const shutdown = async (signal: string) => {
+  if (shuttingDown) return;
+  shuttingDown = true;
+
+  if (process.env.ENABLE_WHATSAPP === "true") {
+    console.log(`
+🛑 ${signal} — closing the WhatsApp session cleanly...`);
+    try {
+      await getAgentWhatsAppClient().disconnect();
+      console.log("✅ WhatsApp session closed; it will still be linked next boot.");
+    } catch (error) {
+      console.error("⚠️  Could not close the WhatsApp session cleanly:", error);
+    }
+  }
+
+  process.exit(0);
+};
+
+for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"] as const) {
+  process.on(signal, () => void shutdown(signal));
+}
 
 // Start WhatsApp initialization immediately
 initWhatsApp();
