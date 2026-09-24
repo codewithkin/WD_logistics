@@ -34,6 +34,7 @@ import {
   SessionInUseError,
   parseProcStat,
 } from "../src/lib/whatsapp-session";
+import { allowReply, resetReplyGuard } from "../src/lib/reply-guard";
 
 let failures = 0;
 
@@ -303,10 +304,95 @@ function checkProcStatParsing() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// 5. The reply loop. `message_create` fires for outgoing messages too, so the
+//    assistant read its own replies back as questions and answered them —
+//    122 copies of "I don't have this number on my list" to a real person.
+// ---------------------------------------------------------------------------
+function checkSelfMessageGuard() {
+  console.log("\nSelf-message guard");
+
+  const handlerSource = fs.readFileSync(
+    path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "src", "index.ts"),
+    "utf8",
+  );
+
+  const guard = /if\s*\(\s*msg\.fromMe\s*\)\s*return;/.test(handlerSource);
+  check(
+    "the message handler drops anything this account sent",
+    guard,
+    "no `if (msg.fromMe) return;` — outgoing replies will be read back as questions",
+  );
+
+  // It has to come before the work, not after it.
+  const guardAt = handlerSource.search(/if\s*\(\s*msg\.fromMe\s*\)\s*return;/);
+  const answerAt = handlerSource.indexOf("answerMessage({");
+  check(
+    "it runs before the message is answered",
+    guard && guardAt !== -1 && guardAt < answerAt,
+    `fromMe at ${guardAt}, answerMessage at ${answerAt}`,
+  );
+}
+
+function checkReplyGuard() {
+  console.log("\nReply loop breaker");
+
+  const phone = "+263771234567";
+  const refusal = "I don't have this number on my list, so I can't help.";
+
+  resetReplyGuard();
+  const first = allowReply(phone, refusal, 1_000);
+  check("the first reply goes out", first.send);
+
+  const second = allowReply(phone, refusal, 2_000);
+  check("the same reply straight after is held back", !second.send, second.reason);
+
+  // Which is the specific thing that flooded the chat.
+  resetReplyGuard();
+  let delivered = 0;
+  for (let i = 0; i < 122; i++) {
+    if (allowReply(phone, refusal, 1_000 + i * 10).send) delivered += 1;
+  }
+  check(
+    "122 attempts at the same refusal deliver once, not 122 times",
+    delivered === 1,
+    `${delivered} delivered`,
+  );
+
+  // Different messages are still limited, so a loop that varies its text
+  // cannot flood either.
+  resetReplyGuard();
+  let varied = 0;
+  for (let i = 0; i < 50; i++) {
+    if (allowReply(phone, `reply number ${i}`, 1_000 + i * 10).send) varied += 1;
+  }
+  check(
+    "a loop with varying text is capped per minute",
+    varied > 0 && varied <= 8,
+    `${varied} delivered`,
+  );
+
+  // A real conversation must not be throttled.
+  resetReplyGuard();
+  const later = 1_000 + 20 * 60 * 1000;
+  check("the same answer is allowed again much later", allowReply(phone, refusal, 1_000).send);
+  check("…and again after the window", allowReply(phone, refusal, later).send);
+
+  // One person being noisy must not silence anybody else.
+  resetReplyGuard();
+  for (let i = 0; i < 20; i++) allowReply(phone, `spam ${i}`, 1_000 + i);
+  check(
+    "a different number is unaffected",
+    allowReply("+263779999999", "hello", 1_100).send,
+  );
+}
+
 async function main() {
   console.log("WhatsApp session checks");
   checkArchiveConvention();
   checkProcStatParsing();
+  checkSelfMessageGuard();
+  checkReplyGuard();
   await checkArchiveResolution();
   await checkSaveNeverThrows();
   await checkSessionLock();
