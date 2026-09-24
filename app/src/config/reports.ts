@@ -23,6 +23,68 @@ export interface ReportConfig {
 }
 
 export const reportConfigs: Record<string, ReportConfig> = {
+  "profit-loss": {
+    id: "profit-loss",
+    name: "Profit & Loss Statement",
+    description:
+      "Revenue, expenses and profit for the period — month by month, by customer and by expense category, against the period before it.",
+    periods: ["monthly", "quarterly", "yearly", "custom"],
+    formats: ["pdf", "csv"],
+    fields: [
+      { key: "month", label: "Month", type: "string" },
+      { key: "revenue", label: "Revenue", type: "currency" },
+      { key: "expenses", label: "Expenses", type: "currency" },
+      { key: "profit", label: "Profit", type: "currency" },
+      { key: "margin", label: "Margin %", type: "percentage" },
+    ],
+  },
+  "aged-receivables": {
+    id: "aged-receivables",
+    name: "Aged Receivables (Debtors)",
+    description:
+      "Who owes money and for how long — current, 1-30, 31-60, 61-90 and 90+ days, per customer, with the invoices behind it.",
+    periods: ["monthly", "quarterly", "yearly", "custom"],
+    formats: ["pdf", "csv"],
+    fields: [
+      { key: "customer", label: "Customer", type: "string" },
+      { key: "invoices", label: "Invoices", type: "number" },
+      { key: "current", label: "Current", type: "currency" },
+      { key: "d30", label: "1-30 days", type: "currency" },
+      { key: "d60", label: "31-60 days", type: "currency" },
+      { key: "d90", label: "61-90 days", type: "currency" },
+      { key: "d90plus", label: "90+ days", type: "currency" },
+      { key: "total", label: "Total owed", type: "currency" },
+    ],
+  },
+  creditors: {
+    id: "creditors",
+    name: "Creditors (Supplier Payables)",
+    description:
+      "What the company owes and to whom, aged by each supplier's payment terms, including unpaid entries with no supplier recorded.",
+    periods: ["monthly", "quarterly", "yearly", "custom"],
+    formats: ["pdf", "csv"],
+    fields: [
+      { key: "supplier", label: "Supplier", type: "string" },
+      { key: "terms", label: "Terms", type: "number" },
+      { key: "unpaidCount", label: "Unpaid", type: "number" },
+      { key: "total", label: "Total owed", type: "currency" },
+    ],
+  },
+  "cash-flow": {
+    id: "cash-flow",
+    name: "Cash Flow Statement",
+    description:
+      "Money actually received and actually paid out, month by month, with each account's opening and closing position.",
+    periods: ["monthly", "quarterly", "yearly", "custom"],
+    formats: ["pdf", "csv"],
+    fields: [
+      { key: "month", label: "Month", type: "string" },
+      { key: "customerReceipts", label: "From customers", type: "currency" },
+      { key: "supplierPayments", label: "To suppliers", type: "currency" },
+      { key: "otherSpend", label: "Other spend", type: "currency" },
+      { key: "net", label: "Net", type: "currency" },
+    ],
+  },
   "truck-cost-breakdown": {
     id: "truck-cost-breakdown",
     name: "Truck Cost Breakdown",

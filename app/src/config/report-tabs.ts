@@ -13,7 +13,16 @@ import { reportConfigs } from "@/config/reports";
  */
 export const TAB_REPORT_TYPES: Record<string, string[]> = {
   overview: ["revenue", "expenses", "trip-summary"],
-  financial: ["account-ledger", "revenue", "expenses", "customer-statement"],
+  financial: [
+    "profit-loss",
+    "cash-flow",
+    "aged-receivables",
+    "creditors",
+    "account-ledger",
+    "revenue",
+    "expenses",
+    "customer-statement",
+  ],
   fleet: ["truck-cost-breakdown", "profit-per-unit", "truck-profitability", "trip-summary"],
 };
 
@@ -40,5 +49,10 @@ export function primaryReportTypeForTab(tab: string): string | null {
  */
 export function needsSelection(reportType: string): boolean {
   const config = reportConfigs[reportType];
-  return Boolean(config?.requiresCustomer || config?.requiresTruck);
+  return Boolean(
+    config?.requiresCustomer ||
+      config?.requiresTruck ||
+      config?.requiresTrailer ||
+      config?.requiresTrip,
+  );
 }

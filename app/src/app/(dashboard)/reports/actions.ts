@@ -40,6 +40,10 @@ import {
 // Input validation schema
 const generateReportSchema = z.object({
   reportType: z.enum([
+    "profit-loss",
+    "aged-receivables",
+    "creditors",
+    "cash-flow",
     "truck-cost-breakdown",
     "profit-per-unit",
     "revenue",
@@ -99,6 +103,147 @@ export async function generateReport(
       // Item 1's "separate report": the same figures as the on-screen
       // breakdown, reading from lib/metrics/truck-costs so the two can never
       // disagree. One truck when truckId is given, the whole fleet otherwise.
+      // ---- The four money reports. Each reads figures computed once in
+      // lib/reports/finance-fetchers, so the PDF, the CSV and the screen can
+      // never disagree about what the business earned or owes.
+      case "profit-loss": {
+        const { fetchProfitAndLossData } = await import(
+          "@/lib/reports/finance-fetchers"
+        );
+        const { generateProfitAndLossPDF } = await import(
+          "@/lib/documents/finance-reports"
+        );
+        const { generateProfitAndLossCSV } = await import(
+          "@/lib/reports/finance-csv"
+        );
+
+        const organization = await prisma.organization.findUnique({
+          where: { id: organizationId },
+        });
+        const data = await fetchProfitAndLossData(organizationId, start, end);
+
+        if (format === "pdf") {
+          fileBuffer = generateProfitAndLossPDF({ organization, data });
+          mimeType = "application/pdf";
+          fileExtension = "pdf";
+        } else {
+          fileBuffer = Buffer.from(
+            generateProfitAndLossCSV(data, {
+              company: organization?.name,
+              period: `${startDate} to ${endDate}`,
+            }),
+            "utf-8",
+          );
+          mimeType = "text/csv";
+          fileExtension = "csv";
+        }
+        filename = `profit-loss-${startDate}-to-${endDate}.${fileExtension}`;
+        break;
+      }
+
+      case "aged-receivables": {
+        const { fetchAgedReceivablesData } = await import(
+          "@/lib/reports/finance-fetchers"
+        );
+        const { generateAgedReceivablesPDF } = await import(
+          "@/lib/documents/finance-reports"
+        );
+        const { generateAgedReceivablesCSV } = await import(
+          "@/lib/reports/finance-csv"
+        );
+
+        const organization = await prisma.organization.findUnique({
+          where: { id: organizationId },
+        });
+        // Ageing is a position, not a flow: it is always "as at" a date, and
+        // the end of the chosen period is the date the reader means.
+        const data = await fetchAgedReceivablesData(organizationId, end);
+
+        if (format === "pdf") {
+          fileBuffer = generateAgedReceivablesPDF({ organization, data });
+          mimeType = "application/pdf";
+          fileExtension = "pdf";
+        } else {
+          fileBuffer = Buffer.from(
+            generateAgedReceivablesCSV(data, {
+              company: organization?.name,
+              period: `As at ${endDate}`,
+            }),
+            "utf-8",
+          );
+          mimeType = "text/csv";
+          fileExtension = "csv";
+        }
+        filename = `aged-receivables-${endDate}.${fileExtension}`;
+        break;
+      }
+
+      case "creditors": {
+        const { fetchCreditorsData } = await import(
+          "@/lib/reports/finance-fetchers"
+        );
+        const { generateCreditorsPDF } = await import(
+          "@/lib/documents/finance-reports"
+        );
+        const { generateCreditorsCSV } = await import("@/lib/reports/finance-csv");
+
+        const organization = await prisma.organization.findUnique({
+          where: { id: organizationId },
+        });
+        const data = await fetchCreditorsData(organizationId, end);
+
+        if (format === "pdf") {
+          fileBuffer = generateCreditorsPDF({ organization, data });
+          mimeType = "application/pdf";
+          fileExtension = "pdf";
+        } else {
+          fileBuffer = Buffer.from(
+            generateCreditorsCSV(data, {
+              company: organization?.name,
+              period: `As at ${endDate}`,
+            }),
+            "utf-8",
+          );
+          mimeType = "text/csv";
+          fileExtension = "csv";
+        }
+        filename = `creditors-${endDate}.${fileExtension}`;
+        break;
+      }
+
+      case "cash-flow": {
+        const { fetchCashFlowData } = await import(
+          "@/lib/reports/finance-fetchers"
+        );
+        const { generateCashFlowPDF } = await import(
+          "@/lib/documents/finance-reports"
+        );
+        const { generateCashFlowCSV } = await import("@/lib/reports/finance-csv");
+
+        const organization = await prisma.organization.findUnique({
+          where: { id: organizationId },
+        });
+        const data = await fetchCashFlowData(organizationId, start, end);
+
+        if (format === "pdf") {
+          fileBuffer = generateCashFlowPDF({ organization, data });
+          mimeType = "application/pdf";
+          fileExtension = "pdf";
+        } else {
+          fileBuffer = Buffer.from(
+            generateCashFlowCSV(data, {
+              company: organization?.name,
+              period: `${startDate} to ${endDate}`,
+            }),
+            "utf-8",
+          );
+          mimeType = "text/csv";
+          fileExtension = "csv";
+        }
+        filename = `cash-flow-${startDate}-to-${endDate}.${fileExtension}`;
+        break;
+      }
+
       case "truck-cost-breakdown": {
         const { generateTruckCostReportPDF } = await import(
           "@/lib/documents/truck-cost-report"
