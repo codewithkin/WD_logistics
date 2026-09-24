@@ -227,7 +227,7 @@ Three decisions worth knowing before changing anything here:
 
 1. **The dev server caches the Prisma client.** After `prisma migrate dev`, `prisma.pushDelivery` was `undefined` at runtime until the server was restarted, even though `bunx prisma generate` had run and typecheck was clean. Restart after every migration.
 2. **`server-only` breaks throwaway `bun` scripts.** Any module importing it (`lib/period-range.ts`, the registry) throws "cannot be imported from a Client Component" when run outside Next. Either stub `node_modules/server-only/index.js` for the run and restore it, or copy the logic into the script.
-3. **The typecheck baseline keeps moving down.** It is **72** as of this fifth pass (74 after the fourth, 85 after the third, 88 before that) — more pre-existing errors get fixed along the way than are introduced. **Record 72 as the new floor.** `next.config.ts` still sets `ignoreBuildErrors: true`, so type errors ship: one of them was a PDF that crashed on every generation (pitfall 12).
+3. **The typecheck baseline is now ZERO.** It was 88, then 85, 74, 72 — and the fifth pass cleared the rest. **Any error is now a regression; keep it at 0.** This matters more than it sounds: `next.config.ts` still sets `ignoreBuildErrors: true`, so anything that creeps back in ships silently. Three of the errors cleared were live bugs — a dead API endpoint, a permanently blank column on the revenue PDF, and a crash on any payment without an invoice (pitfall 12).
 4. **Python `re.sub` replacement strings eat backslashes.** A batch edit across 13 forms wrote `\"` into the source and broke every one of them. Use a plain `str.replace` for anything containing quotes.
 5. **Prisma rejects an index signature as `orderBy`.** A helper returning `Record<string, "asc"|"desc">` fails to typecheck, and — worse — the resulting error silently degrades `include` inference for the whole query, producing a cascade of "property does not exist" errors that look unrelated. Give the helper a generic and name the Prisma input type at the call site.
 6. **`take` + totals is a recurring bug shape in this codebase.** Three separate places (customer detail, single truck report, single driver report) summed a truncated list. When you see a `take:` near a total, check it.
@@ -236,9 +236,11 @@ Three decisions worth knowing before changing anything here:
 9. **`as Parameters<typeof someAction>[0]` is how a wrong payload ships.** Five write operations carried that cast; removing them showed that `record_expense` was passing `description` and `vendor` to an action that accepts neither, so the text a driver typed was dropped on the floor. If a payload needs a cast to compile, the payload is wrong.
 10. **`Expense` has no `description` column** — the free text lives in `notes`. There is no `createdById` on it either; expenses are not attributed to a user.
 11. **`tsx watch` and a WhatsApp session do not mix.** `bun run dev` restarts the agent on every save, and with no SIGINT handler Node died without closing Chromium; the next boot opened a second Chromium on the same profile directory, which corrupts it and makes WhatsApp drop the linked device. It looks exactly like "the session unauthenticated itself after I scanned". Use `bun run dev:whatsapp` (no watcher) when pairing. Note `LocalAuth.logout()` is the only thing that deletes the session folder, and nothing in this codebase calls it — rule that out first.
-12. **A type error here is not theoretical.** `profit-per-unit`'s PDF passed `{ trucks }` to a generator expecting `{ units, totals }` and crashed on *every* generation; the type error had been sitting in the baseline the whole time. When auditing, actually run the thing — this was invisible to reading and to `tsc` counting.
+12. **A type error here is not theoretical.** Four shipped as real bugs. `profit-per-unit`'s PDF passed `{ trucks }` where `{ units, totals }` was wanted and crashed on *every* generation. `/api/agent/workflows` destructured `organizationId` off a validator that never returns one, so the whole endpoint 400'd. The revenue PDF's Invoice # column was blank because the fetcher says `invoiceNo` and the generator says `invoiceNumber`. And a payment without an invoice could not be receipted at all. When auditing, run the thing — `tsc` counting alone found none of these.
 13. **`requireRole` redirects, and a `catch` will swallow it.** `generateReport` turned a non-admin's blocked request into a toast reading "NEXT_REDIRECT". Any server action with a try/catch around a `requireRole` needs `unstable_rethrow(error)` first.
 14. **The `@/` alias only resolves inside `app/`.** A throwaway `bun` script kept in the scratchpad cannot import `@/lib/...`; copy it into `app/` to run, then delete it.
+15. **A field passed to something that does not declare it is dropped in silence.** This has now bitten four times: the expense `description`, the revenue `invoiceNumber`, the trip email's addresses, and `adjust_stock`'s `direction`. TypeScript catches it only when the target type is actually applied — a cast, a spread into `any`, or a Zod object that strips unknown keys all hide it.
+16. **`git filter-branch` can leave a merge that undoes it.** After rewriting history, the trailered chain came back as a second parent of a later commit and the old commits were ancestors of `main` again while the log looked clean. Always check `git rev-list --merges <base>..HEAD` and re-grep the range afterwards.
 
 ---
 
@@ -247,10 +249,14 @@ Three decisions worth knowing before changing anything here:
 All 27 items are implemented, and item 27's report list is now complete.
 What remains:
 
-1. **The assistant has never spoken to a model.** Everything up to the model
-   call is verified end to end (see below), but `OPENROUTER_API_KEY` is not
-   set anywhere, so `answerMessage()` itself has not run. This is the single
-   biggest untested surface in the codebase.
+1. **The assistant has spoken to a *stub* model, not a real one.** The whole
+   loop is now exercised — `answerMessage()` builds the tools, the model
+   calls one, the app runs it, the reply quotes the real figure and the
+   transcript records it — by pointing `ASSISTANT_BASE_URL` at a local server
+   that speaks the OpenAI protocol (`scratchpad/stub-model.mjs`). What is
+   still unverified is narrow but real: whether `google/gemini-3-flash`
+   resolves on OpenRouter, and whether an actual model picks sensible tools.
+   Set `OPENROUTER_API_KEY` and send one message to close it.
 2. **No click-through in a real browser, three passes running.** Everything is
    verified by running the real server actions, HTTP fetches and database
    assertions. The Reports UI in particular now has 23 report types and a new
@@ -353,6 +359,26 @@ mechanism the WhatsApp assistant uses), not by reading code:
 - **Reports stay admin-only**: supervisor, staff and workshop are all turned
   away by the real action; only admin gets bytes back.
 - `bun run build` compiles for both services.
+
+**Fifth pass — the assistant's model loop.** Driven against a stub OpenAI-
+compatible server, so the tool-calling path runs without spending tokens:
+
+- An admin asking "what is our profit this month?" gets the tool offered, the
+  tool called, real figures returned and quoted back in the reply.
+- The same question from a `readonly` contact: the financial tool is not in
+  the seven it is offered at all.
+- A **write** through the loop works: the model called `record_expense`, the
+  expense landed in the database, and `didWrite` came back true.
+- The transcript records each exchange with its tool calls and write flag,
+  and the contact's message counter increments.
+- An unknown number gets the "ask an admin" reply — this **crashed** before
+  (see the commit); it is the most common case in production.
+
+**Type-error sweep.** The baseline went 72 -> 0, and running each fix proved
+three live bugs: `/api/agent/workflows` answered every authenticated request
+with a 400, the revenue PDF's Invoice # column was always blank, and no
+receipt could be issued for a payment with no invoice. All three now verified
+working against the dev database.
 
 What was **not** checked this pass:
 
