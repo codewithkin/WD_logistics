@@ -12,7 +12,7 @@
 
 import { Agent } from "@mastra/core/agent";
 import { assistantModel } from "../lib/model";
-import { buildToolsForCaller } from "../tools/app-tools";
+import { buildToolsForCaller, type Attachment } from "../tools/app-tools";
 import { logExchange } from "../lib/assistant-client";
 import { ASSISTANT_MODEL } from "../lib/model";
 import { costOf, type TokenUsage } from "../lib/pricing";
@@ -64,6 +64,12 @@ People message you from a phone, usually standing in a yard or on the road. They
 - When a tool says something matched several records, ask which one. Do not pick.
 - When a tool returns an error, say what went wrong in plain words and what would fix it. Do not retry the same call.
 
+## Sending documents
+
+- When someone asks you to *send*, *share* or *forward* a report, statement or summary — anything phrased as wanting a document rather than a number — use generate_report. Answering with figures instead is not what they asked for.
+- When they just ask what a figure *is*, answer with the figure. Do not produce a document nobody asked for.
+- The file arrives in this chat, as an attachment, right after your message. You have not seen its contents and you cannot email it — never say you have emailed something or attached it to anything else. "Sending it now" is the honest phrasing.
+
 ## Recording things
 
 - Before a tool that changes data, state back what you are about to do in one line and do it. Do not ask permission for routine entries — they asked you to record it.
@@ -84,6 +90,8 @@ export interface AssistantReply {
   error?: string;
   /** What this turn cost, when the model reported its usage. */
   usage?: TokenUsage & { costUsd: number | null };
+  /** Files to send alongside the reply — a generated report, say. */
+  attachments: Attachment[];
 }
 
 /**
@@ -112,6 +120,7 @@ export async function answerMessage(params: {
         "Try again in a moment.",
       didWrite: false,
       toolCalls: [],
+      attachments: [],
       error: error instanceof Error ? error.message : "Unknown error",
     };
   }
@@ -123,6 +132,7 @@ export async function answerMessage(params: {
         "to add you under Settings → Notifications → WhatsApp assistant.",
       didWrite: false,
       toolCalls: [],
+      attachments: [],
     };
   }
 
@@ -199,6 +209,7 @@ export async function answerMessage(params: {
       text,
       didWrite: caller.didWrite(),
       toolCalls: caller.toolCalls(),
+      attachments: caller.attachments(),
       usage,
     };
   } catch (error) {
@@ -221,6 +232,9 @@ export async function answerMessage(params: {
         "Try again in a moment, or use the web app if it's urgent.",
       didWrite: caller.didWrite(),
       toolCalls: caller.toolCalls(),
+      // A file may have been produced before the failure; sending it is
+      // better than silently dropping work the person asked for.
+      attachments: caller.attachments(),
       error: message,
     };
   }

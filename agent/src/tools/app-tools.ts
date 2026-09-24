@@ -84,6 +84,12 @@ function jsonSchemaToZod(schema: Record<string, unknown>): z.ZodTypeAny {
  * argument, so the model cannot ask for data as somebody else by putting a
  * different number in a tool call.
  */
+export interface Attachment {
+  filename: string;
+  mimeType: string;
+  base64: string;
+}
+
 export async function buildToolsForCaller(phone: string): Promise<{
   authorized: boolean;
   name?: string;
@@ -92,11 +98,14 @@ export async function buildToolsForCaller(phone: string): Promise<{
   /** Set true by a tool that changed data, for the transcript. */
   didWrite: () => boolean;
   toolCalls: () => Array<{ tool: string; args: unknown; ok: boolean }>;
+  /** Files a tool produced, to be sent alongside the reply. */
+  attachments: () => Attachment[];
 }> {
   const manifest = await fetchManifest(phone);
 
   let wroteSomething = false;
   const calls: Array<{ tool: string; args: unknown; ok: boolean }> = [];
+  const files: Attachment[] = [];
 
   const tools: Record<string, ReturnType<typeof createTool>> = {};
 
@@ -117,6 +126,22 @@ export async function buildToolsForCaller(phone: string): Promise<{
 
         if (result.success && result.writes) wroteSomething = true;
 
+        // A generated file is lifted out here and never shown to the model.
+        // A report PDF is most of a megabyte; as base64 in the conversation
+        // it would cost more than the report is worth and very likely not
+        // fit. The model gets the summary and writes a sentence about it;
+        // the WhatsApp layer sends the document.
+        if (result.success && result.data && typeof result.data === "object") {
+          const data = result.data as Record<string, unknown> & {
+            attachment?: Attachment;
+          };
+          if (data.attachment?.base64) {
+            files.push(data.attachment);
+            const { attachment: _lifted, ...rest } = data;
+            return rest;
+          }
+        }
+
         // Errors come back as data rather than thrown, so the model can
         // explain the problem instead of the turn dying. "That matches three
         // trucks, which one?" is a useful answer.
@@ -134,5 +159,6 @@ export async function buildToolsForCaller(phone: string): Promise<{
     tools,
     didWrite: () => wroteSomething,
     toolCalls: () => calls,
+    attachments: () => files,
   };
 }

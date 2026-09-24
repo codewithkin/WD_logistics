@@ -290,6 +290,31 @@ const initWhatsApp = async () => {
           console.log(`💬 Replying (${reply.text.length} characters)`);
 
           await replyToMessage(msg, reply.text);
+
+          // A generated report comes back as a file the model never saw. Send
+          // it after the sentence about it, so the chat reads as an answer
+          // followed by the document rather than a document out of nowhere.
+          for (const file of reply.attachments) {
+            try {
+              const { MessageMedia } = await import("whatsapp-web.js");
+              const media = new MessageMedia(
+                file.mimeType,
+                file.base64,
+                file.filename,
+              );
+              await msg.reply(media, undefined, {
+                sendMediaAsDocument: true,
+                caption: file.filename,
+              });
+              console.log(`📎 Sent ${file.filename}`);
+            } catch (sendError) {
+              console.error(`❌ Could not send ${file.filename}:`, sendError);
+              await replyToMessage(
+                msg,
+                `I made ${file.filename} but couldn't send it here. Download it from Reports in the web app.`,
+              );
+            }
+          }
           console.log(`✅ Message sent to ${phoneNumber}`);
           console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
           
