@@ -5,6 +5,7 @@ import { Role } from "@/lib/types";
 import { getLandingPath } from "@/lib/landing";
 import { UserFacingError } from "@/lib/error-messages";
 import { redirect } from "next/navigation";
+import { getActingSession } from "@/lib/acting-session";
 
 export interface ServerSession {
   user: {
@@ -18,6 +19,14 @@ export interface ServerSession {
 }
 
 export async function getServerSession(): Promise<ServerSession | null> {
+  // A non-browser caller (the WhatsApp assistant) may be running as a real
+  // user for the length of one operation. That takes precedence over the
+  // cookie, because in that call chain there is no cookie to read.
+  const acting = getActingSession();
+  if (acting) {
+    return acting;
+  }
+
   try {
     const session = await auth.api.getSession({
       headers: await headers(),
