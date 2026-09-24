@@ -32,6 +32,7 @@ import {
   shouldIgnoreMessage,
   setBotPhoneNumber,
 } from "./lib/constants";
+import { allowReply } from "./lib/reply-guard";
 import qrcode from "qrcode-terminal"
 
 const app = new Hono();
@@ -214,7 +215,17 @@ const initWhatsApp = async () => {
       }
 
       // Helper function to reply to a message using msg.reply()
+      //
+      // Every reply goes through the guard first. It is a circuit breaker for
+      // loops, not a policy: see lib/reply-guard.ts for the incident that put
+      // it there.
       const replyToMessage = async (msg: any, content: string) => {
+        const decision = allowReply(msg.from, content);
+        if (!decision.send) {
+          console.warn(`🛑 Reply held back — ${decision.reason}`);
+          return;
+        }
+
         try {
           console.log(`📤 Replying to message from ${msg.from}...`);
           await msg.reply(content);
@@ -289,6 +300,25 @@ const initWhatsApp = async () => {
 
       client.on("message_create", async (msg: any) => {
         try {
+          // Anything this account sent, including every reply the assistant
+          // has just made.
+          //
+          // `message_create` fires for outgoing messages as well as incoming
+          // ones, so without this the assistant reads its own replies back as
+          // fresh questions. It did: a reply went out, came straight back in,
+          // did not match the caller list, and was answered with "I don't
+          // have this number on my list" — which is itself an outgoing
+          // message, so it came back in too. That is a loop with no exit, and
+          // it sent that sentence 122 times before the service was stopped.
+          //
+          // There *was* a guard, comparing the resolved sender against the
+          // bot's own number, but it compares identities that WhatsApp no
+          // longer guarantees are the same shape: `wid.user` can be a phone
+          // number while the message is addressed by linked identity (@lid),
+          // or the reverse. `fromMe` is a flag the library sets on the way
+          // out, so it cannot drift with WhatsApp's addressing.
+          if (msg.fromMe) return;
+
           // Log every received message
           console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
           console.log(`📬 MESSAGE RECEIVED`);
