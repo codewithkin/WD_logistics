@@ -11,7 +11,7 @@
         "@mastra/core": "^0.10.0",
         "@mastra/loggers": "0.10.19",
         "@mastra/memory": "0.11.5",
-        "@mastra/pg": "0.11.0",
+        "@mastra/pg": "0.12.3",
         "dotenv": "^17.2.3",
         "hono": "^4.6.14",
         "pg": "^8.23.0",
@@ -117,7 +117,7 @@
 
     "@mastra/memory": ["@mastra/memory@0.11.5", "", { "dependencies": { "@upstash/redis": "^1.35.0", "ai": "^4.3.16", "async-mutex": "^0.5.0", "js-tiktoken": "^1.0.20", "json-schema": "^0.4.0", "pg": "^8.16.3", "pg-pool": "^3.10.1", "postgres": "^3.4.7", "redis": "^5.6.0", "xxhash-wasm": "^1.1.0", "zod": "^3.25.67", "zod-to-json-schema": "^3.24.5" }, "peerDependencies": { "@mastra/core": ">=0.10.9-0 <0.12.0-0" } }, "sha512-LW3Wxygm/Abw0Hku9rL/C4csia4APZiQ6JzoCNr9lbTQNFlfjHZRrB86R9zYH13VD0H5JKbWvgDR7Cw1HnXmBA=="],
 
-    "@mastra/pg": ["@mastra/pg@0.11.0", "", { "dependencies": { "async-mutex": "^0.5.0", "pg": "^8.16.0", "pg-promise": "^11.14.0", "xxhash-wasm": "^1.1.0" }, "peerDependencies": { "@mastra/core": ">=0.10.4-0 <0.11.0" } }, "sha512-/pz0wgg5ST5hJSkxEIy8hQvziTMiL+8gx+XQXDMxJ1Qi+Re+c6Ix0iTjtV9GmE4pR2Lya0peuWRZcFcUMB8O8g=="],
+    "@mastra/pg": ["@mastra/pg@0.12.3", "", { "dependencies": { "async-mutex": "^0.5.0", "pg": "^8.16.3", "pg-promise": "^11.15.0", "xxhash-wasm": "^1.1.0" }, "peerDependencies": { "@mastra/core": ">=0.10.7-0 <0.11.0-0" } }, "sha512-GXKgCpZe4GIXkcyMnVD4niJlnsSevb+TTFPeisux/ONGRXq9kGlkJ+joa8ZXxKt54hWD2LsRLou7aZ1gtFYZTg=="],
 
     "@mastra/schema-compat": ["@mastra/schema-compat@0.10.5", "", { "dependencies": { "json-schema": "^0.4.0", "zod-from-json-schema": "^0.0.5", "zod-to-json-schema": "^3.24.5" }, "peerDependencies": { "ai": "^4.0.0", "zod": "^3.0.0" } }, "sha512-Qhz8W4Hz7b9tNoVW306NMzotVy11bya1OjiTN+pthj00HZoaH7nmK8SWBiX4drS+PyhIqA16X5AenELe2QgZag=="],
 
