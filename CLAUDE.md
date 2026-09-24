@@ -110,6 +110,12 @@ The real `src/app/api/` surface is narrow and serves specific cross-cutting need
 
 - Auth is `better-auth` with the `organization` plugin (`src/lib/auth.ts`), backed by Prisma via `prismaAdapter`. `organizationLimit: 1` — the whole app is scoped to a single organization (WD Logistics itself); `Member.role` (plain string: `"admin" | "supervisor" | "staff"`, default `"staff"`) drives all authorization, not better-auth's own owner/admin/member roles.
 - `src/lib/session.ts` — `getServerSession()` / `requireAuth()` / `requireRole()` are the primitives every server component/action uses to read the current user + role + `organizationId`. Almost every Prisma query in the app is scoped by `organizationId` from this session.
+**`ACCESS_CONTROL.md` in the repo root is the single source of truth for who
+may see and do what.** It was written with the client question by question
+after these rules were guessed wrong twice. Read it before touching any role
+check, and if the code disagrees with it, the code is wrong. Anything it does
+not cover is a question for the client, not a judgement call.
+
 - `src/lib/permissions.ts` — declarative `ROLE_PERMISSIONS` map plus helper predicates (`canEditDirectly`, `canDeleteDirectly`, `canViewFinancialData`, etc.) consumed by both server actions and UI. Role hierarchy: **admin** (full access) > **supervisor** (operational CRUD, no financials/reports, can't manage users) > **staff** (read + create only; edits/deletes require the Edit Request workflow).
 - **Edit Request workflow**: staff cannot directly PUT/PATCH most entities. Instead they create an `EditRequest` (`entityType`, `entityId`, `originalData`, `proposedData`, `reason`), which an admin approves/rejects (`src/app/(dashboard)/edit-requests/actions.ts`). Approval applies `proposedData` onto the live record.
 - `src/lib/agent-auth.ts` is a **separate, parallel** auth mechanism (shared-secret header, not session-based) used only by the `agent` service — don't confuse it with the better-auth session flow used by the browser UI.
