@@ -239,8 +239,9 @@ Three decisions worth knowing before changing anything here:
 12. **A type error here is not theoretical.** Four shipped as real bugs. `profit-per-unit`'s PDF passed `{ trucks }` where `{ units, totals }` was wanted and crashed on *every* generation. `/api/agent/workflows` destructured `organizationId` off a validator that never returns one, so the whole endpoint 400'd. The revenue PDF's Invoice # column was blank because the fetcher says `invoiceNo` and the generator says `invoiceNumber`. And a payment without an invoice could not be receipted at all. When auditing, run the thing — `tsc` counting alone found none of these.
 13. **`requireRole` redirects, and a `catch` will swallow it.** `generateReport` turned a non-admin's blocked request into a toast reading "NEXT_REDIRECT". Any server action with a try/catch around a `requireRole` needs `unstable_rethrow(error)` first.
 14. **The `@/` alias only resolves inside `app/`.** A throwaway `bun` script kept in the scratchpad cannot import `@/lib/...`; copy it into `app/` to run, then delete it.
-15. **A field passed to something that does not declare it is dropped in silence.** This has now bitten four times: the expense `description`, the revenue `invoiceNumber`, the trip email's addresses, and `adjust_stock`'s `direction`. TypeScript catches it only when the target type is actually applied — a cast, a spread into `any`, or a Zod object that strips unknown keys all hide it.
-16. **`git filter-branch` can leave a merge that undoes it.** After rewriting history, the trailered chain came back as a second parent of a later commit and the old commits were ancestors of `main` again while the log looked clean. Always check `git rev-list --merges <base>..HEAD` and re-grep the range afterwards.
+15. **Hiding a tool is not hiding the data.** A `readonly` contact was refused the financial tools and simply called `list_trips` instead, summing the revenue on each row — and `list_customers` returned outstanding balances the same way. When a role is promised it "sees no money", check what the *operational* tools return, not just which tools are offered.
+16. **A field passed to something that does not declare it is dropped in silence.** This has now bitten four times: the expense `description`, the revenue `invoiceNumber`, the trip email's addresses, and `adjust_stock`'s `direction`. TypeScript catches it only when the target type is actually applied — a cast, a spread into `any`, or a Zod object that strips unknown keys all hide it.
+17. **`git filter-branch` can leave a merge that undoes it.** After rewriting history, the trailered chain came back as a second parent of a later commit and the old commits were ancestors of `main` again while the log looked clean. Always check `git rev-list --merges <base>..HEAD` and re-grep the range afterwards.
 
 ---
 
@@ -249,14 +250,11 @@ Three decisions worth knowing before changing anything here:
 All 27 items are implemented, and item 27's report list is now complete.
 What remains:
 
-1. **The assistant has spoken to a *stub* model, not a real one.** The whole
-   loop is now exercised — `answerMessage()` builds the tools, the model
-   calls one, the app runs it, the reply quotes the real figure and the
-   transcript records it — by pointing `ASSISTANT_BASE_URL` at a local server
-   that speaks the OpenAI protocol (`scratchpad/stub-model.mjs`). What is
-   still unverified is narrow but real: whether `google/gemini-3-flash`
-   resolves on OpenRouter, and whether an actual model picks sensible tools.
-   Set `OPENROUTER_API_KEY` and send one message to close it.
+1. ~~The assistant has never spoken to a model.~~ **Done.** It runs against
+   `google/gemini-3.5-flash` on OpenRouter, 11/11 on
+   `agent/scripts/live-assistant-check.ts`. Replies take 4-13 seconds. The
+   original default id did not exist and would have failed on the first
+   message — check any new id against the live catalogue.
 2. **No click-through in a real browser, three passes running.** Everything is
    verified by running the real server actions, HTTP fetches and database
    assertions. The Reports UI in particular now has 23 report types and a new
@@ -373,6 +371,24 @@ compatible server, so the tool-calling path runs without spending tokens:
   and the contact's message counter increments.
 - An unknown number gets the "ask an admin" reply — this **crashed** before
   (see the commit); it is the most common case in production.
+
+**Fifth pass — against the real model.** `google/gemini-3.5-flash`,
+11/11 on `agent/scripts/live-assistant-check.ts`, 4-13s per reply:
+
+- Reaches for the right tool unprompted, and answers from it rather than
+  inventing: 10 trucks, revenue $5,138,603 over three months.
+- **Reasons across tools**: "which truck is losing us the most money? just
+  name it" -> one `get_fleet_ranking` call and the bare answer, *KCE 567E*.
+- **Asks instead of guessing**: "record 200 dollars of fuel for truck KB"
+  lists the four matching trucks and asks which.
+- **Does not invent**: asked about a truck that does not exist, it says so and
+  lists the real ones; no figure is fabricated.
+- **Refuses honestly**: "delete all the trips from last month" -> "I cannot
+  delete trips. Deletions must be done directly in the web app."
+- **Writes work**: it recorded a $137 fuel expense against KBZ 456H, correctly
+  categorised and attributed, with `didWrite` set and a transcript row.
+- **Role limits hold at the data level, not just the tool list** — see the
+  leak below.
 
 **Type-error sweep.** The baseline went 72 -> 0, and running each fix proved
 three live bugs: `/api/agent/workflows` answered every authenticated request
