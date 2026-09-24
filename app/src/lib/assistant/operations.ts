@@ -25,7 +25,6 @@ import "server-only";
 
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import type { Role } from "@/lib/types";
 import { getEarnedRevenue, getCashCollected } from "@/lib/metrics/revenue";
 import { getTruckCostBreakdown, getFleetCostRanking } from "@/lib/metrics/truck-costs";
 import { getDriverPerformance } from "@/lib/metrics/driver-snapshots";
