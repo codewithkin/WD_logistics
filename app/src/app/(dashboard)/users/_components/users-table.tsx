@@ -31,6 +31,7 @@ import {
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import {
     Select,
@@ -45,7 +46,7 @@ import { PaginationControls } from "@/components/ui/pagination-controls";
 import { usePagination } from "@/hooks/use-pagination";
 import { format } from "date-fns";
 import { ROLE_LABELS } from "@/lib/types";
-import { updateMemberRole, removeMember, resetUserPassword } from "../actions";
+import { updateMemberRole, removeMember, resetUserPassword, setUserPassword } from "../actions";
 import { toast } from "sonner";
 import {
     Dialog,
@@ -84,6 +85,8 @@ export function UsersTable({ members, currentUserId }: UsersTableProps) {
     const [newRole, setNewRole] = useState<string>("");
     const [resetPasswordId, setResetPasswordId] = useState<string | null>(null);
     const [isResettingPassword, setIsResettingPassword] = useState(false);
+    /** Empty means "generate one and email it"; anything typed is used as-is. */
+    const [chosenPassword, setChosenPassword] = useState("");
     const [newPasswordData, setNewPasswordData] = useState<{
         password: string;
         email: string;
@@ -145,6 +148,18 @@ export function UsersTable({ members, currentUserId }: UsersTableProps) {
         if (!resetPasswordId) return;
         setIsResettingPassword(true);
         try {
+            // A typed password is set verbatim and never emailed; an empty box
+            // keeps the old behaviour of inventing one and sending it on.
+            if (chosenPassword.trim()) {
+                const result = await setUserPassword(resetPasswordId, chosenPassword);
+                if (result.success) {
+                    toast.success(result.message);
+                } else {
+                    toast.error(result.error);
+                }
+                return;
+            }
+
             const result = await resetUserPassword(resetPasswordId);
             if (result.success && result.newPassword) {
                 setNewPasswordData({
@@ -161,6 +176,7 @@ export function UsersTable({ members, currentUserId }: UsersTableProps) {
         } finally {
             setIsResettingPassword(false);
             setResetPasswordId(null);
+            setChosenPassword("");
         }
     };
 
@@ -374,23 +390,52 @@ export function UsersTable({ members, currentUserId }: UsersTableProps) {
             {/* Reset Password Confirmation Dialog */}
             <AlertDialog
                 open={!!resetPasswordId}
-                onOpenChange={() => setResetPasswordId(null)}
+                onOpenChange={() => {
+                    setResetPasswordId(null);
+                    setChosenPassword("");
+                }}
             >
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Reset Password</AlertDialogTitle>
+                        <AlertDialogTitle>Reset password</AlertDialogTitle>
                         <AlertDialogDescription>
-                            Are you sure you want to reset this user&apos;s password? A new password
-                            will be generated and sent to their email.
+                            Leave the box empty to generate a password and email it to
+                            them. Type one to set it yourself — useful when you are
+                            standing next to the person. A password you type is never
+                            emailed; hand it over directly.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
+                    <div className="space-y-2">
+                        <Label htmlFor="chosen-password">New password (optional)</Label>
+                        <Input
+                            id="chosen-password"
+                            type="text"
+                            autoComplete="off"
+                            placeholder="Leave empty to generate one"
+                            value={chosenPassword}
+                            onChange={(e) => setChosenPassword(e.target.value)}
+                            disabled={isResettingPassword}
+                        />
+                        {chosenPassword.trim() !== "" && chosenPassword.length < 8 && (
+                            <p className="text-xs text-destructive">
+                                At least 8 characters.
+                            </p>
+                        )}
+                    </div>
                     <AlertDialogFooter>
                         <AlertDialogCancel disabled={isResettingPassword}>Cancel</AlertDialogCancel>
                         <AlertDialogAction
                             onClick={handleResetPassword}
-                            disabled={isResettingPassword}
+                            disabled={
+                                isResettingPassword ||
+                                (chosenPassword.trim() !== "" && chosenPassword.length < 8)
+                            }
                         >
-                            {isResettingPassword ? "Resetting..." : "Reset Password"}
+                            {isResettingPassword
+                                ? "Saving..."
+                                : chosenPassword.trim()
+                                  ? "Set password"
+                                  : "Generate and email"}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>

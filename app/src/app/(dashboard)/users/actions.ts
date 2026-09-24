@@ -241,10 +241,10 @@ export async function resetUserPassword(memberId: string) {
       return { success: false, error: "Member not found" };
     }
 
-    // Prevent resetting own password through this method
-    if (member.userId === session.user.id) {
-      return { success: false, error: "Use Account Settings to change your own password" };
-    }
+    // An admin resetting their own password is allowed. It used to be
+    // refused and pointed at Account Settings, which is no help to an admin
+    // who has forgotten the current password — the only way out was editing
+    // the database. The new password is emailed to them like anyone else's.
 
     // Generate a new random password
     const newPassword = generateRandomPassword(12);
@@ -356,5 +356,115 @@ ${organization?.name || "WD Logistics"} Team
   } catch (error) {
     console.error("Failed to reset user password:", error);
     return { success: false, error: "Failed to reset password" };
+  }
+}
+
+/**
+ * The minimum a password must be to be accepted anywhere in this app.
+ *
+ * better-auth enforces its own minimum on sign-up but not on a direct write
+ * to the account row, which is what setting a password this way does — so
+ * without this an admin could set a one-character password and lock nothing
+ * out at all.
+ */
+export const MIN_PASSWORD_LENGTH = 8;
+
+export function passwordProblem(password: string): string | null {
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    return `A password must be at least ${MIN_PASSWORD_LENGTH} characters.`;
+  }
+  if (/^\s|\s$/.test(password)) {
+    return "A password can't start or end with a space — it is too easy to mistype.";
+  }
+  return null;
+}
+
+/**
+ * Sets a chosen password on any account in the organisation, the admin's own
+ * included.
+ *
+ * Distinct from `resetUserPassword`, which invents a random one and emails it.
+ * This is the "I am standing next to them, set it to this" case, and it is
+ * the only path that lets an admin change their *own* password without
+ * knowing the current one — deliberately, because the alternative when an
+ * admin is locked out is a database edit.
+ *
+ * The password is never written to any log or notification; only the fact of
+ * the change is.
+ */
+export async function setUserPassword(memberId: string, newPassword: string) {
+  const session = await requireRole(["admin"]);
+
+  const problem = passwordProblem(newPassword);
+  if (problem) {
+    return { success: false as const, error: problem };
+  }
+
+  try {
+    const member = await prisma.member.findFirst({
+      where: { id: memberId, organizationId: session.organizationId },
+      include: { user: { select: { id: true, name: true, email: true } } },
+    });
+
+    if (!member) {
+      return { success: false as const, error: "Member not found" };
+    }
+
+    const ctx = await auth.$context;
+    const hashed = await ctx.password.hash(newPassword);
+
+    const updated = await prisma.account.updateMany({
+      where: { userId: member.userId, providerId: "credential" },
+      data: { password: hashed },
+    });
+
+    if (updated.count === 0) {
+      return {
+        success: false as const,
+        error:
+          "That account has no password sign-in to change — it was created through a different provider.",
+      };
+    }
+
+    // Tell them it happened, without putting the password in an email.
+    if (member.userId !== session.user.id) {
+      try {
+        const organization = await prisma.organization.findUnique({
+          where: { id: session.organizationId },
+          select: { name: true },
+        });
+        await sendEmail({
+          to: member.user.email,
+          subject: `Your password was changed - ${organization?.name || "WD Logistics"}`,
+          text: `Hello ${member.user.name},
+
+An administrator set a new password on your account just now. You should have
+been given it directly.
+
+If you were not expecting this, tell an administrator immediately.
+
+${organization?.name || "WD Logistics"}`,
+        });
+      } catch (emailError) {
+        // The password is already changed; a failed notice is not a failed
+        // reset, and saying otherwise would have the admin try again.
+        console.warn("Password set, notification email failed:", emailError);
+      }
+    }
+
+    revalidatePath("/users");
+    return {
+      success: true as const,
+      message:
+        member.userId === session.user.id
+          ? "Your password has been changed."
+          : `Password set for ${member.user.name}.`,
+      userName: member.user.name,
+      userEmail: member.user.email,
+      self: member.userId === session.user.id,
+    };
+  } catch (error) {
+    console.error("Failed to set password:", error);
+    return { success: false as const, error: "Failed to set the password" };
   }
 }
