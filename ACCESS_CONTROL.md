@@ -172,3 +172,17 @@ Three layers, because one is not enough:
 
 `src/lib/permissions.ts` is where the predicates live. Use them; do not
 re-derive a role check inline.
+
+## Checking it
+
+Two scripts verify the code against this file rather than against memory.
+Run both from `app/` after touching any role:
+
+```bash
+python scripts/audit-access.py   # every page's guard matches the matrix above
+python scripts/audit-nav.py      # no role is shown a link the page will refuse
+```
+
+They exist because reading the code and believing it is how the rules drifted
+in the first place. `audit-access.py` carries the matrix as data — when the
+client changes a rule, change it there in the same commit as the code.
