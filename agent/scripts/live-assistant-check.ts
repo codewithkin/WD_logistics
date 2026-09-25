@@ -167,7 +167,7 @@ const CASES: Case[] = [
     expect: {
       wrote: false,
       avoids: [/here (is|are) (the|your)/i],
-      says: [/can'?t|cannot|don'?t (have|hold)|no .*(record|data)|not .*(available|something)/i],
+      says: [/can'?t|cannot|do(n'?t| not) (have|hold)|no .*(record|data|access)|not .*(available|something)/i],
     },
   },
 
@@ -243,6 +243,19 @@ for (const c of CASES) {
   // could pass a case about declining politely. It never should.
   if (reply.text === EMPTY_REPLY) {
     problems.push("the model ended its turn without saying anything");
+  }
+
+  // Markdown that WhatsApp does not render reaches the reader as raw
+  // characters. Checked on every case rather than as one of them, because
+  // it is the sort of thing that comes back the moment nobody is looking.
+  const markdownLeaks: Array<[RegExp, string]> = [
+    [/\*\*/, "** (WhatsApp bold is one asterisk)"],
+    [/^#{1,6}\s/m, "# heading"],
+    [/\[[^\]\n]+\]\(https?:/, "[label](url) link"],
+    [/^\s*\|.*\|\s*$/m, "| table row"],
+  ];
+  for (const [re, what] of markdownLeaks) {
+    if (re.test(reply.text)) problems.push(`reply contains ${what}`);
   }
 
   // A caller the app does not recognise is turned away before the assistant
