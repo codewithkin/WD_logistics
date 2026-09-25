@@ -222,10 +222,25 @@ export function canTransferFunds(role: Role): boolean {
   return role === "admin";
 }
 
-// Recording money handed in or taken out. Every entry is logged against the
-// person who recorded it, which is what makes it safe to open to supervisors.
-export function canRecordAccountMovements(role: Role): boolean {
+// Money OUT of an account: spending. Every entry is logged against the
+// person who recorded it, which is what makes it safe to open to supervisors
+// — they are the ones doing the spending.
+export function canRecordMoneyOut(role: Role): boolean {
   return role === "admin" || role === "supervisor";
+}
+
+// Money IN, and the opening balance: admin only. Per ACCESS_CONTROL.md,
+// "a supervisor can see what is in each account and take money out of it,
+// because they spend. Only an admin puts money in." The server enforces
+// this in finance/accounts/actions.ts; these exist so the UI stops offering
+// a supervisor a button that is going to refuse them.
+export function canRecordMoneyIn(role: Role): boolean {
+  return role === "admin";
+}
+
+/** Either direction — for deciding whether the section appears at all. */
+export function canRecordAccountMovements(role: Role): boolean {
+  return canRecordMoneyIn(role) || canRecordMoneyOut(role);
 }
 
 /**

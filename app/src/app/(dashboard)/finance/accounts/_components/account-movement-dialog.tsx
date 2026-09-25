@@ -35,6 +35,8 @@ interface AccountMovementDialogProps {
     onOpenChange: (open: boolean) => void;
     initialAccount?: AccountType;
     initialDirection?: MovementDirection;
+    /** Money in is admin-only; decided by lib/permissions, passed in here. */
+    canRecordIn: boolean;
     balances: Record<string, number>;
 }
 
@@ -43,6 +45,7 @@ export function AccountMovementDialog({
     onOpenChange,
     initialAccount = "petty_cash",
     initialDirection = "deposit",
+    canRecordIn,
     balances,
 }: AccountMovementDialogProps) {
     const router = useRouter();
@@ -66,7 +69,9 @@ export function AccountMovementDialog({
     // Recording money *into* an account is the one movement with no paper
     // trail behind it, so it is admin-only; money out stays with supervisors.
     const { role } = useSession();
-    const canRecordMoneyIn = role === "admin";
+    // From lib/permissions via the page — not re-derived here, so there is
+    // one place this rule lives.
+    const canRecordMoneyIn = canRecordIn;
     const isIn = canRecordMoneyIn && direction === "deposit";
 
     // A supervisor who opened the dialog on the deposit tab is moved off it.

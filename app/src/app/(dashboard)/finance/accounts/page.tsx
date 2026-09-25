@@ -4,7 +4,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { PagePeriodSelector } from "@/components/ui/page-period-selector";
 import { getDateRangeFromParams } from "@/lib/period-utils";
 import { isDebitTransaction } from "@/lib/accounts";
-import { canRecordAccountMovements, canTransferFunds } from "@/lib/permissions";
+import { canRecordMoneyIn, canRecordMoneyOut, canTransferFunds } from "@/lib/permissions";
 import { AccountsClient } from "./_components/accounts-client";
 import { getAccounts } from "./actions";
 
@@ -80,7 +80,8 @@ export default async function AccountsPage({ searchParams }: AccountsPageProps) 
                 }))}
                 periodLabel={dateRange.label}
                 role={role}
-                canRecord={canRecordAccountMovements(role)}
+                canRecordIn={canRecordMoneyIn(role)}
+                canRecordOut={canRecordMoneyOut(role)}
                 canTransfer={canTransferFunds(role)}
                 currentUserId={session.user.id}
             />

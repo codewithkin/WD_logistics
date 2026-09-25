@@ -59,7 +59,9 @@ interface AccountsClientProps {
     transactions: LedgerRow[];
     periodLabel: string;
     role: Role;
-    canRecord: boolean;
+    /** Money in is admin-only; money out is open to supervisors too. */
+    canRecordIn: boolean;
+    canRecordOut: boolean;
     canTransfer: boolean;
     currentUserId: string;
 }
@@ -98,7 +100,8 @@ export function AccountsClient({
     transactions,
     periodLabel,
     role,
-    canRecord,
+    canRecordIn,
+    canRecordOut,
     canTransfer,
     currentUserId,
 }: AccountsClientProps) {
@@ -219,12 +222,19 @@ export function AccountsClient({
                         </div>
                     </div>
 
-                    {(canRecord || canTransfer) && (
+                    {(canRecordIn || canRecordOut || canTransfer) && (
                         <div className="mt-6 flex flex-col gap-2 sm:flex-row">
-                            {canRecord && (
-                                <Button onClick={() => setMovementDialog({ account: "petty_cash", direction: "deposit" })}>
+                            {(canRecordIn || canRecordOut) && (
+                                <Button
+                                    onClick={() =>
+                                        setMovementDialog({
+                                            account: "petty_cash",
+                                            direction: canRecordIn ? "deposit" : "withdrawal",
+                                        })
+                                    }
+                                >
                                     <Receipt className="mr-2 h-4 w-4" />
-                                    Record Money In / Out
+                                    {canRecordIn ? "Record Money In / Out" : "Record Money Out"}
                                 </Button>
                             )}
                             {canTransfer && (
@@ -308,8 +318,9 @@ export function AccountsClient({
                                         "No activity yet"
                                     )}
                                 </p>
-                                {canRecord && (
+                                {(canRecordIn || canRecordOut) && (
                                     <div className="flex gap-2 pt-1">
+                                        {canRecordIn && (
                                         <Button
                                             size="sm"
                                             variant="outline"
@@ -322,6 +333,8 @@ export function AccountsClient({
                                             <ArrowDownLeft className="mr-1 h-3.5 w-3.5 text-green-600" />
                                             In
                                         </Button>
+                                        )}
+                                        {canRecordOut && (
                                         <Button
                                             size="sm"
                                             variant="outline"
@@ -334,6 +347,7 @@ export function AccountsClient({
                                             <ArrowUpRight className="mr-1 h-3.5 w-3.5 text-amber-600" />
                                             Out
                                         </Button>
+                                        )}
                                     </div>
                                 )}
                             </CardContent>
@@ -375,6 +389,7 @@ export function AccountsClient({
                 onOpenChange={(open) => !open && setMovementDialog(null)}
                 initialAccount={movementDialog?.account}
                 initialDirection={movementDialog?.direction}
+                canRecordIn={canRecordIn}
                 balances={balances}
             />
 
