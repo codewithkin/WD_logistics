@@ -14,6 +14,7 @@
     "db:studio": "prisma studio",
     "db:seed": "bun prisma/seed.ts",
     "db:seed:admin": "bun prisma/ensure-admin.mjs",
+    "check:documents": "node scripts/tests/check-document-glyphs.mjs",
     "test:inventory": "bun scripts/tests/test-inventory.mjs",
     "test:trails": "bun scripts/tests/test-trails-and-reminders.ts"
   },

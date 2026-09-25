@@ -42,6 +42,80 @@ export interface DocContext {
   y: number;
 }
 
+/**
+ * Characters the built-in fonts cannot draw, and what to draw instead.
+ *
+ * jsPDF's standard fonts are encoded WinAnsi (cp1252). Anything outside it
+ * is emitted as whatever bytes happen to fall out, which is how a customer's
+ * invoice came to read "B e i r a !' B e i r a" where it should have said
+ * "Beira to Harare" — the route arrow, U+2192, is not in cp1252.
+ *
+ * Embedding a Unicode font would be the other answer, and would add roughly
+ * half a megabyte to every document for the sake of one arrow.
+ */
+const UNDRAWABLE: Array<[RegExp, string]> = [
+  // The arrows swallow the spaces around them: "Beira → Harare" is written
+  // with a space each side, and replacing only the glyph leaves "Beira  to
+  // Harare" with a double gap where the arrow used to be.
+  [/\s*[→➡➔]\s*/g, " to "],
+  [/\s*[←⬅]\s*/g, " from "],
+  [/\s*[↔⇄]\s*/g, " - "],
+  [/[✓✔]/g, "Yes"],
+  [/[✗✘✕]/g, "No"],
+  // Bullets become the middle dot, which cp1252 does have.
+  [/[•●▪]/g, "·"],
+  [/≥/g, ">="],
+  [/≤/g, "<="],
+  [/≠/g, "!="],
+];
+
+/** The cp1252 additions above Latin-1 that the built-in fonts do have. */
+const CP1252_EXTRAS = new Set([
+  0x20ac, 0x201a, 0x0192, 0x201e, 0x2026, 0x2020, 0x2021, 0x02c6, 0x2030,
+  0x0160, 0x2039, 0x0152, 0x017d, 0x2018, 0x2019, 0x201c, 0x201d, 0x2013,
+  0x2014, 0x02dc, 0x2122, 0x0161, 0x203a, 0x0153, 0x017e, 0x0178,
+]);
+
+function isDrawable(code: number): boolean {
+  if (code >= 0x20 && code <= 0x7e) return true; // ASCII printable
+  if (code >= 0xa0 && code <= 0xff) return true; // Latin-1 supplement
+  if (code === 0x0a || code === 0x0d || code === 0x09) return true;
+  return CP1252_EXTRAS.has(code);
+}
+
+export function drawableText(input: string): string {
+  let out = input;
+  for (const [pattern, replacement] of UNDRAWABLE) out = out.replace(pattern, replacement);
+  if ([...out].every((ch) => isDrawable(ch.codePointAt(0) ?? 0))) return out;
+  // Anything still outside the encoding is dropped rather than printed as
+  // rubbish. A missing character reads as a typo; a mojibake reads as broken
+  // software, on a document going to a customer.
+  return [...out].filter((ch) => isDrawable(ch.codePointAt(0) ?? 0)).join("");
+}
+
+/**
+ * Routes every string drawn on this document through `drawableText`.
+ *
+ * Patched here rather than at each call site because the templates are not
+ * the only thing that draws: jspdf-autotable renders every table cell
+ * through the same method, and a route string in a report table is exactly
+ * where the arrow turned up.
+ */
+export function drawOnlyWhatTheFontHas(doc: jsPDF): void {
+  const original = doc.text.bind(doc);
+  (doc as unknown as { text: typeof doc.text }).text = ((
+    text: string | string[],
+    ...rest: unknown[]
+  ) => {
+    const cleaned = Array.isArray(text)
+      ? text.map((line) => (typeof line === "string" ? drawableText(line) : line))
+      : typeof text === "string"
+        ? drawableText(text)
+        : text;
+    return (original as unknown as (...a: unknown[]) => unknown)(cleaned, ...rest);
+  }) as typeof doc.text;
+}
+
 export function createDocument(options?: {
   organization?: OrganizationLike | null;
   orientation?: "portrait" | "landscape";
@@ -61,6 +135,7 @@ export function createDocument(options?: {
     creator: company.name,
   });
 
+  drawOnlyWhatTheFontHas(doc);
   doc.setFont(TYPE.family, "normal");
 
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -115,6 +190,11 @@ export function drawHeader(ctx: DocContext, options: HeaderOptions): void {
   doc.setFont(TYPE.family, "normal");
   doc.setTextColor(...BRAND.muted);
 
+  // Where the left column actually ends, so the rule can be put below it
+  // rather than through it. With three address lines, a cell number and an
+  // email, this block reaches y=41 — the rule used to be nailed to y=36 and
+  // struck straight through "Cell: ...", with the email stranded beneath it.
+  let leftBottom = 26;
   if (options.showCompanyBlock) {
     let blockY = 26;
     for (const line of company.addressLines) {
@@ -133,9 +213,12 @@ export function drawHeader(ctx: DocContext, options: HeaderOptions): void {
     }
     if (company.email) {
       doc.text(`Email: ${company.email}`, textX, blockY);
+      blockY += 3.8;
     }
+    leftBottom = blockY;
   } else {
     doc.text(company.motto, textX, 26.5);
+    leftBottom = 28;
   }
 
   // ---- Right side: what this document is ----
@@ -170,11 +253,15 @@ export function drawHeader(ctx: DocContext, options: HeaderOptions): void {
     drawPill(ctx, options.statusPill, pageWidth - margin, metaY - 1);
   }
 
+  // The status pill hangs below the last meta line; leave room for it.
+  const rightBottom = options.statusPill ? metaY + 3 : metaY;
+  const ruleY = Math.max(LAYOUT.headerRuleY, leftBottom + 1, rightBottom + 2);
+
   doc.setDrawColor(...BRAND.green);
   doc.setLineWidth(0.8);
-  doc.line(margin, LAYOUT.headerRuleY, pageWidth - margin, LAYOUT.headerRuleY);
+  doc.line(margin, ruleY, pageWidth - margin, ruleY);
 
-  ctx.y = Math.max(LAYOUT.contentTop, metaY + 6);
+  ctx.y = Math.max(LAYOUT.contentTop, ruleY + 10);
 }
 
 const PILL_TONES: Record<string, { fill: Rgb; text: Rgb }> = {

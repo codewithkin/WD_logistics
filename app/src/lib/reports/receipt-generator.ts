@@ -15,6 +15,7 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { BRAND, logoDataUrl } from "@/lib/documents/brand";
+import { drawOnlyWhatTheFontHas } from "@/lib/documents/kit";
 
 declare module "jspdf" {
   interface jsPDF {
@@ -76,6 +77,11 @@ export interface PaymentReceiptData {
 
 export function generatePaymentReceiptPDF(data: PaymentReceiptData): Uint8Array {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  // This file builds its own document rather than going through
+  // createDocument, so it has to ask for the same protection: without it a
+  // route arrow in a receipt line renders as rubbish, the way it did on the
+  // invoice.
+  drawOnlyWhatTheFontHas(doc);
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 18;
   const contentWidth = pageWidth - margin * 2;
