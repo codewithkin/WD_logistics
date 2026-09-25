@@ -110,6 +110,34 @@ Staff exist for typing in fleet and trip records.
 
 ---
 
+## The one direct edit a non-admin has
+
+Everything a non-admin changes becomes a request, on every entity, however
+small — with exactly one exception: **a trip's status**.
+
+| Change | Supervisor / staff |
+| --- | --- |
+| Trip status, and nothing else in the same change | **Direct** |
+| Trip status together with any other field | Edit request |
+| Any other field on a trip, on its own | Edit request |
+| Anything on any other entity | Edit request |
+
+Moving a trip along — scheduled, in progress, completed — is what operations
+does all day, from a yard, usually on a phone. Sending each of those to an
+admin would either stop the work or train everyone to approve without
+reading, which is worse than not asking at all.
+
+"Status only" is literal: the status must be the single field the change
+carries. Send a mileage or a note with it and the whole change becomes a
+request, the status included. Workshop and readonly are not in this table —
+they have no access to trips at all.
+
+Enforced by `canChangeTripStatusDirectly` in `lib/permissions.ts` and the
+check at the top of `updateTrip`; every other update and delete action goes
+through `gateChange`.
+
+---
+
 ## Denied access
 
 When somebody reaches a page they should not — a typed URL, an old bookmark, a

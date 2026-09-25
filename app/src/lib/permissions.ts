@@ -194,6 +194,23 @@ export function canEditDirectly(role: Role): boolean {
 }
 
 /**
+ * The one exception to "every change by a non-admin becomes a request".
+ *
+ * Moving a trip along — scheduled, in progress, completed — is the thing
+ * operations does all day, from a yard, often on a phone. Sending each of
+ * those through an admin would either stop the work or train everyone to
+ * approve without reading, which is worse than not asking.
+ *
+ * It applies to the status and nothing else. Any other field on the trip,
+ * changed on its own or alongside the status, is a request like everything
+ * else. Workshop and readonly are not here because they have no business
+ * with trips at all.
+ */
+export function canChangeTripStatusDirectly(role: Role): boolean {
+  return role === "admin" || role === "supervisor" || role === "staff";
+}
+
+/**
  * Expense categories are the chart of accounts for the whole business — every
  * expense, every per-truck cost breakdown and every report groups by them — so
  * creating, renaming and deleting them is admin-only. Everyone else reads.

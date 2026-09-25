@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, requireRole } from "@/lib/session";
 import { gateChange } from "@/lib/edit-requests/gate";
+import { canChangeTripStatusDirectly } from "@/lib/permissions";
 import { resolvePeriod, type PeriodInput } from "@/lib/period-range";
 import { TripStatus } from "@/lib/types";
 import { generateTripReportPDF, generateSingleTripReportPDF } from "@/lib/reports/pdf-report-generator";
@@ -174,13 +175,23 @@ export async function updateTrip(
   // Admins write directly; everyone else's change becomes a request an
   // admin accepts or refuses. Everything below runs either for an admin,
   // or while an approved request is being replayed.
-  const gate = await gateChange({
-    entityType: "trip",
-    entityId: id,
-    data: data as unknown as Record<string, unknown>,
-    action: "update",
-    reason,
-  });
+  // Moving a trip along is the one change operations makes without asking.
+  // "Status only" means exactly that: the status is the single field this
+  // call changes. Send anything with it — a mileage, a date, a note — and
+  // the whole change becomes a request, the status included.
+  const changing = Object.entries(data).filter(([, value]) => value !== undefined);
+  const statusOnly = changing.length === 1 && changing[0]![0] === "status";
+  const straightThrough = statusOnly && canChangeTripStatusDirectly(session.role);
+
+  const gate = straightThrough
+    ? ({ proceed: true as const, session })
+    : await gateChange({
+        entityType: "trip",
+        entityId: id,
+        data: data as unknown as Record<string, unknown>,
+        action: "update",
+        reason,
+      });
   if (!gate.proceed) return gate.response;
 
   try {
