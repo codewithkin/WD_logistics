@@ -237,6 +237,19 @@ for (const c of CASES) {
   console.log(`  tools: ${tools.join(", ") || "none"}  |  wrote: ${reply.didWrite}  |  files: ${files.join(", ") || "none"}  |  ${ms}ms${reply.error ? `  |  ERROR ${reply.error}` : ""}`);
 
   const problems: string[] = [];
+
+  // A caller the app does not recognise is turned away before the assistant
+  // is ever built, so every case answers with the same refusal — and the
+  // cases that expect a refusal "pass", which is how a run with nothing
+  // working reported 12/22 green. The allow-list lives in the database
+  // (Settings -> WhatsApp assistant); an empty one, as on a fresh dev
+  // machine, fails every case here rather than half of them.
+  if (/don'?t have this number on my list/i.test(reply.text) && c.who !== "stranger") {
+    problems.push(
+      `${c.who} (${c.phone}) is not on the WhatsApp allow-list, so the ` +
+        `assistant never ran — add them under Settings -> WhatsApp assistant`,
+    );
+  }
   if (c.expect.anyTool && !c.expect.anyTool.some((t) => tools.includes(t))) {
     problems.push(`expected one of [${c.expect.anyTool}], got [${tools}]`);
   }
