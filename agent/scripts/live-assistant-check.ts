@@ -21,7 +21,7 @@
  */
 
 import "dotenv/config";
-import { answerMessage } from "../src/agents/assistant";
+import { answerMessage, EMPTY_REPLY } from "../src/agents/assistant";
 import { ASSISTANT_MODEL } from "../src/lib/model";
 
 const OWNER = "0772958986";     // admin, linked to a dashboard account
@@ -237,6 +237,13 @@ for (const c of CASES) {
   console.log(`  tools: ${tools.join(", ") || "none"}  |  wrote: ${reply.didWrite}  |  files: ${files.join(", ") || "none"}  |  ${ms}ms${reply.error ? `  |  ERROR ${reply.error}` : ""}`);
 
   const problems: string[] = [];
+
+  // The fallback contains "don't have", which is enough to satisfy a test
+  // looking for a refusal — so a turn where the model said nothing at all
+  // could pass a case about declining politely. It never should.
+  if (reply.text === EMPTY_REPLY) {
+    problems.push("the model ended its turn without saying anything");
+  }
 
   // A caller the app does not recognise is turned away before the assistant
   // is ever built, so every case answers with the same refusal — and the
