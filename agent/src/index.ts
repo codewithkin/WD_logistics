@@ -16,6 +16,7 @@ import { uploadFile } from "./lib/assistant-client";
 import { logModelConfiguration } from "./lib/model";
 import { checkConfiguration } from "./lib/config-check";
 import { notificationsApi } from "./lib/api-client";
+import { installCrashGuard } from "./lib/crash-guard";
 
 /**
  * The organisation this bot belongs to.
@@ -557,6 +558,12 @@ const shutdown = async (signal: string) => {
 for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"] as const) {
   process.on(signal, () => void shutdown(signal));
 }
+
+// Installed before anything can throw. whatsapp-web.js attaches an async
+// 'framenavigated' listener that nobody awaits, so a page navigation used to
+// surface as an unhandled rejection and end the process — which in
+// production looked like the WhatsApp pairing being lost on every redeploy.
+installCrashGuard(() => getAgentWhatsAppClient().markBrowserLost());
 
 // Start WhatsApp initialization immediately
 initWhatsApp();

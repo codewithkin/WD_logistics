@@ -131,6 +131,22 @@ export class AgentWhatsAppClient extends EventEmitter {
   }
 
   /**
+   * Record that the browser died under us.
+   *
+   * Called by the crash guard, which survives the Puppeteer errors that used
+   * to end the process. Without this the client would go on reporting
+   * "ready" to /whatsapp/status and to the Settings page long after the page
+   * backing it had gone — the one thing worse than being disconnected is not
+   * knowing you are.
+   */
+  markBrowserLost(): void {
+    if (this.state.status === "disconnected") return;
+    this.state.status = "disconnected";
+    this.state.phoneNumber = null;
+    this.emit("status", this.state);
+  }
+
+  /**
    * Initialize WhatsApp client (call this during agent startup)
    */
   async initialize(): Promise<boolean> {
