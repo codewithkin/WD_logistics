@@ -14,6 +14,7 @@
  */
 
 import { createTool } from "@mastra/core/tools";
+import { mayWrite } from "../lib/decision-gate";
 import { z } from "zod";
 import { fetchManifest, invoke, type ToolManifestEntry } from "../lib/assistant-client";
 
@@ -97,7 +98,11 @@ export interface OutboundMessage {
   text: string;
 }
 
-export async function buildToolsForCaller(phone: string): Promise<{
+export async function buildToolsForCaller(
+  phone: string,
+  /** What they wrote, so a write can be judged against what was asked. */
+  currentMessage = "",
+): Promise<{
   authorized: boolean;
   name?: string;
   role?: string;
@@ -131,6 +136,21 @@ export async function buildToolsForCaller(phone: string): Promise<{
         : entry.description,
       inputSchema,
       execute: async ({ context }: { context: Record<string, unknown> }) => {
+        // A second opinion before anything changes the books. Reads go
+        // straight through; the app's own role checks still gate both.
+        if (entry.writes) {
+          const verdict = await mayWrite({
+            message: currentMessage,
+            tool: entry.name,
+            args: context ?? {},
+            callerRole: manifest.role ?? "readonly",
+          });
+          if (!verdict.allow) {
+            calls.push({ tool: entry.name, args: context, ok: false });
+            return { error: verdict.reason };
+          }
+        }
+
         const result = await invoke(phone, entry.name, context ?? {});
         calls.push({ tool: entry.name, args: context, ok: result.success });
 

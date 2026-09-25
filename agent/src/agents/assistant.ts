@@ -153,7 +153,7 @@ export async function answerMessage(params: {
   // with it — the sender just got silence.
   let caller: Awaited<ReturnType<typeof buildToolsForCaller>>;
   try {
-    caller = await buildToolsForCaller(params.phone);
+    caller = await buildToolsForCaller(params.phone, params.message);
   } catch (error) {
     console.error("[assistant] could not work out what this caller may do:", error);
     return {
