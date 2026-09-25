@@ -17,6 +17,7 @@ import { logModelConfiguration } from "./lib/model";
 import { checkConfiguration } from "./lib/config-check";
 import { notificationsApi } from "./lib/api-client";
 import { installCrashGuard } from "./lib/crash-guard";
+import { isAudio, transcribeVoiceNote } from "./lib/transcribe";
 
 /**
  * The organisation this bot belongs to.
@@ -378,7 +379,37 @@ const initWhatsApp = async () => {
             try {
               console.log(`📥 Downloading the attached file...`);
               const media = await msg.downloadMedia();
-              if (media?.data) {
+
+              // A voice note is someone talking, not a receipt. Sent down
+              // the path below it would be stored as a file and the model
+              // told to use it as receiptUrl, so "put two hundred dollars of
+              // diesel on KBZ 456H" came back as "what is this file for?".
+              if (media?.data && isAudio(media.mimetype)) {
+                console.log(`🎙️  Listening to a voice note (${media.mimetype})...`);
+                const heard = await transcribeVoiceNote({
+                  base64: media.data,
+                  mimeType: media.mimetype,
+                });
+
+                if (heard) {
+                  console.log(`📝 Heard in ${heard.tookMs}ms: "${heard.text.slice(0, 160)}"`);
+                  // The transcript is the message. Marked as spoken so the
+                  // model reads a half-finished sentence as speech rather
+                  // than as a typed instruction, and so the log shows what
+                  // was heard when somebody later queries the expense.
+                  messageText = messageText
+                    ? `${messageText}
+
+[Voice note: "${heard.text}"]`
+                    : `[Voice note, transcribed] ${heard.text}`;
+                } else {
+                  console.log(`⚠️  Could not make out the voice note`);
+                  messageText =
+                    `${messageText}
+
+[The sender left a voice note that could not be transcribed. Ask them to type it or send it again.]`.trim();
+                }
+              } else if (media?.data) {
                 const stored = await uploadFile({
                   phone: phoneNumber,
                   base64: media.data,
