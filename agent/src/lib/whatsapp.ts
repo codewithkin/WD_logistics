@@ -73,6 +73,29 @@ function buildAuthStrategy() {
   });
 }
 
+/**
+ * Throw the stored pairing away.
+ *
+ * Called when the phone unlinks us and when an admin disconnects from the
+ * web app. Until this existed, unlinking on the phone left the row in
+ * Postgres untouched, so the next boot restored a session WhatsApp had
+ * already invalidated and the status endpoint went on reporting a pairing
+ * that did not exist. The only way out was editing the table by hand.
+ *
+ * Safe to call when there is nothing to delete.
+ */
+export async function forgetStoredSession(): Promise<boolean> {
+  if (!sessionStore) return false;
+  try {
+    await sessionStore.delete({ session: SESSION_NAME });
+    console.log("🗑️  [whatsapp] stored pairing deleted; the next start will ask for a QR code");
+    return true;
+  } catch (error) {
+    console.error("[whatsapp] could not delete the stored pairing:", error);
+    return false;
+  }
+}
+
 /** When the session was last copied to Postgres, for the status endpoint. */
 export async function sessionLastSavedAt(): Promise<Date | null> {
   if (!sessionStore) return null;
@@ -139,6 +162,27 @@ export class AgentWhatsAppClient extends EventEmitter {
    * backing it had gone — the one thing worse than being disconnected is not
    * knowing you are.
    */
+  /**
+   * Drop the stored pairing when WhatsApp says we were logged out.
+   *
+   * whatsapp-web.js reports the reason on `disconnected`; "LOGOUT" is the
+   * phone unlinking us from Linked Devices. The library has its own path
+   * for this — a `framenavigated` listener that calls authStrategy.logout()
+   * — but it only fires if the page happens to navigate to the logout URL,
+   * and that same listener was until recently killing the process before it
+   * got there. Relying on it is why the row survived the unlink.
+   *
+   * Other reasons (a dropped network, a closed browser) leave the pairing
+   * alone: it is still valid and will be wanted on the next start.
+   */
+  private async forgetIfLoggedOut(reason: unknown): Promise<void> {
+    const text = String(reason ?? "").toUpperCase();
+    if (!text.includes("LOGOUT") && !text.includes("UNPAIRED")) return;
+
+    console.log("🔌 [whatsapp] the phone unlinked this device; forgetting the pairing");
+    await forgetStoredSession();
+  }
+
   markBrowserLost(): void {
     if (this.state.status === "disconnected") return;
     this.state.status = "disconnected";
@@ -251,11 +295,12 @@ export class AgentWhatsAppClient extends EventEmitter {
         this.processMessageQueue();
       });
 
-      this.client.on("disconnected", () => {
+      this.client.on("disconnected", (reason: unknown) => {
         this.state.status = "disconnected";
         this.state.phoneNumber = null;
         this.emit("status", this.state);
-        console.log("❌ WhatsApp client disconnected");
+        console.log(`❌ WhatsApp client disconnected (${String(reason)})`);
+        void this.forgetIfLoggedOut(reason);
       });
 
       this.client.on("auth_failure", (msg: any) => {
@@ -338,11 +383,12 @@ export class AgentWhatsAppClient extends EventEmitter {
             this.processMessageQueue();
           });
           
-          this.client.on("disconnected", () => {
+          this.client.on("disconnected", (reason: unknown) => {
             this.state.status = "disconnected";
             this.state.phoneNumber = null;
             this.emit("status", this.state);
-            console.log("❌ WhatsApp client disconnected");
+            console.log(`❌ WhatsApp client disconnected (${String(reason)})`);
+            void this.forgetIfLoggedOut(reason);
           });
           
           this.client.on("auth_failure", (msg: any) => {
@@ -510,6 +556,51 @@ export class AgentWhatsAppClient extends EventEmitter {
   /**
    * Disconnect client
    */
+  /**
+   * Unlink this device for good, as an admin asked from the web app.
+   *
+   * Different from `disconnect()`, which is a clean shutdown that keeps the
+   * pairing so the next boot comes straight back. This ends it: WhatsApp is
+   * told (so the device disappears from Linked Devices on the phone), the
+   * Chromium profile goes, and the row in Postgres goes. The next start
+   * shows a QR code.
+   *
+   * The stored pairing is deleted even when telling WhatsApp fails. If the
+   * browser is already gone, or the phone unlinked us first, a logout that
+   * throws must not leave a dead row behind claiming to be a live pairing —
+   * that is the bug this whole change exists to fix.
+   */
+  async logout(): Promise<{ toldWhatsApp: boolean; forgot: boolean }> {
+    let toldWhatsApp = false;
+
+    if (this.client) {
+      try {
+        await this.client.logout();
+        toldWhatsApp = true;
+      } catch (error) {
+        console.warn("[whatsapp] could not log out cleanly:", error);
+      }
+      try {
+        await this.client.destroy();
+      } catch {
+        // Already gone. Nothing to close.
+      }
+      this.client = null;
+    }
+
+    this.sessionLock?.release();
+    this.sessionLock = null;
+
+    const forgot = await forgetStoredSession();
+
+    this.state.status = "disconnected";
+    this.state.phoneNumber = null;
+    this.state.qrCode = null;
+    this.emit("status", this.state);
+
+    return { toldWhatsApp, forgot };
+  }
+
   async disconnect(): Promise<void> {
     if (this.client) {
       // destroy() closes Chromium and waits for it, which is what actually

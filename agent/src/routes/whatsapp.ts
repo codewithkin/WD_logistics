@@ -339,6 +339,44 @@ whatsapp.get("/status", zValidator("query", statusSchema), async (c) => {
  * POST /whatsapp/initialize - Initialize WhatsApp client
  * (This is primarily done through the web app, but available here for agent startup)
  */
+/**
+ * POST /whatsapp/disconnect - unlink this device for good.
+ *
+ * Ends the pairing rather than pausing it: WhatsApp is told, so the device
+ * disappears from Linked Devices on the phone, and the stored session is
+ * deleted so the next start asks for a QR code instead of restoring a
+ * pairing that no longer works.
+ */
+whatsapp.post(
+  "/disconnect",
+  zValidator("json", z.object({ organizationId: z.string() })),
+  async (c) => {
+    try {
+      const client = getAgentWhatsAppClient();
+      const result = await client.logout();
+
+      return c.json({
+        success: true,
+        message: result.toldWhatsApp
+          ? "Disconnected. The device has been removed from your phone's linked devices."
+          : "Disconnected. The stored pairing was cleared; if the device still shows on your phone, remove it there too.",
+        toldWhatsApp: result.toldWhatsApp,
+        sessionCleared: result.forgot,
+        status: client.getState().status,
+      });
+    } catch (error) {
+      console.error("WhatsApp disconnect error:", error);
+      return c.json(
+        {
+          success: false,
+          error: error instanceof Error ? error.message : "Failed to disconnect",
+        },
+        500,
+      );
+    }
+  },
+);
+
 whatsapp.post(
   "/initialize",
   zValidator("json", z.object({ organizationId: z.string() })),
