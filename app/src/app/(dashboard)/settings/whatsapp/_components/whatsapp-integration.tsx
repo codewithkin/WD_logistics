@@ -16,10 +16,23 @@ import {
     AlertTriangle,
     CheckCircle,
     Loader2,
+    LogOut,
     RefreshCw,
     Smartphone,
     WifiOff,
 } from 'lucide-react';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { toast } from 'sonner';
 
 /**
  * The bot's connection, as the agent reports it.
@@ -54,6 +67,7 @@ export function WhatsAppIntegration({ organizationId }: { organizationId: string
     const [agent, setAgent] = useState<AgentStatus | null>(null);
     const [reachable, setReachable] = useState<boolean | null>(null);
     const [checking, setChecking] = useState(false);
+    const [disconnecting, setDisconnecting] = useState(false);
 
     const refresh = useCallback(async () => {
         setChecking(true);
@@ -92,6 +106,39 @@ export function WhatsAppIntegration({ organizationId }: { organizationId: string
         return () => clearInterval(interval);
     }, [agent?.status, refresh]);
 
+    // Goes through the app rather than straight to the agent: the app clears
+    // the stored pairing itself even when the agent cannot be reached, which
+    // is exactly when this is needed — the row says connected and nothing is
+    // listening.
+    const disconnect = useCallback(async () => {
+        setDisconnecting(true);
+        try {
+            const response = await fetch('/api/whatsapp/disconnect', { method: 'POST' });
+            const body = (await response.json()) as { message?: string; error?: string };
+
+            if (!response.ok) {
+                toast.error(body.error ?? 'Could not disconnect WhatsApp');
+                return;
+            }
+            toast.success(body.message ?? 'Disconnected');
+            await refresh();
+        } catch {
+            toast.error('Could not reach the server to disconnect WhatsApp');
+        } finally {
+            setDisconnecting(false);
+        }
+    }, [refresh]);
+
+    // Offer it whenever there is something to end — a live pairing, or a
+    // stored one left behind by a phone-side unlink, which is the case that
+    // used to be unfixable from here.
+    const hasSomethingToDisconnect =
+        agent?.connected === true ||
+        agent?.status === 'ready' ||
+        agent?.status === 'qr' ||
+        agent?.status === 'connecting' ||
+        Boolean(agent?.sessionBackedUpAt);
+
     return (
         <Card>
             <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
@@ -116,6 +163,41 @@ export function WhatsAppIntegration({ organizationId }: { organizationId: string
                         )}
                         <span className="ml-2 hidden sm:inline">Refresh</span>
                     </Button>
+
+                    {hasSomethingToDisconnect && (
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button variant="outline" size="sm" disabled={disconnecting}>
+                                    {disconnecting ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                        <LogOut className="h-4 w-4" />
+                                    )}
+                                    <span className="ml-2 hidden sm:inline">Disconnect</span>
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>Disconnect WhatsApp?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        The bot will stop sending and receiving messages, and the
+                                        stored pairing is deleted. Reconnecting means scanning a new
+                                        QR code from the phone.
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel disabled={disconnecting}>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction
+                                        onClick={() => void disconnect()}
+                                        disabled={disconnecting}
+                                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                    >
+                                        Disconnect
+                                    </AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                    )}
                 </div>
             </CardHeader>
 
