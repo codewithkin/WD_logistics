@@ -423,6 +423,7 @@ export async function exportTrucksPDF(options?: {
               select: {
                 amount: true,
                 date: true,
+                category: { select: { name: true } },
               },
             },
           },
@@ -430,6 +431,24 @@ export async function exportTrucksPDF(options?: {
       },
       orderBy: { registrationNo: "asc" },
     });
+
+    // What each truck's costs were actually spent on. The report carried a
+    // single expenses figure per truck, which says a truck is losing money
+    // without saying where it goes — the question the client asked this
+    // report to answer.
+    const spendByCategory = new Map<string, { amount: number; count: number }>();
+    for (const truck of trucks) {
+      for (const link of truck.truckExpenses) {
+        const name = link.expense.category?.name ?? "Uncategorised";
+        const bucket = spendByCategory.get(name) ?? { amount: 0, count: 0 };
+        bucket.amount += link.expense.amount;
+        bucket.count += 1;
+        spendByCategory.set(name, bucket);
+      }
+    }
+    const expensesByCategory = [...spendByCategory.entries()]
+      .map(([category, totals]) => ({ category, ...totals }))
+      .sort((a, b) => b.amount - a.amount);
 
     const truckData = trucks.map((truck) => {
       const totalRevenue = truck.trips.reduce((sum, t) => sum + t.revenue, 0);
@@ -466,6 +485,7 @@ export async function exportTrucksPDF(options?: {
     const pdfBytes = generateTruckReportPDF({
       trucks: truckData,
       analytics,
+      expensesByCategory,
       period: { startDate, endDate },
     });
 

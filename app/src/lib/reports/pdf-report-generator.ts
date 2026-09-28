@@ -1040,9 +1040,19 @@ export function generateTruckReportPDF(data: {
     totalExpenses?: number;
     totalProfitLoss?: number;
   };
+  /**
+   * Where the fleet's money went, across the trucks in this report.
+   *
+   * The report gave one expenses figure per truck, which tells an owner a
+   * truck is losing money without telling them why — the question they asked
+   * this report to answer.
+   */
+  expensesByCategory?: Array<{ category: string; amount: number; count: number }>;
   period: { startDate: Date | string; endDate: Date | string };
 }): Uint8Array {
-  const hasFinancials = data.trucks.length > 0 && data.trucks[0].revenue !== undefined;
+  // `some` rather than the first row: a report where truck one happens to
+  // have no revenue key used to hide the money columns for every truck.
+  const hasFinancials = data.trucks.some((truck) => truck.revenue !== undefined);
   
   const summaryItems: SummaryItem[] = [
     { label: "Total Trucks", value: data.analytics.totalTrucks, format: "number" },
@@ -1112,8 +1122,33 @@ export function generateTruckReportPDF(data: {
       "Mileage figures reflect odometer readings at the time of report generation.",
       "Trip counts and financials include all data during the reporting period.",
       "Profit/Loss = Revenue - Expenses for each truck.",
+      "Expenses are the costs booked directly against each truck in the period.",
     ],
   };
+
+  if (hasFinancials && data.expensesByCategory && data.expensesByCategory.length > 0) {
+    config.sections.push({
+      title: "Expenses by Category",
+      columns: [
+        { header: "Category", key: "category", align: "left" },
+        { header: "Entries", key: "count", format: "number", align: "center" },
+        { header: "Amount", key: "amount", format: "currency", align: "right" },
+        { header: "Share", key: "share", align: "right" },
+      ],
+      data: (() => {
+        const total = data.expensesByCategory!.reduce((sum, row) => sum + row.amount, 0);
+        return data.expensesByCategory!.map((row) => ({
+          category: row.category,
+          count: row.count,
+          amount: row.amount,
+          share: total > 0 ? `${((row.amount / total) * 100).toFixed(1)}%` : "-",
+        }));
+      })(),
+      showTotal: true,
+      totalLabel: "Total",
+      totalColumns: ["count", "amount"],
+    });
+  }
 
   const generator = new PDFReportGenerator(config);
   return generator.generate();
