@@ -45,10 +45,10 @@ You'll run into this whenever you need to fix or update something that already e
 1. Open the record you want to change.
 2. Look for **Request Edit** (instead of a direct Edit button).
 3. Fill in what should change and why.
-4. An admin or supervisor reviews it. You'll see the outcome on **Edit Requests** in the sidebar — approved changes apply automatically, rejected ones come back with a reason.
+4. An admin reviews it — only an admin can, not a supervisor. Approved changes apply automatically; a refused one comes back with the reason.
 
 This exists so nothing important changes without someone double-checking it — it's not a sign you did anything wrong.
 
 ## If something looks locked
 
-That's expected — reports, settings, and user management are admin-only, and direct editing needs a supervisor or admin. Use an Edit Request, or ask an admin/supervisor directly.
+That's expected — reports, settings and user management are admin-only, and changing an existing record goes through an approval whoever you are. Send the edit with a reason, or ask an admin.

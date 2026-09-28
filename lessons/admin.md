@@ -10,7 +10,7 @@ You have full access to the system — everything supervisors and staff can do, 
 - Delete records.
 - Generate and download reports (profit per unit, revenue, expenses, customer statements, and more).
 - Create user accounts and set their role (staff, supervisor, admin).
-- Approve or reject Edit Requests (same as supervisors).
+- Approve or reject Edit Requests. **You are the only one who can** — a supervisor's own changes come to you as well as a staff member's.
 - Configure organization settings and connect WhatsApp.
 - Use the built-in AI Assistant to ask quick questions about the business.
 
@@ -21,7 +21,7 @@ There's nothing hidden from you — if you don't see something, it's a bug, not 
 ### 1. Invite a new user
 
 1. Go to **Users → Invite**.
-2. Enter their email and choose their role — **staff** (day-to-day entry, needs approval to edit), **supervisor** (full operational access), or **admin** (everything).
+2. Enter their email and choose their role — **staff** (day-to-day entry; any change to an existing record needs your approval), **supervisor** (runs operations and sees costs, never revenue or profit; changes also need your approval), **workshop** (only the maintenance jobs assigned to them), or **admin** (everything).
 3. They'll get an email invite to set up their account.
 
 ### 2. Generate a report
