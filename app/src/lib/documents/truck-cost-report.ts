@@ -278,13 +278,18 @@ function renderFleet(ctx: Ctx, rows: FleetCostRow[]): void {
   drawTable(
     ctx,
     [
-      { header: "Truck", key: "truck", width: 26 },
-      { header: "Revenue", key: "revenue", align: "right", width: 28 },
-      { header: "Costs", key: "expenses", align: "right", width: 28 },
-      { header: "Profit", key: "profit", align: "right", width: 28 },
-      { header: "Margin", key: "margin", align: "right", width: 20 },
-      { header: "Cost/km", key: "costPerKm", align: "right", width: 22 },
-      { header: "Worst category", key: "worst" },
+      // Widths are hand-set because the page is portrait and eight columns
+      // only fit if none of them is allowed to sprawl. They sum to the 182mm
+      // of usable width; if you add a column, take the space from another.
+      { header: "Truck", key: "truck", width: 24 },
+      { header: "Revenue", key: "revenue", align: "right", width: 25 },
+      { header: "Costs", key: "expenses", align: "right", width: 25 },
+      { header: "Profit", key: "profit", align: "right", width: 25 },
+      { header: "Margin", key: "margin", align: "right", width: 16 },
+      { header: "Kilometres", key: "kilometres", align: "right", width: 22 },
+      { header: "Cost/km", key: "costPerKm", align: "right", width: 20 },
+      // Named as the CSV names it, so the two read as the same report.
+      { header: "Over-spends on", key: "worst" },
     ],
     rows.map((row) => ({
       truck: row.registrationNo,
@@ -292,6 +297,7 @@ function renderFleet(ctx: Ctx, rows: FleetCostRow[]): void {
       expenses: money(row.expenses),
       profit: money(row.profit),
       margin: row.margin === null ? "—" : `${row.margin}%`,
+      kilometres: row.kilometres.toLocaleString("en-GB"),
       costPerKm: row.costPerKm === null ? "—" : money(row.costPerKm),
       worst: row.worstCategory
         ? `${row.worstCategory.name} ${row.worstCategory.share}% vs ${row.worstCategory.fleetShare}%`
@@ -301,19 +307,19 @@ function renderFleet(ctx: Ctx, rows: FleetCostRow[]): void {
       // Worst profit first: the question this answers is which truck is the
       // problem, so the problem goes at the top.
       title: "Every truck, worst profit first",
-      foot: [
-        "Fleet",
-        money(totals.revenue),
-        money(totals.expenses),
-        money(totals.profit),
-        totals.revenue > 0
-          ? `${Math.round((totals.profit / totals.revenue) * 1000) / 10}%`
-          : "—",
-        totals.kilometres > 0
-          ? money(totals.expenses / totals.kilometres)
-          : "—",
-        "",
-      ],
+      footByKey: {
+        truck: "Fleet",
+        revenue: money(totals.revenue),
+        expenses: money(totals.expenses),
+        profit: money(totals.profit),
+        margin:
+          totals.revenue > 0
+            ? `${Math.round((totals.profit / totals.revenue) * 1000) / 10}%`
+            : "—",
+        kilometres: totals.kilometres.toLocaleString("en-GB"),
+        costPerKm:
+          totals.kilometres > 0 ? money(totals.expenses / totals.kilometres) : "—",
+      },
       emptyMessage: "No trucks on record.",
     },
   );

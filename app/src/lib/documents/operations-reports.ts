@@ -30,6 +30,11 @@ import type {
   InventoryValuationData,
   TripPnLData,
 } from "@/lib/reports/operations-fetchers";
+import { TRIP_STATUS_LABELS, type TripStatus } from "@/lib/types";
+
+/** "in_progress" is not a thing anyone should read on a printed page. */
+const statusLabel = (status: string) =>
+  TRIP_STATUS_LABELS[status as TripStatus] ?? status.replace(/_/g, " ");
 
 const pct = (value: number | null) =>
   value === null ? "—" : `${value.toFixed(1)}%`;
@@ -72,42 +77,49 @@ export function generateCustomerProfitabilityPDF(params: {
   drawTable(
     ctx,
     [
-      { header: "Customer", key: "customer" },
+      // The contact person and number ride in the same cell as the name: the
+      // CSV gives them their own columns, but a landscape page has no room
+      // for two more text columns beside nine figures, and whoever reads a
+      // printed copy wants the number next to the customer anyway.
+      { header: "Customer", key: "customer", width: 46 },
       { header: "Trips", key: "trips", align: "right" },
+      { header: "Kilometres", key: "kilometres", align: "right" },
       { header: "Revenue", key: "revenue", align: "right" },
       { header: "Avg rate", key: "averageRate", align: "right" },
       { header: "Per km", key: "ratePerKm", align: "right" },
       { header: "Trip costs", key: "tripCosts", align: "right" },
       { header: "Profit", key: "profit", align: "right" },
       { header: "Margin", key: "margin", align: "right" },
+      { header: "Invoiced", key: "invoiced", align: "right" },
       { header: "Outstanding", key: "outstanding", align: "right" },
       { header: "% of revenue", key: "shareOfRevenue", align: "right" },
     ],
     data.rows.map((row) => ({
-      customer: row.customer,
+      customer: [row.customer, row.contact, row.phone]
+        .filter((part): part is string => Boolean(part))
+        .join("\n"),
       trips: row.trips,
+      kilometres: row.kilometres.toLocaleString("en-GB"),
       revenue: money(row.revenue),
       averageRate: maybeMoney(row.averageRate),
       ratePerKm: maybeMoney(row.ratePerKm),
       tripCosts: money(row.tripCosts),
       profit: money(row.profit),
       margin: pct(row.margin),
+      invoiced: money(row.invoiced),
       outstanding: money(row.outstanding),
       shareOfRevenue: pct(row.shareOfRevenue),
     })),
     {
-      foot: [
-        "Total",
-        data.totals.trips,
-        money(data.totals.revenue),
-        "",
-        "",
-        money(data.totals.tripCosts),
-        money(data.totals.profit),
-        "",
-        money(data.totals.outstanding),
-        "100.0%",
-      ],
+      footByKey: {
+        customer: "Total",
+        trips: data.totals.trips,
+        revenue: money(data.totals.revenue),
+        tripCosts: money(data.totals.tripCosts),
+        profit: money(data.totals.profit),
+        outstanding: money(data.totals.outstanding),
+        shareOfRevenue: "100.0%",
+      },
       emptyMessage: "No customer activity in this period.",
     },
   );
@@ -163,6 +175,13 @@ export function generateExpenseCategoryReportPDF(params: {
       { header: "Average", key: "average", align: "right" },
       { header: "Largest", key: "largest", align: "right" },
       { header: "Share", key: "share", align: "right" },
+      // What the money was booked against. These are entry counts, not
+      // amounts — an expense can be linked to a truck and a trip at once, so
+      // they do not sum to Entries.
+      { header: "Trucks", key: "againstTrucks", align: "right" },
+      { header: "Trips", key: "againstTrips", align: "right" },
+      { header: "Drivers", key: "againstDrivers", align: "right" },
+      { header: "Overheads", key: "overheads", align: "right" },
     ],
     data.rows.map((row) => ({
       category: row.category,
@@ -173,18 +192,22 @@ export function generateExpenseCategoryReportPDF(params: {
       average: money(row.average),
       largest: money(row.largest),
       share: pct(row.share),
+      againstTrucks: row.againstTrucks,
+      againstTrips: row.againstTrips,
+      againstDrivers: row.againstDrivers,
+      overheads: row.overheads,
     })),
     {
-      foot: [
-        "Total",
-        "",
-        "",
-        data.entries,
-        money(data.total),
-        "",
-        "",
-        "100.0%",
-      ],
+      footByKey: {
+        category: "Total",
+        entries: data.entries,
+        total: money(data.total),
+        share: "100.0%",
+        againstTrucks: data.rows.reduce((sum, row) => sum + row.againstTrucks, 0),
+        againstTrips: data.rows.reduce((sum, row) => sum + row.againstTrips, 0),
+        againstDrivers: data.rows.reduce((sum, row) => sum + row.againstDrivers, 0),
+        overheads: data.rows.reduce((sum, row) => sum + row.overheads, 0),
+      },
       emptyMessage: "No expenses recorded in this period.",
     },
   );
@@ -495,11 +518,13 @@ export function generateTripPnLPDF(params: {
       { header: "Truck", key: "truck" },
       { header: "Driver", key: "driver" },
       { header: "Customer", key: "customer" },
+      { header: "Status", key: "status" },
       { header: "Distance", key: "kilometres", align: "right" },
       { header: "Revenue", key: "revenue", align: "right" },
       { header: "Costs", key: "expenses", align: "right" },
       { header: "Profit", key: "profit", align: "right" },
       { header: "Margin", key: "margin", align: "right" },
+      { header: "Profit / km", key: "profitPerKm", align: "right" },
     ],
     data.rows.map((row) => ({
       date: shortDate(row.date),
@@ -507,25 +532,23 @@ export function generateTripPnLPDF(params: {
       truck: row.truck,
       driver: row.driver,
       customer: row.customer,
+      status: statusLabel(row.status),
       kilometres: km(row.kilometres),
       revenue: money(row.revenue),
       expenses: money(row.expenses),
       profit: money(row.profit),
       margin: pct(row.margin),
+      profitPerKm: maybeMoney(row.profitPerKm),
     })),
     {
-      foot: [
-        "Total",
-        "",
-        "",
-        "",
-        "",
-        km(data.totals.kilometres),
-        money(data.totals.revenue),
-        money(data.totals.expenses),
-        money(data.totals.profit),
-        pct(data.totals.margin),
-      ],
+      footByKey: {
+        date: "Total",
+        kilometres: km(data.totals.kilometres),
+        revenue: money(data.totals.revenue),
+        expenses: money(data.totals.expenses),
+        profit: money(data.totals.profit),
+        margin: pct(data.totals.margin),
+      },
       emptyMessage: "No completed trips in this period.",
     },
   );

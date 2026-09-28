@@ -22,5 +22,17 @@ Bun.plugin({
   name: "stub-server-only",
   setup(build) {
     build.module("server-only", () => ({ exports: {}, loader: "object" }));
+
+    // `revalidatePath` needs Next's request store, which a script has not
+    // got — it throws "static generation store missing". Any script that
+    // calls a server action hits this, so it is stubbed here rather than in
+    // each one.
+    build.module("next/cache", () => ({
+      exports: {
+        revalidatePath: () => {},
+        revalidateTag: () => {},
+      },
+      loader: "object",
+    }));
   },
 });

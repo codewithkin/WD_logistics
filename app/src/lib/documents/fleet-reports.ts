@@ -276,6 +276,7 @@ export function generateDriverPerformanceReportPDF(params: {
     ctx,
     [
       { header: "Driver", key: "driver" },
+      { header: "Licence", key: "licenseNumber" },
       { header: "Current truck", key: "currentTruck" },
       { header: "Trips", key: "trips", align: "right" },
       { header: "Distance", key: "kilometres", align: "right" },
@@ -287,6 +288,7 @@ export function generateDriverPerformanceReportPDF(params: {
     ],
     data.rows.map((row) => ({
       driver: row.driver,
+      licenseNumber: row.licenseNumber ?? "Not recorded",
       currentTruck: row.currentTruck ?? "Unassigned",
       trips: row.trips,
       kilometres: km(row.kilometres),
@@ -298,17 +300,14 @@ export function generateDriverPerformanceReportPDF(params: {
       margin: pct(row.margin),
     })),
     {
-      foot: [
-        "Total",
-        "",
-        data.totals.trips,
-        km(data.totals.kilometres),
-        money(data.totals.revenue),
-        "",
-        money(data.totals.expenses),
-        money(data.totals.profit),
-        "",
-      ],
+      footByKey: {
+        driver: "Total",
+        trips: data.totals.trips,
+        kilometres: km(data.totals.kilometres),
+        revenue: money(data.totals.revenue),
+        expenses: money(data.totals.expenses),
+        profit: money(data.totals.profit),
+      },
       emptyMessage: "No driver activity in this period.",
     },
   );

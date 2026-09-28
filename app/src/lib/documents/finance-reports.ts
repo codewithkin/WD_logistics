@@ -34,8 +34,13 @@ import type {
   ProfitAndLossData,
 } from "@/lib/reports/finance-fetchers";
 import { AGEING_BUCKETS } from "@/lib/reports/finance-fetchers";
+import { ACCOUNT_TYPE_LABELS, type AccountType } from "@/lib/accounts";
 
 const pct = (value: number) => `${value.toFixed(1)}%`;
+
+/** "petty_cash" reads badly on a printed page. */
+const accountTypeLabel = (type: string) =>
+  ACCOUNT_TYPE_LABELS[type as AccountType] ?? type.replace(/_/g, " ");
 
 /** "+12.4% vs previous" — or a plain dash when there is nothing to compare. */
 function movement(current: number, previous: number | undefined): string {
@@ -456,6 +461,9 @@ export function generateCashFlowPDF(params: {
     ctx,
     [
       { header: "Account", key: "name" },
+      // Which account it is matters as much as the balance: petty cash short
+      // by $200 is a different conversation from the bank being short by $200.
+      { header: "Type", key: "type" },
       { header: "Opening", key: "opening", align: "right" },
       { header: "In", key: "paidIn", align: "right" },
       { header: "Out", key: "paidOut", align: "right" },
@@ -463,19 +471,20 @@ export function generateCashFlowPDF(params: {
     ],
     data.accounts.map((row) => ({
       name: row.name,
+      type: accountTypeLabel(row.type),
       opening: money(row.opening),
       paidIn: money(row.paidIn),
       paidOut: money(row.paidOut),
       closing: money(row.closing),
     })),
     {
-      foot: [
-        "Total",
-        money(data.accounts.reduce((s, a) => s + a.opening, 0)),
-        money(data.accounts.reduce((s, a) => s + a.paidIn, 0)),
-        money(data.accounts.reduce((s, a) => s + a.paidOut, 0)),
-        money(data.accounts.reduce((s, a) => s + a.closing, 0)),
-      ],
+      footByKey: {
+        name: "Total",
+        opening: money(data.accounts.reduce((s, a) => s + a.opening, 0)),
+        paidIn: money(data.accounts.reduce((s, a) => s + a.paidIn, 0)),
+        paidOut: money(data.accounts.reduce((s, a) => s + a.paidOut, 0)),
+        closing: money(data.accounts.reduce((s, a) => s + a.closing, 0)),
+      },
       emptyMessage: "No accounts configured.",
     },
   );

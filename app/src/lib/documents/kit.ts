@@ -478,8 +478,16 @@ export function drawTable(
   rows: Array<Record<string, string | number>>,
   options?: {
     title?: string;
-    /** A totals row rendered in bold at the foot. */
+    /**
+     * A totals row rendered in bold at the foot, positionally.
+     *
+     * Prefer `footByKey`: a positional array silently misaligns the moment a
+     * column is inserted, which is how the expense report came to print its
+     * category total under "Trucks".
+     */
     foot?: Array<string | number>;
+    /** A totals row keyed by column, so inserting a column cannot misalign it. */
+    footByKey?: Record<string, string | number>;
     emptyMessage?: string;
   },
 ): void {
@@ -519,7 +527,11 @@ export function drawTable(
         return value === undefined || value === null ? "—" : String(value);
       }),
     ),
-    foot: options?.foot ? [options.foot.map(String)] : undefined,
+    foot: options?.footByKey
+      ? [columns.map((column) => String(options.footByKey?.[column.key] ?? ""))]
+      : options?.foot
+        ? [options.foot.map(String)]
+        : undefined,
     theme: "plain",
     margin: { left: margin, right: margin, bottom: LAYOUT.footerReserve },
     styles: {
