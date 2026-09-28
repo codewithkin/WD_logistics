@@ -723,14 +723,10 @@ export async function generateReport(
 
         if (format === "pdf") {
           const pdfBytes = generateExpenseReportPDF({
-            expenses: data.map((e) => ({
-              date: e.date,
-              category: e.category,
-              description: e.description,
-              amount: e.amount,
-              trucks: e.truck ? [e.truck] : [],
-              trips: e.trip ? [e.trip] : [],
-            })),
+            // The fetcher's own shape. It used to be remapped into `trucks`
+            // and `trips` arrays that the generator had no columns for, so
+            // both were silently dropped.
+            expenses: data,
             period: periodObj,
           });
           fileBuffer = pdfBytes;
@@ -930,12 +926,9 @@ export async function generateReport(
 
         if (format === "pdf") {
           const pdfBytes = generateExpenseReportPDF({
-            expenses: data.map((e) => ({
-              date: e.date,
-              category: e.category,
-              description: e.description,
-              amount: e.amount,
-            })),
+            // Full detail here too: a truck's expense report that does not
+            // say which trip each cost belongs to is half a report.
+            expenses: data,
             byCategory: Object.values(
               data.reduce<Record<string, { category: string; amount: number; count: number }>>(
                 (acc, e) => {

@@ -83,6 +83,14 @@ export interface ReportConfig {
   sections: ReportSection[];
   notes?: string[];
   companyName?: string;
+  /**
+   * Turn the page on its side.
+   *
+   * For reports whose detail table carries more columns than fit across a
+   * portrait page — squeezing nine columns into 174mm wraps every cell onto
+   * three lines and the table becomes unreadable.
+   */
+  orientation?: "portrait" | "landscape";
 }
 
 // ============================================================================
@@ -203,6 +211,7 @@ export class PDFReportGenerator {
     const ctx = createDocument({
       organization: this.organization,
       title: this.config.title,
+      orientation: this.config.orientation,
     });
 
     drawHeader(ctx, {
@@ -334,6 +343,18 @@ export function generateExpenseReportPDF(data: {
     description: string;
     amount: number;
     reference?: string;
+    /**
+     * What the expense was booked against.
+     *
+     * The caller has always passed these; the parameter type did not accept
+     * them and the columns below did not print them, so Truck, Trailer and
+     * Trip were dropped on the floor — visible in the CSV, missing from the
+     * PDF. No type error, because next.config.ts ignores them at build time.
+     */
+    truck?: string;
+    trailer?: string;
+    trip?: string;
+    vendor?: string;
   }>;
   period: { startDate: Date | string; endDate: Date | string };
   byCategory?: Array<{
@@ -349,6 +370,8 @@ export function generateExpenseReportPDF(data: {
     subtitle: "Detailed Expense Analysis",
     reportType: "expenses",
     period: data.period,
+    // Nine columns do not fit across a portrait page.
+    orientation: "landscape",
     summary: [
       { label: "Total Expenses", value: totalAmount, format: "currency" },
       { label: "Number of Transactions", value: data.expenses.length, format: "number" },
@@ -361,6 +384,10 @@ export function generateExpenseReportPDF(data: {
           { header: "Date", key: "date", format: "date", align: "left" },
           { header: "Category", key: "category", align: "left" },
           { header: "Description", key: "description", align: "left" },
+          { header: "Truck", key: "truck", align: "left" },
+          { header: "Trailer", key: "trailer", align: "left" },
+          { header: "Trip", key: "trip", align: "left" },
+          { header: "Vendor", key: "vendor", align: "left" },
           { header: "Reference", key: "reference", align: "left" },
           { header: "Amount", key: "amount", format: "currency", align: "right" },
         ],
@@ -368,6 +395,10 @@ export function generateExpenseReportPDF(data: {
           date: e.date,
           category: e.category,
           description: e.description || "-",
+          truck: e.truck || "-",
+          trailer: e.trailer || "-",
+          trip: e.trip || "-",
+          vendor: e.vendor || "-",
           reference: e.reference || "-",
           amount: e.amount,
         })),

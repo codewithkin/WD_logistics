@@ -177,6 +177,8 @@ export async function fetchExpenseData(
       truck: truck?.registrationNo || "-",
       trailer: trailer?.registrationNo || "-",
       trip: trip ? `${trip.originCity} → ${trip.destinationCity}` : "-",
+      vendor: expense.vendor || "-",
+      reference: expense.reference || "-",
       amount: expense.amount,
     };
   });

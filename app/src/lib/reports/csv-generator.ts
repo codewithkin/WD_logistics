@@ -107,6 +107,8 @@ export interface ExpenseData {
   truck: string;
   trailer: string;
   trip: string;
+  vendor: string;
+  reference: string;
   amount: number;
 }
 
@@ -226,6 +228,8 @@ export function generateRevenueCSV(data: RevenueData[], meta: ReportMeta): strin
     { key: "customer", label: "Customer" },
     { key: "invoiceNo", label: "Invoice #" },
     { key: "trip", label: "Trip" },
+    { key: "vendor", label: "Vendor" },
+    { key: "reference", label: "Reference" },
     { key: "amount", label: "Amount ($)", format: (v) => formatCurrency(v as number) },
   ];
 
@@ -244,6 +248,28 @@ export function generateRevenueCSV(data: RevenueData[], meta: ReportMeta): strin
 }
 
 /**
+ * A totals row that lines up with its own columns.
+ *
+ * These were written out by hand, one quoted cell at a time, so a column
+ * added later left the figures under the wrong heading — the expense report's
+ * grand total was printing beneath "Trip" after the trailer column arrived.
+ * Building the row from the column list makes that impossible.
+ */
+function totalsRowFor(
+  columns: CSVColumn[],
+  values: Record<string, string>,
+  label = "TOTAL",
+): string {
+  return columns
+    .map((column, index) => {
+      if (index === 0) return `"${label}"`;
+      const value = values[String(column.key)];
+      return value === undefined ? `""` : `"${value}"`;
+    })
+    .join(",");
+}
+
+/**
  * Generate Expense CSV
  */
 export function generateExpenseCSV(data: ExpenseData[], meta: ReportMeta): string {
@@ -256,6 +282,8 @@ export function generateExpenseCSV(data: ExpenseData[], meta: ReportMeta): strin
     { key: "truck", label: "Truck" },
     { key: "trailer", label: "Trailer" },
     { key: "trip", label: "Trip" },
+    { key: "vendor", label: "Vendor" },
+    { key: "reference", label: "Reference" },
     { key: "amount", label: "Amount ($)", format: (v) => formatCurrency(v as number) },
   ];
 
@@ -268,7 +296,7 @@ export function generateExpenseCSV(data: ExpenseData[], meta: ReportMeta): strin
 
   const csvData = generateCSV(data, { columns });
 
-  const totalsRow = [`"TOTAL"`, `""`, `""`, `""`, `""`, `"${formatCurrency(total)}"`].join(",");
+  const totalsRow = totalsRowFor(columns, { amount: formatCurrency(total) });
 
   return `${metaInfo}\n${csvData}\n${totalsRow}`;
 }
