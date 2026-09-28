@@ -160,6 +160,34 @@ export interface ReportMeta {
   period: string;
   generatedAt?: Date;
   customerName?: string;
+  /**
+   * Whether to print the title/period/generated block above the columns.
+   *
+   * The Reports screen has always offered this as "clean import", and these
+   * generators ignored it — they built the block unconditionally, so the
+   * option did nothing for eight of the reports and the file still needed
+   * hand-editing before a spreadsheet would read it.
+   */
+  includeMetadata?: boolean;
+}
+
+/** The title block, or nothing when the caller asked for a clean import. */
+function metaBlock(title: string, meta: ReportMeta, extra: string[] = []): string {
+  if (meta.includeMetadata === false) return "";
+  return (
+    [
+      `"WD Logistics - ${title}"`,
+      ...extra,
+      `"Period: ${meta.startDate} - ${meta.endDate}"`,
+      `"Generated: ${(meta.generatedAt ?? new Date()).toISOString()}"`,
+      `""`,
+    ].join("\n")
+  );
+}
+
+/** Joins the parts of a CSV, skipping any that are empty. */
+function csvDocument(...parts: string[]): string {
+  return parts.filter((part) => part.length > 0).join("\n");
 }
 
 /**
@@ -192,12 +220,7 @@ export function generateProfitPerUnitCSV(
   ];
 
   // Generate CSV with meta info
-  const metaInfo = [
-    `"WD Logistics - Profit Per Unit Report"`,
-    `"Period: ${meta.startDate} - ${meta.endDate}"`,
-    `"Generated: ${new Date().toISOString()}"`,
-    `""`,
-  ].join("\n");
+  const metaInfo = metaBlock("Profit Per Unit Report", meta);
 
   const csvData = generateCSV(data, { columns });
 
@@ -214,7 +237,7 @@ export function generateProfitPerUnitCSV(
     `"${formatPercentage(margin)}"`,
   ].join(",");
 
-  return `${metaInfo}\n${csvData}\n${totalsRow}`;
+  return csvDocument(metaInfo, csvData, totalsRow);
 }
 
 /**
@@ -228,23 +251,16 @@ export function generateRevenueCSV(data: RevenueData[], meta: ReportMeta): strin
     { key: "customer", label: "Customer" },
     { key: "invoiceNo", label: "Invoice #" },
     { key: "trip", label: "Trip" },
-    { key: "vendor", label: "Vendor" },
-    { key: "reference", label: "Reference" },
     { key: "amount", label: "Amount ($)", format: (v) => formatCurrency(v as number) },
   ];
 
-  const metaInfo = [
-    `"WD Logistics - Revenue Report"`,
-    `"Period: ${meta.startDate} - ${meta.endDate}"`,
-    `"Generated: ${new Date().toISOString()}"`,
-    `""`,
-  ].join("\n");
+  const metaInfo = metaBlock("Revenue Report", meta);
 
   const csvData = generateCSV(data, { columns });
 
-  const totalsRow = [`"TOTAL"`, `""`, `""`, `""`, `"${formatCurrency(total)}"`].join(",");
+  const totalsRow = totalsRowFor(columns, { amount: formatCurrency(total) });
 
-  return `${metaInfo}\n${csvData}\n${totalsRow}`;
+  return csvDocument(metaInfo, csvData, totalsRow);
 }
 
 /**
@@ -287,18 +303,13 @@ export function generateExpenseCSV(data: ExpenseData[], meta: ReportMeta): strin
     { key: "amount", label: "Amount ($)", format: (v) => formatCurrency(v as number) },
   ];
 
-  const metaInfo = [
-    `"WD Logistics - Expense Report"`,
-    `"Period: ${meta.startDate} - ${meta.endDate}"`,
-    `"Generated: ${new Date().toISOString()}"`,
-    `""`,
-  ].join("\n");
+  const metaInfo = metaBlock("Expense Report", meta);
 
   const csvData = generateCSV(data, { columns });
 
   const totalsRow = totalsRowFor(columns, { amount: formatCurrency(total) });
 
-  return `${metaInfo}\n${csvData}\n${totalsRow}`;
+  return csvDocument(metaInfo, csvData, totalsRow);
 }
 
 /**
@@ -320,21 +331,13 @@ export function generateCustomerStatementCSV(
     { key: "balance", label: "Balance ($)", format: (v) => formatCurrency(v as number) },
   ];
 
-  const metaInfo = [
-    `"WD Logistics - Customer Statement"`,
-    `"Customer: ${meta.customerName || "N/A"}"`,
-    `"Period: ${meta.startDate} - ${meta.endDate}"`,
-    `"Generated: ${new Date().toISOString()}"`,
-    `""`,
-    `"Opening Balance: $${formatCurrency(openingBalance)}"`,
-    `""`,
-  ].join("\n");
+  const metaInfo = metaBlock("Customer Statement", meta, [`"Customer: ${meta.customerName || "N/A"}"`, `"Opening Balance: $${formatCurrency(openingBalance)}"`]);
 
   const csvData = generateCSV(data, { columns });
 
   const closingRow = [`""`, `""`, `""`, `"CLOSING BALANCE"`, `""`, `""`, `"${formatCurrency(closingBalance)}"`].join(",");
 
-  return `${metaInfo}\n${csvData}\n${closingRow}`;
+  return csvDocument(metaInfo, csvData, closingRow);
 }
 
 /**
@@ -362,12 +365,7 @@ export function generateTripSummaryCSV(data: TripSummaryData[], meta: ReportMeta
     { key: "profit", label: "Profit ($)", format: (v) => formatCurrency(v as number) },
   ];
 
-  const metaInfo = [
-    `"WD Logistics - Trip Summary Report"`,
-    `"Period: ${meta.startDate} - ${meta.endDate}"`,
-    `"Generated: ${new Date().toISOString()}"`,
-    `""`,
-  ].join("\n");
+  const metaInfo = metaBlock("Trip Summary Report", meta);
 
   const csvData = generateCSV(data, { columns });
 
@@ -383,7 +381,7 @@ export function generateTripSummaryCSV(data: TripSummaryData[], meta: ReportMeta
     `"${formatCurrency(totals.profit)}"`,
   ].join(",");
 
-  return `${metaInfo}\n${csvData}\n${totalsRow}`;
+  return csvDocument(metaInfo, csvData, totalsRow);
 }
 
 /**
@@ -391,12 +389,7 @@ export function generateTripSummaryCSV(data: TripSummaryData[], meta: ReportMeta
  * total debits/credits, closing balance, and a spend breakdown)
  */
 export function generateAccountLedgerCSV(data: AccountLedgerData[], meta: ReportMeta): string {
-  const metaInfo = [
-    `"WD Logistics - Account Ledger Report"`,
-    `"Period: ${meta.startDate} - ${meta.endDate}"`,
-    `"Generated: ${new Date().toISOString()}"`,
-    `""`,
-  ].join("\n");
+  const metaInfo = metaBlock("Account Ledger Report", meta);
 
   const sections = data.map((account) => {
     const header = [
@@ -419,7 +412,7 @@ export function generateAccountLedgerCSV(data: AccountLedgerData[], meta: Report
     return `${header}\n${summaryRows}\n${breakdownHeader}\n${breakdownRows}`;
   });
 
-  return `${metaInfo}\n${sections.join("\n\n")}`;
+  return csvDocument(metaInfo, sections.join("\n\n"));
 }
 
 /**
@@ -434,16 +427,7 @@ export function generateTruckProfitabilityCSV(
     { key: "amount", label: "Amount ($)", format: (v) => formatCurrency(v as number) },
   ];
 
-  const metaInfo = [
-    `"WD Logistics - Truck Profitability Report"`,
-    `"Truck: ${data.truck.registrationNo} - ${data.truck.make} ${data.truck.model}"`,
-    `"Period: ${meta.startDate} - ${meta.endDate}"`,
-    `"Generated: ${new Date().toISOString()}"`,
-    `""`,
-    `"Trips Completed: ${data.trips}"`,
-    `"Revenue: $${formatCurrency(data.revenue)}"`,
-    `""`,
-  ].join("\n");
+  const metaInfo = metaBlock("Truck Profitability Report", meta, [`"Truck: ${data.truck.registrationNo} - ${data.truck.make} ${data.truck.model}"`, `"Trips Completed: ${data.trips}"`, `"Revenue: $${formatCurrency(data.revenue)}"`]);
 
   const csvData = generateCSV(data.expensesByCategory, { columns });
 
@@ -454,7 +438,7 @@ export function generateTruckProfitabilityCSV(
     [`"PROFIT MARGIN"`, `"${formatPercentage(data.profitMargin)}"`].join(","),
   ].join("\n");
 
-  return `${metaInfo}\n${csvData}\n${summaryRows}`;
+  return csvDocument(metaInfo, csvData, summaryRows);
 }
 
 /** One row per truck, matching the fleet table in the PDF. */
@@ -492,15 +476,11 @@ export function generateTruckCostBreakdownCSV(
     { key: "worstCategory", label: "Over-spends on" },
   ];
 
-  const metaInfo = [
-    `"WD Logistics - Truck Cost Breakdown"`,
-    `"Period: ${meta.startDate} - ${meta.endDate}"`,
-    `"Generated: ${new Date().toISOString()}"`,
-    // The allocation rule belongs with the numbers: a reader summing these in
-    // a spreadsheet needs to know a shared cost was already split.
+  // The allocation rule belongs with the numbers: a reader summing these in
+  // a spreadsheet needs to know a shared cost was already split.
+  const metaInfo = metaBlock("Truck Cost Breakdown", meta, [
     `"Shared costs are split evenly between the trucks they name."`,
-    `""`,
-  ].join("\n");
+  ]);
 
-  return `${metaInfo}\n${generateCSV(data, { columns })}`;
+  return csvDocument(metaInfo, generateCSV(data, { columns }));
 }

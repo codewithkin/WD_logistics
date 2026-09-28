@@ -672,6 +672,11 @@ export async function generateReport(
             endDate: end.toISOString().split("T")[0],
             period,
             generatedAt: new Date(),
+            // "Clean import" on the Reports screen. These generators used to
+            // build the title block unconditionally, so the option did
+            // nothing and the file still needed hand-editing before a
+            // spreadsheet would read it.
+            includeMetadata,
           };
           const csvContent = generateProfitPerUnitCSV(data, meta);
           fileBuffer = Buffer.from(csvContent, "utf-8");
@@ -709,6 +714,11 @@ export async function generateReport(
             endDate: end.toISOString().split("T")[0],
             period,
             generatedAt: new Date(),
+            // "Clean import" on the Reports screen. These generators used to
+            // build the title block unconditionally, so the option did
+            // nothing and the file still needed hand-editing before a
+            // spreadsheet would read it.
+            includeMetadata,
           };
           const csvContent = generateRevenueCSV(data, meta);
           fileBuffer = Buffer.from(csvContent, "utf-8");
@@ -739,6 +749,11 @@ export async function generateReport(
             endDate: end.toISOString().split("T")[0],
             period,
             generatedAt: new Date(),
+            // "Clean import" on the Reports screen. These generators used to
+            // build the title block unconditionally, so the option did
+            // nothing and the file still needed hand-editing before a
+            // spreadsheet would read it.
+            includeMetadata,
           };
           const csvContent = generateExpenseCSV(data, meta);
           fileBuffer = Buffer.from(csvContent, "utf-8");
@@ -835,6 +850,11 @@ export async function generateReport(
             endDate: end.toISOString().split("T")[0],
             period,
             generatedAt: new Date(),
+            // "Clean import" on the Reports screen. These generators used to
+            // build the title block unconditionally, so the option did
+            // nothing and the file still needed hand-editing before a
+            // spreadsheet would read it.
+            includeMetadata,
           };
           const csvContent = generateTripSummaryCSV(data, meta);
           fileBuffer = Buffer.from(csvContent, "utf-8");
@@ -871,6 +891,11 @@ export async function generateReport(
             endDate: end.toISOString().split("T")[0],
             period,
             generatedAt: new Date(),
+            // "Clean import" on the Reports screen. These generators used to
+            // build the title block unconditionally, so the option did
+            // nothing and the file still needed hand-editing before a
+            // spreadsheet would read it.
+            includeMetadata,
           };
           const csvContent = generateTruckProfitabilityCSV(profitabilityData, meta);
           fileBuffer = Buffer.from(csvContent, "utf-8");
@@ -898,6 +923,11 @@ export async function generateReport(
             endDate: end.toISOString().split("T")[0],
             period,
             generatedAt: new Date(),
+            // "Clean import" on the Reports screen. These generators used to
+            // build the title block unconditionally, so the option did
+            // nothing and the file still needed hand-editing before a
+            // spreadsheet would read it.
+            includeMetadata,
           };
           const csvContent = generateAccountLedgerCSV(ledgerData, meta);
           fileBuffer = Buffer.from(csvContent, "utf-8");
@@ -966,6 +996,11 @@ export async function generateReport(
             endDate: end.toISOString().split("T")[0],
             period,
             generatedAt: new Date(),
+            // "Clean import" on the Reports screen. These generators used to
+            // build the title block unconditionally, so the option did
+            // nothing and the file still needed hand-editing before a
+            // spreadsheet would read it.
+            includeMetadata,
           };
           const csvContent = generateExpenseCSV(data, meta);
           fileBuffer = Buffer.from(csvContent, "utf-8");
