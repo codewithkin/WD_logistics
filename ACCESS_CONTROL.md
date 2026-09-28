@@ -154,6 +154,13 @@ The exception is the signed-out case, which still goes to `/sign-in`.
 **The assistant mirrors these web rules exactly.** Whatever a supervisor can
 see in the browser, a supervisor can ask the assistant, and nothing more.
 
+**A contact is a user of this system, at their own level.** A WhatsApp
+contact must be linked to a dashboard account, and its level *is* that
+account's role — there is no level to choose, and no way for the contact list
+to grant access the person's own login does not carry. A `workshop` account
+cannot use the assistant at all. Contacts created before this rule keep
+working until they are next edited.
+
 The assistant's own four contact levels map straight across:
 
 | Assistant level | Equivalent |
@@ -173,6 +180,18 @@ member each trip's revenue through `list_trips`.
 | Truck costs, expense breakdown, account balances | admin, supervisor |
 | Invoices, payments, what a customer owes | admin, supervisor |
 | Anything at all | not staff, not readonly |
+
+**Refusals say one thing.** Anyone asking for something above their level
+gets exactly: *"You cannot access this information. Ask an admin if you need
+it."* Not the tool name, not the level needed, not a hint at the figure. The
+model is instructed to repeat that sentence and nothing else — a refusal that
+is reworded each time tells the reader what exists.
+
+**A change over WhatsApp is a change.** The edit-request rule above applies
+identically: a non-admin updating a truck, a driver, a customer, a supplier,
+a stock item or a trip through the assistant files a request an admin
+accepts or refuses, carrying the reason they gave and stamped with the fact
+it came over WhatsApp. Only a trip's status is direct, as on the web.
 
 Two rules that already hold and must keep holding:
 
