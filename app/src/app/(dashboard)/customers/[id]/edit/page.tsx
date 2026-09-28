@@ -12,7 +12,7 @@ interface EditCustomerPageProps {
 
 export default async function EditCustomerPage({ params }: EditCustomerPageProps) {
     const { id } = await params;
-    const session = await requireRole(["admin", "supervisor", "staff"]);
+    const session = await requireRole(["admin", "supervisor"]);
 
     const customer = await prisma.customer.findFirst({
         where: { id, organizationId: session.organizationId },

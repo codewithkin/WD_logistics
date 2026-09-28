@@ -12,7 +12,7 @@ interface EditEmployeePageProps {
 
 export default async function EditEmployeePage({ params }: EditEmployeePageProps) {
     const { id } = await params;
-    const session = await requireRole(["admin", "supervisor", "staff"]);
+    const session = await requireRole(["admin", "supervisor"]);
 
     const employee = await prisma.employee.findFirst({
         where: { id, organizationId: session.organizationId },

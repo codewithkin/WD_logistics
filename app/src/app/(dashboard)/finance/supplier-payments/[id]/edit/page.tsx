@@ -12,7 +12,7 @@ interface EditSupplierPaymentPageProps {
 
 export default async function EditSupplierPaymentPage({ params }: EditSupplierPaymentPageProps) {
     const { id } = await params;
-    const session = await requireRole(["admin", "supervisor", "staff"]);
+    const session = await requireRole(["admin", "supervisor"]);
 
     const payment = await prisma.supplierPayment.findFirst({
         where: {

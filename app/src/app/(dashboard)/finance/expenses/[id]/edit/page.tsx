@@ -13,7 +13,7 @@ interface EditExpensePageProps {
 
 export default async function EditExpensePage({ params }: EditExpensePageProps) {
     const { id } = await params;
-    const user = await requireRole(["admin", "supervisor", "staff"]);
+    const user = await requireRole(["admin", "supervisor"]);
 
     // Check if user can view expenses page
     if (!canViewExpensesPage(user.role)) {

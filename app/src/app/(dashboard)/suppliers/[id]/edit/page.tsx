@@ -12,7 +12,7 @@ interface EditSupplierPageProps {
 
 export default async function EditSupplierPage({ params }: EditSupplierPageProps) {
     const { id } = await params;
-    const session = await requireRole(["admin", "supervisor", "staff"]);
+    const session = await requireRole(["admin", "supervisor"]);
 
     const supplier = await prisma.supplier.findFirst({
         where: { id, organizationId: session.organizationId },

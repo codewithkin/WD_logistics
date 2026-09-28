@@ -99,7 +99,7 @@ export async function deleteExpenseCategory(id: string) {
 }
 
 export async function getOrganizationMembers() {
-  const session = await requireRole(["admin", "supervisor", "staff"]);
+  const session = await requireRole(["admin"]);
 
   try {
     const members = await prisma.member.findMany({

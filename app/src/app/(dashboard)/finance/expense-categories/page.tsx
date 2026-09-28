@@ -12,7 +12,7 @@ interface ExpenseCategoriesPageProps {
 }
 
 export default async function ExpenseCategoriesPage({ searchParams }: ExpenseCategoriesPageProps) {
-    const user = await requireRole(["admin", "supervisor", "staff"]);
+    const user = await requireRole(["admin", "supervisor"]);
     const params = await searchParams;
     const dateRange = getDateRangeFromParams(params, "3m");
 

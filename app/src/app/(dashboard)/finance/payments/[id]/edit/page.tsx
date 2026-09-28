@@ -12,7 +12,7 @@ interface EditPaymentPageProps {
 
 export default async function EditPaymentPage({ params }: EditPaymentPageProps) {
     const { id } = await params;
-    const session = await requireRole(["admin", "supervisor", "staff"]);
+    const session = await requireRole(["admin", "supervisor"]);
 
     // Get payment with optional invoice (payments can now be without invoices)
     const payment = await prisma.payment.findFirst({

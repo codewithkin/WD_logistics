@@ -13,7 +13,7 @@ interface EditInventoryItemPageProps {
 
 export default async function EditInventoryItemPage({ params }: EditInventoryItemPageProps) {
     const { id } = await params;
-    const session = await requireRole(["admin", "supervisor", "staff"]);
+    const session = await requireRole(["admin", "supervisor"]);
 
     const item = await prisma.inventoryItem.findFirst({
         where: { id, organizationId: session.organizationId },

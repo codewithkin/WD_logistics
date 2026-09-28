@@ -12,7 +12,7 @@ interface EditExpensePageProps {
 
 export default async function EditExpensePage({ params }: EditExpensePageProps) {
     const { id } = await params;
-    const session = await requireRole(["admin", "supervisor", "staff"]);
+    const session = await requireRole(["admin", "supervisor"]);
 
     // Only the two records this expense already points at are loaded, to label
     // the form's pickers. The pickers search for everything else.
