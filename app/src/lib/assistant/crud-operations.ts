@@ -131,6 +131,21 @@ function given<T extends Record<string, unknown>>(source: T): Partial<T> {
   return out as Partial<T>;
 }
 
+/**
+ * The reason recorded against a change made over WhatsApp.
+ *
+ * Names the person and the channel, because an admin reading the queue is
+ * looking at a change nobody made in front of them — "brakes replaced, back
+ * on the road (Tapiwa, over WhatsApp)" is reviewable; "brakes replaced" on
+ * its own is not.
+ */
+function whyOverWhatsApp(reason: string, ctx: OperationContext): string {
+  const said = (reason ?? "").trim();
+  return said
+    ? `${said} (${ctx.actorName}, over WhatsApp)`
+    : `Changed by ${ctx.actorName} over WhatsApp`;
+}
+
 export const crudOperations: Operation[] = [
   // -------------------------------------------------------------- customers
   {
@@ -162,6 +177,11 @@ export const crudOperations: Operation[] = [
     writes: true,
     schema: z.object({
       customer: z.string().describe("Name, email or phone of the customer to change"),
+      reason: z
+        .string()
+        .describe(
+          "Why the change is wanted, in a few words. Anyone but an admin has this filed as an edit request for an admin to accept, and the reason is what they read.",
+        ),
       name: z.string().optional(),
       phone: z.string().optional(),
       email: z.string().optional(),
@@ -171,12 +191,15 @@ export const crudOperations: Operation[] = [
       status: z.enum(["active", "inactive"]).optional(),
     }),
     handler: async (args, ctx) => {
-      const { customer: phrase, ...rest } = args as { customer: string } & Record<string, string | undefined>;
+      const { customer: phrase, reason, ...rest } = args as {
+        customer: string;
+        reason: string;
+      } & Record<string, string | undefined>;
       const found = await findCustomer(ctx, phrase);
       if (!found.ok) return { error: found.error };
 
       const { updateCustomer } = await import("@/app/(dashboard)/customers/actions");
-      const result = await updateCustomer(found.row.id, given(rest));
+      const result = await updateCustomer(found.row.id, given(rest), whyOverWhatsApp(reason, ctx));
       return result.success
         ? { updated: true, customer: found.row.name, changed: Object.keys(given(rest)) }
         : { error: result.error ?? "Could not update the customer." };
@@ -233,6 +256,11 @@ export const crudOperations: Operation[] = [
     writes: true,
     schema: z.object({
       supplier: z.string(),
+      reason: z
+        .string()
+        .describe(
+          "Why the change is wanted, in a few words. Anyone but an admin has this filed as an edit request for an admin to accept, and the reason is what they read.",
+        ),
       name: z.string().optional(),
       phone: z.string().optional(),
       email: z.string().optional(),
@@ -242,12 +270,15 @@ export const crudOperations: Operation[] = [
       notes: z.string().optional(),
     }),
     handler: async (args, ctx) => {
-      const { supplier: phrase, ...rest } = args as { supplier: string } & Record<string, unknown>;
+      const { supplier: phrase, reason, ...rest } = args as {
+        supplier: string;
+        reason: string;
+      } & Record<string, unknown>;
       const found = await findSupplier(ctx, phrase);
       if (!found.ok) return { error: found.error };
 
       const { updateSupplier } = await import("@/app/(dashboard)/suppliers/actions");
-      const result = await updateSupplier(found.row.id, given(rest));
+      const result = await updateSupplier(found.row.id, given(rest), whyOverWhatsApp(reason, ctx));
       return result.success
         ? { updated: true, supplier: found.row.name, changed: Object.keys(given(rest)) }
         : { error: result.error ?? "Could not update the supplier." };
@@ -334,6 +365,11 @@ export const crudOperations: Operation[] = [
     writes: true,
     schema: z.object({
       truck: z.string().describe("Registration of the truck to change"),
+      reason: z
+        .string()
+        .describe(
+          "Why the change is wanted, in a few words. Anyone but an admin has this filed as an edit request for an admin to accept, and the reason is what they read.",
+        ),
       registrationNo: z.string().optional(),
       make: z.string().optional(),
       model: z.string().optional(),
@@ -345,12 +381,15 @@ export const crudOperations: Operation[] = [
       notes: z.string().optional(),
     }),
     handler: async (args, ctx) => {
-      const { truck: phrase, ...rest } = args as { truck: string } & Record<string, unknown>;
+      const { truck: phrase, reason, ...rest } = args as {
+        truck: string;
+        reason: string;
+      } & Record<string, unknown>;
       const found = await findTruck(ctx, phrase);
       if (!found.ok) return { error: found.error };
 
       const { updateTruck } = await import("@/app/(dashboard)/fleet/trucks/actions");
-      const result = await updateTruck(found.row.id, given(rest));
+      const result = await updateTruck(found.row.id, given(rest), whyOverWhatsApp(reason, ctx));
       const pending = (result as { pendingApproval?: boolean }).pendingApproval;
       return result.success
         ? {
@@ -403,6 +442,11 @@ export const crudOperations: Operation[] = [
     writes: true,
     schema: z.object({
       driver: z.string(),
+      reason: z
+        .string()
+        .describe(
+          "Why the change is wanted, in a few words. Anyone but an admin has this filed as an edit request for an admin to accept, and the reason is what they read.",
+        ),
       firstName: z.string().optional(),
       lastName: z.string().optional(),
       phone: z.string().optional(),
@@ -416,7 +460,10 @@ export const crudOperations: Operation[] = [
       status: z.enum(["active", "inactive", "on_leave"]).optional(),
     }),
     handler: async (args, ctx) => {
-      const { driver: phrase, ...rest } = args as { driver: string } & Record<string, string | undefined>;
+      const { driver: phrase, reason, ...rest } = args as {
+        driver: string;
+        reason: string;
+      } & Record<string, string | undefined>;
       const found = await findDriver(ctx, phrase);
       if (!found.ok) return { error: found.error };
 
@@ -432,7 +479,7 @@ export const crudOperations: Operation[] = [
       }
 
       const { updateDriver } = await import("@/app/(dashboard)/fleet/drivers/actions");
-      const result = await updateDriver(found.row.id, payload);
+      const result = await updateDriver(found.row.id, payload, whyOverWhatsApp(reason, ctx));
       const pending = (result as { pendingApproval?: boolean }).pendingApproval;
       return result.success
         ? {
@@ -572,6 +619,11 @@ export const crudOperations: Operation[] = [
     writes: true,
     schema: z.object({
       item: z.string(),
+      reason: z
+        .string()
+        .describe(
+          "Why the change is wanted, in a few words. Anyone but an admin has this filed as an edit request for an admin to accept, and the reason is what they read.",
+        ),
       name: z.string().optional(),
       sku: z.string().optional(),
       category: z.string().optional(),
@@ -582,7 +634,10 @@ export const crudOperations: Operation[] = [
       supplier: z.string().optional(),
     }),
     handler: async (args, ctx) => {
-      const { item: phrase, ...rest } = args as { item: string } & Record<string, unknown>;
+      const { item: phrase, reason, ...rest } = args as {
+        item: string;
+        reason: string;
+      } & Record<string, unknown>;
       const found = await findItem(ctx, phrase);
       if (!found.ok) return { error: found.error };
 
@@ -590,6 +645,7 @@ export const crudOperations: Operation[] = [
       const result = await updateInventoryItem(
         found.row.id,
         given(rest) as Parameters<typeof updateInventoryItem>[1],
+        whyOverWhatsApp(reason, ctx),
       );
       return result.success
         ? { updated: true, item: found.row.name, changed: Object.keys(given(rest)) }
