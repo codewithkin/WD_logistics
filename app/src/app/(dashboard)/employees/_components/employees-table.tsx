@@ -81,6 +81,11 @@ export function EmployeesTable({ employees, role }: EmployeesTableProps) {
     const canEdit = role === "admin" || role === "supervisor";
     const canDelete = role === "admin";
 
+    // Reports, and every export button on a list page, are admin-only
+    // (ACCESS_CONTROL.md). The action refuses everyone else, so an export
+    // control shown to a supervisor is a button that only ever errors.
+    const canExport = role === "admin";
+
     const filteredEmployees = employees.filter((employee) => {
         const fullName = `${employee.firstName} ${employee.lastName}`.toLowerCase();
         const matchesSearch =
@@ -183,19 +188,21 @@ export function EmployeesTable({ employees, role }: EmployeesTableProps) {
                             </SelectContent>
                         </Select>
                     </div>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setExportDialogOpen(true)}
-                        disabled={isExporting}
-                    >
-                        {isExporting ? (
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        ) : (
-                            <FileText className="mr-2 h-4 w-4" />
-                        )}
-                        Export Report
-                    </Button>
+                    {canExport && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setExportDialogOpen(true)}
+                            disabled={isExporting}
+                        >
+                            {isExporting ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                                <FileText className="mr-2 h-4 w-4" />
+                            )}
+                            Export Report
+                        </Button>
+                    )}
                 </div>
 
                 <div className="rounded-md border">

@@ -77,6 +77,11 @@ export function CustomersTable({ customers, role, periodLabel = "This Month" }: 
     const canEdit = role === "admin" || role === "supervisor";
     const canDelete = role === "admin";
 
+    // Reports, and every export button on a list page, are admin-only
+    // (ACCESS_CONTROL.md). The action refuses everyone else, so an export
+    // control shown to a supervisor is a button that only ever errors.
+    const canExport = role === "admin";
+
     const filteredCustomers = customers.filter((customer) => {
         return (
             customer.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -199,19 +204,21 @@ export function CustomersTable({ customers, role, periodLabel = "This Month" }: 
                             className="pl-9"
                         />
                     </div>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setExportDialogOpen(true)}
-                        disabled={isExporting}
-                    >
-                        {isExporting ? (
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        ) : (
-                            <FileText className="mr-2 h-4 w-4" />
-                        )}
-                        Export Report
-                    </Button>
+                    {canExport && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setExportDialogOpen(true)}
+                            disabled={isExporting}
+                        >
+                            {isExporting ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                                <FileText className="mr-2 h-4 w-4" />
+                            )}
+                            Export Report
+                        </Button>
+                    )}
                 </div>
 
                 <div className="rounded-md border">

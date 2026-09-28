@@ -104,6 +104,10 @@ export default async function TruckDetailPage({ params, searchParams }: TruckDet
     // it *earns* is the owner's business (ACCESS_CONTROL.md). Two predicates,
     // because one gate made supervisors blind to costs as well.
     const showCosts = canViewCostData(role);
+    // A single-entity report is still a report, and reports are admin-only
+    // (ACCESS_CONTROL.md). The export action refuses everyone else, so the
+    // button is not offered rather than offered and then refused.
+    const canExport = role === "admin";
     const showEarnings = canViewFinancialData(role);
 
     // The paper trail for "is this truck losing money, and where" — admin
@@ -156,10 +160,12 @@ export default async function TruckDetailPage({ params, searchParams }: TruckDet
                             : undefined
                     }
                 >
-                    <ExportTruckButton
-                        truckId={truck.id}
-                        truckName={truck.registrationNo}
-                    />
+                    {canExport && (
+                        <ExportTruckButton
+                            truckId={truck.id}
+                            truckName={truck.registrationNo}
+                        />
+                    )}
                 </PageHeader>
                 <PagePeriodSelector defaultPreset="3m" />
             </div>

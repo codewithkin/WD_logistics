@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, requireRole } from "@/lib/session";
+import { assertRole, requireAuth, requireRole } from "@/lib/session";
 import { gateChange } from "@/lib/edit-requests/gate";
 import { resolvePeriod, type PeriodInput } from "@/lib/period-range";
 import { generateCustomerReportPDF, generateSingleCustomerReportPDF } from "@/lib/reports/pdf-report-generator";
@@ -184,7 +184,7 @@ export async function exportCustomersPDF(options?: {
 }) {
   // Prints revenue and balances, which canViewFinancialData reserves
   // for admin. This used to need only a session.
-  const session = await requireRole(["admin"]);
+  const session = await assertRole(["admin"]);
 
   try {
     // The client now always sends the period on screen; the fallback is only
@@ -277,7 +277,7 @@ export async function exportCustomerDetailWord(
   customerId: string,
   periodParams?: PeriodInput,
 ) {
-  const session = await requireAuth();
+  const session = await assertRole(["admin"]);
 
   try {
     // This used to fetch every trip, invoice and payment the customer had
@@ -419,7 +419,7 @@ export async function exportCustomerDetailPDF(
   customerId: string,
   periodParams?: PeriodInput,
 ) {
-  const session = await requireAuth();
+  const session = await assertRole(["admin"]);
 
   try {
     // Follows the page's period, like every other single-entity export. It

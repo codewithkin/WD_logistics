@@ -83,6 +83,10 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
 
     const canEdit = role === "admin" || role === "supervisor";
     const showFinancials = canViewFinancialData(role);
+    // A single-entity report is still a report, and reports are admin-only
+    // (ACCESS_CONTROL.md). The export action refuses everyone else, so the
+    // button is not offered rather than offered and then refused.
+    const canExport = role === "admin";
     const totalExpenses = trip.tripExpenses.reduce((sum, te) => sum + te.expense.amount, 0);
 
     // Calculate invoice-based metrics
@@ -122,10 +126,12 @@ export default async function TripDetailPage({ params }: TripDetailPageProps) {
                         : undefined
                 }
             >
-                <ExportTripButton
-                    tripId={trip.id}
-                    tripName={`${trip.originCity}-${trip.destinationCity}`}
-                />
+                {canExport && (
+                    <ExportTripButton
+                        tripId={trip.id}
+                        tripName={`${trip.originCity}-${trip.destinationCity}`}
+                    />
+                )}
             </PageHeader>
 
             <div className="grid gap-6 md:grid-cols-2">

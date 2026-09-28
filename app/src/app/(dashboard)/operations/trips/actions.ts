@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, requireRole } from "@/lib/session";
+import { assertRole, requireAuth, requireRole } from "@/lib/session";
 import { gateChange } from "@/lib/edit-requests/gate";
 import { canChangeTripStatusDirectly } from "@/lib/permissions";
 import { resolvePeriod, type PeriodInput } from "@/lib/period-range";
@@ -332,7 +332,7 @@ export async function deleteTrip(id: string,
 export async function exportTripsPDF(period?: PeriodInput) {
   // Prints revenue and balances, which canViewFinancialData reserves
   // for admin. This used to need only a session.
-  const session = await requireRole(["admin"]);
+  const session = await assertRole(["admin"]);
 
   try {
     // Every trip ever run used to go into a PDF headed "this month".
@@ -397,7 +397,7 @@ export async function exportTripsPDF(period?: PeriodInput) {
 }
 
 export async function exportSingleTripReport(tripId: string) {
-  const session = await requireAuth();
+  const session = await assertRole(["admin"]);
 
   try {
     const trip = await prisma.trip.findFirst({

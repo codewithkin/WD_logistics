@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { requireRole } from "@/lib/session";
+import { assertRole, requireRole } from "@/lib/session";
 import { resolvePeriod, previousPeriod, type PeriodInput } from "@/lib/period-range";
 import { z } from "zod";
 import { unstable_rethrow } from "next/navigation";
@@ -96,7 +96,7 @@ export async function generateReport(
   input: GenerateReportInput
 ): Promise<GenerateReportResult> {
   try {
-    const session = await requireRole(["admin"]);
+    const session = await assertRole(["admin"]);
     const { organizationId } = session;
 
     const validated = generateReportSchema.parse(input);
@@ -1057,7 +1057,7 @@ export async function generateReport(
  * Get report history for the organization
  */
 export async function getReportHistory(limit: number = 20) {
-  const session = await requireRole(["admin"]);
+  const session = await assertRole(["admin"]);
   const { organizationId } = session;
 
   const reports = await prisma.report.findMany({
@@ -1081,7 +1081,7 @@ export async function getReportHistory(limit: number = 20) {
  * Delete a report record
  */
 export async function deleteReport(reportId: string) {
-  const session = await requireRole(["admin"]);
+  const session = await assertRole(["admin"]);
   const { organizationId } = session;
 
   const report = await prisma.report.findFirst({
@@ -1103,7 +1103,7 @@ export async function deleteReport(reportId: string) {
  * Export dashboard summary as PDF
  */
 export async function exportDashboardPDF(period?: PeriodInput) {
-  const session = await requireRole(["admin"]);
+  const session = await assertRole(["admin"]);
   const { organizationId } = session;
 
   try {

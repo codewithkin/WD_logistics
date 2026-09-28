@@ -50,6 +50,10 @@ export default async function TrailerDetailPage({ params, searchParams }: Traile
     // Same audience as the workshop screen: the office, not staff.
     const canViewMaintenance = role === "admin" || role === "supervisor";
     const showFinancials = canViewFinancialData(role);
+    // A single-entity report is still a report, and reports are admin-only
+    // (ACCESS_CONTROL.md). The export action refuses everyone else, so the
+    // button is not offered rather than offered and then refused.
+    const canExport = role === "admin";
 
     // A trailer can be maintained and can run up costs of its own, but the
     // page showed neither — so there was no way to ask whether one was worth
@@ -122,7 +126,9 @@ export default async function TrailerDetailPage({ params, searchParams }: Traile
                 />
                 <div className="flex items-center gap-2">
                     <PagePeriodSelector defaultPreset="3m" />
-                    <ExportTrailerButton trailerId={trailer.id} trailerName={trailer.registrationNo} />
+                    {canExport && (
+                        <ExportTrailerButton trailerId={trailer.id} trailerName={trailer.registrationNo} />
+                    )}
                 </div>
             </div>
 

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireRole, requireAuth } from "@/lib/session";
+import { assertRole, requireRole, requireAuth } from "@/lib/session";
 import { gateChange } from "@/lib/edit-requests/gate";
 import { resolvePeriod } from "@/lib/period-range";
 import { EmployeeStatus } from "@/lib/types";
@@ -227,7 +227,7 @@ export async function exportEmployeesPDF(options?: {
   startDate?: Date;
   endDate?: Date;
 }) {
-  const session = await requireAuth();
+  const session = await assertRole(["admin"]);
 
   try {
     // The client now always sends the period on screen; the fallback is only

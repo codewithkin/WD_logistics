@@ -142,7 +142,7 @@ export async function exportCategoryExpensesPDF(input: {
   period?: PeriodInput;
   filters?: CategoryExpenseFilters;
 }) {
-  const session = await assertRole(["admin", "supervisor"]);
+  const session = await assertRole(["admin"]);
 
   try {
     const range = resolvePeriod(input.period, "3m");

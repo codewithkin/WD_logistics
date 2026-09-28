@@ -82,6 +82,10 @@ export default async function DriverDetailPage({ params, searchParams }: DriverD
 
     const canEdit = role === "admin" || role === "supervisor";
     const showFinancials = canViewFinancialData(role);
+    // A single-entity report is still a report, and reports are admin-only
+    // (ACCESS_CONTROL.md). The export action refuses everyone else, so the
+    // button is not offered rather than offered and then refused.
+    const canExport = role === "admin";
 
     return (
         <div>
@@ -110,10 +114,12 @@ export default async function DriverDetailPage({ params, searchParams }: DriverD
                             </Link>
                         </Button>
                     )}
-                    <ExportDriverButton
-                        driverId={driver.id}
-                        driverName={`${driver.firstName} ${driver.lastName}`}
-                    />
+                    {canExport && (
+                        <ExportDriverButton
+                            driverId={driver.id}
+                            driverName={`${driver.firstName} ${driver.lastName}`}
+                        />
+                    )}
                 </PageHeader>
                 <PagePeriodSelector defaultPreset="3m" />
             </div>

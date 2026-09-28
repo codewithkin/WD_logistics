@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, requireRole } from "@/lib/session";
+import { assertRole, requireAuth, requireRole } from "@/lib/session";
 import { gateChange } from "@/lib/edit-requests/gate";
 import { TrailerStatus } from "@/lib/types";
 import { notifyTrailerCreated, notifyTrailerUpdated, notifyTrailerDeleted } from "@/lib/notifications";
@@ -344,7 +344,7 @@ export async function deleteTrailer(id: string,
  * model, so this is a registration/licensing/assignment summary only.
  */
 export async function exportTrailersPDF(options?: { trailerIds?: string[] }) {
-  const session = await requireAuth();
+  const session = await assertRole(["admin"]);
 
   try {
     const where: Prisma.TrailerWhereInput = { organizationId: session.organizationId };
@@ -401,7 +401,7 @@ export async function exportTrailersPDF(options?: { trailerIds?: string[] }) {
 
 /** Export one trailer's details as a PDF, from its detail page. */
 export async function exportSingleTrailerReport(trailerId: string) {
-  const session = await requireAuth();
+  const session = await assertRole(["admin"]);
 
   try {
     const trailer = await prisma.trailer.findFirst({

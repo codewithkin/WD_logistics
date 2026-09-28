@@ -89,6 +89,11 @@ export function InvoicesTable({ invoices, role, showFinancials = true }: Invoice
     const canDelete = role === "admin";
     const canViewAmounts = showFinancials && role === "admin";
 
+    // Reports, and every export button on a list page, are admin-only
+    // (ACCESS_CONTROL.md). The action refuses everyone else, so an export
+    // control shown to a supervisor is a button that only ever errors.
+    const canExport = role === "admin";
+
     const filteredInvoices = invoices.filter((invoice) => {
         const matchesSearch =
             invoice.invoiceNumber.toLowerCase().includes(search.toLowerCase()) ||
@@ -211,19 +216,21 @@ export function InvoicesTable({ invoices, role, showFinancials = true }: Invoice
                                 ))}
                             </SelectContent>
                         </Select>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setExportDialogOpen(true)}
-                            disabled={isExporting}
-                        >
-                            {isExporting ? (
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            ) : (
-                                <FileText className="mr-2 h-4 w-4" />
-                            )}
-                            Export Report
-                        </Button>
+                        {canExport && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setExportDialogOpen(true)}
+                                disabled={isExporting}
+                            >
+                                {isExporting ? (
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                ) : (
+                                    <FileText className="mr-2 h-4 w-4" />
+                                )}
+                                Export Report
+                            </Button>
+                        )}
                     </div>
                 </div>
 

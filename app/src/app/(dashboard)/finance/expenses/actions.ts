@@ -1,6 +1,6 @@
 "use server";
 
-import { requireAuth, requireRole } from "@/lib/session";
+import { assertRole, requireAuth, requireRole } from "@/lib/session";
 import { gateChange } from "@/lib/edit-requests/gate";
 import { resolvePeriod, type PeriodInput } from "@/lib/period-range";
 import prisma from "@/lib/prisma";
@@ -555,7 +555,7 @@ export async function getExpensesForCharts(days: number = 30) {
 }
 
 export async function exportExpensesPDF(period?: PeriodInput) {
-  const user = await requireRole(["admin", "supervisor", "staff"]);
+  const user = await assertRole(["admin"]);
 
   // Follows the page's period selector rather than dumping every expense
   // ever recorded into one PDF.
@@ -625,7 +625,7 @@ export async function exportExpensesPDF(period?: PeriodInput) {
  * any of it away.
  */
 export async function exportTruckExpensesPDF(truckId?: string, period?: PeriodInput) {
-  const session = await requireRole(["admin", "supervisor"]);
+  const session = await assertRole(["admin"]);
 
   try {
     // The export covers the period the page is showing, not all of history.

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireRole, requireAuth } from "@/lib/session";
+import { assertRole, requireRole, requireAuth } from "@/lib/session";
 import { gateChange } from "@/lib/edit-requests/gate";
 import { resolvePeriod } from "@/lib/period-range";
 import { InvoiceStatus } from "@/lib/types";
@@ -362,7 +362,7 @@ export async function exportInvoicesPDF(options?: {
 }) {
   // Prints revenue and balances, which canViewFinancialData reserves
   // for admin. This used to need only a session.
-  const session = await requireRole(["admin"]);
+  const session = await assertRole(["admin"]);
 
   try {
     // The client now always sends the period on screen; the fallback is only
@@ -520,7 +520,7 @@ export async function sendInvoiceToCustomer(invoiceId: string) {
 }
 
 export async function downloadSingleInvoicePDF(invoiceId: string) {
-  const session = await requireRole(["admin", "supervisor"]);
+  const session = await assertRole(["admin", "supervisor"]);
   const { generateInvoicePDF } = await import("@/lib/documents/invoice");
 
   const invoice = await prisma.invoice.findFirst({

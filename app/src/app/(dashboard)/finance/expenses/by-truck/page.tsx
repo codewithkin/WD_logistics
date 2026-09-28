@@ -19,6 +19,9 @@ interface ExpensesByTruckPageProps {
 
 export default async function ExpensesByTruckPage({ searchParams }: ExpensesByTruckPageProps) {
     const user = await requireRole(["admin", "supervisor"]);
+    // A supervisor reads these costs on screen but cannot take them out of the
+    // app: exports are admin-only (ACCESS_CONTROL.md).
+    const canExport = user.role === "admin";
     const params = await searchParams;
     const dateRange = getDateRangeFromParams(params, "3m");
 
@@ -93,7 +96,7 @@ export default async function ExpensesByTruckPage({ searchParams }: ExpensesByTr
                         <span className="text-muted-foreground">Total: </span>
                         <span className="text-2xl font-bold">{formatCurrency(grandTotal)}</span>
                     </div>
-                    {trucksWithTotals.length > 0 && (
+                    {canExport && trucksWithTotals.length > 0 && (
                         <ExportTruckExpensesButton label="Export All" size="default" />
                     )}
                 </div>
@@ -129,7 +132,9 @@ export default async function ExpensesByTruckPage({ searchParams }: ExpensesByTr
                                                 {truck.expenseCount} {truck.expenseCount === 1 ? "expense" : "expenses"}
                                             </div>
                                         </div>
-                                        <ExportTruckExpensesButton truckId={truck.id} />
+                                        {canExport && (
+                                            <ExportTruckExpensesButton truckId={truck.id} />
+                                        )}
                                     </div>
                                 </div>
                             </CardHeader>

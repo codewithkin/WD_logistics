@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, requireRole } from "@/lib/session";
+import { assertRole, requireAuth, requireRole } from "@/lib/session";
 import { gateChange } from "@/lib/edit-requests/gate";
 import { notifySupplierCreated, notifySupplierUpdated, notifySupplierDeleted } from "@/lib/notifications";
 import { handleActionError } from "@/lib/error-messages";
@@ -253,7 +253,7 @@ export async function markExpenseAsPaid(expenseId: string) {
 }
 
 export async function getSupplierOwingReport(supplierId?: string) {
-  const session = await requireAuth();
+  const session = await assertRole(["admin", "supervisor"]);
 
   try {
     const whereClause = supplierId

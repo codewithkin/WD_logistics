@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, requireRole } from "@/lib/session";
+import { assertRole, requireAuth, requireRole } from "@/lib/session";
 import { gateChange } from "@/lib/edit-requests/gate";
 import { switchDriverTruck, endTruckAssignment } from "@/lib/assignments";
 import { resolvePeriod } from "@/lib/period-range";
@@ -373,7 +373,7 @@ export async function exportTrucksPDF(options?: {
 }) {
   // This report is a profit-and-loss statement per truck, so it belongs to
   // whoever may see money. It used to need only a session.
-  const session = await requireRole(["admin"]);
+  const session = await assertRole(["admin"]);
 
   try {
     const range = resolvePeriod(
@@ -502,7 +502,7 @@ export async function exportTrucksPDF(options?: {
 
 export async function exportSingleTruckReport(truckId: string, periodParams?: { period?: string; from?: string; to?: string }) {
   // A per-truck P&L; admin-only, like the rest of the financial exports.
-  const session = await requireRole(["admin"]);
+  const session = await assertRole(["admin"]);
 
   // Import date range function dynamically
   const { getDateRangeFromParams } = await import("@/lib/period-utils");

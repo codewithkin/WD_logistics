@@ -59,6 +59,10 @@ export default async function CustomerDetailPage({ params, searchParams }: Custo
 
     const canEdit = role === "admin" || role === "supervisor";
     const showFinancials = canViewFinancialData(role);
+    // A single-entity report is still a report, and reports are admin-only
+    // (ACCESS_CONTROL.md). The export action refuses everyone else, so the
+    // button is not offered rather than offered and then refused.
+    const canExport = role === "admin";
 
     // The cards used to total the five rows shown below them, so a customer
     // with thirty trips reported the revenue of the latest five. Counts and
@@ -112,7 +116,9 @@ export default async function CustomerDetailPage({ params, searchParams }: Custo
                 />
                 <div className="flex items-center gap-2">
                     <PagePeriodSelector defaultPreset="3m" />
-                    <ExportCustomerButton customerId={customer.id} customerName={customer.name} />
+                    {canExport && (
+                        <ExportCustomerButton customerId={customer.id} customerName={customer.name} />
+                    )}
                 </div>
             </div>
 

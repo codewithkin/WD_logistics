@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, requireRole } from "@/lib/session";
+import { assertRole, requireAuth, requireRole } from "@/lib/session";
 import { gateChange } from "@/lib/edit-requests/gate";
 import { resolvePeriod, type PeriodInput } from "@/lib/period-range";
 import { generateOperationsExpenseReportPDF } from "@/lib/reports/pdf-report-generator";
@@ -299,7 +299,7 @@ export async function exportOperationsExpensesPDF(options?: {
   categoryId?: string;
   period?: PeriodInput;
 }) {
-  const session = await requireAuth();
+  const session = await assertRole(["admin"]);
 
   try {
     // Follows the page's period rather than exporting every expense ever.

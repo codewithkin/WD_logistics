@@ -108,7 +108,7 @@ export default async function ExpensesPage({ searchParams }: ExpensesPageProps) 
                 <ExpensesPeriodSelector />
             </div>
             {showAccountBalances && <AccountBalancesSummary accounts={accounts} />}
-            <ExpensesOverview categories={categories} expenses={expenses} periodLabel={dateRange.label} />
+            <ExpensesOverview categories={categories} expenses={expenses} periodLabel={dateRange.label} canExport={user.role === "admin"} />
         </div>
     );
 }

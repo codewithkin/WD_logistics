@@ -129,7 +129,9 @@ export default async function CategoryDetailPage({
                 />
                 <div className="flex items-center gap-2">
                     <PagePeriodSelector defaultPreset="3m" />
-                    <ExportCategoryButton categoryId={category.id} />
+                    {session.role === "admin" && (
+                        <ExportCategoryButton categoryId={category.id} />
+                    )}
                 </div>
             </div>
 

@@ -1,18 +1,31 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { assertRole } from "@/lib/session";
 import { generateTripProfitLossPDF } from "@/lib/reports/pdf-report-generator";
 
+/**
+ * A trip's profit and loss, as a PDF.
+ *
+ * This had no guard of any kind and no organisation scope: a "use server"
+ * export is a POST endpoint, so anyone who knew a trip id could take the
+ * trip's revenue, its invoice and its margin without being signed in at all.
+ * The card that calls it was admin-only, which is why it was never noticed —
+ * a hidden button is not a permission check (ACCESS_CONTROL.md, "Where this
+ * is enforced").
+ */
 export async function exportTripProfitLossPDF(tripId: string): Promise<{
     success: boolean;
     data?: string;
     filename?: string;
     error?: string;
 }> {
+    const session = await assertRole(["admin"]);
+
     try {
         // Fetch trip with all related data
-        const trip = await prisma.trip.findUnique({
-            where: { id: tripId },
+        const trip = await prisma.trip.findFirst({
+            where: { id: tripId, organizationId: session.organizationId },
             include: {
                 truck: {
                     select: {

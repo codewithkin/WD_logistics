@@ -97,6 +97,11 @@ export function TrucksTable({ trucks, role, periodLabel, showFinancials = true }
     const canDelete = true;
     const editsNeedApproval = role !== "admin";
 
+    // Reports, and every export button on a list page, are admin-only
+    // (ACCESS_CONTROL.md). The action refuses everyone else, so an export
+    // control shown to a supervisor is a button that only ever errors.
+    const canExport = role === "admin";
+
     const filteredTrucks = trucks.filter((truck) => {
         const matchesSearch =
             truck.registrationNo.toLowerCase().includes(search.toLowerCase()) ||
@@ -245,19 +250,21 @@ export function TrucksTable({ trucks, role, periodLabel, showFinancials = true }
                                 ))}
                             </SelectContent>
                         </Select>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setExportDialogOpen(true)}
-                            disabled={isExporting}
-                        >
-                            {isExporting ? (
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            ) : (
-                                <FileText className="mr-2 h-4 w-4" />
-                            )}
-                            Export Report
-                        </Button>
+                        {canExport && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setExportDialogOpen(true)}
+                                disabled={isExporting}
+                            >
+                                {isExporting ? (
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                ) : (
+                                    <FileText className="mr-2 h-4 w-4" />
+                                )}
+                                Export Report
+                            </Button>
+                        )}
                     </div>
                 </div>
 

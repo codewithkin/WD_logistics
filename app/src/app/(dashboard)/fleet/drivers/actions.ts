@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, requireRole } from "@/lib/session";
+import { assertRole, requireAuth, requireRole } from "@/lib/session";
 import { gateChange } from "@/lib/edit-requests/gate";
 import { switchDriverTruck } from "@/lib/assignments";
 import { resolvePeriod, type PeriodInput } from "@/lib/period-range";
@@ -397,7 +397,7 @@ export async function getAvailableTrucks() {
 export async function exportDriversPDF(period?: PeriodInput) {
   // Prints revenue and balances, which canViewFinancialData reserves
   // for admin. This used to need only a session.
-  const session = await requireRole(["admin"]);
+  const session = await assertRole(["admin"]);
 
   try {
     // The trip count used to be every trip the driver had ever run, printed
@@ -465,7 +465,7 @@ export async function exportDriversPDF(period?: PeriodInput) {
 }
 
 export async function exportSingleDriverReport(driverId: string, periodParams?: { period?: string; from?: string; to?: string }) {
-  const session = await requireAuth();
+  const session = await assertRole(["admin"]);
 
   // Import date range function dynamically
   const { getDateRangeFromParams } = await import("@/lib/period-utils");

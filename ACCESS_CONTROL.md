@@ -222,13 +222,19 @@ re-derive a role check inline.
 
 ## Checking it
 
-Two scripts verify the code against this file rather than against memory.
-Run both from `app/` after touching any role:
+Four scripts verify the code against this file rather than against memory.
+Run them all from `app/` after touching any role:
 
 ```bash
-python scripts/audit-access.py   # every page's guard matches the matrix above
-python scripts/audit-nav.py      # no role is shown a link the page will refuse
+python scripts/audit-access.py         # every page's guard matches the matrix above
+python scripts/audit-nav.py            # no role is shown a link the page will refuse
+python scripts/audit-export-access.py  # every export and document action is gated
+bun --preload ./scripts/_stub-server-only.ts scripts/audit-assistant-access.ts
 ```
+
+The last one calls the assistant's own operations as each level and fails on
+any earnings figure that comes back, because hiding a financial *tool* is not
+enough — an operational tool must not carry money either.
 
 They exist because reading the code and believing it is how the rules drifted
 in the first place. `audit-access.py` carries the matrix as data — when the

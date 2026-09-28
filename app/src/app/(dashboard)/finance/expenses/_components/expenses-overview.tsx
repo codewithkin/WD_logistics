@@ -33,9 +33,16 @@ interface ExpensesOverviewProps {
     categories: Category[];
     expenses: Expense[];
     periodLabel?: string;
+    /**
+     * Exports are admin-only (ACCESS_CONTROL.md, "Reports — all 23, including
+     * every export button on every list page"). A supervisor reads these
+     * amounts on screen — that is their job — but does not take them out of
+     * the app, and the action refuses them, so the menu is not shown.
+     */
+    canExport?: boolean;
 }
 
-export function ExpensesOverview({ categories, expenses, periodLabel = "This Period" }: ExpensesOverviewProps) {
+export function ExpensesOverview({ categories, expenses, periodLabel = "This Period", canExport = false }: ExpensesOverviewProps) {
     const [activeTab, setActiveTab] = useState("expenses");
     const tableRef = useState<any>(null)[1];
 
@@ -140,24 +147,26 @@ export function ExpensesOverview({ categories, expenses, periodLabel = "This Per
                     </Tabs>
 
                     <div className="flex gap-2 w-full sm:w-auto">
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="outline" size="sm" className="flex-1 sm:flex-none">
-                                    <Download className="mr-2 h-4 w-4" />
-                                    Export
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={handleExportCSV}>
-                                    <FileSpreadsheet className="mr-2 h-4 w-4" />
-                                    Export as CSV
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={handleExportPDF}>
-                                    <FileText className="mr-2 h-4 w-4" />
-                                    Export as PDF
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
+                        {canExport && (
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="outline" size="sm" className="flex-1 sm:flex-none">
+                                        <Download className="mr-2 h-4 w-4" />
+                                        Export
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={handleExportCSV}>
+                                        <FileSpreadsheet className="mr-2 h-4 w-4" />
+                                        Export as CSV
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={handleExportPDF}>
+                                        <FileText className="mr-2 h-4 w-4" />
+                                        Export as PDF
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        )}
                         <Link href="/finance/expenses/new" className="flex-1 sm:flex-none">
                             <Button size="sm" className="w-full">
                                 <Plus className="mr-2 h-4 w-4" />

@@ -84,6 +84,11 @@ export function TrailersTable({ trailers, role }: TrailersTableProps) {
     const canDelete = true;
     const editsNeedApproval = role !== "admin";
 
+    // Reports, and every export button on a list page, are admin-only
+    // (ACCESS_CONTROL.md). The action refuses everyone else, so an export
+    // control shown to a supervisor is a button that only ever errors.
+    const canExport = role === "admin";
+
     const filteredTrailers = trailers.filter((trailer) => {
         const matchesSearch =
             trailer.registrationNo.toLowerCase().includes(search.toLowerCase()) ||
@@ -204,38 +209,40 @@ export function TrailersTable({ trailers, role }: TrailersTableProps) {
                                 ))}
                             </SelectContent>
                         </Select>
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="outline" size="sm" disabled={isExporting}>
-                                    {isExporting ? (
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    ) : (
+                        {canExport && (
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="outline" size="sm" disabled={isExporting}>
+                                        {isExporting ? (
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        ) : (
+                                            <FileText className="mr-2 h-4 w-4" />
+                                        )}
+                                        Export Report
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <DropdownMenuItem
+                                        onClick={() => {
+                                            setExportFormat("pdf");
+                                            setExportDialogOpen(true);
+                                        }}
+                                    >
                                         <FileText className="mr-2 h-4 w-4" />
-                                    )}
-                                    Export Report
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                                <DropdownMenuItem
-                                    onClick={() => {
-                                        setExportFormat("pdf");
-                                        setExportDialogOpen(true);
-                                    }}
-                                >
-                                    <FileText className="mr-2 h-4 w-4" />
-                                    Export as PDF
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                    onClick={() => {
-                                        setExportFormat("csv");
-                                        setExportDialogOpen(true);
-                                    }}
-                                >
-                                    <FileSpreadsheet className="mr-2 h-4 w-4" />
-                                    Export as CSV
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
+                                        Export as PDF
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                        onClick={() => {
+                                            setExportFormat("csv");
+                                            setExportDialogOpen(true);
+                                        }}
+                                    >
+                                        <FileSpreadsheet className="mr-2 h-4 w-4" />
+                                        Export as CSV
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        )}
                     </div>
                 </div>
 
