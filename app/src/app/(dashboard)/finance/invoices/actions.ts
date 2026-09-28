@@ -11,6 +11,7 @@ import { generateInvoiceReportPDF } from "@/lib/reports/pdf-report-generator";
 import { notifyInvoiceCreated, notifyInvoiceUpdated, notifyInvoiceDeleted } from "@/lib/notifications";
 import { notifyAdminInvoiceCreated } from "@/lib/whatsapp-notifications";
 import { handleActionError } from "@/lib/error-messages";
+import { recomputeCustomerBalance } from "@/lib/metrics/customer-balance";
 
 export async function createInvoice(data: {
   customerId: string;
@@ -86,16 +87,11 @@ export async function createInvoice(data: {
       },
     });
 
-    // Update customer balance - subtract the invoice total from their balance
-    // Negative balance = customer owes us, Positive balance = customer has credit
-    await prisma.customer.update({
-      where: { id: data.customerId },
-      data: {
-        balance: {
-          decrement: data.amount,
-        },
-      },
-    });
+    // Recompute the customer's balance from their invoices rather than
+    // nudging it by this amount. The decrement here had no counterpart in
+    // updateInvoice or deleteInvoice, so every correction left the column
+    // permanently wrong — see lib/metrics/customer-balance.ts.
+    await recomputeCustomerBalance(data.customerId);
 
     // Send appropriate email to customer (async, don't block)
     if (customer?.email) {
@@ -253,6 +249,10 @@ export async function updateInvoice(
       },
     });
 
+    // The total or the status may have moved, either of which changes what
+    // this customer owes.
+    await recomputeCustomerBalance(updatedInvoice.customerId);
+
     // Send admin notification
     notifyInvoiceUpdated(
       {
@@ -315,6 +315,10 @@ export async function deleteInvoice(id: string,
     }
 
     await prisma.invoice.delete({ where: { id } });
+
+    // A deleted invoice is no longer owed. Without this the customer carried
+    // the debt for ever.
+    await recomputeCustomerBalance(invoice.customerId);
 
     // Send admin notification
     notifyInvoiceDeleted(

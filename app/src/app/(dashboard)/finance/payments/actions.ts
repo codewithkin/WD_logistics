@@ -10,6 +10,7 @@ import { generatePaymentReportPDF } from "@/lib/reports/pdf-report-generator";
 import { notifyPaymentCreated, notifyPaymentUpdated, notifyPaymentDeleted } from "@/lib/notifications";
 import { notifyInvoiceFullyPaid, notifyAdminPaymentReceived } from "@/lib/whatsapp-notifications";
 import { handleActionError } from "@/lib/error-messages";
+import { recomputeCustomerBalance } from "@/lib/metrics/customer-balance";
 
 export async function createPayment(data: {
   invoiceId?: string;
@@ -81,15 +82,10 @@ export async function createPayment(data: {
       });
     }
 
-    // Update customer balance - add the payment amount (reduces debt)
-    await prisma.customer.update({
-      where: { id: data.customerId },
-      data: {
-        balance: {
-          increment: data.amount,
-        },
-      },
-    });
+    // Derived from the invoices, not nudged by this amount — the increment
+    // that used to be here was never reversed when a payment was edited or
+    // deleted. See lib/metrics/customer-balance.ts.
+    await recomputeCustomerBalance(data.customerId);
 
     // Send admin notification
     notifyPaymentCreated(
@@ -209,6 +205,9 @@ export async function updatePayment(
       });
     }
 
+    // What the customer owes moved with the invoice.
+    await recomputeCustomerBalance(payment.customerId);
+
     // Send admin notification
     notifyPaymentUpdated(
       {
@@ -308,6 +307,9 @@ export async function deletePayment(id: string,
         },
       });
     }
+
+    // Removing a payment puts the debt back.
+    await recomputeCustomerBalance(payment.customerId);
 
     // Send admin notification
     notifyPaymentDeleted(
