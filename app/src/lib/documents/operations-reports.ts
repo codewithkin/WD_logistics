@@ -118,7 +118,8 @@ export function generateCustomerProfitabilityPDF(params: {
     "Profit is revenue less the costs booked against that customer's trips. " +
       "It does not carry a share of the truck's standing costs or of company " +
       "overheads, so it is a contribution figure rather than a full net " +
-      "profit. Outstanding is the balance on invoices raised in this period.",
+      "profit. Outstanding is everything the customer still owes today, on " +
+      "every unpaid invoice — it is not limited to this period.",
   );
 
   return finalise(ctx, { note: "Customer Profitability" });

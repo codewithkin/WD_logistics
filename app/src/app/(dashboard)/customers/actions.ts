@@ -9,6 +9,7 @@ import { generateCustomerReportPDF, generateSingleCustomerReportPDF } from "@/li
 import { generateCustomerDetailReportWord } from "@/lib/reports/word-report-generator";
 import { notifyCustomerCreated, notifyCustomerUpdated, notifyCustomerDeleted } from "@/lib/notifications";
 import { handleActionError } from "@/lib/error-messages";
+import { outstandingForCustomer } from "@/lib/metrics/customer-balance";
 
 export async function createCustomer(data: {
   name: string;
@@ -336,7 +337,10 @@ export async function exportCustomerDetailWord(customerId: string) {
     const totalTrips = customer.trips.length;
     const totalInvoiced = customer.invoices.reduce((sum: number, inv) => sum + inv.total, 0);
     const totalPaid = customer.payments.reduce((sum: number, pay) => sum + pay.amount, 0);
-    const totalOwed = Math.abs(Math.min(customer.balance, 0));
+    // Every unpaid invoice, not the stored column: that one is clamped at
+    // zero for a customer in credit, so a credit note used to read as "owes
+    // nothing" whatever else was outstanding.
+    const totalOwed = await outstandingForCustomer(customer.id);
 
     const reportData = {
       customer: {
@@ -457,7 +461,7 @@ export async function exportCustomerDetailPDF(customerId: string) {
         totalTrips: customer.trips.length,
         totalInvoiced: customer.invoices.reduce((sum, inv) => sum + inv.total, 0),
         totalPaid: customer.payments.reduce((sum, pay) => sum + pay.amount, 0),
-        totalOwed: Math.abs(Math.min(customer.balance, 0)),
+        totalOwed: await outstandingForCustomer(customer.id),
       },
       trips: customer.trips.map((t, index) => ({
         tripNumber: `TRP-${String(index + 1).padStart(4, "0")}`,

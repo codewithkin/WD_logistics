@@ -26,6 +26,7 @@ import "server-only";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getEarnedRevenue, getCashCollected } from "@/lib/metrics/revenue";
+import { outstandingForOrganization } from "@/lib/metrics/customer-balance";
 import { getTruckCostBreakdown, getFleetCostRanking } from "@/lib/metrics/truck-costs";
 import { getDriverPerformance } from "@/lib/metrics/driver-snapshots";
 import { getDateRangeFromParams } from "@/lib/period-utils";
@@ -455,10 +456,10 @@ const readOperations: Operation[] = [
           },
           _sum: { amount: true },
         }),
-        prisma.invoice.aggregate({
-          where: { organizationId: ctx.organizationId, balance: { gt: 0 } },
-          _sum: { balance: true },
-        }),
+        // The same definition the customer report and the customers page
+        // use, so the assistant cannot quote a different debt to the figure
+        // on screen.
+        outstandingForOrganization(ctx.organizationId),
       ]);
       const totalExpenses = expenses._sum.amount ?? 0;
       return {
@@ -469,7 +470,7 @@ const readOperations: Operation[] = [
         expenses: money(totalExpenses),
         profit: money(revenue - totalExpenses),
         margin: revenue > 0 ? `${(((revenue - totalExpenses) / revenue) * 100).toFixed(1)}%` : "n/a",
-        outstandingFromCustomers: money(outstanding._sum.balance ?? 0),
+        outstandingFromCustomers: money(outstanding),
       };
     },
   },

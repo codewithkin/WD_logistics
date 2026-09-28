@@ -12,6 +12,7 @@ import "server-only";
 
 import { prisma } from "@/lib/prisma";
 import { earnedRevenueWhere } from "@/lib/metrics/revenue";
+import { outstandingByCustomer } from "@/lib/metrics/customer-balance";
 import { costKindLabel } from "@/lib/metrics/cost-kinds";
 import { EXPIRY_FIELDS, type ExpiryEntityType } from "@/lib/expiry-reminders";
 
@@ -127,16 +128,18 @@ export async function fetchCustomerProfitabilityData(
     statsByCustomer.set(trip.customerId, row);
   }
 
-  const invoicedByCustomer = new Map<string, { total: number; balance: number }>();
+  const invoicedByCustomer = new Map<string, { total: number }>();
   for (const invoice of invoices) {
-    const row = invoicedByCustomer.get(invoice.customerId) ?? {
-      total: 0,
-      balance: 0,
-    };
+    const row = invoicedByCustomer.get(invoice.customerId) ?? { total: 0 };
     row.total += invoice.total;
-    row.balance += invoice.balance;
     invoicedByCustomer.set(invoice.customerId, row);
   }
+
+  // Outstanding is what they owe *now*, across every invoice — not the unpaid
+  // part of the invoices raised inside this period, which is what this used to
+  // sum. An invoice from two months ago that nobody has paid is still a debt,
+  // and leaving it out is what made this column read low.
+  const owedByCustomer = await outstandingByCustomer(customers.map((c) => c.id));
 
   const totalRevenue = round(
     Array.from(statsByCustomer.values()).reduce((s, r) => s + r.revenue, 0),
@@ -152,10 +155,7 @@ export async function fetchCustomerProfitabilityData(
       const revenue = round(stats.revenue);
       const tripCosts = round(costByCustomer.get(customer.id) ?? 0);
       const profit = round(revenue - tripCosts);
-      const billing = invoicedByCustomer.get(customer.id) ?? {
-        total: 0,
-        balance: 0,
-      };
+      const billing = invoicedByCustomer.get(customer.id) ?? { total: 0 };
 
       return {
         customer: customer.name,
@@ -170,7 +170,7 @@ export async function fetchCustomerProfitabilityData(
         averageRate: stats.trips > 0 ? round(revenue / stats.trips) : null,
         ratePerKm: stats.km > 0 ? round(revenue / stats.km) : null,
         invoiced: round(billing.total),
-        outstanding: round(billing.balance),
+        outstanding: owedByCustomer.get(customer.id) ?? 0,
         shareOfRevenue: share(revenue, totalRevenue),
       };
     })

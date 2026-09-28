@@ -14,6 +14,7 @@ import { Separator } from "@/components/ui/separator";
 import { Pencil, Mail, Phone, MapPin, User, FileText, DollarSign, Truck } from "lucide-react";
 import { format } from "date-fns";
 import { canViewFinancialData } from "@/lib/permissions";
+import { outstandingForCustomer } from "@/lib/metrics/customer-balance";
 import { ExportCustomerButton } from "./_components/export-customer-button";
 
 interface CustomerDetailPageProps {
@@ -87,7 +88,10 @@ export default async function CustomerDetailPage({ params, searchParams }: Custo
 
     const totalRevenue = periodRevenue;
     const totalInvoiced = invoiceTotals._sum.total ?? 0;
-    const outstanding = invoiceTotals._sum.balance ?? 0;
+    // What they owe today across every invoice, not just the ones raised
+    // inside the selected period — the rest of this page is period-filtered,
+    // a debt is not.
+    const outstanding = await outstandingForCustomer(id);
 
     return (
         <div>
