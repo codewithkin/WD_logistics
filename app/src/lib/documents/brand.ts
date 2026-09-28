@@ -82,9 +82,10 @@ export const LAYOUT = {
  * Company details as printed on documents.
  *
  * Defaults match the client's printed invoice book (photographed in
- * `designs/`), which is the authority — note it says 5182 Tameside Close,
- * where the marketing site says 1 Tameside Close. An Organization row that
- * fills these in overrides them.
+ * `designs/`). The street number was the one thing the book and the
+ * marketing site disagreed on — 5182 against 1 — and the client settled it
+ * on 28 Sep 2026: it is **1 Tameside Close**. An Organization row that fills
+ * these in overrides them.
  */
 export interface CompanyDetails {
   name: string;
@@ -103,7 +104,7 @@ export interface CompanyDetails {
 const FALLBACK: CompanyDetails = {
   name: "WD LOGISTICS",
   motto: "Efficiency in Motion",
-  addressLines: ["5182 Tameside Close", "Nyakamete Industrial Area", "Mutare"],
+  addressLines: ["1 Tameside Close", "Nyakamete Industrial Area", "Mutare"],
   phone: "+263 772 958 986",
   email: "dziruniw@gmail.com",
   website: "wd-logistics.co.zw",

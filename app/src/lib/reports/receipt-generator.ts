@@ -14,7 +14,7 @@
 
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
-import { BRAND, logoDataUrl } from "@/lib/documents/brand";
+import { BRAND, companyDetails, logoDataUrl } from "@/lib/documents/brand";
 import { drawOnlyWhatTheFontHas } from "@/lib/documents/kit";
 
 declare module "jspdf" {
@@ -111,7 +111,11 @@ export function generatePaymentReceiptPDF(data: PaymentReceiptData): Uint8Array 
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(...MUTED);
-  doc.text("Fleet & Logistics Management", headerTextX, 26.5);
+  // The company motto, from brand.ts, rather than a second tagline invented
+  // here — the receipt used to say "Fleet & Logistics Management" while every
+  // other document said "Efficiency in Motion". Passing the organization row
+  // means it follows the letterhead if one is ever filled in.
+  doc.text(companyDetails(data.organization).motto, headerTextX, 26.5);
 
   doc.setFontSize(18);
   doc.setFont("helvetica", "bold");
