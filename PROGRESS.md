@@ -488,3 +488,56 @@ already committed on `main`.
   needs a dashboard account chosen in "records changes as".
 - Set `AGENT_API_KEY` to the same value on both services (the local `.env`s
   share a dev-only key; production needs a real one — `openssl rand -hex 32`).
+
+---
+
+## Round 3 — the 19-item list of 28 Sep (documents, reports, assistant)
+
+Seventeen commits, `f923eb4` … `9758e4a`. Every one verified by running it,
+not by reading it. Both services typecheck clean and all three access audits
+pass.
+
+### Decisions the client made on 28 Sep
+- **Invoice:** Sub total, VAT, Total, and Paid when something has been
+  received. **No amount due, no balance** — that is statement territory.
+- **Outstanding:** everything unpaid **as of today**, across all invoices,
+  ignoring the report period.
+- **Statement:** a real document like the invoice, not a report.
+- **WhatsApp contacts:** existing system users only, inheriting that role.
+  Contacts predating the rule keep working until edited.
+- **Cap:** 200 messages, and it **fails closed** when the count is unreadable.
+
+### What was actually wrong (each confirmed before fixing)
+| Symptom | Cause |
+|---|---|
+| Supervisors saw profit on WhatsApp | `get_truck_costs` was gated at supervisor but returned revenue, profit and margin *inside* its result — the `list_trips` mistake again |
+| Customer outstanding was wrong | Four disagreeing formulas, and `Customer.balance` drifted permanently: adjusted on create, never on edit or delete |
+| Expense PDF missing columns | Truck/Trailer/Trip were passed on every call and dropped — the generator had no columns and `ignoreBuildErrors` hid the type mismatch |
+| Expense CSV total under the wrong heading | Totals row hand-built cell by cell, never extended when the trailer column arrived |
+| Customer report period wrong | Filtered on `createdAt` — when the row was typed — not `scheduledDate`/`issueDate` |
+| Trip summary would not reconcile | Counted cancelled trips as revenue |
+| Revenue report missing invoices | Excluded `overdue`, which the statement includes |
+| Edits over WhatsApp did nothing | No `reason` passed, so the gate refused: no write **and** no edit request |
+| Could not message a colleague | Recipient search covered five tables but not the staff list |
+| No statement or truck report from a phone | Any report about one record was refused outright |
+| "Clean import" did nothing | Eight CSV generators ignored the flag |
+
+### Two things worth carrying forward
+- **`scripts/audit-assistant-access.ts`** is new and is the durable part. It
+  asserts the exact tool list per level *and* calls the readable operations as
+  each level, failing on any earnings key in the result. Proved it bites by
+  reintroducing the `get_truck_costs` leak. Run it with the other two audits
+  after touching any role.
+- **A static role check is not enough.** Both money leaks found this round
+  were tools at the correct level carrying figures that level may not see.
+
+### Still open
+- **CSV/PDF parity is improved, not complete.** The expense, truck, revenue
+  and customer reports were fixed. Others still differ — the PDFs carry KPI
+  rows the CSVs lack, and some CSVs carry columns the PDFs lack (fuel
+  make/model, aged-receivables phone, creditors ledger balance). Worth a
+  systematic pass.
+- The `word-report-generator` customer export is still titled "Customer
+  Statement" while being a customer detail report.
+- `designs/` is still untracked, so the physical invoice photo remains
+  invisible to a cloud session.
