@@ -18,6 +18,7 @@ import { checkConfiguration } from "./lib/config-check";
 import { notificationsApi } from "./lib/api-client";
 import { installCrashGuard } from "./lib/crash-guard";
 import { isAudio, transcribeVoiceNote } from "./lib/transcribe";
+import { checkMessageAllowance, noteMessageAccepted } from "./lib/usage-cap";
 
 /**
  * The organisation this bot belongs to.
@@ -365,6 +366,34 @@ const initWhatsApp = async () => {
             return;
           }
           
+          // The month's fair-use cap, checked before anything spends money.
+          //
+          // This has to sit above the media handling below: transcribing a
+          // voice note is itself a paid model call, so a cap enforced after it
+          // would let the most expensive part of a message through.
+          //
+          // Past the limit the assistant does not answer — at all, to anyone,
+          // including an admin. Not a "you have reached your limit" reply:
+          // that is an outbound WhatsApp message sent to every sender who
+          // keeps trying, and this service has already sent the same sentence
+          // 122 times in a loop once. Silence is the safe failure.
+          const allowance = await checkMessageAllowance();
+          if (allowance.blocked) {
+            console.log(
+              `🚫 EARLY RETURN: month's message cap reached ` +
+                `(${allowance.used}/${allowance.limit}, resets ${allowance.resetsOn}). ` +
+                `No reply, no model call, nothing transcribed.`,
+            );
+            console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
+            return;
+          }
+          noteMessageAccepted();
+          console.log(
+            allowance.known
+              ? `📊 Message ${allowance.used} of ${allowance.limit} this month`
+              : `📊 Could not read the month's usage — allowing the message`,
+          );
+
           // Who is this? The allowlist lives in the app now, managed by an
           // admin under Settings, rather than in three environment variables
           // that needed a redeploy to change.
