@@ -4,6 +4,7 @@
  * The agent has no database access, so everything it does comes through here.
  * Three actions:
  *
+ *   usage     — the organisation's fair-use count for the month
  *   identify  — who is this phone number, and what may they do?
  *   manifest  — the tool definitions this contact is allowed to use
  *   invoke    — run one operation as that contact
@@ -28,6 +29,7 @@ import { toE164 } from "@/lib/whatsapp/trip-messages";
 import { z } from "zod";
 import { runAsActor } from "@/lib/acting-session";
 import { redactMessageBody, redactValue } from "@/lib/assistant/redact";
+import { monthlyUsage } from "@/lib/assistant/usage";
 import type { Role } from "@/lib/types";
 
 /**
@@ -82,6 +84,21 @@ async function resolveContact(rawPhone: string) {
   });
 }
 
+/**
+ * The organisation the assistant serves.
+ *
+ * `organizationLimit: 1` in the auth config — this app is one company — so the
+ * cap has exactly one organisation to apply to, and the agent doesn't have to
+ * prove which one before it has identified anybody.
+ */
+async function soleOrganizationId(): Promise<string | null> {
+  const organization = await prisma.organization.findFirst({
+    select: { id: true },
+    orderBy: { createdAt: "asc" },
+  });
+  return organization?.id ?? null;
+}
+
 export async function POST(request: NextRequest) {
   const denied = withAgentAuth(request);
   if (denied) return denied;
@@ -89,6 +106,25 @@ export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null);
   const action: string | undefined = body?.action;
   const phone: string | undefined = body?.phone;
+
+  // The fair-use cap belongs to the organisation, not to a contact, and the
+  // agent asks about it *before* it knows who is messaging — the check has to
+  // run ahead of transcription and the model call to save anything. So this
+  // sits above the phone requirement rather than inside the switch below.
+  if (action === "usage") {
+    const organizationId = await soleOrganizationId();
+    if (!organizationId) {
+      return NextResponse.json(
+        { success: false, error: "No organisation exists yet." },
+        { status: 404 },
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: await monthlyUsage(organizationId),
+    });
+  }
 
   if (!phone) {
     return NextResponse.json(
