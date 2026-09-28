@@ -28,11 +28,12 @@ import {
   generateRevenueReportPDF,
   generateExpenseReportPDF,
   generateTripSummaryPDF,
-  generateCustomerStatementPDF,
   generateDashboardSummaryPDF,
   generateTruckProfitabilityPDF,
   generateAccountLedgerPDF,
 } from "@/lib/reports/pdf-report-generator";
+import { generateStatementPDF } from "@/lib/documents/statement";
+import { outstandingForCustomer } from "@/lib/metrics/customer-balance";
 
 // Input validation schema
 const generateReportSchema = z.object({
@@ -761,12 +762,26 @@ export async function generateReport(
         );
 
         if (format === "pdf") {
-          const pdfBytes = generateCustomerStatementPDF({
+          // A statement is posted to a customer, so it is a document like the
+          // invoice — letterhead, an address to send it to, and the amount due
+          // in the largest type on the page. It used to be rendered as a plain
+          // internal report with a "Period:" line and no company block.
+          const [organization, totalOutstanding] = await Promise.all([
+            prisma.organization.findUnique({ where: { id: organizationId } }),
+            outstandingForCustomer(customerId),
+          ]);
+
+          const pdfBytes = generateStatementPDF({
             customer: statementData.customer,
             entries: statementData.entries,
             openingBalance: statementData.openingBalance,
-            closingBalance: statementData.closingBalance,
-            period: periodObj,
+            totalOutstanding,
+            period: { from: start, to: end },
+            organization,
+            statementNumber: `STM-${end.toISOString().slice(0, 7)}-${statementData.customer.name
+              .replace(/[^a-zA-Z0-9]/g, "")
+              .slice(0, 6)
+              .toUpperCase()}`,
           });
           fileBuffer = pdfBytes;
           mimeType = "application/pdf";
