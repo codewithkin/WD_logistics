@@ -16,7 +16,7 @@
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@/generated/prisma/client";
 import { requireAuth } from "@/lib/session";
-import { canViewFinancialData } from "@/lib/permissions";
+import { canViewDebtData, canViewFinancialData } from "@/lib/permissions";
 import {
   ENTITY_PAGE_SIZE,
   type EntityOption,
@@ -116,7 +116,12 @@ export async function searchEntities(
   // Ids that must appear regardless of the current filter, so the currently
   // selected record never disappears from under the user.
   const pinned = (params.includeIds ?? []).filter(Boolean);
+  // Two different questions, and they were being answered by one check.
+  // `showMoney` is what the business *earns* — a trip's revenue — which is
+  // admin only. `showDebt` is what is *owed*, which a supervisor needs to
+  // record a payment against an invoice (ACCESS_CONTROL.md).
   const showMoney = canViewFinancialData(session.role);
+  const showDebt = canViewDebtData(session.role);
 
   switch (params.kind) {
     case "truck": {
@@ -295,10 +300,15 @@ export async function searchEntities(
       const where = {
         organizationId: orgId,
         ...(f("status") ? { status: f("status") } : {}),
+        // `Customer.balance` is negative when the customer owes us and
+        // positive when they are in credit — the opposite of a supplier's.
+        // This branch read it as a supplier's, so "Owes us money" returned
+        // exactly the customers who owed nothing, and the ones who did were
+        // labelled settled. See lib/metrics/customer-balance.ts.
         ...(balance === "owing"
-          ? { balance: { gt: 0 } }
+          ? { balance: { lt: 0 } }
           : balance === "clear"
-            ? { balance: { lte: 0 } }
+            ? { balance: { gte: 0 } }
             : {}),
         ...(textSearch(query, [
           "name",
@@ -311,12 +321,17 @@ export async function searchEntities(
       const [rows, total] = await Promise.all([
         prisma.customer.findMany({
           where,
-          orderBy: orderFor<Prisma.CustomerOrderByWithRelationInput>(
-            sort,
-            "name",
-            "createdAt",
-            "balance",
-          ),
+          // "Owes the most" is the most *negative* balance, so this one sort
+          // cannot come from the shared helper.
+          orderBy:
+            sort === "balance_desc"
+              ? { balance: "asc" as const }
+              : orderFor<Prisma.CustomerOrderByWithRelationInput>(
+                  sort,
+                  "name",
+                  "createdAt",
+                  "balance",
+                ),
           skip,
           take,
         }),
@@ -335,13 +350,13 @@ export async function searchEntities(
             description: [c.contactPerson, c.phone, c.email]
               .filter(Boolean)
               .join(" · "),
-            meta: showMoney
-              ? c.balance > 0
-                ? `Owes ${money(c.balance)}`
+            meta: showDebt
+              ? c.balance < 0
+                ? `Owes ${money(-c.balance)}`
                 : "Settled"
               : undefined,
             status: c.status,
-            data: { balance: showMoney ? c.balance : 0 },
+            data: { balance: showDebt ? c.balance : 0 },
           }),
         ),
         total,
@@ -394,13 +409,13 @@ export async function searchEntities(
             description: [s.contactPerson, s.phone, s.email]
               .filter(Boolean)
               .join(" · "),
-            meta: showMoney
+            meta: showDebt
               ? s.balance > 0
                 ? `We owe ${money(s.balance)}`
                 : "Settled"
               : undefined,
             status: s.status,
-            data: { balance: showMoney ? s.balance : 0 },
+            data: { balance: showDebt ? s.balance : 0 },
           }),
         ),
         total,
@@ -544,7 +559,10 @@ export async function searchEntities(
               truckId: t.truckId,
               driverId: t.driverId,
               customerId: t.customerId,
-              revenue: t.revenue,
+              // Hidden from the label but sent in the payload, which is the
+              // leak ACCESS_CONTROL.md warns about: a supervisor opening the
+              // trip picker could read every trip's revenue in devtools.
+              revenue: showMoney ? t.revenue : 0,
             },
           }),
         ),
@@ -614,15 +632,15 @@ export async function searchEntities(
             description: [i.customer?.name, shortDate(i.issueDate)]
               .filter(Boolean)
               .join(" · "),
-            meta: showMoney
+            meta: showDebt
               ? `${money(i.balance)} of ${money(i.total)} due`
               : undefined,
             status: i.status,
             data: {
               customerId: i.customerId,
               customerName: i.customer?.name ?? null,
-              total: i.total,
-              balance: i.balance,
+              total: showDebt ? i.total : 0,
+              balance: showDebt ? i.balance : 0,
             },
           }),
         ),

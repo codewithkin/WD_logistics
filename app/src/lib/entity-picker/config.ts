@@ -215,7 +215,7 @@ export const ENTITY_CONFIG: Record<EntityKind, EntityKindConfig> = {
         ],
       },
     ],
-    sorts: [...NAME_SORTS, { value: "balance_desc", label: "Highest balance" }],
+    sorts: [...NAME_SORTS, { value: "balance_desc", label: "Owes us the most" }],
     defaultSort: "name_asc",
   },
   supplier: {
@@ -236,7 +236,7 @@ export const ENTITY_CONFIG: Record<EntityKind, EntityKindConfig> = {
         ],
       },
     ],
-    sorts: [...NAME_SORTS, { value: "balance_desc", label: "Highest balance" }],
+    sorts: [...NAME_SORTS, { value: "balance_desc", label: "We owe the most" }],
     defaultSort: "name_asc",
   },
   employee: {

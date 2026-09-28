@@ -48,13 +48,15 @@ export const ROLE_PERMISSIONS = {
     canApproveEditRequests: false,
     canViewAllEditRequests: true,
     
-    // Reports
-    canViewReports: true,
+    // Reports: admin only, all 23 of them, and every export button on every
+    // list page with them (ACCESS_CONTROL.md). This said `true` — nothing read
+    // it, but it is the sentence someone re-derives the rule from.
+    canViewReports: false,
     canGenerateReports: false,
-    
+
     // Settings
     canAccessSettings: false,
-    
+
     // Financial Data - Supervisors have restricted access
     canViewFinancials: false,
     canViewRevenue: false,
@@ -178,6 +180,20 @@ export function canViewFinancialData(role: Role): boolean {
  * whether a truck was expensive.
  */
 export function canViewCostData(role: Role): boolean {
+  return role === "admin" || role === "supervisor";
+}
+
+/**
+ * Who may see what is *owed* — a customer's outstanding balance, a supplier's
+ * ledger, an invoice's amount still due.
+ *
+ * Debt is not earnings. ACCESS_CONTROL.md grants "invoices, payments, what a
+ * customer owes" to admin and supervisor, and the customers list has always
+ * shown a supervisor the balance column. The entity pickers were stricter
+ * than the pages they open from, so a supervisor recording a payment could
+ * not see how much the invoice had left on it.
+ */
+export function canViewDebtData(role: Role): boolean {
   return role === "admin" || role === "supervisor";
 }
 
