@@ -517,7 +517,7 @@ const readOperations: Operation[] = [
   {
     name: "get_truck_costs",
     description:
-      "Where one truck's money goes: category breakdown, fuel per km, workshop downtime, against the fleet average. Answers 'is this truck losing money and why'.",
+      "Where one truck's money goes: cost by category, fuel per km, workshop downtime, against the fleet average. Answers 'what is this truck costing us and why'. Revenue and profit are included only for an admin.",
     requires: "supervisor",
     schema: z.object({
       truckId: z.string().describe("The truck's id, from list_trucks"),
@@ -532,10 +532,20 @@ const readOperations: Operation[] = [
       });
       return {
         period: range.label,
-        revenue: money(b.revenue),
+        // Costs yes, earnings no — the same split as the truck's page on the
+        // web. This tool is offered to supervisors because they need to know
+        // what a truck *costs*, and it was handing them revenue, profit and
+        // margin alongside: exactly the mistake list_trips made, which is why
+        // ACCESS_CONTROL.md says hiding the financial tools is not enough
+        // when an operational one carries the figures.
+        ...(seesEarnings(ctx.role)
+          ? {
+              revenue: money(b.revenue),
+              profit: money(b.profit),
+              margin: b.margin === null ? "n/a" : `${b.margin}%`,
+            }
+          : {}),
         expenses: money(b.expenses),
-        profit: money(b.profit),
-        margin: b.margin === null ? "n/a" : `${b.margin}%`,
         trips: b.trips,
         kilometres: b.kilometres,
         costPerKm: b.costPerKm === null ? "n/a" : money(b.costPerKm),
