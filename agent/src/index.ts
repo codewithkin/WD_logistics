@@ -474,6 +474,15 @@ const initWhatsApp = async () => {
             message: messageText,
           });
 
+          // A number that isn't on the contact list is answered with nothing.
+          // Returning before the reply, the passed-on messages and the
+          // attachments, because none of those should reach a stranger.
+          if (reply.silent) {
+            console.log(`🔇 Not on the contact list — no reply sent`);
+            console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
+            return;
+          }
+
           if (reply.error) {
             console.log(`⚠️ Assistant reported a problem: ${reply.error}`);
           }

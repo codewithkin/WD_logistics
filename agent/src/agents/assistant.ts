@@ -115,6 +115,14 @@ export const EMPTY_REPLY =
 
 export interface AssistantReply {
   text: string;
+  /**
+   * Send nothing at all.
+   *
+   * Distinct from an empty `text`, which would be a bug worth noticing: this
+   * says the silence is the answer. Set for a number that is not on the
+   * contact list, and honoured by the WhatsApp handler in index.ts.
+   */
+  silent?: boolean;
   didWrite: boolean;
   toolCalls: Array<{ tool: string; args: unknown; ok: boolean }>;
   error?: string;
@@ -169,10 +177,21 @@ export async function answerMessage(params: {
   }
 
   if (!caller.authorized) {
+    // A number that is not on the list gets nothing back — which is what
+    // Settings → WhatsApp has always promised, and what the client wants.
+    //
+    // It used to get "I don't have this number on my list, ask an admin to
+    // add you". Three things wrong with that. It is an outbound WhatsApp
+    // message to a stranger, so a loop that bounces replies back in sends it
+    // over and over — that is exactly how this service once sent the same
+    // sentence 122 times. It tells whoever is on the other end that this
+    // number belongs to a system with admins and a contact list, which is
+    // more than a stranger needs to know. And it costs a message, paid for
+    // by the client, to talk to someone they did not want talked to.
+    console.log(`[assistant] ${params.phone} is not on the contact list — no reply`);
     return {
-      text:
-        "I don't have this number on my list, so I can't help. Ask an admin " +
-        "to add you under Settings → Notifications → WhatsApp assistant.",
+      text: "",
+      silent: true,
       didWrite: false,
       toolCalls: [],
       attachments: [],
