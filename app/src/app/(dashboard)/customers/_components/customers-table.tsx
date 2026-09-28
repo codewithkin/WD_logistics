@@ -153,7 +153,12 @@ export function CustomersTable({ customers, role, periodLabel = "This Month" }: 
     const handleExportCustomerWord = async (customerId: string) => {
         setExportingCustomerId(customerId);
         try {
-            const result = await exportCustomerDetailWord(customerId);
+            // The same period the table is showing — the row export used to
+            // ignore it and produce the customer's entire history.
+            const result = await exportCustomerDetailWord(customerId, {
+                from: period.from,
+                to: period.to,
+            });
 
             if (result.success) {
                 const byteCharacters = atob(result.doc);

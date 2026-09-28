@@ -99,7 +99,10 @@ export async function fetchRevenueData(
         gte: startDate,
         lte: endDate,
       },
-      status: { in: ["sent", "paid", "partial"] },
+      // "overdue" was missing, so an invoice that went past its due date
+      // dropped out of the revenue report while still appearing on the
+      // customer's statement. Only drafts and cancellations are excluded.
+      status: { in: ["sent", "paid", "partial", "overdue"] },
     },
     include: {
       customer: { select: { name: true } },
@@ -311,6 +314,11 @@ export async function fetchTripSummaryData(
         gte: startDate,
         lte: endDate,
       },
+      // A cancelled trip earned nothing and a scheduled one has not earned it
+      // yet. Counting both is why this report's revenue could not be
+      // reconciled with the P&L, the trip P&L or the dashboard, all of which
+      // use lib/metrics/revenue.
+      status: { notIn: ["cancelled"] },
     },
     include: {
       truck: { select: { registrationNo: true } },

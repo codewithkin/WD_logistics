@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, requireRole } from "@/lib/session";
 import { gateChange } from "@/lib/edit-requests/gate";
-import { resolvePeriod } from "@/lib/period-range";
+import { resolvePeriod, type PeriodInput } from "@/lib/period-range";
 import { generateCustomerReportPDF, generateSingleCustomerReportPDF } from "@/lib/reports/pdf-report-generator";
 import { generateCustomerDetailReportWord } from "@/lib/reports/word-report-generator";
 import { notifyCustomerCreated, notifyCustomerUpdated, notifyCustomerDeleted } from "@/lib/notifications";
@@ -204,9 +204,13 @@ export async function exportCustomersPDF(options?: {
     const customers = await prisma.customer.findMany({
       where: whereClause,
       include: {
+        // When the work happened and when the invoice was raised — not when
+        // the rows were typed in. Filtering on createdAt put a trip that ran
+        // in June into a September report because that is when somebody got
+        // round to entering it, and left it out of June's.
         trips: {
           where: {
-            createdAt: {
+            scheduledDate: {
               gte: startDate,
               lte: endDate,
             },
@@ -217,7 +221,7 @@ export async function exportCustomersPDF(options?: {
         },
         invoices: {
           where: {
-            createdAt: {
+            issueDate: {
               gte: startDate,
               lte: endDate,
             },
@@ -269,10 +273,17 @@ export async function exportCustomersPDF(options?: {
   }
 }
 
-export async function exportCustomerDetailWord(customerId: string) {
+export async function exportCustomerDetailWord(
+  customerId: string,
+  periodParams?: PeriodInput,
+) {
   const session = await requireAuth();
 
   try {
+    // This used to fetch every trip, invoice and payment the customer had
+    // ever had, while the page it is exported from was showing one period.
+    const range = resolvePeriod(periodParams, "1m");
+
     // Fetch customer with all related data
     const customer = await prisma.customer.findFirst({
       where: { 
@@ -281,6 +292,7 @@ export async function exportCustomerDetailWord(customerId: string) {
       },
       include: {
         trips: {
+          where: { scheduledDate: { gte: range.from, lte: range.to } },
           orderBy: { scheduledDate: "desc" },
           select: {
             id: true,
@@ -293,6 +305,7 @@ export async function exportCustomerDetailWord(customerId: string) {
           },
         },
         invoices: {
+          where: { issueDate: { gte: range.from, lte: range.to } },
           orderBy: { issueDate: "desc" },
           select: {
             id: true,
@@ -306,6 +319,7 @@ export async function exportCustomerDetailWord(customerId: string) {
           },
         },
         payments: {
+          where: { paymentDate: { gte: range.from, lte: range.to } },
           orderBy: { paymentDate: "desc" },
           select: {
             id: true,
@@ -401,14 +415,22 @@ export async function exportCustomerDetailWord(customerId: string) {
  * page had no export at all, and Word was the only single-customer format
  * anywhere.
  */
-export async function exportCustomerDetailPDF(customerId: string) {
+export async function exportCustomerDetailPDF(
+  customerId: string,
+  periodParams?: PeriodInput,
+) {
   const session = await requireAuth();
 
   try {
+    // Follows the page's period, like every other single-entity export. It
+    // used to pull the customer's whole history whatever was on screen.
+    const range = resolvePeriod(periodParams, "1m");
+
     const customer = await prisma.customer.findFirst({
       where: { id: customerId, organizationId: session.organizationId },
       include: {
         trips: {
+          where: { scheduledDate: { gte: range.from, lte: range.to } },
           orderBy: { scheduledDate: "desc" },
           select: {
             originCity: true,
@@ -419,6 +441,7 @@ export async function exportCustomerDetailPDF(customerId: string) {
           },
         },
         invoices: {
+          where: { issueDate: { gte: range.from, lte: range.to } },
           orderBy: { issueDate: "desc" },
           select: {
             invoiceNumber: true,
@@ -430,6 +453,7 @@ export async function exportCustomerDetailPDF(customerId: string) {
           },
         },
         payments: {
+          where: { paymentDate: { gte: range.from, lte: range.to } },
           orderBy: { paymentDate: "desc" },
           select: {
             amount: true,

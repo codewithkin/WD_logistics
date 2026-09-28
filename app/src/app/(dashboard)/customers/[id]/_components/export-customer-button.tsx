@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
     DropdownMenu,
@@ -45,15 +46,24 @@ function download(base64: string, filename: string, mime: string) {
  */
 export function ExportCustomerButton({ customerId, customerName }: ExportCustomerButtonProps) {
     const [isLoading, setIsLoading] = useState(false);
+    const searchParams = useSearchParams();
     const fallbackName = customerName.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
 
     const handleExport = async (format: "pdf" | "docx") => {
         setIsLoading(true);
         try {
+            // The export follows what the page is showing, rather than
+            // silently exporting the customer's whole history.
+            const period = {
+                period: searchParams.get("period") ?? undefined,
+                from: searchParams.get("from") ?? undefined,
+                to: searchParams.get("to") ?? undefined,
+            };
+
             const result =
                 format === "pdf"
-                    ? await exportCustomerDetailPDF(customerId)
-                    : await exportCustomerDetailWord(customerId);
+                    ? await exportCustomerDetailPDF(customerId, period)
+                    : await exportCustomerDetailWord(customerId, period);
 
             if (!result.success) {
                 toast.error(result.error || "Failed to export customer report");
