@@ -25,17 +25,15 @@ import type { Operation, OperationContext } from "@/lib/assistant/operations";
 const REPORT_IDS = Object.keys(reportConfigs) as [string, ...string[]];
 
 /**
- * Anything needing a specific record picked first is excluded: a message
- * cannot carry a truck id, and asking for one defeats the point.
+ * Reports about one record that this operation still cannot run.
+ *
+ * A trailer or a trip is identified by an id nobody carries in their head,
+ * so those stay in the web app. A customer and a truck have names people do
+ * use — see findCustomerFor and findTruckFor below.
  */
 function needsSelection(id: string): boolean {
   const config = reportConfigs[id];
-  return Boolean(
-    config?.requiresCustomer ||
-      config?.requiresTruck ||
-      config?.requiresTrailer ||
-      config?.requiresTrip,
-  );
+  return Boolean(config?.requiresTrailer || config?.requiresTrip);
 }
 
 /** "profit-and-loss-2026-06-23-to-2026-09-24.pdf" */
@@ -54,6 +52,65 @@ function friendlyFilename(
   return `${slug}-${day(from)}-to-${day(to)}.${format}`;
 }
 
+/**
+ * Resolving the customer or truck a report is about, from what somebody
+ * typed. Both refuse rather than guess when the phrase matches more than
+ * one, which is the same rule every other operation follows: picking for
+ * them is how the wrong customer gets a statement.
+ */
+async function findCustomerFor(
+  ctx: OperationContext,
+  phrase: string,
+): Promise<{ ok: true; id: string; name: string } | { ok: false; error: string }> {
+  const rows = await prisma.customer.findMany({
+    where: {
+      organizationId: ctx.organizationId,
+      OR: [
+        { name: { contains: phrase, mode: "insensitive" } },
+        { contactPerson: { contains: phrase, mode: "insensitive" } },
+      ],
+    },
+    select: { id: true, name: true },
+    take: 6,
+  });
+
+  if (rows.length === 0) return { ok: false, error: `No customer matches "${phrase}".` };
+  if (rows.length > 1) {
+    return {
+      ok: false,
+      error: `That matches several customers: ${rows.map((r) => r.name).join(", ")}. Which one?`,
+    };
+  }
+  return { ok: true, id: rows[0].id, name: rows[0].name };
+}
+
+async function findTruckFor(
+  ctx: OperationContext,
+  phrase: string,
+): Promise<{ ok: true; id: string; name: string } | { ok: false; error: string }> {
+  const rows = await prisma.truck.findMany({
+    where: {
+      organizationId: ctx.organizationId,
+      OR: [
+        { registrationNo: { contains: phrase, mode: "insensitive" } },
+        { make: { contains: phrase, mode: "insensitive" } },
+        { model: { contains: phrase, mode: "insensitive" } },
+      ],
+    },
+    select: { id: true, registrationNo: true },
+    take: 6,
+  });
+
+  if (rows.length === 0) return { ok: false, error: `No truck matches "${phrase}".` };
+  if (rows.length > 1) {
+    return {
+      ok: false,
+      error: `That matches several trucks: ${rows.map((r) => r.registrationNo).join(", ")}. Which one?`,
+    };
+  }
+  return { ok: true, id: rows[0].id, name: rows[0].registrationNo };
+}
+
 export const reportOperations: Operation[] = [
   {
     name: "list_reports",
@@ -68,6 +125,10 @@ export const reportOperations: Operation[] = [
           id: config.id,
           name: config.name,
           covers: config.description,
+          // So the model asks for the name up front rather than calling the
+          // tool, being told which customer, and calling it again.
+          ...(config.requiresCustomer ? { needs: "a customer name" } : {}),
+          ...(config.requiresTruck ? { needs: "a truck registration" } : {}),
         }));
     },
   },
@@ -75,7 +136,7 @@ export const reportOperations: Operation[] = [
   {
     name: "generate_report",
     description:
-      "Produce a report and send the file back in this chat. Use list_reports first if you are unsure of the id. PDF is right for reading on a phone; CSV for a spreadsheet.",
+      "Produce a report and send the file back in this chat. Use list_reports first if you are unsure of the id. PDF is right for reading on a phone; CSV for a spreadsheet. Reports about one customer or one truck take that name here — a statement, for instance, needs the customer.",
     requires: "admin",
     writes: false,
     schema: z.object({
@@ -87,6 +148,14 @@ export const reportOperations: Operation[] = [
       from: z.string().optional().describe("ISO start date, for an exact range"),
       to: z.string().optional().describe("ISO end date"),
       format: z.enum(["pdf", "csv"]).optional().describe("Defaults to pdf"),
+      customer: z
+        .string()
+        .optional()
+        .describe("Customer name, for a report about one customer such as a statement"),
+      truck: z
+        .string()
+        .optional()
+        .describe("Truck registration, for a report about one truck"),
     }),
     handler: async (args, ctx: OperationContext) => {
       const a = args as {
@@ -95,11 +164,40 @@ export const reportOperations: Operation[] = [
         from?: string;
         to?: string;
         format?: "pdf" | "csv";
+        customer?: string;
+        truck?: string;
       };
 
       const config = reportConfigs[a.report];
       if (!config) return { error: `There is no report called "${a.report}".` };
-      if (needsSelection(a.report)) {
+
+      // Reports about one record used to be refused outright and the caller
+      // sent to the web app — which meant a customer statement, the document
+      // most often wanted in a hurry, could not be produced from a phone.
+      // Name the customer or the truck and it resolves the same way every
+      // other operation does.
+      let customerId: string | undefined;
+      let truckId: string | undefined;
+
+      if (config.requiresCustomer) {
+        if (!a.customer) {
+          return { error: `"${config.name}" is about one customer. Which customer?` };
+        }
+        const found = await findCustomerFor(ctx, a.customer);
+        if (!found.ok) return { error: found.error };
+        customerId = found.id;
+      }
+
+      if (config.requiresTruck) {
+        if (!a.truck) {
+          return { error: `"${config.name}" is about one truck. Which truck?` };
+        }
+        const found = await findTruckFor(ctx, a.truck);
+        if (!found.ok) return { error: found.error };
+        truckId = found.id;
+      }
+
+      if (!customerId && !truckId && needsSelection(a.report)) {
         return {
           error: `"${config.name}" has to be run against one specific record, which is easier in the web app under Reports.`,
         };
@@ -118,6 +216,8 @@ export const reportOperations: Operation[] = [
         endDate: range.to.toISOString(),
         period: a.period ?? "1m",
         format,
+        customerId,
+        truckId,
         // A person reading on a phone wants the title block; a spreadsheet
         // import does not, but that is the rarer case from a chat.
         includeMetadata: true,
