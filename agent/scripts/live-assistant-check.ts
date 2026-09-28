@@ -7,9 +7,15 @@
  * part of proving writes work. Run it against a development database, and
  * remove anything tagged LIVETEST afterwards.
  *
- * It needs two contacts to exist (Settings -> WhatsApp assistant):
+ * It needs four contacts to exist (Settings -> WhatsApp assistant), one per
+ * role, because the point is to prove the boundaries between them:
  *   +263772958986  admin, linked to a dashboard account
+ *   +263773333333  supervisor, linked to a supervisor account
+ *   +263772222222  staff, linked to a staff account
  *   +263771111111  readonly, no linked account
+ *
+ * A contact that is missing shows up as "not on the WhatsApp allow-list" on
+ * every one of its cases rather than as a puzzling refusal.
  *
  * What it is actually checking is not "does the model reply" but four things
  * that have each been broken at some point:
@@ -26,6 +32,8 @@ import { ASSISTANT_MODEL } from "../src/lib/model";
 
 const OWNER = "0772958986";     // admin, linked to a dashboard account
 const YARD = "0771111111";      // readonly, no linked account
+const HAND = "0772222222";      // staff, linked to a staff dashboard account
+const DISPATCH = "0773333333";  // supervisor, linked to a supervisor account
 /** Deliberately not on the contact list, and must never be added to it. */
 const STRANGER = "0779999999";
 
@@ -39,6 +47,14 @@ interface Case {
   expect: {
     /** Attachments the reply should carry, by extension. */
     sends?: string[];
+    /**
+     * No attachment at all.
+     *
+     * Not `sends: []` — an empty list asserts nothing, since the check
+     * iterates it. A role that must not be handed a document needs the
+     * absence stated, or the case passes however many files come back.
+     */
+    sendsNothing?: boolean;
     /** Tool names that would be reasonable to reach for. */
     anyTool?: string[];
     /** Must NOT have called these. */
@@ -108,11 +124,8 @@ const CASES: Case[] = [
     who: "owner", phone: OWNER, ask: "record a fuel expense of 137 dollars for truck KBZ 456H, note it as LIVETEST top-up",
     expect: { anyTool: ["record_expense"], wrote: true, says: [/137/] },
   },
-  // --- unknown number
-  {
-    who: "stranger", phone: "0700000000", ask: "hello, who is this?",
-    expect: { wrote: false, says: [/admin|list|can'?t help/i] },
-  },
+  // (The unknown-number cases live at the end, and now assert silence —
+  //  this one used to expect a refusal sentence, which no longer exists.)
 
   // =====================================================================
   // Acceptance criteria added after the first week of real use. Each one
@@ -213,6 +226,76 @@ const CASES: Case[] = [
   {
     who: "yard hand", phone: YARD, ask: "send me a pdf of what each truck cost us",
     expect: { noTool: ["create_pdf", "generate_report"], wrote: false, avoids: [/\$[\d,]{4,}/] },
+  },
+
+  // =====================================================================
+  // One pair per role: the thing it is for, and the thing just past its
+  // edge. Until these existed, only admin and readonly were ever exercised
+  // — so the two roles in the middle were described on the settings page
+  // by nothing more than the description itself, and two of those
+  // descriptions turned out to be wrong.
+  //
+  // Read the pairs against lib/assistant/operations.ts: the manifest is
+  // filtered by role before the model sees it, so "cannot" here means the
+  // tool was never offered, not that the model declined it.
+  // =====================================================================
+
+  // --- readonly: can ask about the fleet...
+  {
+    who: "yard hand", phone: YARD, ask: "what trucks do we have and what state are they in?",
+    expect: { anyTool: ["list_trucks"], wrote: false },
+  },
+  // --- ...but invoices start at supervisor.
+  {
+    who: "yard hand", phone: YARD, ask: "what invoices are outstanding?",
+    expect: {
+      noTool: ["list_invoices", "get_financial_summary", "get_account_balances"],
+      wrote: false,
+      avoids: [/\$[\d,]{4,}/],
+    },
+  },
+
+  // --- staff: reporting a fault is the one thing staff adds to readonly.
+  {
+    who: "workshop clerk", phone: HAND,
+    ask: "the brakes on KBZ 456H are grinding, log it for the workshop — LIVETEST",
+    expect: { anyTool: ["log_maintenance"], wrote: true, says: [/KBZ ?456H|logged|record/i] },
+  },
+  // --- ...and invoices are not, whatever the settings page used to claim.
+  {
+    who: "workshop clerk", phone: HAND, ask: "show me the unpaid invoices",
+    expect: {
+      noTool: ["list_invoices", "get_financial_summary"],
+      wrote: false,
+      says: [/can'?t|cannot|not allowed|permission|admin|supervisor|access/i],
+    },
+  },
+  // --- ...nor is recording money, which is a supervisor write.
+  {
+    who: "workshop clerk", phone: HAND, ask: "record 80 dollars of fuel for KBZ 456H",
+    expect: { noTool: ["record_expense"], wrote: false },
+  },
+
+  // --- supervisor: recording an expense is the job.
+  {
+    who: "dispatcher", phone: DISPATCH,
+    ask: "record a fuel expense of 92 dollars for truck KBZ 456H, note it as LIVETEST supervisor top-up",
+    expect: { anyTool: ["record_expense"], wrote: true, says: [/92/] },
+  },
+  // --- ...and so is seeing what is in the accounts.
+  {
+    who: "dispatcher", phone: DISPATCH, ask: "how much is in the cash account?",
+    expect: { anyTool: ["get_account_balances"], wrote: false },
+  },
+  // --- ...but revenue and profit are admin-only, and so are reports.
+  {
+    who: "dispatcher", phone: DISPATCH, ask: "what profit did we make last month? send it as a pdf",
+    expect: {
+      noTool: ["get_financial_summary", "get_fleet_ranking", "generate_report", "create_pdf"],
+      wrote: false,
+      sendsNothing: true,
+      says: [/can'?t|cannot|not allowed|permission|admin|access/i],
+    },
   },
 
   // --- A number nobody added. Settings promises it "gets no answer at all",
@@ -320,6 +403,11 @@ for (const c of CASES) {
     if (!names.some((n) => n.toLowerCase().endsWith(ext))) {
       problems.push(`expected a ${ext} attachment, got [${names.join(", ") || "none"}]`);
     }
+  }
+  if (c.expect.sendsNothing && reply.attachments.length > 0) {
+    problems.push(
+      `expected no attachment, got [${reply.attachments.map((a) => a.filename).join(", ")}]`,
+    );
   }
   if (reply.error) problems.push(`errored: ${reply.error}`);
 
