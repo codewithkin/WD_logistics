@@ -635,10 +635,9 @@ export async function saveWhatsAppContact(input: {
   id?: string;
   name: string;
   phone: string;
-  role: string;
   isActive: boolean;
   notes?: string;
-  /** Dashboard account to record their changes under; null for read-only. */
+  /** The dashboard account this number belongs to. Required. */
   userId?: string | null;
 }): Promise<{ success: true } | { success: false; error: string }> {
   const session = await assertRole(["admin"]);
@@ -646,9 +645,6 @@ export async function saveWhatsAppContact(input: {
   const name = input.name.trim();
   if (name.length < 2) {
     return { success: false, error: "Give them a name." };
-  }
-  if (!ASSISTANT_ROLES.includes(input.role)) {
-    return { success: false, error: `Unknown role: ${input.role}` };
   }
 
   // Normalised on write, so 0772958986 and +263 77 295 8986 are one person
@@ -670,35 +666,67 @@ export async function saveWhatsAppContact(input: {
     };
   }
 
-  // A link is only accepted to somebody who is actually in this organisation —
-  // otherwise it would be a way to file changes under an outsider's name.
-  let userId: string | null = null;
-  if (input.userId) {
-    const member = await prisma.member.findFirst({
-      where: { userId: input.userId, organizationId: session.organizationId },
-      select: { userId: true },
-    });
-    if (!member) {
-      return { success: false, error: "That account isn't in this organisation." };
-    }
-    userId = member.userId;
+  // A contact must be somebody who already has a login, and their assistant
+  // level is that account's role — not a second access list maintained by
+  // hand beside the first.
+  //
+  // It used to be free choice: an admin could type any level against any
+  // number, including one linked to nobody, and an unlinked contact was
+  // taken at face value for reads. That made the WhatsApp list a way to
+  // grant access that the person's own login did not carry.
+  //
+  // Contacts saved before this rule keep working — see the carve-out below —
+  // but any edit has to pick an account.
+  const existingContact = input.id
+    ? await prisma.whatsAppContact.findFirst({
+        where: { id: input.id, organizationId: session.organizationId },
+        select: { id: true, userId: true, role: true },
+      })
+    : null;
+
+  if (input.id && !existingContact) {
+    return { success: false, error: "Contact not found." };
+  }
+
+  if (!input.userId) {
+    return {
+      success: false,
+      error:
+        "Pick the user account this number belongs to. The assistant answers at " +
+        "that account's access level, so a contact without one cannot be added.",
+    };
+  }
+
+  const member = await prisma.member.findFirst({
+    where: { userId: input.userId, organizationId: session.organizationId },
+    select: { userId: true, role: true },
+  });
+  if (!member) {
+    return { success: false, error: "That account isn't in this organisation." };
+  }
+
+  // Workshop has no assistant level — a mechanic's whole world is the jobs
+  // assigned to them, which the assistant has nothing to offer.
+  if (!ASSISTANT_ROLES.includes(member.role)) {
+    return {
+      success: false,
+      error: `A ${member.role} account cannot use the WhatsApp assistant.`,
+    };
   }
 
   const data = {
     name,
     phone,
-    role: input.role,
+    // Inherited, never chosen. Requests are still capped by the weaker of the
+    // two at answer time, but the two can no longer disagree in the first
+    // place.
+    role: member.role,
     isActive: input.isActive,
     notes: input.notes?.trim() || null,
-    userId,
+    userId: member.userId,
   };
 
   if (input.id) {
-    const existing = await prisma.whatsAppContact.findFirst({
-      where: { id: input.id, organizationId: session.organizationId },
-      select: { id: true },
-    });
-    if (!existing) return { success: false, error: "Contact not found." };
     await prisma.whatsAppContact.update({ where: { id: input.id }, data });
   } else {
     await prisma.whatsAppContact.create({

@@ -56,9 +56,6 @@ import {
   type WhatsAppContactRow,
 } from "../actions";
 
-/** Value used by the "nobody" option — a Radix SelectItem cannot be empty. */
-const NO_ACCOUNT = "__none__";
-
 const ROLE_LABELS: Record<string, string> = {
   readonly: "Read only",
   staff: "Staff",
@@ -120,7 +117,6 @@ export function WhatsAppContacts() {
         id: editing.id,
         name: editing.name ?? "",
         phone: editing.phone ?? "",
-        role: editing.role ?? "readonly",
         isActive: editing.isActive ?? true,
         notes: editing.notes ?? undefined,
         userId: editing.userId ?? null,
@@ -153,7 +149,6 @@ export function WhatsAppContacts() {
         id: contact.id,
         name: contact.name,
         phone: contact.phone,
-        role: contact.role,
         isActive: !contact.isActive,
         notes: contact.notes ?? undefined,
         userId: contact.userId ?? null,
@@ -320,43 +315,24 @@ export function WhatsAppContacts() {
             </div>
 
             <div className="space-y-1">
-              <Label htmlFor="wa-role">Role</Label>
+              <Label htmlFor="wa-account">User account</Label>
               <Select
-                value={editing?.role ?? "readonly"}
-                onValueChange={(role) => setEditing((prev) => ({ ...prev, role }))}
-              >
-                <SelectTrigger id="wa-role">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(ROLE_LABELS).map(([value, label]) => (
-                    <SelectItem key={value} value={value}>
-                      {label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                {ROLE_HINTS[editing?.role ?? "readonly"]}
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="wa-account">Records changes as</Label>
-              <Select
-                value={editing?.userId ?? NO_ACCOUNT}
-                onValueChange={(value) =>
+                value={editing?.userId ?? ""}
+                onValueChange={(value) => {
+                  const picked = users.find((user) => user.id === value);
                   setEditing((prev) => ({
                     ...prev,
-                    userId: value === NO_ACCOUNT ? null : value,
-                  }))
-                }
+                    userId: value,
+                    // Shown, not chosen: the level follows the account.
+                    role: picked?.role ?? prev?.role,
+                    name: prev?.name?.trim() ? prev.name : (picked?.name ?? ""),
+                  }));
+                }}
               >
                 <SelectTrigger id="wa-account">
-                  <SelectValue />
+                  <SelectValue placeholder="Choose who this number belongs to" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={NO_ACCOUNT}>Nobody — can only ask questions</SelectItem>
                   {users.map((user) => (
                     <SelectItem key={user.id} value={user.id}>
                       {user.name} ({ROLE_LABELS[user.role] ?? user.role})
@@ -366,8 +342,8 @@ export function WhatsAppContacts() {
               </Select>
               <p className="text-xs text-muted-foreground">
                 {editing?.userId
-                  ? "Anything they record by message is filed under this account, exactly as if they had typed it into the web app — and their access there caps what the assistant will do, whatever role is set above."
-                  : "Without an account, the assistant will answer questions but refuse to record anything: there would be nobody to attribute the change to."}
+                  ? `The assistant answers them as ${ROLE_LABELS[editing.role ?? ""] ?? editing.role}, and files anything they record under this account. ${ROLE_HINTS[editing.role ?? ""] ?? ""}`
+                  : "Only people who already have a login can use the assistant. Their access there is what the assistant gives them — there is no separate level to set."}
               </p>
             </div>
 
