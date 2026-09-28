@@ -54,8 +54,10 @@ async function fetchUsage(): Promise<MessageUsage | null> {
       },
       body: JSON.stringify({ action: "usage" }),
       // Short: this runs before every message, and a slow app must not hold
-      // up a reply. A timeout falls through to "allow", below.
-      signal: AbortSignal.timeout(5_000),
+      // up a reply. A timeout falls through to the blocked-and-unknown case
+      // below, so the timeout must be generous enough that an app merely
+      // under load does not mute the assistant.
+      signal: AbortSignal.timeout(8_000),
     });
 
     if (!response.ok) return null;
@@ -84,10 +86,20 @@ function withLocalCount(cached: CachedUsage): MessageUsage {
  * Whether this organisation may be answered right now, and the numbers behind
  * that decision.
  *
- * If the app cannot be reached the message is **allowed** through. A cap is a
- * billing guard, not a security control; silently muting the assistant because
- * an internal HTTP call timed out would be a worse failure than a handful of
- * messages over the line.
+ * **If the count cannot be read at all, the message is blocked.** Not knowing
+ * how many messages have gone out this month is not evidence that there is
+ * room left, and an assistant that keeps answering while the count is
+ * unreadable is exactly how a flat-fee month runs past its budget without
+ * anyone seeing it.
+ *
+ * The cost of that choice is real and worth stating: if the app is down when
+ * the agent starts, every message is dropped in silence until it comes back.
+ * That is deliberate — the app is where the tools live, so a reply during an
+ * outage would be "I can't reach the system" anyway, and saying nothing is
+ * the same silence the cap itself uses.
+ *
+ * A *stale* cache is different: it is a real count from minutes ago plus
+ * everything seen since, so it keeps being used rather than blocking.
  */
 export async function checkMessageAllowance(): Promise<MessageUsage & { known: boolean }> {
   const now = Date.now();
@@ -97,13 +109,13 @@ export async function checkMessageAllowance(): Promise<MessageUsage & { known: b
     if (fresh) {
       cache = { usage: fresh, fetchedAt: now, seenSince: 0 };
     } else if (!cache) {
-      // Never read successfully, and can't now. Allow, and say the number
-      // isn't known so the caller logs it as such.
+      // Never read successfully, and can't now. Block, and say the number
+      // isn't known so the caller can log which of the two it was.
       return {
         used: 0,
         limit: 0,
         remaining: 0,
-        blocked: false,
+        blocked: true,
         resetsAt: new Date().toISOString(),
         resetsOn: "",
         known: false,
