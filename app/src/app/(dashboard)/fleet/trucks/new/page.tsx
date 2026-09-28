@@ -3,7 +3,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { TruckForm } from "../_components/truck-form";
 
 export default async function NewTruckPage() {
-    await requireRole(["admin", "supervisor"]);
+    await requireRole(["admin", "supervisor", "staff"]);
 
     return (
         <div>

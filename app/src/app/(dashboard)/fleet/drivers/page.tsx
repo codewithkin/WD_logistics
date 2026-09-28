@@ -1,7 +1,7 @@
 import { pageAccess } from "@/lib/session";
 import { NoAccess } from "@/components/layout/no-access";
 import { prisma } from "@/lib/prisma";
-import { canViewFinancialData } from "@/lib/permissions";
+import { canCreateFleetRecords, canViewFinancialData } from "@/lib/permissions";
 import { PageHeader } from "@/components/layout/page-header";
 import { DriversTable } from "./_components/drivers-table";
 import { DriversAnalytics } from "./_components/drivers-analytics";
@@ -90,7 +90,7 @@ export default async function DriversPage({ searchParams }: DriversPageProps) {
         licenseBreakdown: buildLicenceStatus(drivers),
     };
 
-    const canCreate = role === "admin" || role === "supervisor";
+    const canCreate = canCreateFleetRecords(role);
     const canExport = role === "admin";
     const showFinancials = canViewFinancialData(role);
 

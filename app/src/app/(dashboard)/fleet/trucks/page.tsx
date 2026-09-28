@@ -1,7 +1,7 @@
 import { pageAccess } from "@/lib/session";
 import { NoAccess } from "@/components/layout/no-access";
 import { prisma } from "@/lib/prisma";
-import { canViewFinancialData } from "@/lib/permissions";
+import { canCreateFleetRecords, canViewFinancialData } from "@/lib/permissions";
 import { PageHeader } from "@/components/layout/page-header";
 import { TrucksTable } from "./_components/trucks-table";
 import { Plus } from "lucide-react";
@@ -70,7 +70,7 @@ export default async function TrucksPage({ searchParams }: TrucksPageProps) {
         orderBy: { registrationNo: "asc" },
     });
 
-    const canCreate = role === "admin" || role === "supervisor";
+    const canCreate = canCreateFleetRecords(role);
     const showFinancials = canViewFinancialData(role);
 
     // Totals are computed here and the underlying rows dropped. Spreading

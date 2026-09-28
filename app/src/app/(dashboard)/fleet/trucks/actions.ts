@@ -39,7 +39,7 @@ export async function createTruck(data: {
   certificateOfFitnessExpiration?: Date;
   reminders?: ReminderDays;
 }) {
-  const session = await requireRole(["admin", "supervisor"]);
+  const session = await requireRole(["admin", "supervisor", "staff"]);
 
   try {
     const existingTruck = await prisma.truck.findFirst({

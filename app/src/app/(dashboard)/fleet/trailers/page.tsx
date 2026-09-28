@@ -1,4 +1,5 @@
 import { pageAccess } from "@/lib/session";
+import { canCreateFleetRecords } from "@/lib/permissions";
 import { NoAccess } from "@/components/layout/no-access";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/layout/page-header";
@@ -42,7 +43,7 @@ export default async function TrailersPage({ searchParams }: TrailersPageProps) 
         orderBy: { registrationNo: "asc" },
     });
 
-    const canCreate = role === "admin" || role === "supervisor";
+    const canCreate = canCreateFleetRecords(role);
 
     return (
         <div className="space-y-6">

@@ -3,7 +3,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { TrailerForm } from "../_components/trailer-form";
 
 export default async function NewTrailerPage() {
-    await requireRole(["admin", "supervisor"]);
+    await requireRole(["admin", "supervisor", "staff"]);
 
     return (
         <div>

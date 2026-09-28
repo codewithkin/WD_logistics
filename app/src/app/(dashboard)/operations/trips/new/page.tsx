@@ -4,7 +4,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { TripForm } from "../_components/trip-form";
 
 export default async function NewTripPage() {
-    const session = await requireRole(["admin", "supervisor"]);
+    const session = await requireRole(["admin", "supervisor", "staff"]);
     const showFinancials = canViewFinancialData(session.role);
 
     // Trucks, drivers and customers are no longer preloaded here — the form's

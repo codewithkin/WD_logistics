@@ -38,7 +38,7 @@ export async function createTrip(data: {
   customerId?: string | null;
   notes?: string;
 }) {
-  const session = await requireRole(["admin", "supervisor"]);
+  const session = await requireRole(["admin", "supervisor", "staff"]);
 
   // Auto-determine status based on scheduled date
   const today = new Date();

@@ -184,6 +184,23 @@ export function canViewCostData(role: Role): boolean {
 }
 
 /**
+ * Who may add a truck, a trailer, a driver or a trip.
+ *
+ * Staff included, and that is the whole reason the role exists:
+ * ACCESS_CONTROL.md gives them "see and create" on exactly these four, and
+ * "staff exist for typing in fleet and trip records". Every one of those four
+ * create pages and create actions was admin-and-supervisor, so the role could
+ * do nothing but read. Creating is direct for all three — it is *changing* an
+ * existing record that becomes an edit request.
+ *
+ * Deliberately narrow: it does not cover customers, suppliers, employees,
+ * invoices, payments, expenses or stock, none of which staff can see at all.
+ */
+export function canCreateFleetRecords(role: Role): boolean {
+  return role === "admin" || role === "supervisor" || role === "staff";
+}
+
+/**
  * Who may see what is *owed* — a customer's outstanding balance, a supplier's
  * ledger, an invoice's amount still due.
  *

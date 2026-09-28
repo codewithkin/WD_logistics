@@ -30,7 +30,7 @@ export async function createDriver(data: {
   notes?: string;
   assignedTruckId?: string | null;
 }) {
-  const session = await requireRole(["admin", "supervisor"]);
+  const session = await requireRole(["admin", "supervisor", "staff"]);
 
   try {
     const existingDriver = await prisma.driver.findFirst({

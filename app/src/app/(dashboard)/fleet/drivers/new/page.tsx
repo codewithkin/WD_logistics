@@ -3,7 +3,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { DriverForm } from "../_components/driver-form";
 
 export default async function NewDriverPage() {
-    await requireRole(["admin", "supervisor"]);
+    await requireRole(["admin", "supervisor", "staff"]);
 
     return (
         <div>

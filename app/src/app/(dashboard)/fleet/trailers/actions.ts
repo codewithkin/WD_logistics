@@ -33,7 +33,7 @@ export async function createTrailer(data: {
   notes?: string;
   reminders?: ReminderDays;
 }) {
-  const session = await requireRole(["admin", "supervisor"]);
+  const session = await requireRole(["admin", "supervisor", "staff"]);
 
   try {
     const existingTrailer = await prisma.trailer.findFirst({
