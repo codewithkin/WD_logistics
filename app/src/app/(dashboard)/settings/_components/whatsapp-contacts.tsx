@@ -280,8 +280,8 @@ export function WhatsAppContacts() {
               {editing?.id ? "Edit contact" : "Add contact"}
             </DialogTitle>
             <DialogDescription>
-              The role decides what the assistant will do for them — the same
-              limits as the web app.
+              The assistant answers them at their own access level — the same
+              limits as the web app, not a second list to keep in step.
             </DialogDescription>
           </DialogHeader>
 
