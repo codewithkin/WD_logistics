@@ -36,6 +36,7 @@ interface Envelope<T> {
   data?: T;
   error?: string;
   writes?: boolean;
+  denied?: boolean;
 }
 
 async function call<T>(body: Record<string, unknown>): Promise<Envelope<T>> {
@@ -112,7 +113,14 @@ export async function invoke(
   phone: string,
   operation: string,
   args: Record<string, unknown>,
-): Promise<{ success: boolean; data?: unknown; error?: string; writes?: boolean }> {
+): Promise<{
+  success: boolean;
+  data?: unknown;
+  error?: string;
+  writes?: boolean;
+  /** Set when the refusal was about access, so the wording is passed on as-is. */
+  denied?: boolean;
+}> {
   return call<unknown>({ action: "invoke", phone, operation, args });
 }
 

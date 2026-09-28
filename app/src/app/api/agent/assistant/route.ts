@@ -99,6 +99,14 @@ async function soleOrganizationId(): Promise<string | null> {
   return organization?.id ?? null;
 }
 
+/**
+ * What anyone is told when they ask for something their access does not
+ * allow. Deliberately one sentence, identical every time, and silent about
+ * what was asked for or why it was refused.
+ */
+const ACCESS_DENIED =
+  "You cannot access this information. Ask an admin if you need it.";
+
 export async function POST(request: NextRequest) {
   const denied = withAgentAuth(request);
   if (denied) return denied;
@@ -220,9 +228,16 @@ export async function POST(request: NextRequest) {
       // contact cannot run, but the agent could ask for one anyway — either
       // through a bug or because a model hallucinated a tool name.
       if (!roleAllows(effectiveRole, operation.requires)) {
+        // One fixed sentence, which the model is told to pass on word for
+        // word. It used to get "Kin is supervisor; get_fleet_ranking needs
+        // admin" and write its own refusal around it — so the same question
+        // came back differently worded each time, sometimes naming the tool,
+        // sometimes hinting at what the figure would have been. It also
+        // leaked the role system to whoever asked.
         return NextResponse.json({
           success: false,
-          error: `${contact.name} is ${effectiveRole}; "${name}" needs ${operation.requires}.`,
+          error: ACCESS_DENIED,
+          denied: true,
         });
       }
 

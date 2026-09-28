@@ -184,6 +184,14 @@ export async function buildToolsForCaller(
         // Errors come back as data rather than thrown, so the model can
         // explain the problem instead of the turn dying. "That matches three
         // trucks, which one?" is a useful answer.
+        //
+        // An access refusal is the exception: it carries one fixed sentence
+        // that the model is instructed to repeat word for word, and it is
+        // flagged so no other wording can creep in around it.
+        if (!result.success && result.denied) {
+          return { error: result.error, accessDenied: true };
+        }
+
         return result.success
           ? result.data
           : { error: result.error ?? "That didn't work." };
