@@ -123,28 +123,18 @@ export function generateInvoicePDF(data: InvoiceDocumentData): Uint8Array {
     showCompanyBlock: true,
   });
 
-  // ---- What is owed, in the largest type on the page ----
+  // ---- The total, in the largest type on the page ----
   //
-  // The denormalised balance is asserted against the arithmetic. They can
-  // drift if a payment was written outside a transaction, and an invoice that
-  // says one thing in the app and another on paper is worse than a warning.
-  const computedBalance =
-    Math.round((invoice.total - invoice.amountPaid) * 100) / 100;
-  const storedBalance = Math.round(invoice.balance * 100) / 100;
-  const balanceMismatch = Math.abs(computedBalance - storedBalance) > 0.01;
-  if (balanceMismatch) {
-    console.warn(
-      `[invoice] ${invoice.invoiceNumber}: stored balance ${storedBalance} ` +
-        `but total - paid = ${computedBalance}. Printing the computed figure.`,
-    );
-  }
-  const balance = balanceMismatch ? computedBalance : storedBalance;
-
+  // Not "amount due". An invoice is a bill for one job: what it is for, what
+  // it comes to. What is *still owed* spans every invoice and payment on the
+  // account, which is a statement — the client's instruction was that the two
+  // documents must stop overlapping, and a running balance on an invoice is
+  // where they did.
   drawHighlightBand(
     ctx,
     {
-      label: isCredit ? "Credit amount" : "Amount due",
-      value: money(isCredit ? invoice.total : balance),
+      label: isCredit ? "Credit amount" : "Total",
+      value: money(invoice.total),
       tone: overdue ? "danger" : undefined,
     },
     invoice.dueDate && !isCredit
@@ -233,18 +223,14 @@ export function generateInvoicePDF(data: InvoiceDocumentData): Uint8Array {
       label: vatRate > 0 ? `VAT (${vatRate}%)` : "VAT",
       value: money(invoice.tax),
     },
-    { label: "Total", value: money(invoice.total), emphasis: isCredit },
+    { label: "Total", value: money(invoice.total), emphasis: true },
   ];
 
-  if (!isCredit) {
-    if (invoice.amountPaid > 0) {
-      totals.push({ label: "Paid", value: money(invoice.amountPaid) });
-    }
-    totals.push({
-      label: "Balance due",
-      value: money(balance),
-      emphasis: true,
-    });
+  // A part-paid invoice still says what has been received against it — that
+  // is a fact about this bill. What remains across the account is the
+  // statement's job, so there is no balance line here.
+  if (!isCredit && invoice.amountPaid > 0) {
+    totals.push({ label: "Paid", value: money(invoice.amountPaid) });
   }
 
   drawTotals(ctx, totals);
