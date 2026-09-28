@@ -50,7 +50,7 @@ async function findRecipients(
     })),
   });
 
-  const [drivers, employees, customers, suppliers, contacts] = await Promise.all([
+  const [drivers, employees, customers, suppliers, contacts, colleagues] = await Promise.all([
     prisma.driver.findMany({
       where: { organizationId: ctx.organizationId, ...match(["firstName", "lastName"]) },
       select: { firstName: true, lastName: true, phone: true, whatsappNumber: true },
@@ -76,6 +76,30 @@ async function findRecipients(
       select: { name: true, phone: true },
       take: 5,
     }),
+    // Colleagues, by the name on their login rather than the name somebody
+    // typed on the contact list. "Message Tapiwa" used to find nobody when
+    // the contact row was labelled "Dispatcher" — the person is reachable,
+    // the search just never looked at the staff list.
+    prisma.member.findMany({
+      where: {
+        organizationId: ctx.organizationId,
+        user: { is: match(["name", "email"]) },
+      },
+      select: {
+        role: true,
+        user: {
+          select: {
+            name: true,
+            whatsappContacts: {
+              where: { isActive: true },
+              select: { phone: true },
+              take: 1,
+            },
+          },
+        },
+      },
+      take: 5,
+    }),
   ]);
 
   const out: Recipient[] = [];
@@ -95,6 +119,9 @@ async function findRecipients(
   for (const c of customers) add(c.name, c.phone, "customer");
   for (const s of suppliers) add(s.name, s.phone, "supplier");
   for (const c of contacts) add(c.name, c.phone, "contact");
+  for (const m of colleagues) {
+    add(m.user.name, m.user.whatsappContacts[0]?.phone ?? null, m.role);
+  }
 
   return out;
 }
@@ -103,7 +130,7 @@ export const messagingOperations: Operation[] = [
   {
     name: "send_whatsapp_message",
     description:
-      "Send a WhatsApp message to someone on file — a driver, employee, customer, supplier or listed contact. Quote what the sender actually wants said; do not compose something they did not ask for. Say who it went to once it is sent.",
+      "Send a WhatsApp message to someone on file — a driver, employee, customer, supplier, a colleague who uses the system, or a listed contact. Quote what the sender actually wants said; do not compose something they did not ask for. Say who it went to once it is sent.",
     requires: "supervisor",
     writes: true,
     schema: z.object({
