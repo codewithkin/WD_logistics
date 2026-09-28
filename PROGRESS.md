@@ -531,13 +531,19 @@ pass.
 - **A static role check is not enough.** Both money leaks found this round
   were tools at the correct level carrying figures that level may not see.
 
-### Still open
-- **CSV/PDF parity is improved, not complete.** The expense, truck, revenue
-  and customer reports were fixed. Others still differ — the PDFs carry KPI
-  rows the CSVs lack, and some CSVs carry columns the PDFs lack (fuel
-  make/model, aged-receivables phone, creditors ledger balance). Worth a
-  systematic pass.
-- The `word-report-generator` customer export is still titled "Customer
-  Statement" while being a customer detail report.
-- `designs/` is still untracked, so the physical invoice photo remains
-  invisible to a cloud session.
+### Closed since (fourth pass, continued)
+
+- **The Reports page was broken for every role.** Opening it showed "Something
+  Went Wrong". `ReportsClient` took the dashboard as a prop and called
+  `cloneElement` on it; a JSX element created in a Server Component arrives in
+  a Client Component as a lazy reference whose `.type` is `undefined`, so the
+  clone could not render. It is passed as `children` now, with the callbacks
+  going through context. **This is the cost of three passes that never loaded
+  a page** — it was found within a minute of actually opening one.
+- The Word customer export is retitled **"Customer Report"**. "Customer
+  Statement" is a different document and now genuinely exists.
+- `designs/` is tracked after all — 15 files including the invoice photo. The
+  previous note was wrong.
+- The three role guides in `lessons/` described access nobody has had since
+  the approval flow landed: they told supervisors they could edit directly
+  and approve staff requests. Both false.
