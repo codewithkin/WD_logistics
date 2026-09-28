@@ -403,6 +403,97 @@ export const writeOperations: Operation[] = [
   },
 
   {
+    name: "assign_trip",
+    description:
+      "Put a different truck or driver on a booked trip, or move its date. Use this to reassign work that is already on the schedule; use create_trip for new work.",
+    requires: "supervisor",
+    writes: true,
+    schema: z.object({
+      tripId: z.string().describe("The trip's id, from list_trips"),
+      truck: z.string().optional().describe("Registration of the truck to put on it"),
+      driver: z.string().optional().describe("Name of the driver to put on it"),
+      scheduledDate: z.string().optional().describe("New date, ISO (YYYY-MM-DD)"),
+      reason: z
+        .string()
+        .describe(
+          "Why it is being reassigned. Anyone but an admin has this filed as an edit request, and the reason is what the admin reads.",
+        ),
+    }),
+    handler: async (args, ctx) => {
+      const a = args as {
+        tripId: string;
+        truck?: string;
+        driver?: string;
+        scheduledDate?: string;
+        reason: string;
+      };
+
+      const trip = await prisma.trip.findFirst({
+        where: { id: a.tripId, organizationId: ctx.organizationId },
+        select: { id: true, originCity: true, destinationCity: true, status: true },
+      });
+      if (!trip) return { error: "No trip with that id." };
+
+      if (trip.status === "completed" || trip.status === "cancelled") {
+        return {
+          error: `That trip is already ${trip.status}, so it cannot be reassigned.`,
+        };
+      }
+
+      const change: Record<string, unknown> = {};
+      const described: string[] = [];
+
+      if (a.truck) {
+        const found = await findTruck(ctx, a.truck);
+        if (!found.ok) return { error: found.error };
+        change.truckId = found.row.id;
+        described.push(`truck ${found.row.registrationNo}`);
+      }
+
+      if (a.driver) {
+        const found = await findDriver(ctx, a.driver);
+        if (!found.ok) return { error: found.error };
+        change.driverId = found.row.id;
+        described.push(`driver ${found.row.firstName} ${found.row.lastName}`);
+      }
+
+      if (a.scheduledDate) {
+        const when = new Date(a.scheduledDate);
+        if (Number.isNaN(when.getTime())) {
+          return { error: "That date could not be read. Use YYYY-MM-DD." };
+        }
+        change.scheduledDate = when;
+        described.push(`date ${a.scheduledDate}`);
+      }
+
+      if (Object.keys(change).length === 0) {
+        return { error: "Say what to change: a truck, a driver or a date." };
+      }
+
+      const { updateTrip } = await import("@/app/(dashboard)/operations/trips/actions");
+
+      // The same action the web form calls, so the edit-request gate applies:
+      // this is not a status-only change, so a non-admin's version becomes a
+      // request rather than a write.
+      const result = await updateTrip(
+        a.tripId,
+        change,
+        `${a.reason} (${ctx.actorName}, over WhatsApp)`,
+      );
+
+      const pending = (result as { pendingApproval?: boolean }).pendingApproval;
+      return result.success
+        ? {
+            updated: !pending,
+            sentForApproval: Boolean(pending),
+            trip: `${trip.originCity} → ${trip.destinationCity}`,
+            changed: described.join(", "),
+          }
+        : { error: result.error ?? "Could not reassign the trip." };
+    },
+  },
+
+  {
     name: "update_trip_status",
     description:
       "Move a trip on — mark it started, completed or cancelled. Completing a trip is what makes its revenue count.",
