@@ -4,7 +4,8 @@ Written 28 Sep 2026. Three pieces of work, in the order they should be done.
 Each carries its own success criteria, because "implemented" and "working"
 have come apart on this project before.
 
-**Status, 28 Sep 2026:** pieces 1 and 2 are built. The cap is **200 messages**,
+**Status, 28 Sep 2026:** pieces 1 and 2 are built and their success criteria
+are met. The cap is **200 messages**,
 not the 120 first drafted — the client raised it before any of this shipped.
 Piece 3 is a costing note and needs a month of real `costUsd` data, not code.
 
@@ -83,9 +84,13 @@ in memory, increment locally, and re-read every few minutes or on a miss.
 counts. The customer-facing wording says exactly that.
 
 **One thing the brief did not specify:** what happens when the app cannot be
-reached to read the count. It fails **open** — the message is allowed. A
-fair-use cap is a billing guard, not a security control, and silently muting
-the assistant because an internal HTTP call timed out is the worse failure.
+reached to read the count. It fails **closed** — the message is refused and
+nothing is sent (`40a70f1`). Not knowing how many messages have gone out is
+not evidence that there is room left. The cost: if the app is down when the
+agent starts, every message is dropped in silence until it comes back. That
+is tolerable because the app is also where the tools live, so a reply during
+an outage would have been "I can't reach the system" anyway. A *stale* cache
+still answers — it is a real count from minutes ago, not an absence of one.
 
 ---
 
@@ -184,10 +189,14 @@ Checked against the table above, and corrected in `88a9a60`:
       used to match the refusal wording, which no longer exists, so a run
       against an empty contact list would have gone green instead of saying
       why.
-- [~] One live check case per role, asserting both what that role *can* do
-      and one thing it *cannot*. Partly there: the existing cases cover
-      owner and yard hand. **Staff and supervisor still have none** — the
-      next piece of work on this file.
+- [x] One live check case per role, asserting both what that role *can* do
+      and one thing it *cannot* (`7c5ee39`). Staff and supervisor had none
+      at all, which is how two false descriptions of them survived. Each
+      role's manifest was also compared against what its cases claim, free
+      and without the model: admin 53 tools, supervisor 37, staff 9,
+      readonly 7, nothing offered that a case says is out of reach.
+      **The full live run against the model has not been made** — it costs
+      real tokens and writes LIVETEST rows.
 - [x] Every sentence on the page is now backed by the per-role tool list
       above rather than by memory.
 
