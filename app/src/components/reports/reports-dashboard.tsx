@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { ReportsTabs } from "./reports-tabs";
+import { useReportActions } from "./reports-client";
 import { GenerateReportLink } from "./generate-report-link";
 import { ReportsGenerateMenu } from "./reports-generate-menu";
 import { ReportGenerator } from "./report-generator";
@@ -90,7 +91,17 @@ interface ReportsDashboardProps {
   isGenerating?: boolean;
 }
 
-export function ReportsDashboard({ data, periodLabel = "This Month", initialTab = "overview", initialReportType, onGeneratePDF, onGenerateCSV, onExportDashboard, isGenerating = false, reports = [] }: ReportsDashboardProps) {
+export function ReportsDashboard({ data, periodLabel = "This Month", initialTab = "overview", initialReportType, onGeneratePDF: onGeneratePDFProp, onGenerateCSV: onGenerateCSVProp, onExportDashboard: onExportDashboardProp, isGenerating: isGeneratingProp = false, reports: reportsProp = [] }: ReportsDashboardProps) {
+  // Rendered by the server and handed to ReportsClient as children, so the
+  // callbacks arrive through context rather than as props — an element that
+  // crosses that boundary cannot be cloned to add them. Props still win when
+  // this is rendered directly, which the tests and any future caller do.
+  const actions = useReportActions();
+  const onGeneratePDF = onGeneratePDFProp ?? actions?.onGeneratePDF;
+  const onGenerateCSV = onGenerateCSVProp ?? actions?.onGenerateCSV;
+  const onExportDashboard = onExportDashboardProp ?? actions?.onExportDashboard;
+  const isGenerating = isGeneratingProp || (actions?.isGenerating ?? false);
+  const reports = reportsProp.length > 0 ? reportsProp : (actions?.reports ?? []);
   const {
     totalTrucks,
     activeTrucks,

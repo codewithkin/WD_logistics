@@ -1,12 +1,11 @@
 "use client";
 
-import { cloneElement, useTransition } from "react";
+import { createContext, useContext, useMemo, useTransition } from "react";
 import { toast } from "sonner";
 import { usePeriodRange } from "@/lib/use-period-range";
 import { generateReport, type GenerateReportInput } from "@/app/(dashboard)/reports/actions";
 import { exportDashboardPDF } from "@/app/(dashboard)/reports/actions";
-import { ReportsDashboard } from "./reports-dashboard";
-import type { ReactElement, ComponentProps } from "react";
+import type { ReactNode } from "react";
 
 interface Report {
   id: string;
@@ -20,11 +19,38 @@ interface Report {
 
 interface ReportsClientProps {
   initialReports: Report[];
-  dashboardContent: ReactElement<ComponentProps<typeof ReportsDashboard>, typeof ReportsDashboard>;
+  /** The dashboard, rendered by the server and passed straight through. */
+  children: ReactNode;
+}
+
+/**
+ * The generate/export callbacks, handed down rather than cloned in.
+ *
+ * This used to be `cloneElement(dashboardContent, { onGeneratePDF, ... })`.
+ * A JSX element created in a Server Component and passed to a Client
+ * Component arrives as a *lazy reference*, not a plain element: reading
+ * `.type` gives `undefined`, and cloning it produces an element React cannot
+ * render — "Element type is invalid ... got: undefined", which took the whole
+ * Reports page down. Children pass through untouched, so the dashboard is
+ * rendered as the server made it and reads what it needs from here.
+ */
+interface ReportActions {
+  reports: Report[];
+  onGeneratePDF: (reportType: string) => void;
+  onGenerateCSV: (reportType: string) => void;
+  onExportDashboard: () => void;
+  isGenerating: boolean;
+}
+
+const ReportActionsContext = createContext<ReportActions | null>(null);
+
+/** Null when rendered outside ReportsClient, so the dashboard can still mount. */
+export function useReportActions(): ReportActions | null {
+  return useContext(ReportActionsContext);
 }
 
 export function ReportsClient({
-  dashboardContent,
+  children,
   initialReports,
 }: ReportsClientProps) {
   const [isPending, startTransition] = useTransition();
@@ -105,17 +131,22 @@ export function ReportsClient({
     });
   };
 
-  // dashboardContent is built on the server, so its `type` is a client
-  // reference, never identical to the ReportsDashboard function imported
-  // here. The old `dashboardContent.type === ReportsDashboard` check
-  // therefore always failed and silently dropped every prop below — which is
-  // why the Generate button never appeared and Report History was always
-  // empty. cloneElement doesn't care about type identity.
-  return cloneElement(dashboardContent, {
-    reports: initialReports,
-    onGeneratePDF: (reportType: string) => handleGenerateReport("pdf", reportType),
-    onGenerateCSV: (reportType: string) => handleGenerateReport("csv", reportType),
-    onExportDashboard: handleExportDashboard,
-    isGenerating: isPending,
-  });
+  const actions = useMemo<ReportActions>(
+    () => ({
+      reports: initialReports,
+      onGeneratePDF: (reportType: string) => handleGenerateReport("pdf", reportType),
+      onGenerateCSV: (reportType: string) => handleGenerateReport("csv", reportType),
+      onExportDashboard: handleExportDashboard,
+      isGenerating: isPending,
+    }),
+    // The two handlers close over `period` and the transition, both listed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [initialReports, isPending, period.from, period.to],
+  );
+
+  return (
+    <ReportActionsContext.Provider value={actions}>
+      {children}
+    </ReportActionsContext.Provider>
+  );
 }

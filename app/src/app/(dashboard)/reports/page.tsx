@@ -214,10 +214,14 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
         <ReportsPeriodSelector />
       </div>
 
-      <ReportsClient
-        initialReports={reports}
-        dashboardContent={<ReportsDashboard data={dashboardData} periodLabel={dateRange.label} initialTab={currentTab} initialReportType={params.type} />}
-      />
+      <ReportsClient initialReports={reports}>
+        <ReportsDashboard
+          data={dashboardData}
+          periodLabel={dateRange.label}
+          initialTab={currentTab}
+          initialReportType={params.type}
+        />
+      </ReportsClient>
     </div>
   );
 }

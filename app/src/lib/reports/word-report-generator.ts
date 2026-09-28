@@ -103,8 +103,14 @@ export async function generateCustomerDetailReportWord(
         headers: { default: brandHeader(organization) },
         footers: { default: brandFooter(organization) },
         children: [
+          // Not "Customer Statement": that is a specific document — opening
+          // balance, the period's transactions, amount due — and it now
+          // exists at lib/documents/statement.ts. This is a profile of the
+          // customer with their trips, invoices and payments listed, so it
+          // is named for what it is. Two documents sharing one title is how
+          // somebody sends a customer the wrong one.
           ...titleBlock(
-            "Customer Statement",
+            "Customer Report",
             `${data.customer.name} · generated ${formatDate(data.generatedAt)}`,
           ),
 
