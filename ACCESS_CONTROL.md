@@ -222,12 +222,13 @@ re-derive a role check inline.
 
 ## Checking it
 
-Four scripts verify the code against this file rather than against memory.
+Five scripts verify the code against this file rather than against memory.
 Run them all from `app/` after touching any role:
 
 ```bash
 python scripts/audit-access.py         # every page's guard matches the matrix above
 python scripts/audit-nav.py            # no role is shown a link the page will refuse
+python scripts/audit-action-guards.py  # no server action runs without knowing the caller
 python scripts/audit-export-access.py  # every export and document action is gated
 bun --preload ./scripts/_stub-server-only.ts scripts/audit-assistant-access.ts
 ```

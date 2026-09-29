@@ -335,26 +335,6 @@ export async function deleteInvoice(id: string,
   }
 }
 
-export async function generateInvoiceNumber(organizationId: string): Promise<string> {
-  const year = new Date().getFullYear();
-  const prefix = `INV-${year}-`;
-
-  const lastInvoice = await prisma.invoice.findFirst({
-    where: {
-      organizationId,
-      invoiceNumber: { startsWith: prefix },
-    },
-    orderBy: { invoiceNumber: "desc" },
-  });
-
-  if (lastInvoice) {
-    const lastNumber = parseInt(lastInvoice.invoiceNumber.replace(prefix, ""), 10);
-    return `${prefix}${String(lastNumber + 1).padStart(4, "0")}`;
-  }
-
-  return `${prefix}0001`;
-}
-
 export async function exportInvoicesPDF(options?: {
   invoiceIds?: string[];
   startDate?: Date;

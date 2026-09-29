@@ -113,36 +113,3 @@ export async function dismissNotification(notificationId: string) {
     return { success: false, error: "Failed to dismiss notification" };
   }
 }
-
-export async function createNotification(data: {
-  userId: string;
-  organizationId: string;
-  type: string;
-  title: string;
-  message: string;
-  entityType?: string;
-  entityId?: string;
-  link?: string;
-  metadata?: any;
-}) {
-  try {
-    const notification = await prisma.userNotification.create({
-      data: {
-        userId: data.userId,
-        organizationId: data.organizationId,
-        type: data.type,
-        title: data.title,
-        message: data.message,
-        entityType: data.entityType,
-        entityId: data.entityId,
-        link: data.link,
-        metadata: data.metadata,
-      },
-    });
-
-    return { success: true, notification };
-  } catch (error) {
-    console.error("Failed to create notification:", error);
-    return { success: false, error: "Failed to create notification" };
-  }
-}
