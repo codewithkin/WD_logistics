@@ -203,7 +203,13 @@ export default function AboutPage() {
           secondaryHref="/contact"
           bottomText={
             <>
-              {COMPANY.address} · {COMPANY.email}
+              {COMPANY.address} ·{" "}
+              {/* Was plain text — an address is fine to read, an email
+                  address printed next to it is something people try to
+                  click. */}
+              <a href={COMPANY.emailHref} className="hover:text-[#15250A]">
+                {COMPANY.email}
+              </a>
               <br />© {COMPANY.year} {COMPANY.name} · {COMPANY.domain}
             </>
           }

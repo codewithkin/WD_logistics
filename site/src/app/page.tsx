@@ -6,7 +6,14 @@ import { CtaFooterFull } from "@/components/CtaFooter";
 import { FaqAccordion } from "@/components/FaqAccordion";
 import { Reveal } from "@/components/motion/Reveal";
 import { StaggerGroup, StaggerItem } from "@/components/motion/Stagger";
-import { COMPANY, COUNTRIES, DEFAULT_OG, enquiryHref, SITE_URL } from "@/lib/site";
+import {
+  COMPANY,
+  COUNTRIES,
+  DEFAULT_OG,
+  enquiryHref,
+  SERVICES,
+  SITE_URL,
+} from "@/lib/site";
 
 export const metadata: Metadata = {
   title: `WD Logistics | ${COMPANY.motto} — Road Freight Across the SADC Region`,
@@ -625,12 +632,14 @@ export default function HomePage() {
             },
             {
               title: "SERVICES",
-              links: [
-                { label: "Full loads", href: "#b-services" },
-                { label: "Part loads", href: "#b-services" },
-                { label: "Bulk & tipper", href: "#b-services" },
-                { label: "Abnormal loads", href: "#b-services" },
-              ],
+              // Each one starts the enquiry for that service, as its card
+              // does. All four used to point at #b-services — four different
+              // names, one destination, so three of them did nothing a reader
+              // would notice.
+              links: SERVICES.map((service) => ({
+                label: service.label,
+                href: enquiryHref(service.slug),
+              })),
             },
             {
               title: "ON THIS PAGE",

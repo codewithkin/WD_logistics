@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Header } from "@/components/Header";
 import { PhotoBlock } from "@/components/PhotoBlock";
 import { CtaFooterSimple } from "@/components/CtaFooter";
 import { EnquiryForm } from "@/components/EnquiryForm";
 import { Reveal } from "@/components/motion/Reveal";
 import { StaggerGroup, StaggerItem } from "@/components/motion/Stagger";
-import { COMPANY, DEFAULT_OG, SITE_URL } from "@/lib/site";
+import { COMPANY, DEFAULT_OG, NAV_LINKS, SITE_URL } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Contact WD Logistics | Freight Transport & Haulage Quotes Across SADC",
@@ -49,11 +50,26 @@ export default function ContactPage() {
                 <span className="font-sans text-xs font-semibold tracking-[0.1em]">
                   CALL OR WHATSAPP
                 </span>
-                <span className="font-heading text-xl font-bold tracking-[-0.02em]">
+                {/* Both numbers were plain text on the page somebody opens in
+                    order to get in touch. A number on a phone screen is
+                    something you tap. Two links rather than one on the card,
+                    because they are two destinations. */}
+                <a
+                  href={COMPANY.whatsappHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-fit rounded font-heading text-xl font-bold tracking-[-0.02em] underline decoration-[#15250A]/25 underline-offset-[5px] transition-colors hover:decoration-[#15250A] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#15250A]"
+                >
                   {COMPANY.whatsapp}
-                </span>
+                </a>
                 <span className="font-sans text-[13px] font-medium">
-                  Office: {COMPANY.office}
+                  Office:{" "}
+                  <a
+                    href={COMPANY.officeHref}
+                    className="rounded underline decoration-[#15250A]/25 underline-offset-[3px] transition-colors hover:decoration-[#15250A] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#15250A]"
+                  >
+                    {COMPANY.office}
+                  </a>
                 </span>
               </span>
             </StaggerItem>
@@ -65,9 +81,12 @@ export default function ContactPage() {
                 <span className="font-sans text-xs font-semibold tracking-[0.1em] text-[#646B65]">
                   EMAIL
                 </span>
-                <span className="font-sans text-[17px] font-semibold">
+                <a
+                  href={COMPANY.emailHref}
+                  className="w-fit rounded font-sans text-[17px] font-semibold underline decoration-[#1E2320]/20 underline-offset-[5px] transition-colors hover:decoration-[#1E2320] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#3D8A14]"
+                >
                   {COMPANY.email}
-                </span>
+                </a>
               </span>
             </StaggerItem>
             <StaggerItem y={14} className="flex items-center gap-4 rounded-[26px] border border-[#E6E9E2] bg-white px-6 py-[22px] transition-transform duration-300 hover:-translate-y-1">
@@ -133,7 +152,17 @@ export default function ContactPage() {
           secondaryHref={COMPANY.officeHref}
           bottomText={
             <>
-              Home · About · Contact us
+              {/* These were plain text. Three nav labels separated by dots,
+                  at the foot of a page, are read as a footer nav — and none
+                  of them went anywhere. */}
+              {NAV_LINKS.map((link, index) => (
+                <span key={link.href}>
+                  {index > 0 ? " · " : null}
+                  <Link href={link.href} className="hover:text-[#15250A]">
+                    {link.label}
+                  </Link>
+                </span>
+              ))}
               <br />© {COMPANY.year} {COMPANY.name} · {COMPANY.domain}
             </>
           }

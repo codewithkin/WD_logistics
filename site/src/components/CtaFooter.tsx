@@ -65,12 +65,34 @@ export function CtaFooterFull({
         <div className="grid grid-cols-2 gap-x-6 gap-y-8 border-t border-[#15250A]/[.22] pt-8 sm:grid-cols-4 sm:gap-10 lg:grid-cols-[1.3fr_1fr_1fr_1fr] lg:pt-10">
           <div className="col-span-2 flex flex-col gap-4 sm:col-span-4 lg:col-span-1">
             <LogoBadge />
-            <p className="m-0 max-w-[32ch] font-sans text-sm leading-[1.7] text-[#15250A]/[.78] text-balance">
-              {COMPANY.address}
-              <br />
-              {COMPANY.whatsapp} · {COMPANY.office}
-              <br />
-              {COMPANY.email}
+            {/* Tappable. These were plain text — a phone number and an
+                email address printed in a paragraph, on the part of the page
+                somebody reaches for on a phone. */}
+            <p className="m-0 flex max-w-[32ch] flex-col font-sans text-sm leading-[1.7] text-[#15250A]/[.78] text-balance">
+              <span>{COMPANY.address}</span>
+              <span>
+                <a
+                  href={COMPANY.whatsappHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="transition-colors hover:text-[#15250A]"
+                >
+                  {COMPANY.whatsapp}
+                </a>{" "}
+                ·{" "}
+                <a
+                  href={COMPANY.officeHref}
+                  className="transition-colors hover:text-[#15250A]"
+                >
+                  {COMPANY.office}
+                </a>
+              </span>
+              <a
+                href={COMPANY.emailHref}
+                className="w-fit transition-colors hover:text-[#15250A]"
+              >
+                {COMPANY.email}
+              </a>
             </p>
           </div>
           {columns.map((col) => (
@@ -81,13 +103,31 @@ export function CtaFooterFull({
               <span className="pb-1 font-sans text-xs font-bold tracking-[0.12em] text-[#15250A]">
                 {col.title}
               </span>
+              {/* Anything that is not an in-app path still has to be a
+                  link. This fell through to a plain <span>, so the first
+                  tel:, mailto: or external href anybody added to a footer
+                  column would have rendered as dead text that looks exactly
+                  like the working ones beside it. */}
               {col.links.map((link) =>
                 link.href.startsWith("#") || link.href.startsWith("/") ? (
-                  <Link key={link.label} href={link.href} className="text-[#15250A]/[.78]">
+                  <Link
+                    key={link.label}
+                    href={link.href}
+                    className="text-[#15250A]/[.78] transition-colors hover:text-[#15250A]"
+                  >
                     {link.label}
                   </Link>
                 ) : (
-                  <span key={link.label}>{link.label}</span>
+                  <a
+                    key={link.label}
+                    href={link.href}
+                    {...(link.href.startsWith("http")
+                      ? { target: "_blank", rel: "noopener noreferrer" }
+                      : {})}
+                    className="text-[#15250A]/[.78] transition-colors hover:text-[#15250A]"
+                  >
+                    {link.label}
+                  </a>
                 ),
               )}
             </div>
