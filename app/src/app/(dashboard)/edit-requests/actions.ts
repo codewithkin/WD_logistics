@@ -91,9 +91,24 @@ export async function getEditRequestDiff(id: string): Promise<{
   >;
 
   const money = new Set(entry.moneyFields ?? []);
-  const fields = [
-    ...new Set([...Object.keys(original), ...Object.keys(proposed)]),
-  ];
+
+  // Only the fields this change actually carries.
+  //
+  // It used to be the union of the snapshot's fields and the proposal's, and
+  // the snapshot holds every editable column while a form posts only the ones
+  // it has inputs for. So a truck edit showed "Fuel type: Diesel -> —" and
+  // "Tank capacity: 375 -> —" beside the one real change, reading as though
+  // approving would wipe both. It would not: the update action writes only the
+  // keys it is given. A field the proposal does not carry is not part of the
+  // decision and does not belong on the screen that describes it.
+  //
+  // Keys with no label in the registry are dropped for the same reason: they
+  // are not columns of the record. A truck form posts a `reminders` map for
+  // the action to save alongside, and it was being listed as a field of the
+  // truck, with its value printed as "[object Object]".
+  const fields = Object.keys(proposed).filter(
+    (field) => entry.fieldLabels[field] !== undefined,
+  );
 
   const rows: DiffRow[] = fields
     .map((field) => {
@@ -127,8 +142,13 @@ export async function getEditRequestDiff(id: string): Promise<{
 /** Structural equality that survives the JSON round-trip both sides went through. */
 function sameValue(a: unknown, b: unknown): boolean {
   if (a === b) return true;
-  if (a === null || a === undefined) return b === null || b === undefined;
-  if (b === null || b === undefined) return false;
+  // An empty field and a missing one are the same absence. A form posts "" for
+  // an image nobody picked while the column holds null, and the diff was
+  // listing that as a change: "Photo: — -> —", a row that says nothing.
+  const absent = (value: unknown) =>
+    value === null || value === undefined || value === "";
+  if (absent(a)) return absent(b);
+  if (absent(b)) return false;
   if (Array.isArray(a) && Array.isArray(b)) {
     if (a.length !== b.length) return false;
     // Order of linked ids isn't meaningful, so compare as sets.

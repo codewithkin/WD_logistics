@@ -121,6 +121,27 @@ export async function gateChange(params: {
     };
   }
 
+  // A request that changes nothing is a request an admin has to read, decide
+  // and apply for no result. Submitting the form without touching a field is
+  // easy to do — the form posts every field, not just the edited ones — so it
+  // is caught here rather than left for the admin to notice.
+  if ((params.action ?? "update") === "update") {
+    const before = serialiseForRequest(snapshot.data) as Record<string, unknown>;
+    const after = serialiseForRequest(params.data) as Record<string, unknown>;
+    const changed = Object.keys(after).filter(
+      (key) => JSON.stringify(after[key]) !== JSON.stringify(before[key]),
+    );
+    if (changed.length === 0) {
+      return {
+        proceed: false,
+        response: {
+          success: false,
+          error: `Nothing on ${snapshot.label} was changed, so there is nothing to send for approval.`,
+        },
+      };
+    }
+  }
+
   // At most one pending request per record — the database enforces this with a
   // partial unique index, but checking first gives a message worth reading.
   const existing = await prisma.editRequest.findFirst({

@@ -44,6 +44,14 @@ function formatValue(value: unknown, isMoney: boolean): string {
     }
     return value.length > 80 ? `${value.slice(0, 80)}…` : value;
   }
+  // A nested object has no business being shown as a field's value, and the
+  // diff drops unlabelled keys now — but if one ever reaches here it is
+  // summarised rather than rendered as "[object Object]", which is what the
+  // truck form's reminders map used to print.
+  if (typeof value === "object") {
+    const keys = Object.keys(value as Record<string, unknown>);
+    return keys.length === 0 ? "—" : `${keys.length} setting${keys.length === 1 ? "" : "s"}`;
+  }
   return String(value);
 }
 

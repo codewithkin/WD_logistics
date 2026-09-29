@@ -105,7 +105,11 @@ export function CustomerForm({ customer }: CustomerFormProps) {
 
                 toast.success(result.message);
 
-                router.push("/edit-requests");
+                // Back to the list, not to the request queue: Edit Requests is
+                // admin only (ACCESS_CONTROL.md), so a supervisor filing a
+                // request was being sent straight to a no-access page instead
+                // of a confirmation.
+                router.push("/customers");
 
                 return;
 
