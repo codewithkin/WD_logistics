@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { PrismaClient } from "@/generated/prisma/client";
+import { PrismaClient, type Prisma } from "@/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { hashPassword } from "better-auth/crypto";
 
@@ -626,7 +626,7 @@ async function main() {
   // Payments already made to suppliers, so the supplier-payments page and the
   // cash-flow report have history behind them.
   console.log("\n💸 Creating supplier payments...");
-  const supplierPayments: any[] = [];
+  const supplierPayments: Prisma.SupplierPaymentCreateManyInput[] = [];
   for (let month = 5; month >= 0; month--) {
     for (const supplier of suppliers) {
       if (randomNumber(0, 2) === 0) continue;
@@ -676,9 +676,9 @@ async function main() {
 
   const VAT_RATE = 0.145; // Printed as its own line on the invoice
   let invoiceSeq = 1;
-  const invoiceRows: any[] = [];
-  const lineItemRows: any[] = [];
-  const paymentRows: any[] = [];
+  const invoiceRows: Prisma.InvoiceCreateManyInput[] = [];
+  const lineItemRows: Prisma.InvoiceLineItemCreateManyInput[] = [];
+  const paymentRows: Prisma.PaymentCreateManyInput[] = [];
 
   for (const trip of billableTrips) {
     const issueDate = trip.endDate ?? trip.scheduledDate;
