@@ -782,7 +782,28 @@ export function operationManifest(role: string) {
       // rejected by the agent's own validation, which killed the whole turn
       // rather than the one call. One model happened always to send `limit`
       // and another did not; that was luck, not correctness.
-      schema: z.toJSONSchema(operation.schema, { io: "input" }),
+      schema: withoutMeta(z.toJSONSchema(operation.schema, { io: "input" })),
     }),
   );
+}
+
+/**
+ * Drops the JSON Schema preamble from a manifest entry.
+ *
+ * Every tool's schema carried `"$schema":
+ * "https://json-schema.org/draft/2020-12/schema"` — 62 characters that the
+ * agent's converter ignores and the model does not read. With ninety tools in
+ * an admin's manifest that is 5,600 characters, around 1,400 tokens, on every
+ * single message. Nothing else in the preamble is used either.
+ *
+ * Worth doing because the manifest is the bulk of the prompt: an admin's tool
+ * definitions come to roughly 12,000 tokens against a reply of a few dozen, so
+ * what is sent here is what the assistant costs to run.
+ */
+function withoutMeta(schema: Record<string, unknown>): Record<string, unknown> {
+  const { $schema: _draft, ...rest } = schema as { $schema?: unknown } & Record<
+    string,
+    unknown
+  >;
+  return rest;
 }
