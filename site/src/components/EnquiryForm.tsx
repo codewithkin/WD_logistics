@@ -1,23 +1,41 @@
 "use client";
 
+/**
+ * The enquiry form.
+ *
+ * It used to be decoration: no field had a name, nothing was read on submit,
+ * and `handleSubmit` simply flipped to "Enquiry received". Somebody who filled
+ * it in was told their load had reached us when it had reached nobody. It
+ * posts to a server action now, and only says received when the mail has
+ * actually gone to operations and admin.
+ */
+
 import { AnimatePresence, motion } from "motion/react";
 import { useState, type FormEvent } from "react";
+import { submitEnquiry } from "@/app/actions/enquiry";
 
 const easeOut = [0.16, 1, 0.3, 1] as const;
 
 const FIELD_CLASS =
   "rounded-2xl border border-[#E6E9E2] bg-[#F7F8F5] px-[18px] py-4 font-sans text-sm text-[#1E2320] placeholder:text-[#868C86] outline-none transition-colors focus:border-[#63C32E] focus:bg-white";
 
+const FIELD_ERROR_CLASS =
+  "rounded-2xl border border-[#C4362F] bg-[#FDF4F3] px-[18px] py-4 font-sans text-sm text-[#1E2320] placeholder:text-[#868C86] outline-none transition-colors focus:border-[#C4362F] focus:bg-white";
+
 function Field({
+  name,
   label,
   optional,
   placeholder,
   type = "text",
+  invalid,
 }: {
+  name: string;
   label: string;
   optional?: boolean;
   placeholder: string;
   type?: string;
+  invalid?: boolean;
 }) {
   return (
     <label className="flex flex-col gap-2">
@@ -27,18 +45,51 @@ function Field({
           <span className="font-normal text-[#787F79]">(optional)</span>
         ) : null}
       </span>
-      <input type={type} placeholder={placeholder} className={FIELD_CLASS} />
+      <input
+        name={name}
+        type={type}
+        placeholder={placeholder}
+        aria-invalid={invalid || undefined}
+        className={invalid ? FIELD_ERROR_CLASS : FIELD_CLASS}
+      />
     </label>
   );
 }
 
 export function EnquiryForm() {
   const [submitted, setSubmitted] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [badField, setBadField] = useState<string | null>(null);
 
-  function handleSubmit(e: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    // No backend for this marketing site yet — just confirm receipt client-side.
-    setSubmitted(true);
+    if (sending) return;
+
+    const form = e.currentTarget;
+    const data = new FormData(form);
+
+    setSending(true);
+    setError(null);
+    setBadField(null);
+
+    try {
+      const result = await submitEnquiry(data);
+      if (result.ok) {
+        form.reset();
+        setSubmitted(true);
+      } else {
+        setError(result.error ?? "That did not send. Please try again.");
+        setBadField(result.field ?? null);
+      }
+    } catch {
+      // A network failure rather than a refusal — same advice either way.
+      setError(
+        "That did not send. Please message us on WhatsApp instead — the number is at the top of this page.",
+      );
+    } finally {
+      setSending(false);
+    }
   }
 
   return (
@@ -64,9 +115,9 @@ export function EnquiryForm() {
             Enquiry received
           </span>
           <p className="m-0 max-w-[46ch] font-sans text-[15px] leading-[1.7] text-[#646B65]">
-            Thanks — we&apos;ll reply on WhatsApp within working hours, usually
-            inside three hours. For anything urgent, message the dispatch line
-            directly.
+            Thanks — it is with our operations team now. We&apos;ll reply on
+            WhatsApp within working hours, usually inside three hours. For
+            anything urgent, message the dispatch line directly.
           </p>
           <button
             type="button"
@@ -80,12 +131,23 @@ export function EnquiryForm() {
         <motion.form
           key="form"
           onSubmit={handleSubmit}
+          noValidate
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -8 }}
           transition={{ duration: 0.4, ease: easeOut }}
           className="flex flex-col gap-[30px] rounded-[40px] border border-[#E6E9E2] bg-white p-[38px] shadow-[0_24px_60px_rgba(30,35,32,.07)]"
         >
+          {/* Invisible to a person, and anything that fills it in is a bot. */}
+          <input
+            type="text"
+            name="website"
+            tabIndex={-1}
+            autoComplete="off"
+            aria-hidden="true"
+            className="pointer-events-none absolute h-0 w-0 opacity-0"
+          />
+
       <div className="flex flex-col gap-4">
         <div className="flex items-baseline justify-between gap-5">
           <span className="font-heading text-2xl font-semibold tracking-[-0.02em]">
@@ -96,15 +158,29 @@ export function EnquiryForm() {
           </span>
         </div>
         <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-          <Field label="Full name" placeholder="e.g. Tarisai Moyo" />
-          <Field label="WhatsApp number" placeholder="+263 …" type="tel" />
           <Field
+            name="name"
+            label="Full name"
+            placeholder="e.g. Tarisai Moyo"
+            invalid={badField === "name"}
+          />
+          <Field
+            name="phone"
+            label="WhatsApp number"
+            placeholder="+263 …"
+            type="tel"
+            invalid={badField === "phone"}
+          />
+          <Field
+            name="email"
             label="Email"
             optional
             placeholder="you@company.co.zw"
             type="email"
+            invalid={badField === "email"}
           />
           <Field
+            name="company"
             label="Company"
             optional
             placeholder="Business or farm name"
@@ -122,15 +198,16 @@ export function EnquiryForm() {
           </span>
         </div>
         <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-          <Field label="Unit load" placeholder="e.g. 30t maize in bags" />
+          <Field name="unitLoad" label="Unit load" placeholder="e.g. 30t maize in bags" />
           <Field
+            name="units"
             label="Number of units"
             placeholder="e.g. 2 trailer loads"
           />
-          <Field label="Start location" placeholder="e.g. Nyakamete, Mutare" />
-          <Field label="Destination" placeholder="e.g. Beitbridge" />
-          <Field label="Estimated distance" placeholder="e.g. 275 km" />
-          <Field label="Departure date" placeholder="dd / mm / yyyy" type="date" />
+          <Field name="origin" label="Start location" placeholder="e.g. Nyakamete, Mutare" />
+          <Field name="destination" label="Destination" placeholder="e.g. Beitbridge" />
+          <Field name="distance" label="Estimated distance" placeholder="e.g. 275 km" />
+          <Field name="departure" label="Departure date" placeholder="dd / mm / yyyy" type="date" />
         </div>
         <label className="flex flex-col gap-2">
           <span className="font-sans text-[13px] font-semibold text-[#333833]">
@@ -138,12 +215,22 @@ export function EnquiryForm() {
             <span className="font-normal text-[#787F79]">(optional)</span>
           </span>
           <textarea
+            name="notes"
             placeholder="Access at the gate, offloading equipment, a question about rates…"
             rows={4}
             className={`${FIELD_CLASS} resize-none`}
           />
         </label>
       </div>
+
+      {error ? (
+        <p
+          role="alert"
+          className="m-0 rounded-2xl bg-[#FDF4F3] px-[18px] py-4 font-sans text-[14px] leading-[1.6] text-[#8E2B25]"
+        >
+          {error}
+        </p>
+      ) : null}
 
       <div className="flex flex-wrap items-center justify-between gap-5 border-t border-[#ECEEE9] pt-6">
         <span className="max-w-[34ch] font-sans text-[13px] leading-[1.6] text-[#787F79] text-balance">
@@ -152,9 +239,10 @@ export function EnquiryForm() {
         </span>
         <button
           type="submit"
-          className="rounded-full bg-[#63C32E] px-[30px] py-[17px] font-sans text-[15px] font-bold text-[#15250A] transition-transform hover:scale-[1.03] active:scale-[0.98]"
+          disabled={sending}
+          className="rounded-full bg-[#63C32E] px-[30px] py-[17px] font-sans text-[15px] font-bold text-[#15250A] transition-transform hover:scale-[1.03] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100"
         >
-          Send enquiry →
+          {sending ? "Sending…" : "Send enquiry →"}
         </button>
       </div>
         </motion.form>
