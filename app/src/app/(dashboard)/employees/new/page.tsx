@@ -11,7 +11,7 @@ export default async function NewEmployeePage() {
         <div>
             <PageHeader
                 title="Add Employee"
-                description="Add a new employee to your organization"
+                description="Add a new employee to your organisation"
                 backHref="/employees"
             />
             <EmployeeForm />

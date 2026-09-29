@@ -67,7 +67,7 @@ export function DangerZone() {
                     <div className="text-sm text-muted-foreground">
                         <p className="text-foreground font-medium mb-1">What stays?</p>
                         <p>
-                            Your organization, all users/members (including you), and all
+                            Your organisation, every user and member including you, and all
                             employee records are <strong>not</strong> affected.
                         </p>
                     </div>

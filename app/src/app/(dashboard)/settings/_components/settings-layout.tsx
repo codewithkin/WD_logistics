@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, ReactNode } from "react";
+import { ReactNode, Suspense } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface SettingsLayoutProps {
@@ -12,8 +13,49 @@ interface SettingsLayoutProps {
     };
 }
 
-export function SettingsLayout({ children }: SettingsLayoutProps) {
-    const [activeTab, setActiveTab] = useState("general");
+const TABS = ["general", "notifications", "organisation", "members"] as const;
+
+export function SettingsLayout(props: SettingsLayoutProps) {
+    // The tab lives in the URL, as it does on Reports. It used to be local
+    // state starting at "general", which meant /settings?tab=notifications
+    // opened on General — so a notification that deep-linked here landed on
+    // the wrong panel, a link to a tab could not be shared, and a reload lost
+    // your place.
+    return (
+        <Suspense fallback={<SettingsTabs {...props} tab="general" />}>
+            <SettingsLayoutInner {...props} />
+        </Suspense>
+    );
+}
+
+function SettingsLayoutInner(props: SettingsLayoutProps) {
+    const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
+
+    const requested = searchParams.get("tab");
+    const tab = TABS.includes(requested as (typeof TABS)[number])
+        ? (requested as (typeof TABS)[number])
+        : "general";
+
+    const setTab = (next: string) => {
+        const params = new URLSearchParams(searchParams.toString());
+        params.set("tab", next);
+        // Replace rather than push: flicking between tabs should not fill the
+        // back button with settings panels.
+        router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    };
+
+    return <SettingsTabs {...props} tab={tab} onTabChange={setTab} />;
+}
+
+function SettingsTabs({
+    children,
+    tab,
+    onTabChange,
+}: SettingsLayoutProps & { tab: string; onTabChange?: (next: string) => void }) {
+    const activeTab = tab;
+    const setActiveTab = onTabChange ?? (() => {});
 
     return (
         <div className="space-y-6">
