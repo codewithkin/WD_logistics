@@ -38,6 +38,10 @@ import { ACCOUNT_TYPE_LABELS, type AccountType } from "@/lib/accounts";
 
 const pct = (value: number) => `${value.toFixed(1)}%`;
 
+/** The ageing band's own label, so a row reads the same as the summary. */
+const bandLabel = (key: string) =>
+  AGEING_BUCKETS.find((bucket) => bucket.key === key)?.label ?? key;
+
 /** "petty_cash" reads badly on a printed page. */
 const accountTypeLabel = (type: string) =>
   ACCOUNT_TYPE_LABELS[type as AccountType] ?? type.replace(/_/g, " ");
@@ -264,10 +268,14 @@ export function generateAgedReceivablesPDF(params: {
         { header: "Invoice", key: "invoiceNumber" },
         { header: "Issued", key: "issueDate" },
         { header: "Due", key: "dueDate" },
-        { header: "Days over", key: "daysOverdue", align: "right" },
+        { header: "Days overdue", key: "daysOverdue", align: "right" },
         { header: "Invoiced", key: "total", align: "right" },
         { header: "Paid", key: "paid", align: "right" },
         { header: "Balance", key: "balance", align: "right" },
+        // Which band this invoice falls in. The summary above groups the money
+        // into bands; without this column there is no way to tell, from a row,
+        // which one it contributed to.
+        { header: "Band", key: "bucket", align: "right" },
       ],
       data.detail.map((row) => ({
         customer: row.customer,
@@ -278,6 +286,7 @@ export function generateAgedReceivablesPDF(params: {
         total: money(row.total),
         paid: money(row.paid),
         balance: money(row.balance),
+        bucket: bandLabel(row.bucket),
       })),
       { emptyMessage: "No outstanding invoices." },
     );

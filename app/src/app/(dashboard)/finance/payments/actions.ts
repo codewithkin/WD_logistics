@@ -424,9 +424,10 @@ export async function downloadPaymentReceiptPDF(paymentId: string) {
     return { success: false as const, error: "Payment not found" };
   }
 
+  // The whole row, not just the name: the receipt prints the company's
+  // address and contact details, and selecting one column meant it could not.
   const organization = await prisma.organization.findUnique({
     where: { id: session.organizationId },
-    select: { name: true },
   });
 
   const pdfBytes = generatePaymentReceiptPDF({
@@ -455,9 +456,7 @@ export async function downloadPaymentReceiptPDF(paymentId: string) {
       phone: payment.customer.phone,
       address: payment.customer.address,
     },
-    organization: {
-      name: organization?.name || "Unknown",
-    },
+    organization,
   });
 
   // Convert to base64 for transfer

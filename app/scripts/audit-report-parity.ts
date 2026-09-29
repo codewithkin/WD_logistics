@@ -123,6 +123,7 @@ const SYNONYMS: Record<string, string[]> = {
   // the rows read as a list rather than a table of one field.
   measure: ["metric", "item", ""],
   type: ["kind"],
+  bucket: ["band"],
 };
 
 function matches(heading: string, haystack: string): boolean {

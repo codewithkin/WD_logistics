@@ -96,8 +96,20 @@ function statusTone(
 
 export function generateInvoicePDF(data: InvoiceDocumentData): Uint8Array {
   const { invoice, customer, trip } = data;
-  const isCredit = invoice.isCredit;
-  const title = isCredit ? "Credit Note" : "Tax Invoice";
+
+  // `Invoice.isCredit` means "on credit terms — the customer pays later", which
+  // is what the schema comment says and what the form's own switch says:
+  // "Enable this if the customer will pay later". It does **not** mean a credit
+  // note. This document read it as one, so every invoice with a due date on it
+  // — the normal case for haulage, and the only case where isCredit is set —
+  // printed as a CREDIT NOTE, hid its due date, hid the bank details, never
+  // flagged itself overdue, labelled the total "Credit amount" and finished by
+  // telling the customer it "reduces the balance on your account". A customer
+  // reading that would reasonably conclude they owed nothing.
+  //
+  // A credit note is a different document. This schema has no way to express
+  // one, so nothing here pretends to.
+  const title = "Tax Invoice";
 
   const ctx = createDocument({
     organization: data.organization,
@@ -105,7 +117,6 @@ export function generateInvoicePDF(data: InvoiceDocumentData): Uint8Array {
   });
 
   const overdue =
-    !isCredit &&
     invoice.balance > 0 &&
     invoice.dueDate !== null &&
     invoice.dueDate.getTime() < Date.now();
@@ -133,11 +144,11 @@ export function generateInvoicePDF(data: InvoiceDocumentData): Uint8Array {
   drawHighlightBand(
     ctx,
     {
-      label: isCredit ? "Credit amount" : "Total",
+      label: "Total",
       value: money(invoice.total),
       tone: overdue ? "danger" : undefined,
     },
-    invoice.dueDate && !isCredit
+    invoice.dueDate
       ? { label: "Due date", value: shortDate(invoice.dueDate) }
       : undefined,
   );
@@ -229,7 +240,7 @@ export function generateInvoicePDF(data: InvoiceDocumentData): Uint8Array {
   // A part-paid invoice still says what has been received against it — that
   // is a fact about this bill. What remains across the account is the
   // statement's job, so there is no balance line here.
-  if (!isCredit && invoice.amountPaid > 0) {
+  if (invoice.amountPaid > 0) {
     totals.push({ label: "Paid", value: money(invoice.amountPaid) });
   }
 
@@ -237,7 +248,7 @@ export function generateInvoicePDF(data: InvoiceDocumentData): Uint8Array {
 
   // ---- Payment details and terms, kept short ----
   const company = ctx.company;
-  if (!isCredit && company.bankDetails) {
+  if (company.bankDetails) {
     drawNotes(ctx, "Payment details", company.bankDetails);
   }
   if (invoice.notes?.trim()) {
@@ -254,15 +265,9 @@ export function generateInvoicePDF(data: InvoiceDocumentData): Uint8Array {
 
   ctx.doc.setFontSize(TYPE.small);
   ctx.doc.setTextColor(...BRAND.muted);
-  ctx.doc.text(
-    isCredit
-      ? "This credit note reduces the balance on your account."
-      : "Thank you for your business.",
-    ctx.margin,
-    ctx.y,
-  );
+  ctx.doc.text("Thank you for your business.", ctx.margin, ctx.y);
 
   return finalise(ctx, {
-    docNo: `${isCredit ? "Credit note" : "Invoice"} ${invoice.invoiceNumber}`,
+    docNo: `Invoice ${invoice.invoiceNumber}`,
   });
 }
