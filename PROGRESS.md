@@ -52,6 +52,7 @@ Read these together:
 | T3 | 5 trip message delivery status | ✅ **done this pass** (`ff5b7f8`…`8e665b4`) |
 | — | WhatsApp assistant (not in the 27; asked for verbally) | ✅ **done this pass** (`3b7594e`…`540bc31`) |
 | — | Access/logic/document sweep of 29 Sep | ✅ **done** (`c945b75`…`b6f2174`) — see "Round 4" at the end |
+| — | Assistant parity with the web app, 29 Sep | ✅ **done** (`594041d`…`249cedf`) — see "Round 5" at the end |
 
 **All 27 client items are now implemented.** What remains is the unfinished
 *inside* of item 27 (the new reports the plan lists) plus verification that
@@ -715,3 +716,147 @@ leaks were actually noticed.
    KES amounts — for a Zimbabwean company running into Zambia, Mozambique, DR
    Congo and South Africa. Dev-only (`ensure-admin.mjs` is what runs in
    production), so it was left alone, but it reads oddly to anyone who seeds.
+
+---
+
+## Round 5 — the assistant does what the web app does (29 Sep)
+
+The brief: *"Test and implement any web features that are not in the agent,
+also allow the agent to generate the SAME reports that can be generated from
+the web app. Same structure, same everything… ensure everything in the web app
+is proper now, both logically, lexically."*
+
+Eight commits, `594041d` … `249cedf`. `bunx tsc --noEmit` clean, `next build`
+clean, lint at 25 errors against the recorded baseline of 26. Seven audits
+pass.
+
+### Reports: all 23, from a phone
+
+They were already *identical* by construction — `generate_report` calls the
+same `generateReport` server action the Reports page calls, so there is one
+implementation and nothing to drift. What was missing was reach: the trailer
+and trip expense reports were refused with "easier in the web app", because
+those records are picked by an id nobody carries in their head. True of the
+id, not of the registration painted on a trailer or the route of a trip. Both
+resolve from what a person types now.
+
+`scripts/audit-assistant-reports.ts` walks the report registry — not a list
+written out in the test — and produces all 23 through the assistant in both
+PDF and CSV, checking each file is the format asked for and not empty. 47
+checks.
+
+### Everything else the web app can do
+
+Thirty-five new operations, taking the assistant from 54 to 90 (for an admin):
+
+| Area | What was added |
+|---|---|
+| Invoices | raise, change, remove, send to the customer, chase by WhatsApp or email, hand over the PDF |
+| Payments | change, remove, send the receipt |
+| Suppliers | pay, change or remove a payment, adjust what is owed, remove the supplier |
+| Accounts | money in, money out, transfer between cash and petty cash |
+| Expenses | change, remove |
+| Categories | create, change, remove |
+| Employees | create, change, remove |
+| Trips | change the details beyond the status, remove |
+| Fleet | change a trailer; remove a truck, trailer or driver |
+| Stock | allocate a part to a truck, remove an item |
+| Workshop | start a job, correct a job |
+| Approvals | withdraw a change you sent |
+
+Each calls the web app's own server action under the acting session, so the
+edit-request gate, the account movements and the notifications are the ones
+already written and tested — a non-admin's change still becomes a request
+carrying their reason and the fact it came over WhatsApp.
+
+**Four things are deliberately still web-only**, and the reason is recorded
+beside each in `lib/assistant/ledger-operations.ts`: wiping the organisation's
+data, the company's own letterhead and bank details, the assistant's own
+contact list, and an account's starting balance.
+
+### What this cost, in tokens
+
+Worth knowing, because the assistant's bill is almost entirely the tool
+definitions sent with every message:
+
+| Level | Tools | Manifest |
+|---|---|---|
+| readonly | 8 | ~800 tokens |
+| staff | 10 | ~1,000 |
+| supervisor | 58 | ~7,300 |
+| admin | 90 | ~10,800 |
+
+An admin's manifest roughly doubled. At `gemini-3.5-flash` that is about
+2¢ a message rather than 1¢ — at the 200-message cap, four dollars a month
+instead of two. Removing the JSON Schema preamble each tool carried took
+1,400 tokens off that for free. If it ever matters more than the reach, the
+lever is fewer tools per level or shorter descriptions, not a cheaper model:
+`model.ts` records what lite did to the replies.
+
+### Two defects this turned up
+
+- **Raising an invoice could fail outright.** `createInvoice` numbered the next
+  one by reading the most recently *created* invoice and adding one — which is
+  only the highest number if rows were always created in sequence. A bulk
+  import writes many in the same millisecond, and a backdated invoice is
+  created after invoices later in the sequence; `orderBy: createdAt` then
+  returns an arbitrary row among equals, the number collides, and the unique
+  index rejects the write. It reads the highest number in use now.
+- **Settings → Notifications lied.** Five toggles and a Save button that waited
+  half a second and said "Notification preferences saved". Nothing was saved —
+  hardcoded defaults in, a TODO where the write belonged. It was also a second
+  copy of the per-person switches in the user menu, which do work and are
+  honoured by `lib/push.ts`. The fake one is gone.
+
+### Lexically
+
+- **"Licence"** throughout the interface: 33 places said "License", 37 said
+  "Licence", sometimes on the same screen. Schema fields keep their spelling.
+- **"Organisation"** everywhere the client reads, including the Danger Zone.
+  `settings-form.tsx`, where the rest of the American spellings lived, was
+  dead code and is deleted.
+- **Phone placeholders** read `+1 234 567 8900` on four forms — a US number in
+  a Zimbabwean app, while the WhatsApp dialog next door already used a local
+  one.
+- A scan of every string in `src` for common misspellings found none; the two
+  hits were "Greenwich".
+
+### Also fixed on the way
+
+- A link to a settings tab opened the wrong one — the tab was local state, so
+  `?tab=notifications` landed on General and a reload lost your place.
+- `next build` printed dozens of "Error getting session: Dynamic server usage"
+  lines. That is Next asking each page whether it can be prerendered and the
+  page correctly answering no. A build that looked broken and was not.
+
+### The audits, now seven
+
+```bash
+python scripts/audit-access.py            # 66 pages against the matrix
+python scripts/audit-nav.py               # no dead links per role
+python scripts/audit-action-guards.py     # all 130 actions know their caller
+python scripts/audit-export-access.py     # every export/document gated
+python scripts/audit-assistant-parity.py  # all 118 web actions reachable, or explained
+bun --preload ./scripts/_stub-server-only.ts scripts/audit-assistant-access.ts
+bun --preload ./scripts/_stub-server-only.ts scripts/audit-assistant-reports.ts
+bun --preload ./scripts/_stub-server-only.ts scripts/audit-report-parity.ts
+bun --preload ./scripts/_stub-server-only.ts scripts/tests/check-documents.ts
+bun --preload ./scripts/_stub-server-only.ts scripts/tests/check-assistant-writes.ts
+```
+
+`audit-assistant-parity.py` is the one that answers the client's question
+directly: it walks all 118 exported server actions and insists each is either
+covered by a named assistant operation that exists, or listed as web-only with
+its reason. An action that is neither fails it — so the next feature added to
+the web app cannot quietly become web-only.
+
+`check-assistant-writes.ts` is the one that proves they work: 22 checks against
+the real database, cleaning up after itself — an invoice raised, changed, its
+outstanding figure following, the PDF taken, a payment recorded against it, an
+overpayment refused, the receipt taken, a supplier paid and what we owe them
+dropping, money in and back out with the balance verified both ways, an
+overdraw refused, a category and an employee created, changed and removed.
+
+**No model is called by any of it**, so the whole suite costs nothing to run.
+The assistant has still not been exercised against a live model or a paired
+WhatsApp number this round — the client was out of credits and said not to.
