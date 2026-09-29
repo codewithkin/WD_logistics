@@ -49,6 +49,27 @@ async function main() {
   console.log("🧹 Cleaning up existing data...");
   
   await prisma.$transaction([
+    // Children before parents. Invoices, payments and suppliers were absent
+    // from this list because the seed never created any — which is why the
+    // whole money half of the app had no data to look at in development.
+    prisma.invoiceLineItem.deleteMany({}),
+    prisma.payment.deleteMany({}),
+    prisma.invoice.deleteMany({}),
+    prisma.supplierPayment.deleteMany({}),
+    prisma.partAllocation.deleteMany({}),
+    prisma.stockMovement.deleteMany({}),
+    prisma.inventoryItem.deleteMany({}),
+    // These reference a truck, a driver, a trip or an expense, all of which
+    // this list goes on to delete. They were missing, so the moment a
+    // maintenance job or an assignment existed the seed could not be run
+    // again: it failed on a foreign key half way through the wipe, leaving
+    // the database in whatever state it had reached.
+    prisma.maintenanceRequest.deleteMany({}),
+    prisma.driverTruckAssignment.deleteMany({}),
+    prisma.accountTransaction.deleteMany({}),
+    prisma.notification.deleteMany({}),
+    prisma.editRequest.deleteMany({}),
+    prisma.trailerExpense.deleteMany({}),
     prisma.tripExpense.deleteMany({}),
     prisma.truckExpense.deleteMany({}),
     prisma.driverExpense.deleteMany({}),
@@ -58,6 +79,7 @@ async function main() {
     prisma.truck.deleteMany({}),
     prisma.customer.deleteMany({}),
     prisma.employee.deleteMany({}),
+    prisma.supplier.deleteMany({}),
     prisma.expenseCategory.deleteMany({}),
   ]);
   
@@ -495,6 +517,309 @@ async function main() {
   console.log(`✅ Created ${allTrips.length} trips`);
   console.log(`✅ Created ${allExpenses.length} expenses`);
 
+
+  // ============================================================================
+  // STEP 8: The organisation's own details
+  // ============================================================================
+  // Blank here meant every generated document fell back to the hardcoded
+  // values in lib/documents/brand.ts, so the path that reads these columns —
+  // the one the client uses to correct a typo without a deploy — was never
+  // exercised by anything.
+  console.log("\n🏢 Filling in the company details documents print...");
+  await prisma.organization.update({
+    where: { id: organization.id },
+    data: {
+      addressLine1: "1 Tameside Close",
+      addressLine2: "Nyakamete Industrial Area",
+      city: "Mutare",
+      country: "Zimbabwe",
+      phone: "+263 772 958 986",
+      altPhone: "+263 20 60712",
+      email: "dziruniw@gmail.com",
+      vatNumber: "10012345",
+      bpNumber: "0200123456",
+      bankDetails:
+        "CBZ Bank, Mutare branch · USD account 02123456789012 · EcoCash +263 772 958 986",
+      invoiceTerms:
+        "Payment due within the agreed terms. Goods remain our property until paid for in full.",
+      metadata: JSON.stringify({
+        currency: "USD",
+        timezone: "Africa/Harare",
+      }),
+    },
+  });
+  console.log("✅ Company address, VAT/BP numbers and bank details set");
+
+  // ============================================================================
+  // STEP 9: Suppliers, and the money owed to them
+  // ============================================================================
+  console.log("\n🏭 Creating suppliers...");
+  const supplierSpecs = [
+    { name: "Zuva Petroleum", contactPerson: "Fuel Desk", terms: 14 },
+    { name: "Mutare Tyre Services", contactPerson: "Workshop Counter", terms: 30 },
+    { name: "Croco Motors Spares", contactPerson: "Parts Desk", terms: 30 },
+    { name: "Border Clearing Agents", contactPerson: "Documentation", terms: 7 },
+    { name: "Manica Insurance", contactPerson: "Fleet Policies", terms: 45 },
+  ];
+
+  await prisma.supplier.createMany({
+    data: supplierSpecs.map((spec) => ({
+      id: generateId(),
+      organizationId: organization.id,
+      name: spec.name,
+      contactPerson: spec.contactPerson,
+      email: `accounts@${spec.name.toLowerCase().replace(/[^a-z]+/g, "")}.co.zw`,
+      phone: `+2637${randomNumber(70000000, 79999999)}`,
+      address: `${randomNumber(1, 90)} Herbert Chitepo Street, Mutare`,
+      taxId: `${randomNumber(10000000, 99999999)}`,
+      paymentTerms: spec.terms,
+      balance: 0,
+      status: "active",
+    })),
+  });
+  const suppliers = await prisma.supplier.findMany({
+    where: { organizationId: organization.id },
+  });
+  console.log(`✅ Created ${suppliers.length} suppliers`);
+
+  // Some of the expenses already created become business expenses owed to a
+  // supplier, a third of them still unpaid — otherwise the creditors and
+  // ageing reports have nothing to age, which is how they came to be shipped
+  // without anyone ever seeing a row in one.
+  console.log("\n🧾 Attaching expenses to suppliers...");
+  const attachable = await prisma.expense.findMany({
+    where: { organizationId: organization.id },
+    select: { id: true, amount: true },
+    take: 180,
+    orderBy: { date: "desc" },
+  });
+
+  const owed = new Map<string, number>();
+  let unpaidCount = 0;
+  for (const [index, expense] of attachable.entries()) {
+    const supplier = suppliers[index % suppliers.length]!;
+    const isPaid = index % 3 !== 0;
+    await prisma.expense.update({
+      where: { id: expense.id },
+      data: {
+        isBusinessExpense: true,
+        supplierId: supplier.id,
+        vendor: supplier.name,
+        isPaid,
+        paidDate: isPaid ? randomDate(randomNumber(0, 3)) : null,
+      },
+    });
+    if (!isPaid) {
+      unpaidCount += 1;
+      owed.set(supplier.id, (owed.get(supplier.id) ?? 0) + expense.amount);
+    }
+  }
+
+  for (const [supplierId, amount] of owed) {
+    await prisma.supplier.update({
+      where: { id: supplierId },
+      data: { balance: Math.round(amount * 100) / 100 },
+    });
+  }
+  console.log(`✅ ${attachable.length} expenses attached, ${unpaidCount} still unpaid`);
+
+  // Payments already made to suppliers, so the supplier-payments page and the
+  // cash-flow report have history behind them.
+  console.log("\n💸 Creating supplier payments...");
+  const supplierPayments: any[] = [];
+  for (let month = 5; month >= 0; month--) {
+    for (const supplier of suppliers) {
+      if (randomNumber(0, 2) === 0) continue;
+      supplierPayments.push({
+        id: generateId(),
+        organizationId: organization.id,
+        supplierId: supplier.id,
+        amount: randomFloat(400, 6000, 2),
+        paymentDate: randomDate(month),
+        method: randomItem(["cash", "bank_transfer", "mobile_money"]),
+        reference: `TRF-${randomNumber(100000, 999999)}`,
+        description: `Settlement on account — ${supplier.name}`,
+      });
+    }
+  }
+  await prisma.supplierPayment.createMany({ data: supplierPayments });
+  console.log(`✅ Created ${supplierPayments.length} supplier payments`);
+
+  // ============================================================================
+  // STEP 10: Invoices, line items and customer payments
+  // ============================================================================
+  // The seed had never created an invoice. Every money report — profit and
+  // loss, aged receivables, cash flow, customer statements, customer
+  // profitability — and both customer-facing documents, the invoice and the
+  // receipt, had nothing to render in development.
+  console.log("\n🧮 Creating invoices and payments...");
+
+  const billableTrips = await prisma.trip.findMany({
+    where: {
+      organizationId: organization.id,
+      status: "completed",
+      customerId: { not: null },
+      revenue: { gt: 0 },
+    },
+    orderBy: { scheduledDate: "asc" },
+    select: {
+      id: true,
+      customerId: true,
+      revenue: true,
+      endDate: true,
+      scheduledDate: true,
+      originCity: true,
+      destinationCity: true,
+      loadDescription: true,
+    },
+  });
+
+  const VAT_RATE = 0.145; // Printed as its own line on the invoice
+  let invoiceSeq = 1;
+  const invoiceRows: any[] = [];
+  const lineItemRows: any[] = [];
+  const paymentRows: any[] = [];
+
+  for (const trip of billableTrips) {
+    const issueDate = trip.endDate ?? trip.scheduledDate;
+    const terms = 30;
+    const dueDate = new Date(issueDate.getTime() + terms * 24 * 60 * 60 * 1000);
+    const subtotal = Math.round(trip.revenue * 100) / 100;
+    const tax = Math.round(subtotal * VAT_RATE * 100) / 100;
+    const total = Math.round((subtotal + tax) * 100) / 100;
+
+    // A spread worth looking at: most settled, some part-paid, some still
+    // running, some overdue, and the occasional cancelled one.
+    const roll = randomNumber(1, 100);
+    let paidFraction = 0;
+    let status: string;
+    if (roll <= 55) {
+      paidFraction = 1;
+      status = "paid";
+    } else if (roll <= 70) {
+      paidFraction = randomFloat(0.2, 0.8, 2);
+      status = "partial";
+    } else if (roll <= 85) {
+      status = dueDate.getTime() < Date.now() ? "overdue" : "sent";
+    } else if (roll <= 97) {
+      status = "sent";
+    } else {
+      status = "cancelled";
+    }
+
+    const amountPaid = Math.round(total * paidFraction * 100) / 100;
+    const invoiceId = generateId();
+
+    invoiceRows.push({
+      id: invoiceId,
+      organizationId: organization.id,
+      customerId: trip.customerId!,
+      tripId: trip.id,
+      invoiceNumber: `INV-${String(invoiceSeq++).padStart(5, "0")}`,
+      subtotal,
+      tax,
+      total,
+      amountPaid,
+      balance: Math.round((total - amountPaid) * 100) / 100,
+      isCredit: true,
+      issueDate,
+      dueDate,
+      status,
+      notes: `${trip.originCity} to ${trip.destinationCity}`,
+    });
+
+    lineItemRows.push({
+      id: generateId(),
+      invoiceId,
+      description: `Haulage ${trip.originCity} to ${trip.destinationCity}${trip.loadDescription ? ` — ${trip.loadDescription}` : ""}`,
+      quantity: 1,
+      unitPrice: subtotal,
+      total: subtotal,
+    });
+
+    if (amountPaid > 0) {
+      paymentRows.push({
+        id: generateId(),
+        invoiceId,
+        customerId: trip.customerId!,
+        amount: amountPaid,
+        paymentDate: new Date(
+          issueDate.getTime() + randomNumber(1, terms) * 24 * 60 * 60 * 1000,
+        ),
+        method: randomItem(["bank_transfer", "cash", "mobile_money"]),
+        reference: `RCPT-${randomNumber(100000, 999999)}`,
+      });
+    }
+  }
+
+  // Money taken on account, with no invoice against it. The payment form has
+  // always allowed this and no row had ever existed, which is how eight
+  // queries came to scope payments by walking to the invoice's organisation —
+  // dropping every one of these.
+  for (const customer of customers.slice(0, 3)) {
+    paymentRows.push({
+      id: generateId(),
+      invoiceId: null,
+      customerId: customer.id,
+      amount: randomFloat(200, 1500, 2),
+      paymentDate: randomDate(randomNumber(0, 2)),
+      method: "cash",
+      reference: `ONACC-${randomNumber(1000, 9999)}`,
+      notes: "Paid on account, before the invoice was raised",
+    });
+  }
+
+  await prisma.invoice.createMany({ data: invoiceRows });
+  await prisma.invoiceLineItem.createMany({ data: lineItemRows });
+  await prisma.payment.createMany({ data: paymentRows });
+  console.log(`✅ Created ${invoiceRows.length} invoices and ${paymentRows.length} payments`);
+
+  // What each customer owes, derived from their invoices rather than guessed.
+  //
+  // The same arithmetic as lib/metrics/customer-balance.ts, written out here
+  // rather than imported: that module carries `import "server-only"`, which
+  // throws in a plain script. Negative means the customer owes us, which is
+  // the convention the customers table renders "(Owed)" and "(Credit)" from.
+  const owedByCustomer = await prisma.invoice.groupBy({
+    by: ["customerId"],
+    where: { organizationId: organization.id, status: { notIn: ["cancelled"] } },
+    _sum: { balance: true },
+  });
+  for (const row of owedByCustomer) {
+    await prisma.customer.update({
+      where: { id: row.customerId },
+      data: { balance: -Math.round((row._sum.balance ?? 0) * 100) / 100 },
+    });
+  }
+  console.log(`✅ Balances recomputed for ${owedByCustomer.length} customers`);
+
+  // ============================================================================
+  // STEP 11: Stock
+  // ============================================================================
+  console.log("\n📦 Creating inventory...");
+  const stockSpecs = [
+    { name: "Engine oil 15W-40", sku: "OIL-1540", category: "Lubricants", unit: "litre", quantity: 240, minQuantity: 60, unitCost: 4.2 },
+    { name: "Air filter, Actros", sku: "FLT-ACT", category: "Filters", unit: "piece", quantity: 18, minQuantity: 6, unitCost: 31.5 },
+    { name: "Brake pads, front", sku: "BRK-FRT", category: "Brakes", unit: "set", quantity: 4, minQuantity: 6, unitCost: 112 },
+    { name: "Tyre 315/80 R22.5", sku: "TYR-31580", category: "Tyres", unit: "piece", quantity: 11, minQuantity: 8, unitCost: 285 },
+    { name: "Coolant concentrate", sku: "CLT-CONC", category: "Lubricants", unit: "litre", quantity: 80, minQuantity: 20, unitCost: 6.75 },
+    { name: "Wheel nuts", sku: "NUT-WHL", category: "Fasteners", unit: "piece", quantity: 0, minQuantity: 40, unitCost: 1.8 },
+    { name: "Windscreen wiper blade", sku: "WPR-BLD", category: "Cab", unit: "piece", quantity: 22, minQuantity: 8, unitCost: null },
+  ];
+  await prisma.inventoryItem.createMany({
+    data: stockSpecs.map((spec) => ({
+      id: generateId(),
+      organizationId: organization.id,
+      ...spec,
+      location: randomItem(["Main store", "Workshop bay", "Yard container"]),
+      supplier: randomItem(suppliers).name,
+    })),
+  });
+  // Deliberately includes an item at zero, one below its minimum and one with
+  // no unit cost: the low-stock alert, the reorder list and the valuation
+  // report's "not valued" line each need a row to be worth reading.
+  console.log(`✅ Created ${stockSpecs.length} stock items (one out of stock, one below minimum, one unvalued)`);
+
   // ============================================================================
   // SUMMARY
   // ============================================================================
@@ -510,6 +835,11 @@ async function main() {
   console.log(`   • Categories:   ${categories.length}`);
   console.log(`   • Trips:        ${allTrips.length}`);
   console.log(`   • Expenses:     ${allExpenses.length}`);
+  console.log(`   • Suppliers:    ${suppliers.length} (${unpaidCount} unpaid expenses against them)`);
+  console.log(`   • Invoices:     ${invoiceRows.length}`);
+  console.log(`   • Payments:     ${paymentRows.length} (3 of them on account, with no invoice)`);
+  console.log(`   • Supplier pay: ${supplierPayments.length}`);
+  console.log(`   • Stock items:  ${stockSpecs.length}`);
   console.log("\n🔗 Relationships:");
   console.log(`   • TripExpenses:   ${allTripExpenses.length}`);
   console.log(`   • TruckExpenses:  ${allTruckExpenses.length}`);
