@@ -69,7 +69,14 @@ export function CtaFooterFull({
                 email address printed in a paragraph, on the part of the page
                 somebody reaches for on a phone. */}
             <p className="m-0 flex max-w-[32ch] flex-col font-sans text-sm leading-[1.7] text-[#15250A]/[.78] text-balance">
-              <span>{COMPANY.address}</span>
+              <a
+                href={COMPANY.mapsHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-fit transition-colors hover:text-[#15250A]"
+              >
+                {COMPANY.address}
+              </a>
               <span>
                 <a
                   href={COMPANY.whatsappHref}

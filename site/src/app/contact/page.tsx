@@ -73,36 +73,55 @@ export default function ContactPage() {
                 </span>
               </span>
             </StaggerItem>
-            <StaggerItem y={14} className="flex items-center gap-4 rounded-[26px] border border-[#E6E9E2] bg-white px-6 py-[22px] transition-transform duration-300 hover:-translate-y-1">
-              <span className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-full bg-[#EFF8E5] font-sans text-lg font-semibold text-[#3D8A14]">
-                ✉
-              </span>
-              <span className="flex flex-col gap-1">
-                <span className="font-sans text-xs font-semibold tracking-[0.1em] text-[#646B65]">
-                  EMAIL
+            {/* One destination, so the card is the link — the whole thing
+                lifts on hover, and only the address line being clickable made
+                that a near miss on a touch screen. */}
+            <StaggerItem y={14}>
+              <a
+                href={COMPANY.emailHref}
+                className="group flex items-center gap-4 rounded-[26px] border border-[#E6E9E2] bg-white px-6 py-[22px] transition-transform duration-300 hover:-translate-y-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#3D8A14]"
+              >
+                <span className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-full bg-[#EFF8E5] font-sans text-lg font-semibold text-[#3D8A14]">
+                  ✉
                 </span>
-                <a
-                  href={COMPANY.emailHref}
-                  className="w-fit rounded font-sans text-[17px] font-semibold underline decoration-[#1E2320]/20 underline-offset-[5px] transition-colors hover:decoration-[#1E2320] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#3D8A14]"
-                >
-                  {COMPANY.email}
-                </a>
-              </span>
+                <span className="flex flex-col gap-1">
+                  <span className="font-sans text-xs font-semibold tracking-[0.1em] text-[#646B65]">
+                    EMAIL
+                  </span>
+                  <span className="w-fit font-sans text-[17px] font-semibold underline decoration-[#1E2320]/20 underline-offset-[5px] transition-colors group-hover:decoration-[#1E2320]">
+                    {COMPANY.email}
+                  </span>
+                </span>
+              </a>
             </StaggerItem>
-            <StaggerItem y={14} className="flex items-center gap-4 rounded-[26px] border border-[#E6E9E2] bg-white px-6 py-[22px] transition-transform duration-300 hover:-translate-y-1">
-              <span className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-full bg-[#EFF8E5] font-sans text-lg font-semibold text-[#1667C4]">
-                ⌖
-              </span>
-              <span className="flex flex-col gap-1">
-                <span className="font-sans text-xs font-semibold tracking-[0.1em] text-[#646B65]">
-                  YARD &amp; OFFICE
+            {/* The whole card is the link here, unlike the phone card above
+                it, because an address has exactly one destination. It lifted
+                on hover between two cards that do open something, which is
+                the tell that it was meant to. */}
+            <StaggerItem y={14}>
+              <a
+                href={COMPANY.mapsHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-4 rounded-[26px] border border-[#E6E9E2] bg-white px-6 py-[22px] transition-transform duration-300 hover:-translate-y-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#3D8A14]"
+              >
+                <span className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-full bg-[#EFF8E5] font-sans text-lg font-semibold text-[#1667C4]">
+                  ⌖
                 </span>
-                <span className="font-sans text-base font-semibold leading-[1.4]">
-                  1 Tameside Close,
-                  <br />
-                  Nyakamete, Mutare
+                <span className="flex flex-col gap-1">
+                  <span className="font-sans text-xs font-semibold tracking-[0.1em] text-[#646B65]">
+                    YARD &amp; OFFICE
+                  </span>
+                  <span className="font-sans text-base font-semibold leading-[1.4]">
+                    1 Tameside Close,
+                    <br />
+                    Nyakamete, Mutare
+                  </span>
+                  <span className="font-sans text-[13px] font-medium text-[#3D8A14]">
+                    Open in Maps →
+                  </span>
                 </span>
-              </span>
+              </a>
             </StaggerItem>
             <StaggerItem y={14} className="flex items-center justify-between gap-4 rounded-[26px] bg-[#F3F4F0] px-6 py-5">
               <span className="font-sans text-sm font-medium leading-[1.4] text-[#4A5149]">
@@ -135,7 +154,7 @@ export default function ContactPage() {
           className="h-[220px] rounded-[28px] sm:h-[300px] sm:rounded-[36px]"
         >
           <a
-            href="https://www.google.com/maps/search/?api=1&query=Nyakamete+Mutare+Zimbabwe"
+            href={COMPANY.mapsHref}
             target="_blank"
             rel="noopener noreferrer"
             className="absolute bottom-4 right-4 rounded-full bg-[#1E2320] px-[22px] py-3.5 font-sans text-[13px] font-bold text-white transition-transform duration-200 hover:scale-[1.05] active:scale-[0.98] sm:bottom-6 sm:right-6"

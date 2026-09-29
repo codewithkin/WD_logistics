@@ -10,6 +10,11 @@ export const COMPANY = {
   officeHref: "tel:+263772958986",
   email: "operations@wd-logistics.co.zw",
   emailHref: "mailto:operations@wd-logistics.co.zw",
+  // The yard, for every place the address appears. It was hardcoded inside
+  // the contact page's photo block, which is why the address card beside it
+  // linked nowhere.
+  mapsHref:
+    "https://www.google.com/maps/search/?api=1&query=1+Tameside+Close+Nyakamete+Mutare+Zimbabwe",
   domain: "wd-logistics.co.zw",
   year: 2026,
 };
