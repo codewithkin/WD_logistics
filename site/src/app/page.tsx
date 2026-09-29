@@ -534,7 +534,18 @@ export default function HomePage() {
             Questions we get every week
           </h2>
           <p className="m-0 max-w-full font-sans text-sm leading-[1.7] text-[#646B65] text-balance sm:text-[15px] lg:max-w-[34ch]">
-            Anything else, the dispatcher picks up: {COMPANY.whatsapp}.
+            Anything else, the dispatcher picks up:{" "}
+            {/* A number printed mid-sentence is still a number somebody taps
+                on a phone. */}
+            <a
+              href={COMPANY.whatsappHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded font-medium text-[#1E2320] underline decoration-[#1E2320]/25 underline-offset-[4px] transition-colors hover:decoration-[#1E2320]"
+            >
+              {COMPANY.whatsapp}
+            </a>
+            .
           </p>
           <a
             href={COMPANY.whatsappHref}

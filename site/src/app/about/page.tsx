@@ -203,10 +203,18 @@ export default function AboutPage() {
           secondaryHref="/contact"
           bottomText={
             <>
-              {COMPANY.address} ·{" "}
-              {/* Was plain text — an address is fine to read, an email
-                  address printed next to it is something people try to
-                  click. */}
+              {/* Both were plain text. An address on a phone is a tap
+                  through to a map, and the email beside it is the one people
+                  try to click first. */}
+              <a
+                href={COMPANY.mapsHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-[#15250A]"
+              >
+                {COMPANY.address}
+              </a>{" "}
+              ·{" "}
               <a href={COMPANY.emailHref} className="hover:text-[#15250A]">
                 {COMPANY.email}
               </a>
