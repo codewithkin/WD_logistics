@@ -18,7 +18,10 @@ interface DriverPerformanceTableProps {
 }
 
 /**
- * Get color for heat map based on efficiency percentage
+ * Colour for the completion-rate bar.
+ *
+ * It used to shade an "on-time rate" that could not be measured — see
+ * lib/dashboard/driver-performance.ts — and so every driver came out red.
  */
 function getEfficiencyColor(efficiency: number): {
     bgClass: string;
@@ -55,16 +58,20 @@ function getEfficiencyColor(efficiency: number): {
 export function DriverPerformanceTable({ data, periodLabel }: DriverPerformanceTableProps) {
     const topDrivers = data.slice(0, 10);
     const totalRevenue = data.reduce((sum, d) => sum + d.revenue, 0);
-    const avgEfficiency =
-        data.length > 0
-            ? Math.round(data.reduce((sum, d) => sum + d.efficiency, 0) / data.length)
-            : 0;
+    // Across the fleet, not an average of averages: a driver with one trip
+    // should not weigh as much as one with thirty.
+    const assigned = data.reduce((sum, d) => sum + d.totalTrips, 0);
+    const finished = data.reduce((sum, d) => sum + d.completedTrips, 0);
+    const fleetCompletion = assigned > 0 ? Math.round((finished / assigned) * 100) : 0;
 
     return (
         <Card>
             <CardHeader>
                 <CardTitle>Driver Performance Metrics</CardTitle>
-                <CardDescription>Top 10 drivers by revenue {periodLabel ? `(${periodLabel})` : ""}</CardDescription>
+                <CardDescription>
+                    Top 10 drivers by revenue {periodLabel ? `(${periodLabel})` : ""} · &quot;Finished&quot;
+                    is completed trips as a share of those assigned
+                </CardDescription>
             </CardHeader>
             <CardContent>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
@@ -79,8 +86,11 @@ export function DriverPerformanceTable({ data, periodLabel }: DriverPerformanceT
                         </p>
                     </div>
                     <div className="bg-purple-50 dark:bg-purple-950 p-4 rounded-lg">
-                        <p className="text-sm font-medium text-purple-700 dark:text-purple-200">Avg on-time rate</p>
-                        <p className="text-2xl font-bold text-purple-900 dark:text-purple-100">{avgEfficiency}%</p>
+                        <p className="text-sm font-medium text-purple-700 dark:text-purple-200">Trips finished</p>
+                        <p className="text-2xl font-bold text-purple-900 dark:text-purple-100">{fleetCompletion}%</p>
+                        <p className="text-xs text-purple-700/80 dark:text-purple-200/80">
+                            {finished} of {assigned} assigned
+                        </p>
                     </div>
                 </div>
 
@@ -89,20 +99,18 @@ export function DriverPerformanceTable({ data, periodLabel }: DriverPerformanceT
                         <TableHeader>
                             <TableRow className="bg-gray-50 dark:bg-gray-800">
                                 <TableHead className="font-semibold">Driver Name</TableHead>
-                                <TableHead className="text-right font-semibold">Trips</TableHead>
+                                <TableHead className="text-right font-semibold">Assigned</TableHead>
                                 <TableHead className="text-right font-semibold">Completed</TableHead>
+                                <TableHead className="text-right font-semibold">Cancelled</TableHead>
                                 <TableHead className="text-right font-semibold">Revenue</TableHead>
-                                <TableHead className="text-center font-semibold">On time</TableHead>
-                                <TableHead className="text-right font-semibold">On-time rate</TableHead>
+                                <TableHead className="text-right font-semibold">Per trip</TableHead>
+                                <TableHead className="text-right font-semibold">Avg days</TableHead>
+                                <TableHead className="text-right font-semibold">Finished</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {topDrivers.map((driver, idx) => {
-                                const efficiencyColor = getEfficiencyColor(driver.efficiency);
-                                const completionRate =
-                                    driver.totalTrips > 0
-                                        ? Math.round((driver.completedTrips / driver.totalTrips) * 100)
-                                        : 0;
+                                const efficiencyColor = getEfficiencyColor(driver.completionRate);
 
                                 return (
                                     <TableRow key={driver.driverId} className="hover:bg-gray-50 dark:hover:bg-gray-800">
@@ -115,36 +123,42 @@ export function DriverPerformanceTable({ data, periodLabel }: DriverPerformanceT
                                             </div>
                                         </TableCell>
                                         <TableCell className="text-right font-medium">{driver.totalTrips}</TableCell>
+                                        <TableCell className="text-right">{driver.completedTrips}</TableCell>
                                         <TableCell className="text-right">
-                                            <Badge variant="outline">{completionRate}%</Badge>
+                                            {driver.cancelledTrips > 0 ? (
+                                                <Badge variant="outline">{driver.cancelledTrips}</Badge>
+                                            ) : (
+                                                <span className="text-sm text-muted-foreground">—</span>
+                                            )}
                                         </TableCell>
                                         <TableCell className="text-right font-medium">
                                             ${driver.revenue.toLocaleString("en-US", { maximumFractionDigits: 0 })}
                                         </TableCell>
-                                        {/* Was five stars driven by a hardcoded
-                                            4.5 for every driver — it told the
-                                            reader nothing. This is the real
-                                            count behind the rate beside it. */}
-                                        <TableCell className="text-center">
-                                            {driver.completedTrips > 0 ? (
-                                                <span className="text-sm">
-                                                    {driver.onTimeTrips}/{driver.completedTrips}
-                                                </span>
-                                            ) : (
+                                        <TableCell className="text-right">
+                                            {driver.revenuePerTrip === null ? (
                                                 <span className="text-sm text-muted-foreground">—</span>
+                                            ) : (
+                                                `$${driver.revenuePerTrip.toLocaleString("en-US", { maximumFractionDigits: 0 })}`
+                                            )}
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                            {driver.averageDays === null ? (
+                                                <span className="text-sm text-muted-foreground">—</span>
+                                            ) : (
+                                                `${driver.averageDays}d`
                                             )}
                                         </TableCell>
                                         <TableCell className="text-right">
                                             <div className={`p-2 rounded-lg ${efficiencyColor.bgClass}`}>
                                                 <div className="flex items-center justify-between gap-2">
                                                     <span className={`text-sm font-bold ${efficiencyColor.textClass}`}>
-                                                        {driver.efficiency}%
+                                                        {driver.completionRate}%
                                                     </span>
                                                     <div className="w-16 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                                                         <div
                                                             className="h-full"
                                                             style={{
-                                                                width: `${driver.efficiency}%`,
+                                                                width: `${driver.completionRate}%`,
                                                                 backgroundColor: efficiencyColor.barColor,
                                                             }}
                                                         />
