@@ -53,6 +53,7 @@ Read these together:
 | — | WhatsApp assistant (not in the 27; asked for verbally) | ✅ **done this pass** (`3b7594e`…`540bc31`) |
 | — | Access/logic/document sweep of 29 Sep | ✅ **done** (`c945b75`…`b6f2174`) — see "Round 4" at the end |
 | — | Assistant parity with the web app, 29 Sep | ✅ **done** (`594041d`…`249cedf`) — see "Round 5" at the end |
+| — | Email + the supervisor revenue leak, 29 Sep | ✅ **done** (`4b45bf6`…`4422fdf`) — see "Round 6" at the end |
 
 **All 27 client items are now implemented.** What remains is the unfinished
 *inside* of item 27 (the new reports the plan lists) plus verification that
@@ -860,3 +861,60 @@ overdraw refused, a category and an employee created, changed and removed.
 **No model is called by any of it**, so the whole suite costs nothing to run.
 The assistant has still not been exercised against a live model or a paired
 WhatsApp number this round — the client was out of credits and said not to.
+
+---
+
+## Round 6 — email, and a leak the audit was blind to (29 Sep)
+
+Four commits, `4b45bf6` … `4422fdf`.
+
+### The website's enquiry form was decoration
+
+No field had a `name`, nothing was read on submit, and it flipped straight to
+"Enquiry received" — so every lead the site ever produced was discarded while
+telling the visitor it had arrived. It posts to a server action now and says
+received only once the mail has gone, to **both**
+`operations@wd-logistics.co.zw` and `admin@wd-logistics.co.zw`, hardcoded in
+`site/src/lib/mail.ts`. Reply-To is the enquirer. A hidden honeypot catches
+bots. If mail fails the visitor is pointed at WhatsApp and the lead is logged
+with their name and number so it is recoverable.
+
+`bun run check:forms` in `site/` — 19 checks against a throwaway SMTP server.
+
+### Email, in two layers
+
+- **A blind copy of everything.** Every email the system sends is addressed to
+  the person it concerns, so the office gets a BCC rather than a redirection —
+  sending a customer's invoice to the office *instead* would mean the customer
+  never gets it. `BUSINESS_MAILBOX` in `lib/email.ts`, hardcoded.
+- **A line for each system activity.** Email had been deliberately absent from
+  every notification tier, so an admin learned about a new record only from
+  the bell or a push. Tiers 1–3 now email the office. Tiers 4–5 (routine edits,
+  audit) do not, so the mailbox stays readable — one comparison to widen.
+
+### The agent gave a supervisor revenue, and the audit said PASS
+
+`create_trip` is open to supervisors and took a `revenue` argument described
+as "Agreed price, if known" — the one figure ACCESS_CONTROL.md keeps at admin
+"anywhere", and one the web app's own trip form already hid from them. The
+assistant was more permissive than the browser on the number the client cares
+most about. A supervisor's trip is filed with nothing earned against it now,
+and `set_trip_revenue` (admin) puts the price on.
+
+**Both holes that hid it were in the audit I wrote:**
+
+1. It only checked what a tool *returns*. A tool can be correctly gated,
+   return nothing it should not, and still put a figure in front of the wrong
+   person by *asking* for it. Every schema below admin is now checked.
+2. The returns check skipped any operation it had no sample arguments for —
+   silently, which came to **46 of a supervisor's 58 tools**. Every non-admin
+   read operation must now be listed or the audit fails.
+
+Listing them all turned up a second defect: the two operations that produce a
+document ran an `assertRole`-gated action with no signed-in identity, so a
+contact whose number is not linked to an account saw the assistant fall over
+rather than be told why.
+
+The lesson, for the next round: **an audit that skips silently is worse than
+no audit**, because it produces a PASS that stops anybody looking. Every check
+in this repo now fails on an entry it has not been told about.
