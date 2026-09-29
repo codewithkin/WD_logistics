@@ -25,15 +25,22 @@ import type { Operation, OperationContext } from "@/lib/assistant/operations";
 const REPORT_IDS = Object.keys(reportConfigs) as [string, ...string[]];
 
 /**
- * Reports about one record that this operation still cannot run.
+ * What a report about one record needs naming, in words a person would use.
  *
- * A trailer or a trip is identified by an id nobody carries in their head,
- * so those stay in the web app. A customer and a truck have names people do
- * use — see findCustomerFor and findTruckFor below.
+ * All 23 reports can be produced here. Two of them could not until now — the
+ * trailer and trip expense reports — on the reasoning that those records are
+ * identified by ids nobody carries in their head. A trailer has a
+ * registration painted on it, and a trip has a route and a date, so both are
+ * findable from what somebody would actually type. Every resolver below
+ * refuses rather than guesses when a phrase matches more than one record.
  */
-function needsSelection(id: string): boolean {
+function needsNaming(id: string): string | null {
   const config = reportConfigs[id];
-  return Boolean(config?.requiresTrailer || config?.requiresTrip);
+  if (config?.requiresCustomer) return "a customer name";
+  if (config?.requiresTruck) return "a truck registration";
+  if (config?.requiresTrailer) return "a trailer registration";
+  if (config?.requiresTrip) return "a trip — its route, and the date if there is more than one";
+  return null;
 }
 
 /** "profit-and-loss-2026-06-23-to-2026-09-24.pdf" */
@@ -111,6 +118,107 @@ async function findTruckFor(
   return { ok: true, id: rows[0].id, name: rows[0].registrationNo };
 }
 
+async function findTrailerFor(
+  ctx: OperationContext,
+  phrase: string,
+): Promise<{ ok: true; id: string; name: string } | { ok: false; error: string }> {
+  const rows = await prisma.trailer.findMany({
+    where: {
+      organizationId: ctx.organizationId,
+      OR: [
+        { registrationNo: { contains: phrase, mode: "insensitive" } },
+        { make: { contains: phrase, mode: "insensitive" } },
+        { model: { contains: phrase, mode: "insensitive" } },
+      ],
+    },
+    select: { id: true, registrationNo: true },
+    take: 6,
+  });
+
+  if (rows.length === 0) return { ok: false, error: `No trailer matches "${phrase}".` };
+  if (rows.length > 1) {
+    return {
+      ok: false,
+      error: `That matches several trailers: ${rows.map((r) => r.registrationNo).join(", ")}. Which one?`,
+    };
+  }
+  return { ok: true, id: rows[0].id, name: rows[0].registrationNo };
+}
+
+/**
+ * A trip, from a route and optionally a date.
+ *
+ * There is no trip number in the schema, so "Mutare to Beira" is what a
+ * person has. That usually matches several, which is why the date narrows it
+ * and why the refusal lists the candidates with their dates rather than
+ * picking the most recent — the most recent is not necessarily the one they
+ * mean, and a report about the wrong trip is worse than a question.
+ */
+async function findTripFor(
+  ctx: OperationContext,
+  phrase: string,
+  on?: string,
+): Promise<{ ok: true; id: string; name: string } | { ok: false; error: string }> {
+  const words = phrase
+    .split(/\s+|→|->|\bto\b/i)
+    .map((word) => word.trim())
+    .filter((word) => word.length > 2);
+
+  const day = on ? new Date(on) : null;
+  const onDay =
+    day && !Number.isNaN(day.getTime())
+      ? {
+          scheduledDate: {
+            gte: new Date(day.getFullYear(), day.getMonth(), day.getDate()),
+            lt: new Date(day.getFullYear(), day.getMonth(), day.getDate() + 1),
+          },
+        }
+      : {};
+
+  const rows = await prisma.trip.findMany({
+    where: {
+      organizationId: ctx.organizationId,
+      ...onDay,
+      ...(words.length > 0
+        ? {
+            AND: words.map((word) => ({
+              OR: [
+                { originCity: { contains: word, mode: "insensitive" as const } },
+                { destinationCity: { contains: word, mode: "insensitive" as const } },
+                { loadDescription: { contains: word, mode: "insensitive" as const } },
+              ],
+            })),
+          }
+        : {}),
+    },
+    select: {
+      id: true,
+      originCity: true,
+      destinationCity: true,
+      scheduledDate: true,
+    },
+    orderBy: { scheduledDate: "desc" },
+    take: 8,
+  });
+
+  const label = (row: (typeof rows)[number]) =>
+    `${row.originCity} to ${row.destinationCity} on ${row.scheduledDate.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`;
+
+  if (rows.length === 0) {
+    return {
+      ok: false,
+      error: `No trip matches "${phrase}"${on ? ` on ${on}` : ""}.`,
+    };
+  }
+  if (rows.length > 1) {
+    return {
+      ok: false,
+      error: `That matches several trips: ${rows.slice(0, 5).map(label).join("; ")}. Which one?`,
+    };
+  }
+  return { ok: true, id: rows[0].id, name: label(rows[0]) };
+}
+
 export const reportOperations: Operation[] = [
   {
     name: "list_reports",
@@ -119,17 +227,19 @@ export const reportOperations: Operation[] = [
     requires: "admin",
     schema: z.object({}),
     handler: async () => {
-      return Object.values(reportConfigs)
-        .filter((config) => !needsSelection(config.id))
-        .map((config) => ({
+      // Every report the web app offers, with nothing withheld: the same 23
+      // ids, the same names, produced by the same code.
+      return Object.values(reportConfigs).map((config) => {
+        const needs = needsNaming(config.id);
+        return {
           id: config.id,
           name: config.name,
           covers: config.description,
           // So the model asks for the name up front rather than calling the
-          // tool, being told which customer, and calling it again.
-          ...(config.requiresCustomer ? { needs: "a customer name" } : {}),
-          ...(config.requiresTruck ? { needs: "a truck registration" } : {}),
-        }));
+          // tool, being told which record, and calling it again.
+          ...(needs ? { needs } : {}),
+        };
+      });
     },
   },
 
@@ -156,6 +266,20 @@ export const reportOperations: Operation[] = [
         .string()
         .optional()
         .describe("Truck registration, for a report about one truck"),
+      trailer: z
+        .string()
+        .optional()
+        .describe("Trailer registration, for a report about one trailer"),
+      trip: z
+        .string()
+        .optional()
+        .describe(
+          "The trip, for a report about one trip — its route, e.g. \"Mutare to Beira\"",
+        ),
+      tripDate: z
+        .string()
+        .optional()
+        .describe("ISO date of that trip, when the route alone matches more than one"),
     }),
     handler: async (args, ctx: OperationContext) => {
       const a = args as {
@@ -166,6 +290,9 @@ export const reportOperations: Operation[] = [
         format?: "pdf" | "csv";
         customer?: string;
         truck?: string;
+        trailer?: string;
+        trip?: string;
+        tripDate?: string;
       };
 
       const config = reportConfigs[a.report];
@@ -178,6 +305,8 @@ export const reportOperations: Operation[] = [
       // other operation does.
       let customerId: string | undefined;
       let truckId: string | undefined;
+      let trailerId: string | undefined;
+      let tripId: string | undefined;
 
       if (config.requiresCustomer) {
         if (!a.customer) {
@@ -197,10 +326,24 @@ export const reportOperations: Operation[] = [
         truckId = found.id;
       }
 
-      if (!customerId && !truckId && needsSelection(a.report)) {
-        return {
-          error: `"${config.name}" has to be run against one specific record, which is easier in the web app under Reports.`,
-        };
+      if (config.requiresTrailer) {
+        if (!a.trailer) {
+          return { error: `"${config.name}" is about one trailer. Which trailer?` };
+        }
+        const found = await findTrailerFor(ctx, a.trailer);
+        if (!found.ok) return { error: found.error };
+        trailerId = found.id;
+      }
+
+      if (config.requiresTrip) {
+        if (!a.trip) {
+          return {
+            error: `"${config.name}" is about one trip. Which trip — the route, and the date if there is more than one?`,
+          };
+        }
+        const found = await findTripFor(ctx, a.trip, a.tripDate);
+        if (!found.ok) return { error: found.error };
+        tripId = found.id;
       }
 
       const range = getDateRangeFromParams(
@@ -218,6 +361,8 @@ export const reportOperations: Operation[] = [
         format,
         customerId,
         truckId,
+        trailerId,
+        tripId,
         // A person reading on a phone wants the title block; a spreadsheet
         // import does not, but that is the rarer case from a chat.
         includeMetadata: true,
