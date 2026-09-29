@@ -14,6 +14,36 @@ import { handleActionError } from "@/lib/error-messages";
 import { recomputeCustomerBalance } from "@/lib/metrics/customer-balance";
 import { recomputeInvoiceTotals } from "@/lib/metrics/invoice-totals";
 
+/**
+ * The next invoice number for an organisation.
+ *
+ * It used to read the *most recently created* invoice and add one to it,
+ * which is only the highest number if rows were always created in order.
+ * They are not: a bulk import writes many in the same millisecond, and a
+ * backdated invoice is created after invoices that come later in the
+ * sequence. Either way `orderBy: createdAt` returns an arbitrary row among
+ * equals, the number collides with one already used, and the unique index on
+ * (organizationId, invoiceNumber) rejects the write — so raising an invoice
+ * failed outright, with "another record already uses that invoice number" and
+ * no number for the user to try instead.
+ *
+ * Reads the highest number actually in use instead. Sorting by the string
+ * works because the number is zero-padded to five digits, and the fallback
+ * parse covers any row that was numbered differently before this.
+ */
+async function nextInvoiceNumber(organizationId: string): Promise<string> {
+  const numbered = await prisma.invoice.findMany({
+    where: { organizationId, invoiceNumber: { startsWith: "INV-" } },
+    orderBy: { invoiceNumber: "desc" },
+    select: { invoiceNumber: true },
+    take: 1,
+  });
+
+  const highest = numbered[0]?.invoiceNumber?.match(/INV-(\d+)/);
+  const next = highest ? parseInt(highest[1], 10) + 1 : 1;
+  return `INV-${String(next).padStart(5, "0")}`;
+}
+
 export async function createInvoice(data: {
   customerId: string;
   isCredit?: boolean;
@@ -26,21 +56,7 @@ export async function createInvoice(data: {
   const session = await requireRole(["admin", "supervisor"]);
 
   try {
-    // Auto-generate invoice number
-    const lastInvoice = await prisma.invoice.findFirst({
-      where: { organizationId: session.organizationId },
-      orderBy: { createdAt: "desc" },
-      select: { invoiceNumber: true },
-    });
-
-    let nextNumber = 1;
-    if (lastInvoice?.invoiceNumber) {
-      const match = lastInvoice.invoiceNumber.match(/INV-(\d+)/);
-      if (match) {
-        nextNumber = parseInt(match[1], 10) + 1;
-      }
-    }
-    const invoiceNumber = `INV-${String(nextNumber).padStart(5, "0")}`;
+    const invoiceNumber = await nextInvoiceNumber(session.organizationId);
 
     // Fetch customer details for email
     const customer = await prisma.customer.findUnique({
