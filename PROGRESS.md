@@ -576,6 +576,7 @@ is exactly where access had leaked.
 | staff | the `[id]/edit` page of every customer, employee, supplier, invoice, payment, expense and stock item. A typed URL rendered the record in a form, amounts and all |
 | supervisors | expenses-by-category and by-truck report exports |
 | anyone | `createNotification` — arbitrary title, message and link written to any user in any organisation; and `generateInvoiceNumber`. Both dead code, both live endpoints |
+| supervisors, in the payload | the dashboard's `revenueThisMonth` and `cashCollected`, and **every trip's revenue** on the trips list. Hidden on screen, sent anyway — the leak ACCESS_CONTROL.md describes, and the same mistake it records against the assistant's `list_trips` |
 
 And the opposite error: **staff could not create a truck, trailer, driver or
 trip** — the four things `ACCESS_CONTROL.md` says the role exists for. All four
@@ -599,6 +600,12 @@ like a broken link.
 | Deleting a payment issued a draft invoice | The status logic set `"sent"` whenever the paid amount reached zero — clearing `overdue` too |
 | A payment could be edited past the invoice total | Only *creating* one checked the amount |
 | Supplier balances could be lost | Payment and balance written separately, and `updateSupplierBalance` read-then-wrote the sum. `markExpenseAsPaid` could pay a supplier twice on a double click |
+| Every driver was failing | The on-time rate counted a trip as on time if it ended within a day of `scheduledDate` — the *start* date. Nothing records when a load was due to arrive, so it measured "finished within a day of setting off" and read 8% across the fleet. Replaced with completion rate, revenue per trip and days per trip; punctuality needs a planned delivery date, which is a question for the client |
+| Two revenue figures for one month | The Reports overview's first card summed invoices issued (VAT included) and called it "Revenue", beside the dashboard's revenue earned on completed trips. Renamed "Invoiced" — the Collection Rate card under it only ever made sense against that figure |
+| The approval screen described changes nobody made | The diff took the union of the snapshot's fields and the proposal's, so a truck edit read "Fuel type: Diesel → —" next to the real change. Approving never touched either — verified — but the screen whose job is to say what will change was saying something else. Plus a `reminders` row printing "[object Object]", and "Photo: — → —" from an empty string against a null |
+| A filed request sent its author to a page they cannot open | All thirteen forms pushed to /edit-requests, which is admin-only, so a supervisor got a no-access page instead of a confirmation |
+| A form submitted unchanged filed a request anyway | Something for an admin to read, decide and apply, for no result |
+| The same date in three formats | Sixteen calls to `toLocaleDateString()` with no locale, so "8/1/2026" on one screen and "29 Sep 2026" on another — and 8/1 is either 8 January or 1 August depending on the reader |
 
 ### Documents — the one nobody could look at
 
