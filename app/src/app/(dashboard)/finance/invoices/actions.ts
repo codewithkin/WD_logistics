@@ -12,6 +12,7 @@ import { notifyInvoiceCreated, notifyInvoiceUpdated, notifyInvoiceDeleted } from
 import { notifyAdminInvoiceCreated } from "@/lib/whatsapp-notifications";
 import { handleActionError } from "@/lib/error-messages";
 import { recomputeCustomerBalance } from "@/lib/metrics/customer-balance";
+import { recomputeInvoiceTotals } from "@/lib/metrics/invoice-totals";
 
 export async function createInvoice(data: {
   customerId: string;
@@ -182,7 +183,6 @@ export async function updateInvoice(
     subtotal?: number;
     tax?: number;
     total?: number;
-    balance?: number;
     status?: InvoiceStatus;
     notes?: string;
   },
@@ -229,29 +229,42 @@ export async function updateInvoice(
       }
     }
 
-    const updatedInvoice = await prisma.invoice.update({
-      where: { id },
-      data: {
-        ...(data.invoiceNumber !== undefined && { invoiceNumber: data.invoiceNumber }),
-        ...(data.issueDate !== undefined && { issueDate: data.issueDate }),
-        ...(data.isCredit !== undefined && { isCredit: data.isCredit }),
-        ...(data.dueDate !== undefined && { dueDate: data.dueDate }),
-        ...(data.tripId !== undefined && { tripId: data.tripId }),
-        ...(data.subtotal !== undefined && { subtotal: data.subtotal }),
-        ...(data.tax !== undefined && { tax: data.tax }),
-        ...(data.total !== undefined && { total: data.total }),
-        ...(data.balance !== undefined && { balance: data.balance }),
-        ...(data.status !== undefined && { status: data.status }),
-        ...(data.notes !== undefined && { notes: data.notes }),
-      },
-      include: {
-        customer: { select: { name: true } },
-      },
-    });
+    // The total, the paid figure and the balance move together or not at all.
+    // `balance` used to be taken from the caller — the form worked it out in
+    // the browser from the amountPaid it happened to load with — so a payment
+    // recorded while the form was open was overwritten, and the edit-request
+    // path did not carry balance at all, which left an approved change to the
+    // total with the old balance beside it.
+    const { updatedInvoice, totals } = await prisma.$transaction(async (tx) => {
+      const written = await tx.invoice.update({
+        where: { id },
+        data: {
+          ...(data.invoiceNumber !== undefined && { invoiceNumber: data.invoiceNumber }),
+          ...(data.issueDate !== undefined && { issueDate: data.issueDate }),
+          ...(data.isCredit !== undefined && { isCredit: data.isCredit }),
+          ...(data.dueDate !== undefined && { dueDate: data.dueDate }),
+          ...(data.tripId !== undefined && { tripId: data.tripId }),
+          ...(data.subtotal !== undefined && { subtotal: data.subtotal }),
+          ...(data.tax !== undefined && { tax: data.tax }),
+          ...(data.total !== undefined && { total: data.total }),
+          ...(data.status !== undefined && { status: data.status }),
+          ...(data.notes !== undefined && { notes: data.notes }),
+        },
+        include: {
+          customer: { select: { name: true } },
+        },
+      });
 
-    // The total or the status may have moved, either of which changes what
-    // this customer owes.
-    await recomputeCustomerBalance(updatedInvoice.customerId);
+      // Derived from this invoice's own payments, so it cannot disagree with
+      // them — see lib/metrics/invoice-totals.ts.
+      const recomputed = await recomputeInvoiceTotals(written.id, tx);
+
+      // The total or the status may have moved, either of which changes what
+      // this customer owes.
+      await recomputeCustomerBalance(written.customerId, tx);
+
+      return { updatedInvoice: written, totals: recomputed };
+    });
 
     // Send admin notification
     notifyInvoiceUpdated(
@@ -260,7 +273,9 @@ export async function updateInvoice(
         invoiceNumber: updatedInvoice.invoiceNumber,
         customerName: updatedInvoice.customer.name,
         amount: updatedInvoice.total,
-        status: updatedInvoice.status,
+        // The recomputed status, not the one asked for: settling the last of
+        // the balance moves it to "paid" whatever the form sent.
+        status: totals?.status ?? updatedInvoice.status,
       },
       session.organizationId,
       { name: session.user.name, email: session.user.email, role: session.role }

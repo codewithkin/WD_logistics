@@ -11,6 +11,7 @@ import { notifyPaymentCreated, notifyPaymentUpdated, notifyPaymentDeleted } from
 import { notifyInvoiceFullyPaid, notifyAdminPaymentReceived } from "@/lib/whatsapp-notifications";
 import { handleActionError } from "@/lib/error-messages";
 import { recomputeCustomerBalance } from "@/lib/metrics/customer-balance";
+import { recomputeInvoiceTotals } from "@/lib/metrics/invoice-totals";
 
 export async function createPayment(data: {
   invoiceId?: string;
@@ -52,40 +53,35 @@ export async function createPayment(data: {
       }
     }
 
-    const payment = await prisma.payment.create({
-      data: {
-        invoiceId: data.invoiceId || null,
-        customerId: data.customerId,
-        amount: data.amount,
-        paymentDate: data.paymentDate,
-        method: data.method,
-        customMethod: data.method === "other" ? data.customMethod : null,
-        notes: data.notes,
-      },
-    });
-
-    // Update invoice amountPaid and balance if invoice was provided
-    let invoiceFullyPaid = false;
-    if (invoice) {
-      const newAmountPaid = invoice.amountPaid + data.amount;
-      const newBalance = invoice.total - newAmountPaid;
-      const newStatus = newBalance <= 0 ? "paid" : newAmountPaid > 0 ? "partial" : invoice.status;
-      invoiceFullyPaid = newBalance <= 0 && invoice.status !== "paid";
-
-      await prisma.invoice.update({
-        where: { id: data.invoiceId },
-        data: { 
-          amountPaid: newAmountPaid, 
-          balance: newBalance,
-          status: newStatus,
+    // The payment, the invoice it pays and what the customer owes move
+    // together or not at all. They used to be three separate writes, so a
+    // failure between them left a payment on record against an invoice that
+    // still showed the full balance.
+    const { payment, invoiceFullyPaid } = await prisma.$transaction(async (tx) => {
+      const created = await tx.payment.create({
+        data: {
+          invoiceId: data.invoiceId || null,
+          customerId: data.customerId,
+          amount: data.amount,
+          paymentDate: data.paymentDate,
+          method: data.method,
+          customMethod: data.method === "other" ? data.customMethod : null,
+          notes: data.notes,
         },
       });
-    }
 
-    // Derived from the invoices, not nudged by this amount — the increment
-    // that used to be here was never reversed when a payment was edited or
-    // deleted. See lib/metrics/customer-balance.ts.
-    await recomputeCustomerBalance(data.customerId);
+      // Derived from this invoice's payments rather than nudged by this
+      // amount — see lib/metrics/invoice-totals.ts.
+      const totals = invoice
+        ? await recomputeInvoiceTotals(invoice.id, tx)
+        : null;
+
+      // Likewise from their invoices: the increment that used to be here was
+      // never reversed when a payment was edited or deleted.
+      await recomputeCustomerBalance(data.customerId, tx);
+
+      return { payment: created, invoiceFullyPaid: totals?.becamePaid ?? false };
+    });
 
     // Send admin notification
     notifyPaymentCreated(
@@ -176,37 +172,42 @@ export async function updatePayment(
       return { success: false as const, error: "Payment not found" };
     }
 
-    const amountDiff = (data.amount ?? payment.amount) - payment.amount;
-
-    const updatedPayment = await prisma.payment.update({
-      where: { id },
-      data: {
-        ...data,
-        customMethod: data.method === "other" ? data.customMethod : null,
-      },
-    });
-
-    // Recalculate invoice if amount changed and payment has an invoice
-    let invoiceFullyPaid = false;
-    if (amountDiff !== 0 && payment.invoice) {
-      const invoice = payment.invoice;
-      const newAmountPaid = invoice.amountPaid + amountDiff;
-      const newBalance = invoice.total - newAmountPaid;
-      const newStatus = newBalance <= 0 ? "paid" : newAmountPaid > 0 ? "partial" : "sent";
-      invoiceFullyPaid = newBalance <= 0 && invoice.status !== "paid";
-
-      await prisma.invoice.update({
-        where: { id: invoice.id },
-        data: { 
-          amountPaid: newAmountPaid, 
-          balance: newBalance,
-          status: newStatus,
-        },
+    // An edit could not overpay before, because only `createPayment` checked
+    // the amount against the invoice. Raising a payment past the invoice total
+    // drove the balance negative and marked it paid.
+    if (data.amount !== undefined && payment.invoice) {
+      const others = await prisma.payment.aggregate({
+        where: { invoiceId: payment.invoice.id, NOT: { id } },
+        _sum: { amount: true },
       });
+      const wouldBePaid = (others._sum.amount ?? 0) + data.amount;
+      if (wouldBePaid > payment.invoice.total) {
+        const room = payment.invoice.total - (others._sum.amount ?? 0);
+        return {
+          success: false as const,
+          error: `That is more than the invoice has left on it. At most $${room.toFixed(2)}.`,
+        };
+      }
     }
 
-    // What the customer owes moved with the invoice.
-    await recomputeCustomerBalance(payment.customerId);
+    const { updatedPayment, invoiceFullyPaid } = await prisma.$transaction(async (tx) => {
+      const updated = await tx.payment.update({
+        where: { id },
+        data: {
+          ...data,
+          customMethod: data.method === "other" ? data.customMethod : null,
+        },
+      });
+
+      const totals = payment.invoice
+        ? await recomputeInvoiceTotals(payment.invoice.id, tx)
+        : null;
+
+      // What the customer owes moved with the invoice.
+      await recomputeCustomerBalance(payment.customerId, tx);
+
+      return { updatedPayment: updated, invoiceFullyPaid: totals?.becamePaid ?? false };
+    });
 
     // Send admin notification
     notifyPaymentUpdated(
@@ -289,27 +290,16 @@ export async function deletePayment(id: string,
       return { success: false as const, error: "Payment not found" };
     }
 
-    await prisma.payment.delete({ where: { id } });
+    await prisma.$transaction(async (tx) => {
+      await tx.payment.delete({ where: { id } });
 
-    // Update invoice amountPaid and balance if payment had an invoice
-    if (payment.invoice) {
-      const invoice = payment.invoice;
-      const newAmountPaid = invoice.amountPaid - payment.amount;
-      const newBalance = invoice.total - newAmountPaid;
-      const newStatus = newBalance <= 0 ? "paid" : newAmountPaid > 0 ? "partial" : "sent";
+      if (payment.invoice) {
+        await recomputeInvoiceTotals(payment.invoice.id, tx);
+      }
 
-      await prisma.invoice.update({
-        where: { id: invoice.id },
-        data: { 
-          amountPaid: newAmountPaid, 
-          balance: newBalance,
-          status: newStatus,
-        },
-      });
-    }
-
-    // Removing a payment puts the debt back.
-    await recomputeCustomerBalance(payment.customerId);
+      // Removing a payment puts the debt back.
+      await recomputeCustomerBalance(payment.customerId, tx);
+    });
 
     // Send admin notification
     notifyPaymentDeleted(

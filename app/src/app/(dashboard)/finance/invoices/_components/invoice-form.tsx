@@ -140,7 +140,9 @@ export function InvoiceForm({
                     subtotal: data.amount,
                     tax: 0,
                     total: data.amount,
-                    balance: data.amount - amountPaid,
+                    // The balance is not sent: the server derives it from the
+                    // invoice's payments, so it cannot be stale by the time
+                    // this form is submitted.
                     status: data.status,
                     notes: data.notes,
                 }, approvalReason)
