@@ -51,6 +51,7 @@ Read these together:
 | T5 | 25 driver-truck snapshots | ✅ **done this pass** (`37b8e9a`…`674c206`) |
 | T3 | 5 trip message delivery status | ✅ **done this pass** (`ff5b7f8`…`8e665b4`) |
 | — | WhatsApp assistant (not in the 27; asked for verbally) | ✅ **done this pass** (`3b7594e`…`540bc31`) |
+| — | Access/logic/document sweep of 29 Sep | ✅ **done** (`c945b75`…`b6f2174`) — see "Round 4" at the end |
 
 **All 27 client items are now implemented.** What remains is the unfinished
 *inside* of item 27 (the new reports the plan lists) plus verification that
@@ -547,3 +548,135 @@ pass.
 - The three role guides in `lessons/` described access nobody has had since
   the approval flow landed: they told supervisors they could edit directly
   and approve staff requests. Both false.
+
+---
+
+## Round 4 — the sweep of 29 Sep (access, arithmetic, documents)
+
+The brief was: *"look for and fix any other access, logical or functional
+errors… make sure everything in this app is proper, especially every report,
+every page and ACCESS LEVEL ISSUES"*, with **no live model or agent testing**
+(the client was out of credits).
+
+Twelve commits, `c945b75` … `b6f2174`. `bunx tsc --noEmit` clean throughout;
+lint unchanged against its 26 pre-existing errors. Five audits pass.
+
+### Access — what was actually open
+
+`audit-access.py` had been passing for a week while carrying **30 of the 66
+pages**. Everything it did not name went unchecked, and what it did not name
+was every `new` page, every `[id]/edit` page and the expense sub-pages — which
+is exactly where access had leaked.
+
+| Was open to | What |
+|---|---|
+| **anyone, signed in or not** | `exportTripProfitLossPDF` — no role check, no organisation scope. A trip's revenue, invoice and margin for anyone who knew a trip id. The card that offers it is admin-only, which is why it survived |
+| any signed-in user | a customer's statement with every invoice, payment and balance; a driver's report with the costs against them; the employee list; the trailer list |
+| **staff** | the whole expense list as a PDF, and recording an expense — a role the document says sees "no money anywhere" |
+| staff | the `[id]/edit` page of every customer, employee, supplier, invoice, payment, expense and stock item. A typed URL rendered the record in a form, amounts and all |
+| supervisors | expenses-by-category and by-truck report exports |
+| anyone | `createNotification` — arbitrary title, message and link written to any user in any organisation; and `generateInvoiceNumber`. Both dead code, both live endpoints |
+
+And the opposite error: **staff could not create a truck, trailer, driver or
+trip** — the four things `ACCESS_CONTROL.md` says the role exists for. All four
+create pages, all four actions and all four Add buttons were
+admin-and-supervisor.
+
+Also fixed: 45 of the 66 pages **silently redirected** a denied role instead of
+showing the no-access page the document requires, so an old bookmark looked
+like a broken link.
+
+### Arithmetic — money that did not add up
+
+| Symptom | Cause |
+|---|---|
+| Expense charts summed to more than the total above them | A cost booked against two trucks added its **whole** amount to each. Every report splits it evenly; these three charts did not |
+| Two figures for the same spend on one page | The Analytics tab carried its own "Last 30 days" dropdown, ignoring the page's period selector |
+| "Owes us money" listed customers who owed nothing | `Customer.balance` is **negative** when owed — the opposite of a supplier's. The picker read it as a supplier's, so the filter returned the exact complement and a customer $4,000 down read "Settled" |
+| Petty cash could go negative | `recordAccountMovement` read the balance, decided, then decremented. Two supervisors spending $80 of $100 both passed the check |
+| Payments vanished | Eight queries scoped payments by walking to the invoice's organisation. `invoiceId` is nullable — money taken on account has none — so those payments were missing from the payments page and from cash collected, while the cash-flow report counted them |
+| Invoice balance disagreed with its payments | Four places nudged `amountPaid`/`balance` by a delta, including **the browser**: the form computed the balance from the `amountPaid` it loaded with and posted it. And `balance` is not a tracked edit-request field, so approving a change to a total left the old balance beside it |
+| Deleting a payment issued a draft invoice | The status logic set `"sent"` whenever the paid amount reached zero — clearing `overdue` too |
+| A payment could be edited past the invoice total | Only *creating* one checked the amount |
+| Supplier balances could be lost | Payment and balance written separately, and `updateSupplierBalance` read-then-wrote the sum. `markExpenseAsPaid` could pay a supplier twice on a double click |
+
+### Documents — the one nobody could look at
+
+The seed had **never created an invoice, a payment or a supplier**. Half the
+system is about money owed and money paid; in development none of it had a row.
+So the invoice, the receipt, the statement, profit and loss, aged receivables,
+creditors, cash flow and customer profitability had all been written,
+registered and marked done without anyone being able to render one with data in
+it.
+
+Seeded now: suppliers with terms, 180 expenses against them with a third
+unpaid, supplier payments, an invoice per completed trip with a line item and
+VAT across a spread of statuses, payments against them, three payments **on
+account with no invoice**, and stock chosen so the edge cases each have a row.
+The seed also could no longer run at all — its cleanup deletes trucks and
+drivers without deleting the maintenance jobs and assignment history that
+reference them, so it died on a foreign key part-way through the wipe.
+
+With data in place, two document defects appeared immediately:
+
+- **Every credit-terms invoice printed as a CREDIT NOTE.** `isCredit` means
+  "the customer pays later"; the document read it as a credit note. So an
+  ordinary 30-day invoice went out titled "Credit Note", total labelled "Credit
+  amount", **no due date**, no bank details, no Paid line, never flagged
+  overdue, closing with "This credit note reduces the balance on your account."
+  Every other consumer of the field reads it correctly; only the document did
+  not.
+- **The receipt carried no address.** Its data type asked for `{ name: string }`
+  and the caller selected that one column, so the company details that exist on
+  the organisation row for this purpose never reached the one document a paying
+  customer is handed.
+
+Also: the organisation's own address, phone, VAT number and bank details were
+blank in development, so every document fell back to the constants in
+`brand.ts` and the columns the client would use to fix a typo without a deploy
+had never been exercised.
+
+### CSV/PDF parity, finished
+
+All 23 reports agree, checked by `scripts/audit-report-parity.ts`. The last six
+gaps were real columns: contact and phone and invoiced on customer
+profitability, what each category was booked against, a trip's status and
+profit per km, a driver's licence, an account's type, a truck's kilometres, and
+the ageing band on each receivable. The footer rows were positional arrays —
+inserting a column shifted every total one cell right — so `drawTable` takes
+`footByKey` now and a footer cannot drift from its header.
+
+### Five audits, not two
+
+Run all of these from `app/` after touching any role:
+
+```bash
+python scripts/audit-access.py         # 66 pages against the matrix; fails on a page it has never been told about
+python scripts/audit-nav.py            # no role is shown a link the page refuses
+python scripts/audit-action-guards.py  # all 130 server actions identify their caller
+python scripts/audit-export-access.py  # 26 export/document actions; fails on an unlisted export
+bun --preload ./scripts/_stub-server-only.ts scripts/audit-assistant-access.ts
+bun --preload ./scripts/_stub-server-only.ts scripts/audit-report-parity.ts
+bun --preload ./scripts/_stub-server-only.ts scripts/tests/check-documents.ts
+```
+
+The last three are the new ones. Each was written after finding something it
+would have caught, and each fails on an entry it has never been told about
+rather than quietly skipping it — that omission is what let the access matrix
+pass while covering a third of the app.
+
+### Still not done
+
+1. **No click-through in a real browser.** Four passes now. Everything here was
+   verified by running the real server actions, rendering the real documents and
+   asserting against the database. The Reports page bug of the last round is
+   what that misses.
+2. **The agent has not been exercised live this round** — the client was out of
+   credits and said not to. Statically: every action the agent sends is handled
+   by the route it sends it to (39 calls across 8 endpoints), the cap is 200 and
+   fails closed, and the per-role tool lists pass their audit.
+3. **WhatsApp has never been paired end to end.**
+4. The seed's demo geography is still Kenyan — Nairobi routes, Kenyan plates,
+   KES amounts — for a Zimbabwean company running into Zambia, Mozambique, DR
+   Congo and South Africa. Dev-only (`ensure-admin.mjs` is what runs in
+   production), so it was left alone, but it reads oddly to anyone who seeds.
