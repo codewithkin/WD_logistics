@@ -470,8 +470,8 @@ export function ReportGenerator({
 
                         {selectedPeriod && selectedPeriod !== "custom" && (
                             <div className="text-sm text-muted-foreground">
-                                Date range: {form.getValues("dateRange.from")?.toLocaleDateString()} -{" "}
-                                {form.getValues("dateRange.to")?.toLocaleDateString()}
+                                Date range: {form.getValues("dateRange.from")?.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} -{" "}
+                                {form.getValues("dateRange.to")?.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
                             </div>
                         )}
 

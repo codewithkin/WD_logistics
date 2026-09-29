@@ -89,7 +89,7 @@ async function notifyAdminChannels(
 
 // Date formatters
 const formatDate = (date: Date): string => {
-  return new Date(date).toLocaleDateString("en-US", {
+  return new Date(date).toLocaleDateString("en-GB", {
     weekday: "long",
     year: "numeric",
     month: "long",
@@ -98,7 +98,7 @@ const formatDate = (date: Date): string => {
 };
 
 const formatDateTime = (date: Date): string => {
-  return new Date(date).toLocaleDateString("en-US", {
+  return new Date(date).toLocaleDateString("en-GB", {
     weekday: "long",
     year: "numeric",
     month: "long",

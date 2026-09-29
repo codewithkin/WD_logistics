@@ -161,7 +161,7 @@ export default async function ExpensesByTruckPage({ searchParams }: ExpensesByTr
                                                     </Badge>
                                                     <span className="text-sm text-muted-foreground flex items-center gap-1">
                                                         <Calendar className="h-3 w-3" />
-                                                        {new Date(te.expense.date).toLocaleDateString()}
+                                                        {new Date(te.expense.date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
                                                     </span>
                                                 </div>
                                                 <div className="text-sm">

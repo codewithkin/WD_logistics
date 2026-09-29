@@ -157,13 +157,24 @@ export function ReportsDashboard({ data, periodLabel = "This Month", initialTab 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Revenue</CardTitle>
+              {/* Called "Revenue" until now, which put $1,638,989 on this page
+                  beside the dashboard's $1,431,432 for the same month and left
+                  the reader to guess which was wrong. Neither was: this is the
+                  total of invoices *issued* in the period, VAT included, while
+                  the dashboard reports revenue *earned* on completed trips
+                  (@/lib/metrics/revenue). Two measures, so two names — and the
+                  Collection Rate card below already reads "of invoiced
+                  collected", which only makes sense against this one. */}
+              <CardTitle className="text-sm font-medium">Invoiced</CardTitle>
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
                 ${thisMonthInvoiceTotal.toLocaleString()}
               </div>
+              <p className="text-xs text-muted-foreground">
+                billed in this period, VAT included
+              </p>
               <div className="flex items-center text-xs text-muted-foreground">
                 {invoiceChange >= 0 ? (
                   <TrendingUp className="mr-1 h-3 w-3 text-green-500" />
@@ -253,7 +264,7 @@ export function ReportsDashboard({ data, periodLabel = "This Month", initialTab 
         <div className="grid gap-6 md:grid-cols-2">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0">
-              <CardTitle>Top Customers by Revenue</CardTitle>
+              <CardTitle>Top Customers by Invoiced</CardTitle>
               <GenerateReportLink reportType="revenue" />
             </CardHeader>
             <CardContent>

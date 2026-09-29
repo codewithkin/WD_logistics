@@ -284,7 +284,7 @@ export default async function ExpenseAnalyticsPage({ searchParams }: ExpenseAnal
                                             {data.trip.originCity} → {data.trip.destinationCity}
                                         </p>
                                         <p className="text-xs text-muted-foreground">
-                                            {new Date(data.trip.scheduledDate).toLocaleDateString()} •
+                                            {new Date(data.trip.scheduledDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} •
                                             {data.trip.truck.registrationNo} • {data.count}{" "}
                                             {data.count === 1 ? "expense" : "expenses"}
                                         </p>

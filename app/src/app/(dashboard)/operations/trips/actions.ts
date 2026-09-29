@@ -437,7 +437,7 @@ export async function exportSingleTripReport(tripId: string) {
     // Format dates helper
     const formatDate = (date: Date | null) => {
       if (!date) return "N/A";
-      return date.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+      return date.toLocaleDateString("en-GB", { year: "numeric", month: "short", day: "numeric" });
     };
 
     const totalExpenses = trip.tripExpenses.reduce((sum, te) => sum + te.expense.amount, 0);

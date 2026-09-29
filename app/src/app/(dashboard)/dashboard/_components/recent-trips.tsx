@@ -60,7 +60,7 @@ export function RecentTrips({ trips }: RecentTripsProps) {
                                 <div className="text-right space-y-1">
                                     <StatusBadge status={trip.status} type="trip" />
                                     <p className="text-xs text-muted-foreground">
-                                        {new Date(trip.scheduledDate).toLocaleDateString()}
+                                        {new Date(trip.scheduledDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
                                     </p>
                                 </div>
                             </div>

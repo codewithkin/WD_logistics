@@ -117,7 +117,7 @@ export default async function ExpensesByTripPage({ searchParams }: ExpensesByTri
                                         <CardDescription className="mt-1 space-y-1">
                                             <div className="flex items-center gap-1">
                                                 <Calendar className="h-3 w-3" />
-                                                {new Date(trip.scheduledDate).toLocaleDateString()}
+                                                {new Date(trip.scheduledDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
                                             </div>
                                             <div className="flex items-center gap-1">
                                                 <TruckIcon className="h-3 w-3" />
@@ -165,7 +165,7 @@ export default async function ExpensesByTripPage({ searchParams }: ExpensesByTri
                                                     </Badge>
                                                     <span className="text-sm text-muted-foreground flex items-center gap-1">
                                                         <Calendar className="h-3 w-3" />
-                                                        {new Date(te.expense.date).toLocaleDateString()}
+                                                        {new Date(te.expense.date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
                                                     </span>
                                                 </div>
                                                 <div className="text-sm">

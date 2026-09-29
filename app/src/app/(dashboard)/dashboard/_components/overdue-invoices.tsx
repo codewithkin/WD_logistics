@@ -57,7 +57,7 @@ export function OverdueInvoices({ invoices }: OverdueInvoicesProps) {
                                     ${invoice.balance.toLocaleString()}
                                 </p>
                                 <p className="text-xs text-muted-foreground">
-                                    Due: {invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString() : "N/A"}
+                                    Due: {invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "N/A"}
                                 </p>
                             </div>
                         </div>

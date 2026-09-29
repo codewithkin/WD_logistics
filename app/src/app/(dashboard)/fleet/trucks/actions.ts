@@ -610,7 +610,7 @@ export async function exportSingleTruckReport(truckId: string, periodParams?: { 
     // Format dates helper
     const formatDate = (date: Date | null) => {
       if (!date) return "N/A";
-      return date.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+      return date.toLocaleDateString("en-GB", { year: "numeric", month: "short", day: "numeric" });
     };
 
     const pdfBytes = generateSingleTruckReportPDF({

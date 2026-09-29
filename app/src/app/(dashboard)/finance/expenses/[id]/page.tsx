@@ -108,7 +108,7 @@ export default async function ExpensePage({ params }: ExpensePageProps) {
                 </Link>
                 <PageHeader
                     title="Expense Details"
-                    description={`View expense from ${new Date(expense.date).toLocaleDateString()}`}
+                    description={`View expense from ${new Date(expense.date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`}
                 />
             </div>
 
@@ -165,7 +165,7 @@ export default async function ExpensePage({ params }: ExpensePageProps) {
                                 <div>
                                     <p className="text-sm text-muted-foreground">Date</p>
                                     <p className="font-medium">
-                                        {new Date(expense.date).toLocaleDateString("en-US", {
+                                        {new Date(expense.date).toLocaleDateString("en-GB", {
                                             weekday: "long",
                                             year: "numeric",
                                             month: "long",
@@ -257,7 +257,7 @@ export default async function ExpensePage({ params }: ExpensePageProps) {
                                                 {trip.originCity} → {trip.destinationCity}
                                             </p>
                                             <p className="text-sm text-muted-foreground">
-                                                {new Date(trip.scheduledDate).toLocaleDateString()} •{" "}
+                                                {new Date(trip.scheduledDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} •{" "}
                                                 {trip.driver.firstName} {trip.driver.lastName}
                                             </p>
                                         </div>

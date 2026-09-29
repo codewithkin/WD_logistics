@@ -232,7 +232,7 @@ export function ExpensesTableClient({ expenses }: ExpensesTableProps) {
                     const trucks = expense.truckExpenses.map((te) => te.truck.registrationNo).join("; ");
                     const trips = expense.tripExpenses.map((te) => `${te.trip.originCity}→${te.trip.destinationCity}`).join("; ");
                     return [
-                        escapeCSV(new Date(expense.date).toLocaleDateString()),
+                        escapeCSV(new Date(expense.date).toISOString().split("T")[0]!),
                         escapeCSV(expense.category.name),
                         escapeCSV(expense.description || ""),
                         escapeCSV(trucks || "N/A"),
@@ -308,7 +308,7 @@ export function ExpensesTableClient({ expenses }: ExpensesTableProps) {
                         const trucks = expense.truckExpenses.map((te) => te.truck.registrationNo).join("; ");
                         const trips = expense.tripExpenses.map((te) => `${te.trip.originCity}→${te.trip.destinationCity}`).join("; ");
                         return [
-                            escapeCSV(new Date(expense.date).toLocaleDateString()),
+                            escapeCSV(new Date(expense.date).toISOString().split("T")[0]!),
                             escapeCSV(expense.category.name),
                             escapeCSV(expense.description || ""),
                             escapeCSV(trucks || "N/A"),
@@ -486,7 +486,7 @@ export function ExpensesTableClient({ expenses }: ExpensesTableProps) {
                             paginatedExpenses.map((expense) => (
                                 <TableRow key={expense.id} className="group">
                                     <TableCell className="font-medium">
-                                        {new Date(expense.date).toLocaleDateString("en-US", {
+                                        {new Date(expense.date).toLocaleDateString("en-GB", {
                                             month: "short",
                                             day: "numeric",
                                             year: "numeric"
