@@ -187,11 +187,11 @@ export async function updateSupplierBalance(id: string, amount: number) {
       return { success: false as const, error: "Supplier not found" };
     }
 
+    // Adjusted in the database, not computed here: reading the balance and
+    // writing back the sum loses one of two adjustments made at the same time.
     const updatedSupplier = await prisma.supplier.update({
       where: { id },
-      data: {
-        balance: supplier.balance + amount,
-      },
+      data: { balance: { increment: amount } },
     });
 
     revalidatePath("/suppliers");
@@ -219,25 +219,29 @@ export async function markExpenseAsPaid(expenseId: string) {
       return { success: false as const, error: "Expense is already paid" };
     }
 
-    // Update expense as paid
-    await prisma.expense.update({
-      where: { id: expenseId },
-      data: {
-        isPaid: true,
-        paidDate: new Date(),
-      },
+    const settled = await prisma.$transaction(async (tx) => {
+      // `isPaid: false` rides in the where clause, so a second click — or a
+      // second person on the same expense — matches no row instead of paying
+      // the supplier twice. The read above catches the ordinary case; this
+      // catches the race.
+      const { count } = await tx.expense.updateMany({
+        where: { id: expenseId, isPaid: false },
+        data: { isPaid: true, paidDate: new Date() },
+      });
+      if (count === 0) return false;
+
+      // Paying it reduces what we owe the supplier.
+      if (expense.supplierId) {
+        await tx.supplier.update({
+          where: { id: expense.supplierId },
+          data: { balance: { decrement: expense.amount } },
+        });
+      }
+      return true;
     });
 
-    // Update supplier balance if expense is tied to a supplier
-    if (expense.supplierId) {
-      await prisma.supplier.update({
-        where: { id: expense.supplierId },
-        data: {
-          balance: {
-            decrement: expense.amount,
-          },
-        },
-      });
+    if (!settled) {
+      return { success: false as const, error: "Expense is already paid" };
     }
 
     revalidatePath("/suppliers");

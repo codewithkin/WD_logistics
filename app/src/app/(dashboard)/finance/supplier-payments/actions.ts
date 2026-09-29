@@ -27,28 +27,31 @@ export async function createSupplierPayment(data: {
             return { success: false, error: "Supplier not found" };
         }
 
-        const payment = await prisma.supplierPayment.create({
-            data: {
-                organizationId: session.organizationId,
-                supplierId: data.supplierId,
-                amount: data.amount,
-                paymentDate: data.paymentDate,
-                method: data.method,
-                customMethod: data.method === "other" ? data.customMethod : null,
-                reference: data.reference,
-                description: data.description,
-                notes: data.notes,
-            },
-        });
-
-        // Update supplier balance (reduce amount owed)
-        await prisma.supplier.update({
-            where: { id: data.supplierId },
-            data: {
-                balance: {
-                    decrement: data.amount,
+        // The payment and the balance it settles are one write. They were two,
+        // so a failure in between left the supplier still owing money that had
+        // been paid, with a payment on record saying otherwise.
+        const payment = await prisma.$transaction(async (tx) => {
+            const created = await tx.supplierPayment.create({
+                data: {
+                    organizationId: session.organizationId,
+                    supplierId: data.supplierId,
+                    amount: data.amount,
+                    paymentDate: data.paymentDate,
+                    method: data.method,
+                    customMethod: data.method === "other" ? data.customMethod : null,
+                    reference: data.reference,
+                    description: data.description,
+                    notes: data.notes,
                 },
-            },
+            });
+
+            // Reduce what we owe them.
+            await tx.supplier.update({
+                where: { id: data.supplierId },
+                data: { balance: { decrement: data.amount } },
+            });
+
+            return created;
         });
 
         revalidatePath("/finance/supplier-payments");
@@ -100,30 +103,29 @@ export async function updateSupplierPayment(
             return { success: false, error: "Payment not found" };
         }
 
-        // If amount changed, adjust supplier balance
-        if (data.amount !== undefined && data.amount !== existingPayment.amount) {
-            const difference = existingPayment.amount - data.amount;
-            await prisma.supplier.update({
-                where: { id: existingPayment.supplierId },
-                data: {
-                    balance: {
-                        increment: difference,
+        const payment = await prisma.$transaction(async (tx) => {
+            // If the amount changed, the difference goes back on what we owe.
+            if (data.amount !== undefined && data.amount !== existingPayment.amount) {
+                await tx.supplier.update({
+                    where: { id: existingPayment.supplierId },
+                    data: {
+                        balance: { increment: existingPayment.amount - data.amount },
                     },
+                });
+            }
+
+            return tx.supplierPayment.update({
+                where: { id },
+                data: {
+                    amount: data.amount,
+                    paymentDate: data.paymentDate,
+                    method: data.method,
+                    customMethod: data.method === "other" ? data.customMethod : null,
+                    reference: data.reference,
+                    description: data.description,
+                    notes: data.notes,
                 },
             });
-        }
-
-        const payment = await prisma.supplierPayment.update({
-            where: { id },
-            data: {
-                amount: data.amount,
-                paymentDate: data.paymentDate,
-                method: data.method,
-                customMethod: data.method === "other" ? data.customMethod : null,
-                reference: data.reference,
-                description: data.description,
-                notes: data.notes,
-            },
         });
 
         revalidatePath("/finance/supplier-payments");
@@ -165,18 +167,14 @@ export async function deleteSupplierPayment(id: string,
             return { success: false, error: "Payment not found" };
         }
 
-        // Restore supplier balance
-        await prisma.supplier.update({
-            where: { id: payment.supplierId },
-            data: {
-                balance: {
-                    increment: payment.amount,
-                },
-            },
-        });
+        await prisma.$transaction(async (tx) => {
+            // Removing the payment puts the debt back.
+            await tx.supplier.update({
+                where: { id: payment.supplierId },
+                data: { balance: { increment: payment.amount } },
+            });
 
-        await prisma.supplierPayment.delete({
-            where: { id },
+            await tx.supplierPayment.delete({ where: { id } });
         });
 
         revalidatePath("/finance/supplier-payments");
