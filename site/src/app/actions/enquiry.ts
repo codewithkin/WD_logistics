@@ -47,6 +47,22 @@ function read(form: FormData, key: string, max = 300): string {
   return typeof value === "string" ? value.trim().slice(0, max) : "";
 }
 
+/**
+ * The shape `useActionState` wants, so the form can pass this straight to its
+ * `action` prop.
+ *
+ * That is what makes a submit work before the page has hydrated: without a
+ * real action on the form, a tap on Send in that window fell through to a
+ * native GET, which put the sender's name, number and email into the query
+ * string and reloaded the page with the enquiry gone.
+ */
+export async function submitEnquiryAction(
+  _previous: EnquiryResult | null,
+  form: FormData,
+): Promise<EnquiryResult> {
+  return submitEnquiry(form);
+}
+
 export async function submitEnquiry(form: FormData): Promise<EnquiryResult> {
   // A field no person can see, so anything that fills it in is a bot. Cheaper
   // and less hostile than a captcha on a form this size, and it fails quietly

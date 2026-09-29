@@ -142,7 +142,9 @@ delete process.env.SMTP_PASSWORD;
 
 // Imported after the environment is set, because the transport is built on
 // first use and reads these then.
-const { submitEnquiry } = await import("../src/app/actions/enquiry");
+const { submitEnquiry, submitEnquiryAction } = await import(
+  "../src/app/actions/enquiry"
+);
 const { ENQUIRY_RECIPIENTS } = await import("../src/lib/mail");
 
 function formOf(values: Record<string, string>): FormData {
@@ -299,6 +301,33 @@ try {
     "the honeypot swallows a bot",
     bot.ok && smtp.messages.length === countBefore,
     "accepted without sending, so the bot learns nothing",
+  );
+
+  // What the form is actually wired to. useActionState hands the action the
+  // previous result first, so a wrapper that dropped or reordered its
+  // arguments would send an empty enquiry and pass every check above.
+  const sentBefore = smtp.messages.length;
+  const viaAction = await submitEnquiryAction(
+    null,
+    formOf({ name: "Rudo Chikwanha", phone: "0772958986", origin: "Mutare" }),
+  );
+  const lastBody = decode(smtp.messages[smtp.messages.length - 1]?.body ?? "");
+  record(
+    "the form's own action sends",
+    viaAction.ok &&
+      smtp.messages.length === sentBefore + 1 &&
+      lastBody.includes("Rudo Chikwanha"),
+    "submitEnquiryAction(previous, formData) — the shape useActionState calls",
+  );
+
+  const refusedByAction = await submitEnquiryAction(
+    viaAction,
+    formOf({ name: "", phone: "0772958986" }),
+  );
+  record(
+    "the action refuses what the plain call refuses",
+    !refusedByAction.ok && refusedByAction.field === "name",
+    "a previous success does not carry over into the next submit",
   );
 } finally {
   smtp.stop();
