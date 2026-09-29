@@ -38,11 +38,32 @@ function getTransporter(): Transporter {
   return transporter;
 }
 
+/**
+ * The business's own mailbox, blind-copied on everything this system sends.
+ *
+ * Hardcoded on purpose, and not read from the environment: the owner's copy of
+ * what went out to a customer or a driver should not depend on a variable
+ * somebody set correctly on one deploy and forgot on the next.
+ *
+ * It is a **copy**, not a redirection. Every email this app sends is addressed
+ * to the person it concerns — a customer's invoice, a driver's trip, a user's
+ * own password — so sending them to the office instead would mean the customer
+ * never gets the invoice and the user never gets their password. Blind, so a
+ * customer replying to their invoice does not reply to the office as well.
+ */
+export const BUSINESS_MAILBOX = "admin@wd-logistics.co.zw";
+
 export interface SendEmailOptions {
   to: string;
   subject: string;
   text: string;
   html?: string;
+  /**
+   * Set false only for a message the business must not keep a copy of. Nothing
+   * does today; the flag exists so a future caller has to say so out loud
+   * rather than quietly editing the constant above.
+   */
+  copyBusiness?: boolean;
 }
 
 /**
@@ -62,23 +83,31 @@ export interface SendEmailOptions {
  * caller in users/actions.ts for the pattern.
  */
 export async function sendEmail(options: SendEmailOptions): Promise<{ success: true; messageId: string }> {
-  const { to, subject, text, html } = options;
+  const { to, subject, text, html, copyBusiness = true } = options;
 
   if (!process.env.SMTP_HOST) {
     console.warn("SMTP_HOST is not configured; skipping email to", to);
     throw new Error("Email is not configured");
   }
 
+  // Skipped when the message is already going there, so the office does not
+  // get two copies of a mail addressed to it.
+  const copyTo =
+    copyBusiness && to.trim().toLowerCase() !== BUSINESS_MAILBOX
+      ? BUSINESS_MAILBOX
+      : undefined;
+
   const mailOptions = {
     from: `"${process.env.SMTP_FROM_NAME}" <${process.env.SMTP_FROM_EMAIL}>` || process.env.SMTP_USER,
     to,
+    bcc: copyTo,
     subject,
     text,
     html: html || text,
   };
 
   try {
-    console.log("Attempting to send email to:", to);
+    console.log("Attempting to send email to:", to, copyTo ? `(copy to ${copyTo})` : "");
     console.log("Using SMTP config:", {
       host: process.env.SMTP_HOST,
       port: process.env.SMTP_PORT,
