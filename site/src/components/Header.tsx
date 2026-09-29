@@ -3,12 +3,34 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { COMPANY, NAV_LINKS } from "@/lib/site";
 
 export function Header() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+
+  // Escape closes it. The panel covers the page on a phone and the only way
+  // out was to find the toggle again, which a keyboard user reaches last.
+  useEffect(() => {
+    if (!open) return;
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [open]);
+
+  // A route change leaves it open otherwise: every link in it closes it by
+  // hand, so anything that navigates without one (the browser's back button,
+  // a link added later that forgets the handler) strands the panel open over
+  // the new page. Done during render rather than in an effect so the new page
+  // never paints with the old page's menu over it.
+  const [shownFor, setShownFor] = useState(pathname);
+  if (shownFor !== pathname) {
+    setShownFor(pathname);
+    setOpen(false);
+  }
 
   return (
     <div className="px-5 pt-5 sm:px-8 lg:px-[34px] lg:pt-[26px]">
@@ -34,6 +56,9 @@ export function Header() {
               <Link
                 key={link.href}
                 href={link.href}
+                // The green pill was the only sign of where you are. Sighted
+                // only: nothing in the markup said it.
+                aria-current={active ? "page" : undefined}
                 className={`rounded-full px-4 py-2.5 transition-colors ${
                   active ? "bg-[#EFF8E5] text-[#1E2320]" : "hover:text-[#1E2320]"
                 }`}
@@ -84,6 +109,7 @@ export function Header() {
             type="button"
             aria-label={open ? "Close menu" : "Open menu"}
             aria-expanded={open}
+            aria-controls="site-menu"
             onClick={() => setOpen((v) => !v)}
             className="flex h-10 w-10 shrink-0 flex-col items-center justify-center gap-[5px] rounded-full border border-[#E5E7E1]"
           >
@@ -101,8 +127,18 @@ export function Header() {
         </div>
       </div>
 
-      {/* Mobile menu panel */}
+      {/* Mobile menu panel.
+
+          It is collapsed with grid-template-rows, so while closed it is a
+          zero-height box with its links still in the document — tabbing from
+          the toggle walked into three invisible links and the office number,
+          and a screen reader read the whole menu out on every page. `inert`
+          rather than `hidden` because hidden would drop the row out of the
+          grid and take the open/close animation with it. */}
       <div
+        id="site-menu"
+        aria-hidden={!open}
+        inert={!open}
         className={`grid overflow-hidden transition-[grid-template-rows] duration-300 ease-out lg:hidden ${
           open ? "grid-rows-[1fr] pt-3" : "grid-rows-[0fr]"
         }`}
@@ -118,6 +154,7 @@ export function Header() {
                 key={link.href}
                 href={link.href}
                 onClick={() => setOpen(false)}
+                aria-current={active ? "page" : undefined}
                 className={`rounded-2xl px-4 py-3 ${
                   active ? "bg-[#EFF8E5] text-[#1E2320]" : ""
                 }`}
