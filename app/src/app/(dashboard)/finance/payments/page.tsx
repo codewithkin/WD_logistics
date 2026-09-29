@@ -30,7 +30,7 @@ export default async function PaymentsPage({ searchParams }: PaymentsPageProps) 
 
     const payments = await prisma.payment.findMany({
         where: {
-            invoice: { organizationId },
+            customer: { organizationId },
             paymentDate: {
                 gte: dateRange.from,
                 lte: dateRange.to,

@@ -1172,14 +1172,14 @@ export async function exportDashboardPDF(period?: PeriodInput) {
       }),
       prisma.payment.aggregate({
         where: {
-          invoice: { organizationId },
+          customer: { organizationId },
           paymentDate: { gte: thisMonthStart, lte: thisMonthEnd },
         },
         _sum: { amount: true },
       }),
       prisma.payment.aggregate({
         where: {
-          invoice: { organizationId },
+          customer: { organizationId },
           paymentDate: { gte: lastMonthStart, lte: lastMonthEnd },
         },
         _sum: { amount: true },

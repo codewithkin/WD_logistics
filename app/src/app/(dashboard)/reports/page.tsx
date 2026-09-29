@@ -86,14 +86,14 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
     }),
     prisma.payment.aggregate({
       where: {
-        invoice: { organizationId },
+        customer: { organizationId },
         paymentDate: { gte: periodStart, lte: periodEnd },
       },
       _sum: { amount: true },
     }),
     prisma.payment.aggregate({
       where: {
-        invoice: { organizationId },
+        customer: { organizationId },
         paymentDate: { gte: comparisonStart, lte: comparisonEnd },
       },
       _sum: { amount: true },

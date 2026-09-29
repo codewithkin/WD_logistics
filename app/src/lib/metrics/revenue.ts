@@ -96,7 +96,16 @@ export async function getEarnedRevenue(
   return round(trips.reduce((sum, trip) => sum + (trip.revenue || 0), 0));
 }
 
-/** Payments received in the period — cash flow, not performance. */
+/**
+ * Payments received in the period — cash flow, not performance.
+ *
+ * Scoped through the *customer*, not the invoice. `Payment.invoiceId` is
+ * nullable — money can be taken on account, before an invoice is raised — and
+ * scoping through the invoice silently dropped every one of those payments, so
+ * cash collected here disagreed with the cash-flow report, which scopes
+ * through the customer. `Payment.customerId` is required, so this counts them
+ * all.
+ */
 export async function getCashCollected(
   organizationId: string,
   from: Date,
@@ -104,7 +113,7 @@ export async function getCashCollected(
 ): Promise<number> {
   const result = await prisma.payment.aggregate({
     where: {
-      invoice: { organizationId },
+      customer: { organizationId },
       paymentDate: { gte: from, lte: to },
     },
     _sum: { amount: true },
@@ -173,7 +182,7 @@ export async function getMonthlyCashCollected(
 ): Promise<{ month: string; date: Date; cashCollected: number }[]> {
   const payments = await prisma.payment.findMany({
     where: {
-      invoice: { organizationId },
+      customer: { organizationId },
       paymentDate: { gte: from, lte: to },
     },
     select: { amount: true, paymentDate: true },

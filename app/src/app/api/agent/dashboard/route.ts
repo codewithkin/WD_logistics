@@ -230,7 +230,7 @@ async function getRecentActivity(organizationId: string, params: { limit?: numbe
   // Get recent payments
   const recentPayments = await prisma.payment.findMany({
     where: {
-      invoice: { organizationId },
+      customer: { organizationId },
     },
     orderBy: { paymentDate: "desc" },
     take: limit,
