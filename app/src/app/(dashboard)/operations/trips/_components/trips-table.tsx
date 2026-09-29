@@ -58,7 +58,14 @@ interface Trip {
     status: string;
     estimatedMileage: number;
     actualMileage: number | null;
-    revenue: number;
+    /**
+     * Absent for a role that may not see earnings. The page leaves it out of
+     * the rows it sends rather than sending it and hiding the column: a value
+     * handed to a client component is in the RSC payload whether or not it is
+     * rendered, and this table was shipping every trip's revenue to
+     * supervisors and staff.
+     */
+    revenue?: number;
     truck: {
         id: string;
         registrationNo: string;
@@ -114,8 +121,8 @@ export function TripsTable({ trips, role, showFinancials = true }: TripsTablePro
 
     const paginatedTrips = filteredTrips.slice(pagination.startIndex, pagination.endIndex);
 
-    // Calculate total revenue for filtered trips
-    const totalRevenue = filteredTrips.reduce((sum, trip) => sum + trip.revenue, 0);
+    // Only meaningful when revenue was sent at all.
+    const totalRevenue = filteredTrips.reduce((sum, trip) => sum + (trip.revenue ?? 0), 0);
 
     const handleDelete = async () => {
         if (!deleteId) return;
@@ -260,7 +267,7 @@ export function TripsTable({ trips, role, showFinancials = true }: TripsTablePro
                                         </TableCell>
                                         {canViewAmounts && (
                                             <TableCell className="text-right font-medium">
-                                                ${trip.revenue.toLocaleString()}
+                                                ${(trip.revenue ?? 0).toLocaleString()}
                                             </TableCell>
                                         )}
                                         {canEdit && (

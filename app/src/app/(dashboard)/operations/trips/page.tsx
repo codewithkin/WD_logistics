@@ -80,6 +80,16 @@ export default async function TripsPage({ searchParams }: TripsPageProps) {
     const canExport = role === "admin";
     const showFinancials = canViewFinancialData(role);
 
+    // What crosses to the client, with each trip's revenue taken out for a
+    // role that may not see it. Hiding the column was not enough: the rows
+    // were handed to a client component whole, so `"revenue":79153` sat in
+    // the payload of every supervisor's and staff member's trips page. This is
+    // the same mistake ACCESS_CONTROL.md records against the assistant's
+    // `list_trips`, on the web side.
+    const visibleTrips = showFinancials
+        ? trips
+        : trips.map(({ revenue: _revenue, ...trip }) => trip);
+
     return (
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -102,7 +112,7 @@ export default async function TripsPage({ searchParams }: TripsPageProps) {
             {showFinancials && (
                 <TripsAnalytics analytics={analytics} trips={trips} canExport={canExport} periodLabel={dateRange.label} />
             )}
-            <TripsTable trips={trips} role={role} showFinancials={showFinancials} />
+            <TripsTable trips={visibleTrips} role={role} showFinancials={showFinancials} />
         </div>
     );
 }

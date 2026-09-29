@@ -146,17 +146,28 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
     const totalTrucks = Object.values(fleetStatus).reduce((a, b) => a + b, 0);
 
+    const showFinancials = canViewFinancialData(role);
+
+    // The money figures are left out of this object entirely for a role that
+    // may not see them, rather than filtered out when the cards are drawn.
+    // They were being sent either way: a supervisor's dashboard carried
+    // `"revenueThisMonth":1431432,"cashCollected":1082335.87` in the payload,
+    // readable in devtools, with the card simply not rendered. That is the
+    // leak ACCESS_CONTROL.md describes under "Where this is enforced" — money
+    // fields are omitted from the result, not hidden in the markup.
     const stats = {
         activeTrucks: fleetStatus.active,
         totalTrucks,
         tripsThisMonth: tripStats,
-        revenueThisMonth: earnedRevenue,
-        cashCollected,
-        overdueInvoicesCount: overdueInvoices.length,
         periodLabel: dateRange.label,
+        ...(showFinancials
+            ? {
+                  revenueThisMonth: earnedRevenue,
+                  cashCollected,
+                  overdueInvoicesCount: overdueInvoices.length,
+              }
+            : {}),
     };
-
-    const showFinancials = canViewFinancialData(role);
 
     const greeting = (() => {
         const hour = new Date().getHours();

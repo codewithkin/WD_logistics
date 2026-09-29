@@ -7,10 +7,16 @@ interface DashboardStatsProps {
         activeTrucks: number;
         totalTrucks: number;
         tripsThisMonth: number;
-        revenueThisMonth: number;
-        cashCollected: number;
-        overdueInvoicesCount: number;
         periodLabel: string;
+        /**
+         * Absent, not zero, for a role that may not see earnings — the page
+         * leaves them out of the object rather than sending them and hiding
+         * the card. Both money cards read as "—" if they are ever rendered
+         * without them, so a future caller cannot print a misleading zero.
+         */
+        revenueThisMonth?: number;
+        cashCollected?: number;
+        overdueInvoicesCount?: number;
     };
     role: Role;
     showFinancials?: boolean;
@@ -44,11 +50,17 @@ export function DashboardStats({ stats, role, showFinancials = true }: Dashboard
         },
         {
             title: `Revenue (${periodLabel})`,
-            value: `$${stats.revenueThisMonth.toLocaleString()}`,
+            value:
+                stats.revenueThisMonth === undefined
+                    ? "—"
+                    : `$${stats.revenueThisMonth.toLocaleString()}`,
             icon: DollarSign,
             // Says which measure this is, because the card sits above charts
             // that also say "revenue" — they all now mean completed trips.
-            description: `earned on completed trips · $${stats.cashCollected.toLocaleString()} collected`,
+            description:
+                stats.cashCollected === undefined
+                    ? "earned on completed trips"
+                    : `earned on completed trips · $${stats.cashCollected.toLocaleString()} collected`,
             roles: ["admin"] as Role[],
             requiresFinancials: true,
             bgGradient: "linear-gradient(to bottom right, rgba(34, 197, 94, 0.1), rgba(16, 185, 129, 0.1))",
@@ -57,18 +69,18 @@ export function DashboardStats({ stats, role, showFinancials = true }: Dashboard
         },
         {
             title: "Overdue Invoices",
-            value: stats.overdueInvoicesCount.toString(),
+            value: stats.overdueInvoicesCount?.toString() ?? "—",
             icon: AlertTriangle,
             description: "require attention",
             roles: ["admin"] as Role[],
             requiresFinancials: true,
-            bgGradient: stats.overdueInvoicesCount > 0
+            bgGradient: (stats.overdueInvoicesCount ?? 0) > 0
                 ? "linear-gradient(to bottom right, rgba(239, 68, 68, 0.1), rgba(249, 115, 22, 0.1))"
                 : "linear-gradient(to bottom right, rgba(107, 114, 128, 0.1), rgba(100, 116, 139, 0.1))",
-            iconGradient: stats.overdueInvoicesCount > 0
+            iconGradient: (stats.overdueInvoicesCount ?? 0) > 0
                 ? "linear-gradient(to bottom right, #ef4444, #f97316)"
                 : "linear-gradient(to bottom right, #6b7280, #64748b)",
-            textColor: stats.overdueInvoicesCount > 0 ? "#dc2626" : "#4b5563",
+            textColor: (stats.overdueInvoicesCount ?? 0) > 0 ? "#dc2626" : "#4b5563",
         },
     ];
 
