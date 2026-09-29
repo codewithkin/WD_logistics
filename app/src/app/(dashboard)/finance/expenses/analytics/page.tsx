@@ -81,8 +81,15 @@ export default async function ExpenseAnalyticsPage({ searchParams }: ExpenseAnal
         .sort(([, a], [, b]) => b.total - a.total)
         .slice(0, 5);
 
+    // A cost named against several trucks (or trips) is split evenly between
+    // them, the same rule the truck cost breakdown and the reports use. Adding
+    // the whole amount to each made the top-five bars sum to more than the
+    // total above them.
+    const share = (amount: number, links: number) => (links > 0 ? amount / links : 0);
+
     // Group by truck
     const truckExpenses = expenses.reduce((acc, expense) => {
+        const each = share(expense.amount, expense.truckExpenses.length);
         expense.truckExpenses.forEach((te) => {
             const truckKey = te.truck.registrationNo;
             if (!acc[truckKey]) {
@@ -92,7 +99,7 @@ export default async function ExpenseAnalyticsPage({ searchParams }: ExpenseAnal
                     truck: te.truck,
                 };
             }
-            acc[truckKey].total += expense.amount;
+            acc[truckKey].total += each;
             acc[truckKey].count += 1;
         });
         return acc;
@@ -104,6 +111,7 @@ export default async function ExpenseAnalyticsPage({ searchParams }: ExpenseAnal
 
     // Group by trip
     const tripExpenses = expenses.reduce((acc, expense) => {
+        const each = share(expense.amount, expense.tripExpenses.length);
         expense.tripExpenses.forEach((te) => {
             const tripKey = `${te.trip.originCity}-${te.trip.destinationCity}-${te.trip.scheduledDate}`;
             if (!acc[tripKey]) {
@@ -113,7 +121,7 @@ export default async function ExpenseAnalyticsPage({ searchParams }: ExpenseAnal
                     trip: te.trip,
                 };
             }
-            acc[tripKey].total += expense.amount;
+            acc[tripKey].total += each;
             acc[tripKey].count += 1;
         });
         return acc;

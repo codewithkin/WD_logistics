@@ -6,14 +6,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatCurrency } from "@/lib/utils";
 import { getExpensesForCharts } from "../actions";
+import { usePeriodRange } from "@/lib/use-period-range";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
 import { TrendingUp, TrendingDown, Minus, Calendar, Truck, MapPin, User } from "lucide-react";
 
 interface Category {
@@ -38,13 +32,16 @@ interface ChartData {
 export function ExpenseCharts({ categories }: ExpenseChartsProps) {
     const [data, setData] = useState<ChartData | null>(null);
     const [loading, setLoading] = useState(true);
-    const [timeRange, setTimeRange] = useState("30");
+    // The page's period, not a second one of its own. This tab used to carry a
+    // "Last 30 days" dropdown in its corner, so the table on the next tab and
+    // the charts here answered different questions and their totals differed.
+    const period = usePeriodRange("1m");
 
     useEffect(() => {
         async function fetchData() {
             setLoading(true);
             try {
-                const chartData = await getExpensesForCharts(parseInt(timeRange));
+                const chartData = await getExpensesForCharts(period.payload);
                 setData(chartData);
             } catch (error) {
                 console.error("Failed to fetch chart data:", error);
@@ -53,7 +50,10 @@ export function ExpenseCharts({ categories }: ExpenseChartsProps) {
             }
         }
         fetchData();
-    }, [timeRange]);
+        // `payload` is a fresh object each render, so the two values it is
+        // read for are listed instead of the object.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [period.payload.from, period.payload.to]);
 
     // Export handlers
     useEffect(() => {
@@ -138,18 +138,10 @@ export function ExpenseCharts({ categories }: ExpenseChartsProps) {
                     <h3 className="text-lg font-semibold">Expense Analytics</h3>
                     <p className="text-sm text-muted-foreground">Insights into your spending patterns</p>
                 </div>
-                <Select value={timeRange} onValueChange={setTimeRange}>
-                    <SelectTrigger className="w-40">
-                        <Calendar className="mr-2 h-4 w-4" />
-                        <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="7">Last 7 days</SelectItem>
-                        <SelectItem value="30">Last 30 days</SelectItem>
-                        <SelectItem value="90">Last 90 days</SelectItem>
-                        <SelectItem value="365">Last year</SelectItem>
-                    </SelectContent>
-                </Select>
+                <p className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Calendar className="h-4 w-4" aria-hidden />
+                    {period.label}
+                </p>
             </div>
 
             {/* Total Summary */}
@@ -160,7 +152,7 @@ export function ExpenseCharts({ categories }: ExpenseChartsProps) {
                             <p className="text-sm font-medium text-muted-foreground">Total Spending</p>
                             <p className="text-4xl font-bold tracking-tight">{formatCurrency(data.total)}</p>
                             <p className="text-sm text-muted-foreground mt-1">
-                                Last {timeRange} days • {data.byCategory.reduce((sum, c) => sum + c.count, 0)} expenses
+                                {period.label} • {data.byCategory.reduce((sum, c) => sum + c.count, 0)} expenses
                             </p>
                         </div>
                         {trend.direction !== "neutral" && (

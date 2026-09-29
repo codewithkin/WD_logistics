@@ -431,17 +431,25 @@ export async function deleteExpense(id: string,
   }
 }
 
-export async function getExpensesForCharts(days: number = 30) {
+/**
+ * The figures behind the Analytics tab on the Expenses page.
+ *
+ * Takes the page's period. It used to take a number of days and default to 30,
+ * with its own dropdown in the corner of the tab, so the same page showed a
+ * table for the selected period and charts for the last thirty days, and the
+ * two totals disagreed with no way to tell which was wrong.
+ */
+export async function getExpensesForCharts(period?: PeriodInput) {
   const user = await requireRole(["admin", "supervisor"]);
 
-  const startDate = new Date();
-  startDate.setDate(startDate.getDate() - days);
+  const range = resolvePeriod(period, "1m");
 
   const expenses = await prisma.expense.findMany({
     where: {
       organizationId: user.organizationId,
       date: {
-        gte: startDate,
+        gte: range.from,
+        lte: range.to,
       },
     },
     include: {
@@ -495,32 +503,42 @@ export async function getExpensesForCharts(days: number = 30) {
     });
   });
 
+  // A cost named against several trucks is split evenly between them, which
+  // is the rule the truck cost breakdown and every report already use. These
+  // three charts added the *whole* amount to each one, so a tyre bill covering
+  // two trucks was counted twice and the bars added up to more than the total
+  // card beside them.
+  const share = (amount: number, links: number) => (links > 0 ? amount / links : 0);
+
   // Aggregate by truck
   const truckMap = new Map<string, number>();
   expenses.forEach((expense) => {
+    const each = share(expense.amount, expense.truckExpenses.length);
     expense.truckExpenses.forEach((te) => {
       const current = truckMap.get(te.truck.registrationNo) || 0;
-      truckMap.set(te.truck.registrationNo, current + expense.amount);
+      truckMap.set(te.truck.registrationNo, current + each);
     });
   });
 
   // Aggregate by trip
   const tripMap = new Map<string, number>();
   expenses.forEach((expense) => {
+    const each = share(expense.amount, expense.tripExpenses.length);
     expense.tripExpenses.forEach((te) => {
       const key = `${te.trip.originCity}→${te.trip.destinationCity}`;
       const current = tripMap.get(key) || 0;
-      tripMap.set(key, current + expense.amount);
+      tripMap.set(key, current + each);
     });
   });
 
   // Aggregate by driver
   const driverMap = new Map<string, number>();
   expenses.forEach((expense) => {
+    const each = share(expense.amount, expense.driverExpenses.length);
     expense.driverExpenses.forEach((de) => {
       const key = `${de.driver.firstName} ${de.driver.lastName}`;
       const current = driverMap.get(key) || 0;
-      driverMap.set(key, current + expense.amount);
+      driverMap.set(key, current + each);
     });
   });
 
@@ -551,6 +569,7 @@ export async function getExpensesForCharts(days: number = 30) {
       .map(([month, amount]) => ({ month, amount }))
       .sort((a, b) => new Date(a.month).getTime() - new Date(b.month).getTime()),
     total,
+    periodLabel: range.label,
   };
 }
 
