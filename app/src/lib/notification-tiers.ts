@@ -176,6 +176,26 @@ export function channelsFor(key: string): NotificationChannel[] {
   return getTierConfig(key).channels;
 }
 
+/**
+ * Whether the office is emailed about this event.
+ *
+ * The owner asked to be told by email when something happens in the system —
+ * a record created, a job closed, money moved. Tiers 1 to 3 qualify: anything
+ * worth a push is worth a line in the inbox.
+ *
+ * Tiers 4 and 5 do not, and the line is drawn there on purpose. Tier 4 is
+ * "routine record housekeeping (edits, not creates)" and tier 5 is audit —
+ * emailing those would mean a message for every field anybody corrects, which
+ * is how a mailbox becomes something nobody reads. They are still recorded
+ * in-app.
+ *
+ * This is about the *business* mailbox, not the individual recipients: a
+ * supervisor is not emailed by this, and never was.
+ */
+export function emailsTheOffice(key: string): boolean {
+  return getTierConfig(key).tier <= 3;
+}
+
 /** Builds the lookup key for a generic entityType/eventType notification, e.g. "driver_created". */
 export function tierKeyFor(entityType: string, eventType: string): string {
   return `${entityType}_${eventType}`;

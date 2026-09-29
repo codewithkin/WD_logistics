@@ -12,6 +12,7 @@ import { prisma } from "@/lib/prisma";
 import { sendPushToUser } from "@/lib/push";
 import {
   assertTierKeyExists,
+  emailsTheOffice,
   getTierConfig,
   tierKeyFor,
   type Role,
@@ -1360,6 +1361,62 @@ export async function notifySupplierDeleted(
  * those. This takes the key directly, so the tier map stays the single place
  * that decides who hears about what.
  */
+/**
+ * Emails the business mailbox about one system event.
+ *
+ * Never throws: a mail outage must not undo the thing that just happened. A
+ * failure is logged with the event key, and the notification is in the app
+ * either way.
+ */
+async function emailTheOffice(params: {
+  key: string;
+  title: string;
+  message: string;
+  link?: string;
+}): Promise<void> {
+  try {
+    const { sendEmail, BUSINESS_MAILBOX } = await import("@/lib/email");
+    const appUrl = process.env.BETTER_AUTH_URL || process.env.NEXT_PUBLIC_APP_URL || "";
+    const href = params.link ? `${appUrl}${params.link}` : null;
+
+    await sendEmail({
+      to: BUSINESS_MAILBOX,
+      subject: params.title,
+      text: [
+        params.message,
+        "",
+        href ? `Open it: ${href}` : null,
+        `- WD Logistics system (${params.key})`,
+      ]
+        .filter((line): line is string => line !== null)
+        .join("\n"),
+      html: `<div style="font:14px/1.7 Arial,sans-serif;color:#1E2320;max-width:560px">
+  <p style="margin:0 0 4px;color:#3D8A14;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase">WD Logistics</p>
+  <h1 style="margin:0 0 12px;font-size:18px;font-weight:600">${escapeForEmail(params.title)}</h1>
+  <p style="margin:0 0 16px;white-space:pre-wrap">${escapeForEmail(params.message)}</p>
+  ${
+    href
+      ? `<p style="margin:0 0 16px"><a href="${escapeForEmail(href)}" style="color:#3D8A14;font-weight:600">Open it in the system</a></p>`
+      : ""
+  }
+  <p style="margin:0;padding-top:12px;border-top:1px solid #ECEEE9;color:#787F79;font-size:12px">
+    Sent automatically because this happened in the system. Event: ${escapeForEmail(params.key)}.
+  </p>
+</div>`,
+    });
+  } catch (error) {
+    console.error(`[NOTIFICATION] Could not email the office about ${params.key}:`, error);
+  }
+}
+
+function escapeForEmail(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 export async function notifyByTierKey(params: {
   key: string;
   organizationId: string;
@@ -1382,7 +1439,12 @@ export async function notifyByTierKey(params: {
       (r) => tierConfig.roles.includes(r.role as Role) && !excluded.has(r.email),
     );
 
-    if (targets.length === 0) return;
+    if (targets.length === 0) {
+      // Nobody is subscribed to this one, but the office still wants to know
+      // it happened.
+      if (emailsTheOffice(params.key)) await emailTheOffice(params);
+      return;
+    }
 
     await Promise.all(
       targets.map((recipient) =>
@@ -1419,6 +1481,14 @@ export async function notifyByTierKey(params: {
           }),
         ),
       );
+    }
+
+    // And one line to the office. This is the owner's record of what the
+    // system did — a record created, a job closed, money moved — sent to a
+    // hardcoded mailbox rather than to whoever happens to be an admin today,
+    // so it survives an account being removed.
+    if (emailsTheOffice(params.key)) {
+      await emailTheOffice(params);
     }
   } catch (error) {
     console.error("[NOTIFICATION] Error in notifyByTierKey:", error);
