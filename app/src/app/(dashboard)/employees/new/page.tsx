@@ -1,9 +1,11 @@
-import { requireRole } from "@/lib/session";
+import { NoAccess } from "@/components/layout/no-access";
+import { pageAccess } from "@/lib/session";
 import { PageHeader } from "@/components/layout/page-header";
 import { EmployeeForm } from "../_components/employee-form";
 
 export default async function NewEmployeePage() {
-    await requireRole(["admin", "supervisor"]);
+    const access = await pageAccess(["admin", "supervisor"]);
+    if (!access.allowed) return <NoAccess role={access.role} what="adding an employee" />;
 
     return (
         <div>

@@ -2,7 +2,8 @@ import { PageHeader } from "@/components/layout/page-header";
 import { ExpensesOverview } from "./_components/expenses-overview";
 import { AccountBalancesSummary } from "./_components/account-balances-summary";
 import prisma from "@/lib/prisma";
-import { requireRole } from "@/lib/session";
+import { NoAccess } from "@/components/layout/no-access";
+import { pageAccess } from "@/lib/session";
 import { getDateRangeFromParams } from "@/lib/period-utils";
 import { ExpensesPeriodSelector } from "./_components/expenses-period-selector";
 import { canViewExpensesPage, canViewAccountBalances } from "@/lib/permissions";
@@ -15,7 +16,9 @@ interface ExpensesPageProps {
 
 export default async function ExpensesPage({ searchParams }: ExpensesPageProps) {
     const params = await searchParams;
-    const user = await requireRole(["admin", "supervisor"]);
+    const access = await pageAccess(["admin", "supervisor"]);
+    if (!access.allowed) return <NoAccess role={access.role} what="expenses" />;
+    const user = access.session;
 
     // Check if user can view expenses page
     if (!canViewExpensesPage(user.role)) {

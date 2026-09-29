@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
 // Staff reach the edit form too: their save becomes a request an admin
 // accepts or refuses, rather than being refused at the door.
-import { requireRole } from "@/lib/session";
+import { NoAccess } from "@/components/layout/no-access";
+import { pageAccess } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/layout/page-header";
 import { DriverForm } from "../../_components/driver-form";
@@ -13,7 +14,9 @@ interface EditDriverPageProps {
 
 export default async function EditDriverPage({ params }: EditDriverPageProps) {
     const { id } = await params;
-    const session = await requireRole(["admin", "supervisor", "staff"]);
+    const access = await pageAccess(["admin", "supervisor", "staff"]);
+    if (!access.allowed) return <NoAccess role={access.role} what="editing a driver" />;
+    const session = access.session;
 
     const driver = await prisma.driver.findFirst({
         where: { id, organizationId: session.organizationId },

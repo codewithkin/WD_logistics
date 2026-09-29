@@ -1,4 +1,5 @@
-import { requireRole } from "@/lib/session";
+import { NoAccess } from "@/components/layout/no-access";
+import { pageAccess } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/layout/page-header";
 import { PagePeriodSelector } from "@/components/ui/page-period-selector";
@@ -16,7 +17,9 @@ interface InventoryPageProps {
 }
 
 export default async function InventoryPage({ searchParams }: InventoryPageProps) {
-    const session = await requireRole(["admin", "supervisor"]);
+    const access = await pageAccess(["admin", "supervisor"]);
+    if (!access.allowed) return <NoAccess role={access.role} what="stock" />;
+    const session = access.session;
     const { role, organizationId } = session;
     const params = await searchParams;
     const dateRange = getDateRangeFromParams(params, "3m");

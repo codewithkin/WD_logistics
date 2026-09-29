@@ -1,6 +1,7 @@
 import { PageHeader } from "@/components/layout/page-header";
 import { ExpenseForm } from "../_components/expense-form";
-import { requireRole } from "@/lib/session";
+import { NoAccess } from "@/components/layout/no-access";
+import { pageAccess } from "@/lib/session";
 import { canViewExpensesPage } from "@/lib/permissions";
 import { redirect } from "next/navigation";
 
@@ -15,7 +16,9 @@ interface NewExpensePageProps {
 }
 
 export default async function NewExpensePage({ searchParams }: NewExpensePageProps) {
-    const user = await requireRole(["admin", "supervisor"]);
+    const access = await pageAccess(["admin", "supervisor"]);
+    if (!access.allowed) return <NoAccess role={access.role} what="recording an expense" />;
+    const user = access.session;
     const params = await searchParams;
 
     // Check if user can view expenses page

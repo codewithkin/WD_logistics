@@ -2,7 +2,8 @@ import { PageHeader } from "@/components/layout/page-header";
 import { PagePeriodSelector } from "@/components/ui/page-period-selector";
 import { getDateRangeFromParams } from "@/lib/period-utils";
 import { canViewExpensesPage } from "@/lib/permissions";
-import { requireRole } from "@/lib/session";
+import { NoAccess } from "@/components/layout/no-access";
+import { pageAccess } from "@/lib/session";
 import prisma from "@/lib/prisma";
 import { ensureAccountsExist } from "@/lib/accounts-server";
 import { ExpenseCategoriesClient } from "./_components/expense-categories-client";
@@ -12,7 +13,9 @@ interface ExpenseCategoriesPageProps {
 }
 
 export default async function ExpenseCategoriesPage({ searchParams }: ExpenseCategoriesPageProps) {
-    const user = await requireRole(["admin", "supervisor"]);
+    const access = await pageAccess(["admin", "supervisor"]);
+    if (!access.allowed) return <NoAccess role={access.role} what="expense categories" />;
+    const user = access.session;
     const params = await searchParams;
     const dateRange = getDateRangeFromParams(params, "3m");
 

@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { assertRole, requireRole } from "@/lib/session";
+import { assertRole } from "@/lib/session";
 import { resolvePeriod, previousPeriod, type PeriodInput } from "@/lib/period-range";
 import { z } from "zod";
 import { unstable_rethrow } from "next/navigation";

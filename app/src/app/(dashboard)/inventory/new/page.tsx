@@ -1,10 +1,13 @@
-import { requireRole } from "@/lib/session";
+import { NoAccess } from "@/components/layout/no-access";
+import { pageAccess } from "@/lib/session";
 import { PageHeader } from "@/components/layout/page-header";
 import { InventoryForm } from "../_components/inventory-form";
 import { canViewInventoryValue } from "@/lib/permissions";
 
 export default async function NewInventoryItemPage() {
-    const session = await requireRole(["admin", "supervisor"]);
+    const access = await pageAccess(["admin", "supervisor"]);
+    if (!access.allowed) return <NoAccess role={access.role} what="adding a stock item" />;
+    const session = access.session;
 
     return (
         <div>

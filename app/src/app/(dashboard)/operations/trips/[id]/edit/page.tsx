@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
 // Staff reach the edit form too: their save becomes a request an admin
 // accepts or refuses, rather than being refused at the door.
-import { requireRole } from "@/lib/session";
+import { NoAccess } from "@/components/layout/no-access";
+import { pageAccess } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { canViewFinancialData } from "@/lib/permissions";
 import { PageHeader } from "@/components/layout/page-header";
@@ -13,7 +14,9 @@ interface EditTripPageProps {
 
 export default async function EditTripPage({ params }: EditTripPageProps) {
     const { id } = await params;
-    const session = await requireRole(["admin", "supervisor", "staff"]);
+    const access = await pageAccess(["admin", "supervisor", "staff"]);
+    if (!access.allowed) return <NoAccess role={access.role} what="editing a trip" />;
+    const session = access.session;
     const showFinancials = canViewFinancialData(session.role);
 
     // Only the three related records the trip already points at are loaded —

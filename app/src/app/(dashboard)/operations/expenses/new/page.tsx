@@ -1,4 +1,5 @@
-import { requireRole } from "@/lib/session";
+import { NoAccess } from "@/components/layout/no-access";
+import { pageAccess } from "@/lib/session";
 import { PageHeader } from "@/components/layout/page-header";
 import { ExpenseForm } from "../_components/expense-form";
 
@@ -8,7 +9,8 @@ interface NewExpensePageProps {
 
 export default async function NewExpensePage({ searchParams }: NewExpensePageProps) {
     const params = await searchParams;
-    await requireRole(["admin", "supervisor"]);
+    const access = await pageAccess(["admin", "supervisor"]);
+    if (!access.allowed) return <NoAccess role={access.role} what="recording an expense" />;
 
     // Trips and categories are no longer preloaded — the form's pickers search
     // for them, so this page stays the same size whatever the trip count is.

@@ -1,10 +1,13 @@
-import { requireRole } from "@/lib/session";
+import { NoAccess } from "@/components/layout/no-access";
+import { pageAccess } from "@/lib/session";
 import { canViewFinancialData } from "@/lib/permissions";
 import { PageHeader } from "@/components/layout/page-header";
 import { TripForm } from "../_components/trip-form";
 
 export default async function NewTripPage() {
-    const session = await requireRole(["admin", "supervisor", "staff"]);
+    const access = await pageAccess(["admin", "supervisor", "staff"]);
+    if (!access.allowed) return <NoAccess role={access.role} what="scheduling a trip" />;
+    const session = access.session;
     const showFinancials = canViewFinancialData(session.role);
 
     // Trucks, drivers and customers are no longer preloaded here — the form's

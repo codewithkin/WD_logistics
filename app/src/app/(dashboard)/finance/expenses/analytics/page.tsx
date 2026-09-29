@@ -1,5 +1,6 @@
 import { PageHeader } from "@/components/layout/page-header";
-import { requireRole } from "@/lib/session";
+import { NoAccess } from "@/components/layout/no-access";
+import { pageAccess } from "@/lib/session";
 import prisma from "@/lib/prisma";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/utils";
@@ -18,7 +19,9 @@ interface ExpenseAnalyticsPageProps {
 
 export default async function ExpenseAnalyticsPage({ searchParams }: ExpenseAnalyticsPageProps) {
     const params = await searchParams;
-    const user = await requireRole(["admin", "supervisor"]);
+    const access = await pageAccess(["admin", "supervisor"]);
+    if (!access.allowed) return <NoAccess role={access.role} what="expense analytics" />;
+    const user = access.session;
 
     // Check if user can view expenses page
     if (!canViewExpensesPage(user.role)) {

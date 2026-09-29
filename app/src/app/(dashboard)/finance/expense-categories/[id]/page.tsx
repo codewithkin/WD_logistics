@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { requireRole } from "@/lib/session";
+import { NoAccess } from "@/components/layout/no-access";
+import { pageAccess } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/layout/page-header";
 import { PagePeriodSelector } from "@/components/ui/page-period-selector";
@@ -47,7 +48,9 @@ export default async function CategoryDetailPage({
     const query = await searchParams;
     // Expense categories are the chart of accounts, so supervisors read them
     // too; only admin may change one (see canManageExpenseCategories).
-    const session = await requireRole(["admin", "supervisor"]);
+    const access = await pageAccess(["admin", "supervisor"]);
+    if (!access.allowed) return <NoAccess role={access.role} what="this expense category" />;
+    const session = access.session;
     const { organizationId } = session;
     const dateRange = getDateRangeFromParams(query, "3m");
 

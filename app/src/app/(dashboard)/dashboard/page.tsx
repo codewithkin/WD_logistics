@@ -1,4 +1,5 @@
-import { requireRole } from "@/lib/session";
+import { NoAccess } from "@/components/layout/no-access";
+import { pageAccess } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/layout/page-header";
 import { DashboardStats } from "./_components/dashboard-stats";
@@ -30,7 +31,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     const params = await searchParams;
     // Every role except workshop — hiding the nav link isn't enough, workshop
     // users must not be able to reach /dashboard by typing the URL either.
-    const session = await requireRole(["admin", "supervisor", "staff"]);
+    const access = await pageAccess(["admin", "supervisor", "staff"]);
+    if (!access.allowed) return <NoAccess role={access.role} what="the dashboard" />;
+    const session = access.session;
     const { role, organizationId } = session;
 
     // Get date range from URL params

@@ -4,7 +4,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import prisma from "@/lib/prisma";
-import { requireRole } from "@/lib/session";
+import { NoAccess } from "@/components/layout/no-access";
+import { pageAccess } from "@/lib/session";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { formatCurrency } from "@/lib/utils";
@@ -27,7 +28,9 @@ interface ExpensePageProps {
 
 export default async function ExpensePage({ params }: ExpensePageProps) {
     const { id } = await params;
-    const user = await requireRole(["admin", "supervisor"]);
+    const access = await pageAccess(["admin", "supervisor"]);
+    if (!access.allowed) return <NoAccess role={access.role} what="this expense" />;
+    const user = access.session;
 
     // Check if user can view expenses page
     if (!canViewExpensesPage(user.role)) {

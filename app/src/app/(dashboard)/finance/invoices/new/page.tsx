@@ -1,4 +1,5 @@
-import { requireRole } from "@/lib/session";
+import { NoAccess } from "@/components/layout/no-access";
+import { pageAccess } from "@/lib/session";
 import { PageHeader } from "@/components/layout/page-header";
 import { InvoiceForm } from "../_components/invoice-form";
 
@@ -11,7 +12,8 @@ interface NewInvoicePageProps {
 }
 
 export default async function NewInvoicePage({ searchParams }: NewInvoicePageProps) {
-    await requireRole(["admin", "supervisor"]);
+    const access = await pageAccess(["admin", "supervisor"]);
+    if (!access.allowed) return <NoAccess role={access.role} what="raising an invoice" />;
     const params = await searchParams;
 
     // The customer picker searches the org itself, so nothing is preloaded.

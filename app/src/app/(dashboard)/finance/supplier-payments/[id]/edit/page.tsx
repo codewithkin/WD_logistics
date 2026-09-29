@@ -1,6 +1,7 @@
 // Staff reach the edit form too: their save becomes a request an admin
 // accepts or refuses, rather than being refused at the door.
-import { requireRole } from "@/lib/session";
+import { NoAccess } from "@/components/layout/no-access";
+import { pageAccess } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/layout/page-header";
 import { SupplierPaymentForm } from "../../_components/supplier-payment-form";
@@ -12,7 +13,9 @@ interface EditSupplierPaymentPageProps {
 
 export default async function EditSupplierPaymentPage({ params }: EditSupplierPaymentPageProps) {
     const { id } = await params;
-    const session = await requireRole(["admin", "supervisor"]);
+    const access = await pageAccess(["admin", "supervisor"]);
+    if (!access.allowed) return <NoAccess role={access.role} what="editing a supplier payment" />;
+    const session = access.session;
 
     const payment = await prisma.supplierPayment.findFirst({
         where: {

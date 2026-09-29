@@ -1,4 +1,5 @@
-import { requireRole } from "@/lib/session";
+import { NoAccess } from "@/components/layout/no-access";
+import { pageAccess } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { SettingsLayout } from "./_components/settings-layout";
@@ -11,7 +12,9 @@ import { getOrganizationMembers, getPendingInvitations } from "./actions";
 
 export default async function SettingsPage() {
     // Guard: Only admins can access settings
-    const session = await requireRole(["admin"]);
+    const access = await pageAccess(["admin"]);
+    if (!access.allowed) return <NoAccess role={access.role} what="settings" />;
+    const session = access.session;
 
     const organization = await prisma.organization.findUnique({
         where: { id: session.organizationId },

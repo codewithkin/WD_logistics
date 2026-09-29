@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
 // Staff reach the edit form too: their save becomes a request an admin
 // accepts or refuses, rather than being refused at the door.
-import { requireRole } from "@/lib/session";
+import { NoAccess } from "@/components/layout/no-access";
+import { pageAccess } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/layout/page-header";
 import { PaymentForm } from "../../_components/payment-form";
@@ -12,7 +13,9 @@ interface EditPaymentPageProps {
 
 export default async function EditPaymentPage({ params }: EditPaymentPageProps) {
     const { id } = await params;
-    const session = await requireRole(["admin", "supervisor"]);
+    const access = await pageAccess(["admin", "supervisor"]);
+    if (!access.allowed) return <NoAccess role={access.role} what="editing a payment" />;
+    const session = access.session;
 
     // Get payment with optional invoice (payments can now be without invoices)
     const payment = await prisma.payment.findFirst({

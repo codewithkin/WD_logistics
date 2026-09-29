@@ -1,4 +1,5 @@
-import { requireRole } from "@/lib/session";
+import { NoAccess } from "@/components/layout/no-access";
+import { pageAccess } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/layout/page-header";
 import { PagePeriodSelector } from "@/components/ui/page-period-selector";
@@ -14,7 +15,9 @@ interface AccountsPageProps {
 
 export default async function AccountsPage({ searchParams }: AccountsPageProps) {
     const params = await searchParams;
-    const session = await requireRole(["admin", "supervisor"]);
+    const access = await pageAccess(["admin", "supervisor"]);
+    if (!access.allowed) return <NoAccess role={access.role} what="the cash, bank and petty cash accounts" />;
+    const session = access.session;
     const { organizationId, role } = session;
     const dateRange = getDateRangeFromParams(params, "1m");
 

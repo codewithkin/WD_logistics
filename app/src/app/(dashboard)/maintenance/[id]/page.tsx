@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { format } from "date-fns";
-import { requireRole } from "@/lib/session";
+import { NoAccess } from "@/components/layout/no-access";
+import { pageAccess } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,7 +17,9 @@ interface MaintenanceDetailPageProps {
 }
 
 export default async function MaintenanceDetailPage({ params }: MaintenanceDetailPageProps) {
-    const session = await requireRole(["admin", "supervisor", "workshop"]);
+    const access = await pageAccess(["admin", "supervisor", "workshop"]);
+    if (!access.allowed) return <NoAccess role={access.role} what="this workshop job" />;
+    const session = access.session;
     const { id } = await params;
 
     const request = await prisma.maintenanceRequest.findFirst({

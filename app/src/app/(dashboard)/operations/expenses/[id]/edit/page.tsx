@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
 // Staff reach the edit form too: their save becomes a request an admin
 // accepts or refuses, rather than being refused at the door.
-import { requireRole } from "@/lib/session";
+import { NoAccess } from "@/components/layout/no-access";
+import { pageAccess } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/layout/page-header";
 import { ExpenseForm } from "../../_components/expense-form";
@@ -12,7 +13,9 @@ interface EditExpensePageProps {
 
 export default async function EditExpensePage({ params }: EditExpensePageProps) {
     const { id } = await params;
-    const session = await requireRole(["admin", "supervisor"]);
+    const access = await pageAccess(["admin", "supervisor"]);
+    if (!access.allowed) return <NoAccess role={access.role} what="editing an expense" />;
+    const session = access.session;
 
     // Only the two records this expense already points at are loaded, to label
     // the form's pickers. The pickers search for everything else.

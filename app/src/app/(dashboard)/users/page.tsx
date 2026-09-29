@@ -1,4 +1,5 @@
-import { requireRole } from "@/lib/session";
+import { NoAccess } from "@/components/layout/no-access";
+import { pageAccess } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/layout/page-header";
 import { UsersTable } from "./_components/users-table";
@@ -7,7 +8,9 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
 export default async function UsersPage() {
-    const session = await requireRole(["admin"]);
+    const access = await pageAccess(["admin"]);
+    if (!access.allowed) return <NoAccess role={access.role} what="user management" />;
+    const session = access.session;
     const { organizationId } = session;
 
     const members = await prisma.member.findMany({

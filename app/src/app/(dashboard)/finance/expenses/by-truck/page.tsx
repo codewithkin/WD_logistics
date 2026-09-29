@@ -1,7 +1,8 @@
 import { PageHeader } from "@/components/layout/page-header";
 import { PagePeriodSelector } from "@/components/ui/page-period-selector";
 import { getDateRangeFromParams } from "@/lib/period-utils";
-import { requireRole } from "@/lib/session";
+import { NoAccess } from "@/components/layout/no-access";
+import { pageAccess } from "@/lib/session";
 import prisma from "@/lib/prisma";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/utils";
@@ -18,7 +19,9 @@ interface ExpensesByTruckPageProps {
 }
 
 export default async function ExpensesByTruckPage({ searchParams }: ExpensesByTruckPageProps) {
-    const user = await requireRole(["admin", "supervisor"]);
+    const access = await pageAccess(["admin", "supervisor"]);
+    if (!access.allowed) return <NoAccess role={access.role} what="expenses by truck" />;
+    const user = access.session;
     // A supervisor reads these costs on screen but cannot take them out of the
     // app: exports are admin-only (ACCESS_CONTROL.md).
     const canExport = user.role === "admin";

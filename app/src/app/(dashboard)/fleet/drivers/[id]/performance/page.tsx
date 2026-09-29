@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { requireRole } from "@/lib/session";
+import { NoAccess } from "@/components/layout/no-access";
+import { pageAccess } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { canViewFinancialData } from "@/lib/permissions";
 import { PageHeader } from "@/components/layout/page-header";
@@ -31,7 +32,9 @@ export default async function DriverPerformancePage({ params, searchParams }: Pa
     const query = await searchParams;
     // The whole page is money, so it is admin-only — the same rule
     // canViewFinancialData applies everywhere else.
-    const session = await requireRole(["admin"]);
+    const access = await pageAccess(["admin"]);
+    if (!access.allowed) return <NoAccess role={access.role} what="a driver's earnings by truck" />;
+    const session = access.session;
     const { organizationId } = session;
     // Item 25 says the default is three months.
     const dateRange = getDateRangeFromParams(query, "3m");

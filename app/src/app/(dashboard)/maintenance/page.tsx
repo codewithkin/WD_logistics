@@ -1,4 +1,5 @@
-import { requireRole } from "@/lib/session";
+import { NoAccess } from "@/components/layout/no-access";
+import { pageAccess } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/layout/page-header";
 import { PagePeriodSelector } from "@/components/ui/page-period-selector";
@@ -14,7 +15,9 @@ interface MaintenancePageProps {
 }
 
 export default async function MaintenancePage({ searchParams }: MaintenancePageProps) {
-    const session = await requireRole(["admin", "supervisor", "workshop"]);
+    const access = await pageAccess(["admin", "supervisor", "workshop"]);
+    if (!access.allowed) return <NoAccess role={access.role} what="the workshop" />;
+    const session = access.session;
     const params = await searchParams;
     const isWorkshop = session.role === "workshop";
     const canManage = session.role === "admin" || session.role === "supervisor";

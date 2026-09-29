@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
 // Staff reach the edit form too: their save becomes a request an admin
 // accepts or refuses, rather than being refused at the door.
-import { requireRole } from "@/lib/session";
+import { NoAccess } from "@/components/layout/no-access";
+import { pageAccess } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/layout/page-header";
 import { TrailerForm } from "../../_components/trailer-form";
@@ -13,7 +14,9 @@ interface EditTrailerPageProps {
 
 export default async function EditTrailerPage({ params }: EditTrailerPageProps) {
     const { id } = await params;
-    const session = await requireRole(["admin", "supervisor", "staff"]);
+    const access = await pageAccess(["admin", "supervisor", "staff"]);
+    if (!access.allowed) return <NoAccess role={access.role} what="editing a trailer" />;
+    const session = access.session;
 
     const trailer = await prisma.trailer.findFirst({
         where: { id, organizationId: session.organizationId },

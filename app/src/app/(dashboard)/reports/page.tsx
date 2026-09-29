@@ -1,4 +1,5 @@
-import { requireRole } from "@/lib/session";
+import { NoAccess } from "@/components/layout/no-access";
+import { pageAccess } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/layout/page-header";
 import { ReportsClient } from "@/components/reports/reports-client";
@@ -13,7 +14,9 @@ interface ReportsPageProps {
 
 export default async function ReportsPage({ searchParams }: ReportsPageProps) {
   const params = await searchParams;
-  const session = await requireRole(["admin"]);
+  const access = await pageAccess(["admin"]);
+  if (!access.allowed) return <NoAccess role={access.role} what="reports" />;
+  const session = access.session;
   const { organizationId } = session;
 
   // Get date range from URL params

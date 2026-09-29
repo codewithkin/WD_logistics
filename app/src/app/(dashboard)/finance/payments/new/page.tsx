@@ -1,4 +1,5 @@
-import { requireRole } from "@/lib/session";
+import { NoAccess } from "@/components/layout/no-access";
+import { pageAccess } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/layout/page-header";
 import { PaymentForm } from "../_components/payment-form";
@@ -9,7 +10,9 @@ interface NewPaymentPageProps {
 
 export default async function NewPaymentPage({ searchParams }: NewPaymentPageProps) {
     const params = await searchParams;
-    const session = await requireRole(["admin", "supervisor"]);
+    const access = await pageAccess(["admin", "supervisor"]);
+    if (!access.allowed) return <NoAccess role={access.role} what="recording a payment" />;
+    const session = access.session;
 
     // Only an invoice arrived at via ?invoiceId is loaded here, to seed the
     // picker and its summary panel. The pickers search for the rest.
