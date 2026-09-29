@@ -61,7 +61,19 @@ export async function getServerSession(): Promise<ServerSession | null> {
       organizationId: member.organizationId,
     };
   } catch (error) {
-    console.error("Error getting session:", error);
+    // Next probes every page during `next build` to see whether it can be
+    // prerendered, and reading headers throws a DynamicServerError on
+    // purpose to say "no, this one is dynamic". That is the expected answer
+    // for every page behind a login, so logging it as an error filled the
+    // build output with dozens of "Error getting session" lines that looked
+    // like a broken build and were not.
+    const dynamic =
+      error instanceof Error &&
+      (error.message.includes("Dynamic server usage") ||
+        error.name === "DynamicServerError");
+    if (!dynamic) {
+      console.error("Error getting session:", error);
+    }
     return null;
   }
 }
