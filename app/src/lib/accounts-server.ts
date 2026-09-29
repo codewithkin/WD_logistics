@@ -58,17 +58,35 @@ async function recordAccountMovement(
 ) {
   const isDebit = isDebitTransaction(params.type);
 
+  let updated;
   if (isDebit) {
-    const account = await tx.financialAccount.findUniqueOrThrow({ where: { id: params.accountId } });
-    if (account.balance < params.amount) {
+    // The balance check and the decrement are one statement on purpose.
+    // Reading the balance, deciding, and then decrementing let two people
+    // spend the same petty cash at once: at Postgres's default isolation both
+    // read 100, both pass a check for 80, and the account lands at -60. The
+    // `where` carries the check, so the second one matches no row.
+    const { count } = await tx.financialAccount.updateMany({
+      where: { id: params.accountId, balance: { gte: params.amount } },
+      data: { balance: { decrement: params.amount } },
+    });
+
+    if (count === 0) {
+      // Read it only now, and only to say how short it is.
+      const account = await tx.financialAccount.findUniqueOrThrow({
+        where: { id: params.accountId },
+      });
       throw new InsufficientBalanceError(account.name, account.balance, params.amount);
     }
-  }
 
-  const updated = await tx.financialAccount.update({
-    where: { id: params.accountId },
-    data: isDebit ? { balance: { decrement: params.amount } } : { balance: { increment: params.amount } },
-  });
+    updated = await tx.financialAccount.findUniqueOrThrow({
+      where: { id: params.accountId },
+    });
+  } else {
+    updated = await tx.financialAccount.update({
+      where: { id: params.accountId },
+      data: { balance: { increment: params.amount } },
+    });
+  }
 
   await tx.accountTransaction.create({
     data: {
