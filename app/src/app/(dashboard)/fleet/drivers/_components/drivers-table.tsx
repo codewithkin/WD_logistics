@@ -155,7 +155,7 @@ export function DriversTable({ drivers, role, showFinancials = true }: DriversTa
                             <TableRow>
                                 <TableHead>Name</TableHead>
                                 <TableHead>Phone</TableHead>
-                                <TableHead>License</TableHead>
+                                <TableHead>Licence</TableHead>
                                 <TableHead>Status</TableHead>
                                 <TableHead>Assigned Truck</TableHead>
                                 {showFinancials && <TableHead>Trips</TableHead>}

@@ -41,7 +41,7 @@ export async function createDriver(data: {
     });
 
     if (existingDriver) {
-      return { success: false, error: "A driver with this license number already exists" };
+      return { success: false, error: "A driver with this licence number already exists" };
     }
 
     const driver = await prisma.$transaction(async (tx) => {
@@ -169,7 +169,7 @@ export async function updateDriver(
       });
 
       if (existingDriver) {
-        return { success: false, error: "A driver with this license number already exists" };
+        return { success: false, error: "A driver with this licence number already exists" };
       }
     }
 

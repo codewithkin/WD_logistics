@@ -173,7 +173,7 @@ export default async function TrailerDetailPage({ params, searchParams }: Traile
                                 <Separator />
                                 <div className="flex items-center justify-between">
                                     <span className="text-muted-foreground flex items-center gap-2">
-                                        <IdCard className="h-4 w-4" /> License Number
+                                        <IdCard className="h-4 w-4" /> Licence Number
                                     </span>
                                     <span className="font-medium">{trailer.licenseNumber}</span>
                                 </div>
@@ -183,7 +183,7 @@ export default async function TrailerDetailPage({ params, searchParams }: Traile
                             <>
                                 <Separator />
                                 <div className="flex items-center justify-between">
-                                    <span className="text-muted-foreground">License Expiration</span>
+                                    <span className="text-muted-foreground">Licence Expiration</span>
                                     <span className="font-medium">
                                         {format(trailer.licenseExpiration, "PPP")}
                                     </span>

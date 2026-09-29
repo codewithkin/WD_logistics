@@ -96,7 +96,7 @@ export function DriversAnalytics({ analytics, drivers, canExport, periodLabel, s
         }));
 
     const handleExportCSV = () => {
-        const headers = ["First Name", "Last Name", "Email", "Phone", "License Number", "Status", "Assigned Truck", "Trips"];
+        const headers = ["First Name", "Last Name", "Email", "Phone", "Licence Number", "Status", "Assigned Truck", "Trips"];
         const rows = drivers.map(d => [
             d.firstName,
             d.lastName,
@@ -333,7 +333,7 @@ export function DriversAnalytics({ analytics, drivers, canExport, periodLabel, s
                 )}
             </div>
 
-            {/* License Type Breakdown */}
+            {/* Licence expiry, not licence type — the type is not recorded. */}
             {analytics.licenseBreakdown.length > 0 && (
                 <Card>
                     <CardHeader>

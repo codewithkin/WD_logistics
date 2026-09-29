@@ -55,14 +55,6 @@ export default async function SettingsPage() {
         timezone: metadata.timezone || "UTC",
     };
 
-    const defaultNotificationPreferences = {
-        emailNotifications: true,
-        tripUpdates: true,
-        invoiceReminders: true,
-        maintenanceAlerts: true,
-        driverLicenseExpiry: true,
-    };
-
     return (
         <SettingsLayout
             children={{
@@ -75,11 +67,7 @@ export default async function SettingsPage() {
                         <DangerZone />
                     </>
                 ),
-                notifications: (
-                    <>
-                        <NotificationsSettings preferences={defaultNotificationPreferences} />
-                    </>
-                ),
+                notifications: <NotificationsSettings />,
                 organisation: <OrganisationSettings organisation={organisationData} />,
                 members: (
                     <MembersSettings

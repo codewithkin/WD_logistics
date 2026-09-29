@@ -233,19 +233,19 @@ export default async function DriverDetailPage({ params, searchParams }: DriverD
                 <Card>
                     <CardHeader>
                         <CardTitle className="text-lg flex items-center gap-2">
-                            <CreditCard className="h-5 w-5" /> License & Documents
+                            <CreditCard className="h-5 w-5" /> Licence & Documents
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <div className="flex items-center justify-between">
-                            <span className="text-muted-foreground">License Number</span>
+                            <span className="text-muted-foreground">Licence Number</span>
                             <span className="font-medium">{driver.licenseNumber}</span>
                         </div>
                         {driver.licenseExpiration && (
                             <>
                                 <Separator />
                                 <div className="flex items-center justify-between">
-                                    <span className="text-muted-foreground">License Expiration</span>
+                                    <span className="text-muted-foreground">Licence Expiration</span>
                                     <span className="font-medium">{format(driver.licenseExpiration, "PPP")}</span>
                                 </div>
                             </>

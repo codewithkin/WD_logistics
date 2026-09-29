@@ -253,9 +253,9 @@ export function TrailerForm({ trailer, reminders: initialReminders }: TrailerFor
                         name="licenseNumber"
                         render={({ field }) => (
                             <FormItem>
-                                <FormLabel>License Number</FormLabel>
+                                <FormLabel>Licence Number</FormLabel>
                                 <FormControl>
-                                    <Input placeholder="License disc number" {...field} />
+                                    <Input placeholder="Licence disc number" {...field} />
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
@@ -267,9 +267,9 @@ export function TrailerForm({ trailer, reminders: initialReminders }: TrailerFor
                         render={({ field }) => (
                             <FormItem>
                                 <div className="flex items-center justify-between gap-2">
-                                    <FormLabel>License Expiration</FormLabel>
+                                    <FormLabel>Licence Expiration</FormLabel>
                                     <ExpiryReminderPopover
-                                        documentLabel="Trailer License"
+                                        documentLabel="Trailer Licence"
                                         value={reminders.licenseExpiration ?? []}
                                         onChange={(days) => setReminders((prev) => ({ ...prev, licenseExpiration: days }))}
                                         disabled={isLoading}

@@ -43,7 +43,7 @@ const driverSchema = z.object({
     phone: z.string().min(1, "Phone number is required"),
     whatsappNumber: z.string().optional().or(z.literal("")),
     email: z.string().email().optional().or(z.literal("")),
-    licenseNumber: z.string().min(1, "License number is required"),
+    licenseNumber: z.string().min(1, "Licence number is required"),
     licenseExpiration: z.string().optional().or(z.literal("")),
     passportNumber: z.string().optional().or(z.literal("")),
     passportExpiration: z.string().optional().or(z.literal("")),
@@ -244,7 +244,7 @@ export function DriverForm({ driver, assignedTruck, isSupervisor = false, remind
                             <FormItem>
                                 <FormLabel>Phone Number</FormLabel>
                                 <FormControl>
-                                    <Input placeholder="+1 234 567 8900" {...field} />
+                                    <Input placeholder="+263 772 958 986" {...field} />
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
@@ -257,7 +257,7 @@ export function DriverForm({ driver, assignedTruck, isSupervisor = false, remind
                             <FormItem>
                                 <FormLabel>WhatsApp Number (Optional)</FormLabel>
                                 <FormControl>
-                                    <Input placeholder="+1 234 567 8900" {...field} />
+                                    <Input placeholder="+263 772 958 986" {...field} />
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
@@ -273,7 +273,7 @@ export function DriverForm({ driver, assignedTruck, isSupervisor = false, remind
                             <FormItem>
                                 <FormLabel>Email (Optional)</FormLabel>
                                 <FormControl>
-                                    <Input type="email" placeholder="john@example.com" {...field} />
+                                    <Input type="email" placeholder="name@company.co.zw" {...field} />
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
@@ -313,7 +313,7 @@ export function DriverForm({ driver, assignedTruck, isSupervisor = false, remind
                         name="licenseNumber"
                         render={({ field }) => (
                             <FormItem>
-                                <FormLabel>License Number</FormLabel>
+                                <FormLabel>Licence Number</FormLabel>
                                 <FormControl>
                                     <Input placeholder="DL-123456789" {...field} />
                                 </FormControl>
@@ -327,7 +327,7 @@ export function DriverForm({ driver, assignedTruck, isSupervisor = false, remind
                         render={({ field }) => (
                             <FormItem>
                                 <div className="flex items-center justify-between gap-2">
-                                    <FormLabel>License Expiration (Optional)</FormLabel>
+                                    <FormLabel>Licence Expiration (Optional)</FormLabel>
                                     {reminderPopover("licenseExpiration", "Driver's License")}
                                 </div>
                                 <FormControl>

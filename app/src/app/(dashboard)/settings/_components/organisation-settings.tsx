@@ -174,7 +174,7 @@ export function OrganisationSettings({ organisation }: OrganisationSettingsProps
                                     <FormItem>
                                         <FormLabel>Phone</FormLabel>
                                         <FormControl>
-                                            <Input placeholder="+1 234 567 890" {...field} />
+                                            <Input placeholder="+263 772 958 986" {...field} />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>

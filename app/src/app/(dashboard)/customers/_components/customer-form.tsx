@@ -183,7 +183,7 @@ export function CustomerForm({ customer }: CustomerFormProps) {
                             <FormItem>
                                 <FormLabel>Phone</FormLabel>
                                 <FormControl>
-                                    <Input placeholder="+1 234 567 8900" {...field} />
+                                    <Input placeholder="+263 772 958 986" {...field} />
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>

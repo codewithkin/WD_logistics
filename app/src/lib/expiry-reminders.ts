@@ -15,7 +15,7 @@ export const EXPIRY_FIELDS: Record<ExpiryEntityType, ExpiryFieldDefinition[]> = 
   truck: [
     { field: "crossBorderInsuranceExpiration", label: "Cross-Border Insurance" },
     { field: "crossBorderPermitExpiration", label: "Cross-Border Permit" },
-    { field: "vehicleLicenseExpiration", label: "Vehicle License" },
+    { field: "vehicleLicenseExpiration", label: "Vehicle Licence" },
     { field: "certificateOfFitnessExpiration", label: "Certificate of Fitness" },
   ],
   trailer: [{ field: "licenseExpiration", label: "Trailer License" }],
