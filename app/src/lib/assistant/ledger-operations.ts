@@ -1070,6 +1070,44 @@ export const ledgerOperations: Operation[] = [
     },
   },
 
+  // ------------------------------------------------------------- trip money
+  {
+    name: "set_trip_revenue",
+    description:
+      "Put the agreed price on a trip. Admin only — what the business earns is not a supervisor's to see or set.",
+    requires: "admin",
+    writes: true,
+    schema: z.object({
+      trip: z.string().describe('The trip, e.g. "Mutare to Beira"'),
+      tripDate: z.string().optional().describe("ISO date of the trip, if the route is ambiguous"),
+      revenue: z.number().nonnegative().describe("The agreed price for the trip"),
+      reason: z
+        .string()
+        .optional()
+        .describe("Why, for the record. Not required of an admin, who writes directly."),
+    }),
+    handler: async (args, ctx) => {
+      const a = args as { trip: string; tripDate?: string; revenue: number; reason?: string };
+      const found = await findTrip(ctx, a.trip, a.tripDate);
+      if (!found.ok) return { error: found.error };
+
+      const { updateTrip } = await import("@/app/(dashboard)/operations/trips/actions");
+      const result = await updateTrip(
+        found.row.id,
+        { revenue: a.revenue },
+        whyOverWhatsApp(a.reason ?? "Agreed price recorded", ctx),
+      );
+      if (!result.success) {
+        return { error: (result as { error?: string }).error ?? "Could not set the price." };
+      }
+      return {
+        updated: true,
+        trip: `${found.row.originCity} to ${found.row.destinationCity}`,
+        revenue: money(a.revenue),
+      };
+    },
+  },
+
   // ----------------------------------------------------------- edit requests
   {
     name: "withdraw_my_change",

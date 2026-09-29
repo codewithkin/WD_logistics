@@ -400,6 +400,15 @@ export const billingOperations: Operation[] = [
     }),
     handler: async (args, ctx) => {
       const a = args as { invoice: string };
+      // The action behind this is role-gated and needs a signed-in identity.
+      // Without a linked account there is none and it threw an unhandled
+      // redirect, which the contact saw as the assistant falling over.
+      if (!ctx.actorUserId) {
+        return {
+          error:
+            "This number is not linked to a dashboard account yet, so an invoice cannot be produced under anyone's name. An admin can link it under Settings.",
+        };
+      }
       const found = await findInvoice(ctx, a.invoice);
       if (!found.ok) return { error: found.error };
 
@@ -514,6 +523,14 @@ export const billingOperations: Operation[] = [
     }),
     handler: async (args, ctx) => {
       const a = args as { payment: string };
+      // Same as send_invoice_document: the action is role-gated and needs a
+      // session to run under.
+      if (!ctx.actorUserId) {
+        return {
+          error:
+            "This number is not linked to a dashboard account yet, so a receipt cannot be produced under anyone's name. An admin can link it under Settings.",
+        };
+      }
       const found = await findPayment(ctx, a.payment);
       if (!found.ok) return { error: found.error };
 

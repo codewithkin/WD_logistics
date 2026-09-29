@@ -228,7 +228,13 @@ export const writeOperations: Operation[] = [
       driver: z.string().describe("Driver name"),
       scheduledDate: z.string().describe("ISO date the trip is scheduled for"),
       customer: z.string().optional(),
-      revenue: z.number().optional().describe("Agreed price, if known"),
+      // No revenue field, deliberately. This operation is open to
+      // supervisors, and ACCESS_CONTROL.md puts revenue, profit and margin
+      // out of their reach "anywhere" — the web app's own trip form hides the
+      // field from them for the same reason. Asking a supervisor for the
+      // agreed price made the assistant more permissive than the browser on
+      // exactly the figure the client cares most about. An admin sets it with
+      // set_trip_revenue.
       estimatedMileage: z.number().optional(),
       loadDescription: z.string().optional(),
     }),
@@ -257,7 +263,9 @@ export const writeOperations: Operation[] = [
         customerId,
         scheduledDate: new Date(a.scheduledDate as string),
         estimatedMileage: (a.estimatedMileage as number) ?? 0,
-        revenue: (a.revenue as number) ?? 0,
+        // Filed with nothing earned against it, as a supervisor's trip is in
+        // the browser. An admin puts the agreed price on afterwards.
+        revenue: 0,
         loadDescription: a.loadDescription as string | undefined,
       });
 
