@@ -665,12 +665,40 @@ would have caught, and each fails on an entry it has never been told about
 rather than quietly skipping it — that omission is what let the access matrix
 pass while covering a third of the app.
 
+### Verified in a browser this time
+
+The first round that actually signed in. Dev server, four real logins
+(`prisma/dev-fixtures.ts`, password `Test@12345`), every page loaded:
+
+- **All 66 pages render as admin.** Every list, detail, create and edit page,
+  plus the reports, settings, users and AI pages — 200, no error boundary.
+- **Refusals are pages, not bounces.** As a supervisor, Reports, Settings,
+  Users, Edit Requests and AI all answer with the no-access page naming what
+  was wanted. Staff are refused customers, invoices and expenses the same way.
+  Workshop is refused everything but Maintenance, and sees only its own
+  unfinished jobs — no status filter, no maintenance ranking, no other
+  worker's jobs.
+- **Payloads read as each role.** No revenue, profit or margin key reaches a
+  supervisor or staff member on the dashboard, fleet, trips, drivers, trailers
+  or any detail page. Two did before this round — see the arithmetic table.
+- **The edit-request flow, end to end.** Supervisor changed a truck's
+  odometer, gave a reason, submitted: request filed, truck untouched, and they
+  were returned to the trucks list. Admin opened the queue, saw one row —
+  "Mileage (km) 141153 → 141999" — approved it, and the truck took the new
+  mileage while its fuel type and tank capacity stayed exactly as they were.
+  Three defects in that screen were found and fixed on the way.
+- **Report generation from the page.** Quick-generate carried the report type
+  through to the Generate tab, produced a Revenue Report PDF for the selected
+  period, and offered it for download.
+
+This is what the previous three passes were missing, and it is how the
+dashboard's 8% on-time rate, the invoice's CREDIT NOTE heading and both payload
+leaks were actually noticed.
+
 ### Still not done
 
-1. **No click-through in a real browser.** Four passes now. Everything here was
-   verified by running the real server actions, rendering the real documents and
-   asserting against the database. The Reports page bug of the last round is
-   what that misses.
+1. **Production build not exercised.** Everything above is the dev server.
+   `next build` has not been run this round.
 2. **The agent has not been exercised live this round** — the client was out of
    credits and said not to. Statically: every action the agent sends is handled
    by the route it sends it to (39 calls across 8 endpoints), the cap is 200 and
