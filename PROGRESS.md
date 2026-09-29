@@ -918,3 +918,71 @@ rather than be told why.
 The lesson, for the next round: **an audit that skips silently is worse than
 no audit**, because it produces a PASS that stops anybody looking. Every check
 in this repo now fails on an entry it has not been told about.
+
+## The website's dead controls (2026-09-29)
+
+Asked to make the interactive parts of the marketing site actually
+interactive. What was there looked finished in a screenshot and was not:
+
+- **Service cards** ended in "Check the schedule →" or a hovering ↗ and were
+  plain spans — on the page whose only job is to produce enquiries, the way in
+  went nowhere. Each card now opens the form with its service filled in, and
+  the slug rides in the URL (`SERVICES` + `enquiryHref` in `lib/site.ts` are
+  the one source, so a card cannot name a service the form does not know).
+- **Phone numbers and emails** were printed as text in the footer of every
+  page, on the contact cards, and mid-sentence on the home page. On the page
+  somebody opens *in order to call*.
+- **The footer link renderer** only emitted an anchor for hrefs starting with
+  `/` or `#` and fell through to a `<span>` otherwise, so the first
+  `tel:`/`mailto:`/external link in any footer column was dead text sitting
+  among working links.
+- **Four footer service links** pointed at one anchor; three did nothing a
+  reader would notice.
+- **The closed mobile menu** collapses with `grid-template-rows`, so its four
+  links stayed in the tab order at zero height and a screen reader read the
+  whole menu out on every page. `inert` + `aria-hidden` now (not `hidden`,
+  which drops the row out of the grid and kills the animation). Escape closes
+  it; a route change closes it; both navs carry `aria-current`.
+- **"Reduce motion"** turned off the marquee and nothing else — the page
+  transition, every reveal and every staggered card still slid. One
+  `MotionConfig reducedMotion="user"` over the lot: movement goes, opacity
+  stays.
+
+### The enquiry form lost anything sent before hydration
+
+It ran off an `onSubmit` handler, which exists only once React has hydrated.
+Tapping Send before that did what a browser does with a form that has no
+action: a **GET to the current URL**, so the enquiry reached nobody and the
+sender's name, number and email went into the query string. Hit by accident in
+the preview, watching every field land in the URL bar.
+
+The action lives on the form now, through `useActionState`, so that submit
+POSTs to the server action and comes back server-rendered. Verified in the
+browser: a pre-hydration submit returns the page with the refusal rendered,
+the field marked invalid, the service chip intact and a clean URL. Getting
+there meant moving the animation off the form element — through `motion.form`
+the tag rendered with an empty action and none of the hidden fields Next
+needs, which is what left it with nothing to submit to.
+
+Also: the refused field takes focus and scrolls into view (the message sits at
+the foot of a form two screens long), it is tied to the field with
+`aria-describedby`, the form reports `aria-busy` while sending, and the
+success panel takes focus because the form it replaces held the focused
+button.
+
+### `bun run check:interactive`
+
+34 checks over the prerendered HTML of all three pages — what a browser gets
+before any of our JavaScript runs. No contact detail printed as dead text,
+every internal link resolving, each service with its own way in, the nav
+marking the current page, nothing collapsed left reachable, every toggle
+naming a panel that exists, and the form posting without JavaScript. Proved
+it bites before trusting it: three defects put back turned 11 checks red. It
+caught two the sweep by eye had missed.
+
+Still untested anywhere: neither mail path has run against the real SMTP
+credentials. The hydrated client states (the "Sending…" button, focus moving
+to the refused field) are covered by the unit checks and the pre-hydration
+path, not by a click in the preview — the browser pane reported
+`visibilityState: "hidden"` throughout this round, and React defers hydrating
+a Suspense boundary while the document is hidden.
