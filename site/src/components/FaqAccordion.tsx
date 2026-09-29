@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 
 export type FaqItem = { question: string; answer: string };
 
@@ -12,6 +12,8 @@ export function FaqAccordion({
   defaultOpenIndex?: number;
 }) {
   const [openIndex, setOpenIndex] = useState<number | null>(defaultOpenIndex);
+  // Stable per instance, so two accordions on one page cannot collide.
+  const groupId = useId();
 
   return (
     <div className="flex flex-col gap-2.5">
@@ -28,13 +30,20 @@ export function FaqAccordion({
           >
             <button
               type="button"
+              // The state is announced rather than only drawn: a +/- glyph
+              // tells a sighted reader the panel is open and tells a screen
+              // reader nothing at all.
+              aria-expanded={open}
+              aria-controls={`${groupId}-answer-${i}`}
+              id={`${groupId}-question-${i}`}
               onClick={() => setOpenIndex(open ? null : i)}
-              className={`flex w-full items-center justify-between gap-5 text-left font-sans ${
+              className={`flex w-full items-center justify-between gap-5 rounded-lg text-left font-sans focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#3D8A14] ${
                 open ? "text-base font-semibold" : "text-base font-medium"
               }`}
             >
               <span>{item.question}</span>
               <span
+                aria-hidden
                 className={`inline-block font-bold transition-transform duration-300 ${
                   open ? "rotate-180" : "text-[#3D8A14]"
                 }`}
@@ -43,6 +52,18 @@ export function FaqAccordion({
               </span>
             </button>
             <div
+              id={`${groupId}-answer-${i}`}
+              role="region"
+              aria-labelledby={`${groupId}-question-${i}`}
+              // Out of reach when closed, in both senses. A collapsed answer
+              // was still in the accessibility tree, so a screen reader read
+              // every answer in the list whether it was open or not.
+              //
+              // `aria-hidden` and `inert` rather than `hidden`: the panel
+              // animates by growing its grid row, and `display: none` would
+              // skip the animation entirely and make it pop.
+              aria-hidden={!open}
+              inert={!open}
               className={`grid overflow-hidden transition-[grid-template-rows,opacity] duration-300 ease-out ${
                 open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
               }`}

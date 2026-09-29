@@ -47,6 +47,36 @@ export const DEFAULT_OG = {
   ],
 };
 
+/**
+ * The services the home page offers, and the slug each one carries into the
+ * enquiry form.
+ *
+ * One source for both, so a card cannot link to a service the form does not
+ * recognise. The three cards that used to end in "Check the schedule →" or a
+ * hovering ↗ were plain spans — they looked like the way in and went nowhere,
+ * which on the page whose job is to produce enquiries is the worst place for
+ * a dead control.
+ */
+export const SERVICES = [
+  { slug: "full-loads", label: "Full loads" },
+  { slug: "part-loads", label: "Part loads" },
+  { slug: "bulk-tipper", label: "Bulk & tipper" },
+  { slug: "abnormal", label: "Abnormal & project loads" },
+] as const;
+
+export type ServiceSlug = (typeof SERVICES)[number]["slug"];
+
+/** The label for a slug off the URL, or null if it is not one of ours. */
+export function serviceLabel(slug: string | null | undefined): string | null {
+  if (!slug) return null;
+  return SERVICES.find((service) => service.slug === slug)?.label ?? null;
+}
+
+/** Where a service card points. */
+export function enquiryHref(slug: ServiceSlug): string {
+  return `/contact?service=${slug}`;
+}
+
 export const NAV_LINKS = [
   { href: "/", label: "Home" },
   { href: "/about", label: "About" },

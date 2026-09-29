@@ -11,8 +11,11 @@
  */
 
 import { AnimatePresence, motion } from "motion/react";
-import { useState, type FormEvent } from "react";
+import { Suspense, useState, type FormEvent } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { submitEnquiry } from "@/app/actions/enquiry";
+import { serviceLabel } from "@/lib/site";
 
 const easeOut = [0.16, 1, 0.3, 1] as const;
 
@@ -56,7 +59,43 @@ function Field({
   );
 }
 
+/**
+ * The service card they arrived from, read off the URL.
+ *
+ * In its own Suspense boundary because `useSearchParams` suspends while this
+ * statically-rendered page hydrates. Without it the whole form would wait,
+ * and the point of a static contact page is that the form is there
+ * immediately.
+ */
 export function EnquiryForm() {
+  return (
+    <Suspense fallback={<EnquiryFormInner slug={null} service={null} />}>
+      <WithService />
+    </Suspense>
+  );
+}
+
+function WithService() {
+  const params = useSearchParams();
+  const slug = params.get("service");
+  const label = serviceLabel(slug);
+  // Only pass the slug on if it resolved to something we recognise, so a
+  // hand-edited query string cannot ride into the form.
+  return <EnquiryFormInner slug={label ? slug : null} service={label} />;
+}
+
+/**
+ * @param slug  What is posted — the action resolves it to a label itself, so
+ *              the email never prints a string that came off the URL.
+ * @param service  The label, for the person reading the page.
+ */
+function EnquiryFormInner({
+  slug,
+  service,
+}: {
+  slug?: string | null;
+  service: string | null;
+}) {
   const [submitted, setSubmitted] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -147,6 +186,25 @@ export function EnquiryForm() {
             aria-hidden="true"
             className="pointer-events-none absolute h-0 w-0 opacity-0"
           />
+
+          {service ? (
+            <>
+              <input type="hidden" name="service" value={slug ?? ""} />
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-[#EFF8E5] px-[18px] py-3.5">
+                <span className="font-sans text-[13px] leading-[1.5] text-[#2B4A14]">
+                  About{" "}
+                  <span className="font-semibold text-[#15250A]">{service}</span>
+                  . Change it below if that is not right.
+                </span>
+                <Link
+                  href="/contact"
+                  className="shrink-0 font-sans text-[13px] font-semibold text-[#3D8A14] underline decoration-[#3D8A14]/40 underline-offset-2 transition-colors hover:decoration-[#3D8A14]"
+                >
+                  Clear
+                </Link>
+              </div>
+            </>
+          ) : null}
 
       <div className="flex flex-col gap-4">
         <div className="flex items-baseline justify-between gap-5">

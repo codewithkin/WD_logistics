@@ -126,13 +126,16 @@ export function Header() {
               </Link>
             );
           })}
-          <Link
-            href="/contact"
+          {/* "Contact us" is already in the list above — a second button with
+              the same words under it read as two different destinations. The
+              office number is the thing this panel was missing. */}
+          <a
+            href={COMPANY.officeHref}
             onClick={() => setOpen(false)}
             className="rounded-2xl border border-[#D3D6D0] px-4 py-3 text-center font-semibold text-[#333833]"
           >
-            Contact us
-          </Link>
+            Call {COMPANY.office}
+          </a>
         </div>
       </div>
     </div>

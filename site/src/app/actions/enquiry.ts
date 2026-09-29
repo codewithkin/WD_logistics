@@ -14,6 +14,7 @@
  */
 
 import { ENQUIRY_RECIPIENTS, sendEnquiryMail } from "@/lib/mail";
+import { serviceLabel } from "@/lib/site";
 
 export interface EnquiryResult {
   ok: boolean;
@@ -60,6 +61,12 @@ export async function submitEnquiry(form: FormData): Promise<EnquiryResult> {
   const company = read(form, "company", 160);
   const notes = read(form, "notes", 2000);
 
+  // Which service card they came in through, if any. Resolved to its label
+  // rather than trusted: the slug arrives from a query string, and an email
+  // that says "Service: <script>" is not something to hand to whoever opens
+  // it. An unrecognised slug is simply dropped.
+  const service = serviceLabel(read(form, "service", 40));
+
   if (name.length < 2) {
     return { ok: false, error: "Please give us a name to put to the enquiry.", field: "name" };
   }
@@ -85,15 +92,20 @@ export async function submitEnquiry(form: FormData): Promise<EnquiryResult> {
     ["Company", company],
   ].filter(([, value]) => value.length > 0) as Array<[string, string]>;
 
-  const subject = company
-    ? `Website enquiry — ${name}, ${company}`
-    : `Website enquiry — ${name}`;
+  const who_ = company ? `${name}, ${company}` : name;
+  const subject = service
+    ? `Website enquiry — ${service} — ${who_}`
+    : `Website enquiry — ${who_}`;
 
   const lines = [
-    "An enquiry came in through the website.",
+    service
+      ? `An enquiry came in through the website, from the ${service} card.`
+      : "An enquiry came in through the website.",
     "",
     ...who.map(([label, value]) => `${label}: ${value}`),
   ];
+
+  if (service) lines.push(`Asking about: ${service}`);
 
   if (load.length > 0) {
     lines.push("", "About the load", ...load.map(([label, value]) => `${label}: ${value}`));
@@ -116,7 +128,9 @@ export async function submitEnquiry(form: FormData): Promise<EnquiryResult> {
 
   const html = `<div style="background:#EDEFEC;padding:24px">
   <div style="max-width:620px;margin:0 auto;background:#fff;border:1px solid #E6E9E2;border-radius:16px;padding:28px">
-    <p style="margin:0 0 4px;color:#3D8A14;font:700 12px/1.4 Arial,sans-serif;letter-spacing:.08em;text-transform:uppercase">Website enquiry</p>
+    <p style="margin:0 0 4px;color:#3D8A14;font:700 12px/1.4 Arial,sans-serif;letter-spacing:.08em;text-transform:uppercase">Website enquiry${
+      service ? ` &middot; ${escape(service)}` : ""
+    }</p>
     <h1 style="margin:0 0 20px;color:#1E2320;font:600 22px/1.3 Arial,sans-serif">${escape(name)}${
       company ? ` &middot; ${escape(company)}` : ""
     }</h1>

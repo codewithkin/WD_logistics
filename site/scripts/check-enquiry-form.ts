@@ -223,12 +223,48 @@ try {
     record("the subject names them", /subject:.*Tarisai Moyo/i.test(body), "");
   }
 
+  // -------------------------------------------- arriving from a service card
+  const fromCard = await submitEnquiry(
+    formOf({
+      name: "Chiedza Nyoni",
+      phone: "0772958986",
+      service: "abnormal",
+    }),
+  );
+  record("a service card's enquiry is accepted", fromCard.ok, fromCard.error ?? "");
+  const carded = smtp.messages[1];
+  if (carded) {
+    const body = decode(carded.body);
+    record(
+      "the service is named in the subject",
+      /subject:.*Abnormal & project loads/i.test(body),
+      "",
+    );
+    record("and in the body", body.includes("Asking about: Abnormal"), "");
+  }
+
+  // A slug that is not one of ours is dropped rather than printed into an
+  // email that somebody in operations is going to open.
+  const junk = await submitEnquiry(
+    formOf({
+      name: "Probe",
+      phone: "0772958986",
+      service: "<script>alert(1)</script>",
+    }),
+  );
+  const junked = smtp.messages[2];
+  record(
+    "an unknown service is dropped",
+    junk.ok && Boolean(junked) && !decode(junked.body).includes("script"),
+    "",
+  );
+
   // ------------------------------------------------------ the minimum enquiry
   const minimal = await submitEnquiry(
     formOf({ name: "Blessing", phone: "0772958986" }),
   );
   record("a name and a number is enough", minimal.ok, minimal.error ?? "");
-  const second = smtp.messages[1];
+  const second = smtp.messages[3];
   record(
     "it says they left no email",
     Boolean(second && decode(second.body).includes("no email address")),

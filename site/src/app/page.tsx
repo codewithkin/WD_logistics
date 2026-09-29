@@ -6,7 +6,7 @@ import { CtaFooterFull } from "@/components/CtaFooter";
 import { FaqAccordion } from "@/components/FaqAccordion";
 import { Reveal } from "@/components/motion/Reveal";
 import { StaggerGroup, StaggerItem } from "@/components/motion/Stagger";
-import { COMPANY, COUNTRIES, DEFAULT_OG, SITE_URL } from "@/lib/site";
+import { COMPANY, COUNTRIES, DEFAULT_OG, enquiryHref, SITE_URL } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: `WD Logistics | ${COMPANY.motto} — Road Freight Across the SADC Region`,
@@ -247,48 +247,74 @@ export default function HomePage() {
         </Reveal>
 
         <StaggerGroup className="grid grid-cols-1 gap-[18px] sm:grid-cols-2 lg:grid-cols-4">
-          <StaggerItem className="group sm:col-span-2 flex flex-col gap-[18px] rounded-[28px] border border-[#E6E9E2] bg-white p-6 transition-shadow duration-300 hover:shadow-[0_16px_40px_rgba(30,35,32,.08)] lg:rounded-[32px] lg:p-[26px]">
-            <PhotoBlock
-              src="/images/truck-side-blue.jpg"
-              alt="WD Logistics superlink truck cab, side profile"
-              className="h-[210px] rounded-[22px]"
-              imgClassName="object-[center_30%]"
-            />
-            <div className="flex items-end justify-between gap-6">
+          <StaggerItem className="sm:col-span-2">
+            <Link
+              href={enquiryHref("full-loads")}
+              aria-label="Enquire about full loads"
+              className="group flex h-full flex-col gap-[18px] rounded-[28px] border border-[#E6E9E2] bg-white p-6 transition-shadow duration-300 hover:shadow-[0_16px_40px_rgba(30,35,32,.08)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#3D8A14] lg:rounded-[32px] lg:p-[26px]"
+            >
+              <PhotoBlock
+                src="/images/truck-side-blue.jpg"
+                alt="WD Logistics superlink truck cab, side profile"
+                className="h-[210px] rounded-[22px]"
+                imgClassName="object-[center_30%]"
+              />
+              <div className="flex items-end justify-between gap-6">
+                <span className="flex flex-col gap-2.5">
+                  <span className="font-heading text-[26px] font-semibold leading-[1.1] tracking-[-0.02em]">
+                    Full loads
+                  </span>
+                  <span className="max-w-[34ch] font-sans text-sm leading-[1.6] text-[#646B65]">
+                    A whole trailer for one consignment — up to 30 tonnes,
+                    tarped, strapped and delivered door to door.
+                  </span>
+                </span>
+                <span
+                  aria-hidden
+                  className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-full bg-[#EFF8E5] font-sans text-lg font-semibold text-[#3D8A14] transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+                >
+                  ↗
+                </span>
+              </div>
+            </Link>
+          </StaggerItem>
+
+          <StaggerItem>
+            <Link
+              href={enquiryHref("part-loads")}
+              aria-label="Enquire about part loads"
+              className="group flex h-full min-h-[290px] flex-col justify-between gap-5 rounded-[32px] bg-[#63C32E] p-[26px] text-[#15250A] transition-transform duration-300 hover:-translate-y-1.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#15250A]"
+            >
+              <span
+                aria-hidden
+                className="flex h-[46px] w-[46px] items-center justify-center rounded-full bg-white/65 font-sans text-lg font-semibold"
+              >
+                ◱
+              </span>
               <span className="flex flex-col gap-2.5">
                 <span className="font-heading text-[26px] font-semibold leading-[1.1] tracking-[-0.02em]">
-                  Full loads
+                  Part loads
                 </span>
-                <span className="max-w-[34ch] font-sans text-sm leading-[1.6] text-[#646B65]">
-                  A whole trailer for one consignment — up to 30 tonnes,
-                  tarped, strapped and delivered door to door.
+                <span className="font-sans text-sm leading-[1.6] text-[#15250A]/[.78]">
+                  Pay only for the space you use. Consolidated runs
+                  Mutare–Harare every Tuesday and Friday.
+                </span>
+                <span className="pt-1 font-sans text-[13px] font-bold text-[#15250A]">
+                  Ask about the schedule{" "}
+                  <span className="inline-block transition-transform duration-300 group-hover:translate-x-0.5">
+                    →
+                  </span>
                 </span>
               </span>
-              <span className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-full bg-[#EFF8E5] font-sans text-lg font-semibold text-[#3D8A14] transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5">
-                ↗
-              </span>
-            </div>
+            </Link>
           </StaggerItem>
 
-          <StaggerItem className="group flex min-h-[290px] flex-col justify-between gap-5 rounded-[32px] bg-[#63C32E] p-[26px] text-[#15250A] transition-transform duration-300 hover:-translate-y-1.5">
-            <span className="flex h-[46px] w-[46px] items-center justify-center rounded-full bg-white/65 font-sans text-lg font-semibold">
-              ◱
-            </span>
-            <span className="flex flex-col gap-2.5">
-              <span className="font-heading text-[26px] font-semibold leading-[1.1] tracking-[-0.02em]">
-                Part loads
-              </span>
-              <span className="font-sans text-sm leading-[1.6] text-[#15250A]/[.78]">
-                Pay only for the space you use. Consolidated runs
-                Mutare–Harare every Tuesday and Friday.
-              </span>
-              <span className="pt-1 font-sans text-[13px] font-bold text-[#15250A]">
-                Check the schedule →
-              </span>
-            </span>
-          </StaggerItem>
-
-          <StaggerItem className="flex flex-col gap-4 rounded-[32px] border border-[#E6E9E2] bg-white p-[26px] transition-transform duration-300 hover:-translate-y-1.5">
+          <StaggerItem>
+            <Link
+              href={enquiryHref("bulk-tipper")}
+              aria-label="Enquire about bulk and tipper loads"
+              className="group flex h-full flex-col gap-4 rounded-[32px] border border-[#E6E9E2] bg-white p-[26px] transition-transform duration-300 hover:-translate-y-1.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#3D8A14]"
+            >
             <PhotoBlock
               src="/images/truck-side-white-green-2.jpg"
               alt="WD Logistics tipper truck, side profile"
@@ -303,28 +329,44 @@ export default function HomePage() {
                 Maize, fertiliser, granite, sand — farm, mine or quarry to
                 site.
               </span>
+              <span className="pt-0.5 font-sans text-[13px] font-bold text-[#3D8A14]">
+                Get a rate{" "}
+                <span className="inline-block transition-transform duration-300 group-hover:translate-x-0.5">
+                  →
+                </span>
+              </span>
             </span>
+            </Link>
           </StaggerItem>
 
-          <StaggerItem className="sm:col-span-2 flex flex-col items-start gap-5 rounded-[28px] border border-[#E6E9E2] bg-white p-6 transition-transform duration-300 hover:-translate-y-1.5 sm:flex-row sm:items-center sm:gap-[22px] lg:rounded-[32px] lg:p-[26px]">
-            <PhotoBlock
-              src="/images/truck-side-white-green-1.jpg"
-              alt="WD Logistics low-bed truck for machinery and abnormal loads"
-              className="h-[140px] w-full shrink-0 rounded-[24px] sm:h-[180px] sm:w-[180px]"
-              imgClassName="object-[center_25%]"
-            />
-            <span className="flex flex-col gap-2.5">
-              <span className="font-heading text-[26px] font-semibold leading-[1.1] tracking-[-0.02em]">
-                Abnormal &amp; project loads
+          <StaggerItem className="sm:col-span-2">
+            <Link
+              href={enquiryHref("abnormal")}
+              aria-label="Enquire about abnormal and project loads"
+              className="group flex h-full flex-col items-start gap-5 rounded-[28px] border border-[#E6E9E2] bg-white p-6 transition-transform duration-300 hover:-translate-y-1.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#3D8A14] sm:flex-row sm:items-center sm:gap-[22px] lg:rounded-[32px] lg:p-[26px]"
+            >
+              <PhotoBlock
+                src="/images/truck-side-white-green-1.jpg"
+                alt="WD Logistics low-bed truck for machinery and abnormal loads"
+                className="h-[140px] w-full shrink-0 rounded-[24px] sm:h-[180px] sm:w-[180px]"
+                imgClassName="object-[center_25%]"
+              />
+              <span className="flex flex-col gap-2.5">
+                <span className="font-heading text-[26px] font-semibold leading-[1.1] tracking-[-0.02em]">
+                  Abnormal &amp; project loads
+                </span>
+                <span className="font-sans text-sm leading-[1.6] text-[#646B65] text-balance">
+                  Plant, generators, tanks and equipment on low-bed trailers,
+                  with permits and escorts arranged before the wheels turn.
+                </span>
+                <span className="pt-0.5 font-sans text-[13px] font-bold text-[#3D8A14]">
+                  Plan a move{" "}
+                  <span className="inline-block transition-transform duration-300 group-hover:translate-x-0.5">
+                    →
+                  </span>
+                </span>
               </span>
-              <span className="font-sans text-sm leading-[1.6] text-[#646B65] text-balance">
-                Plant, generators, tanks and equipment on low-bed trailers,
-                with permits and escorts arranged before the wheels turn.
-              </span>
-              <span className="pt-0.5 font-sans text-[13px] font-bold text-[#3D8A14]">
-                Plan a move →
-              </span>
-            </span>
+            </Link>
           </StaggerItem>
 
           <StaggerItem className="flex min-h-[230px] flex-col justify-between gap-5 rounded-[32px] bg-[#F3F4F0] p-[26px] transition-transform duration-300 hover:-translate-y-1.5">
