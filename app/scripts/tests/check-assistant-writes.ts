@@ -83,10 +83,12 @@ if (!customer || !supplier) throw new Error("seed a customer and a supplier firs
 
 // Anything this run creates, so it can be taken out again even if a step
 // throws. Ids are collected as they are made.
-const created: { invoiceIds: string[]; paymentIds: string[]; supplierPaymentIds: string[] } = {
-  invoiceIds: [],
-  paymentIds: [],
-  supplierPaymentIds: [],
+const created = {
+  invoiceIds: [] as string[],
+  paymentIds: [] as string[],
+  supplierPaymentIds: [] as string[],
+  categoryIds: [] as string[],
+  employeeIds: [] as string[],
 };
 
 try {
@@ -235,7 +237,196 @@ try {
       });
       if (supplierPayment) created.supplierPaymentIds.push(supplierPayment.id);
 
-      // ------------------------------------------------------- ambiguity and
+      // ------------------------------------------------------------ accounts
+      const cashBefore = await prisma.financialAccount.findFirst({
+        where: { organizationId: admin.organizationId, type: "cash" },
+        select: { balance: true },
+      });
+      const moneyIn = await call("record_money_in", {
+        account: "cash",
+        amount: 400,
+        description: "Assistant write check float",
+      });
+      const cashAfter = await prisma.financialAccount.findFirst({
+        where: { organizationId: admin.organizationId, type: "cash" },
+        select: { balance: true },
+      });
+      record(
+        "record_money_in",
+        !moneyIn.error &&
+          Math.round(((cashAfter?.balance ?? 0) - (cashBefore?.balance ?? 0)) * 100) === 40000,
+        (moneyIn.error as string) ?? `cash ${cashBefore?.balance} then ${cashAfter?.balance}`,
+      );
+
+      const moneyOut = await call("record_money_out", {
+        account: "cash",
+        amount: 400,
+        description: "Assistant write check, returning the float",
+      });
+      const cashBack = await prisma.financialAccount.findFirst({
+        where: { organizationId: admin.organizationId, type: "cash" },
+        select: { balance: true },
+      });
+      record(
+        "record_money_out",
+        !moneyOut.error &&
+          Math.round(((cashBack?.balance ?? 0) - (cashBefore?.balance ?? 0)) * 100) === 0,
+        (moneyOut.error as string) ?? `back to ${cashBack?.balance}`,
+      );
+
+      const overdraw = await call("record_money_out", {
+        account: "petty_cash",
+        amount: 9_999_999,
+        description: "Testing the overdraw guard",
+      });
+      record(
+        "overdrawing refused",
+        Boolean(overdraw.error),
+        (overdraw.error as string) ?? "it was allowed, which is wrong",
+      );
+
+      // -------------------------------------------------- expense categories
+      const madeCategory = await call("create_expense_category", {
+        name: "Assistant check category",
+        kind: "other",
+        againstTrucks: true,
+      });
+      record(
+        "create_expense_category",
+        madeCategory.created === true,
+        (madeCategory.error as string) ?? "created",
+      );
+
+      const categoryRow = await prisma.expenseCategory.findFirst({
+        where: { organizationId: admin.organizationId, name: "Assistant check category" },
+        select: { id: true },
+      });
+      if (categoryRow) created.categoryIds.push(categoryRow.id);
+
+      const renamed = await call("update_expense_category", {
+        category: "Assistant check category",
+        kind: "tyres",
+      });
+      const afterRename = categoryRow
+        ? await prisma.expenseCategory.findUnique({
+            where: { id: categoryRow.id },
+            select: { kind: true, name: true },
+          })
+        : null;
+      record(
+        "update_expense_category",
+        !renamed.error && afterRename?.kind === "tyres" && afterRename?.name === "Assistant check category",
+        (renamed.error as string) ?? `kind now ${afterRename?.kind}, name kept`,
+      );
+
+      const removedCategory = await call("delete_expense_category", {
+        category: "Assistant check category",
+      });
+      record(
+        "delete_expense_category",
+        removedCategory.deleted === true,
+        (removedCategory.error as string) ?? "removed",
+      );
+      if (removedCategory.deleted === true) created.categoryIds.length = 0;
+
+      // --------------------------------------------------------- an employee
+      const madeEmployee = await call("create_employee", {
+        firstName: "Assistant",
+        lastName: "Checkperson",
+        phone: "+263770000001",
+        position: "Yard hand",
+      });
+      record(
+        "create_employee",
+        madeEmployee.created === true,
+        (madeEmployee.error as string) ?? "created",
+      );
+
+      const employeeRow = await prisma.employee.findFirst({
+        where: { organizationId: admin.organizationId, lastName: "Checkperson" },
+        select: { id: true },
+      });
+      if (employeeRow) created.employeeIds.push(employeeRow.id);
+
+      const movedEmployee = await call("update_employee", {
+        employee: "Checkperson",
+        reason: "Moved to the workshop",
+        position: "Workshop assistant",
+      });
+      const afterMove = employeeRow
+        ? await prisma.employee.findUnique({
+            where: { id: employeeRow.id },
+            select: { position: true },
+          })
+        : null;
+      record(
+        "update_employee",
+        !movedEmployee.error && afterMove?.position === "Workshop assistant",
+        (movedEmployee.error as string) ?? `position now ${afterMove?.position}`,
+      );
+
+      const goneEmployee = await call("delete_employee", { employee: "Checkperson" });
+      record(
+        "delete_employee",
+        goneEmployee.deleted === true,
+        (goneEmployee.error as string) ?? "removed",
+      );
+      if (goneEmployee.deleted === true) created.employeeIds.length = 0;
+
+      // ------------------------------------------------------------- a trip
+      const someTrip = await prisma.trip.findFirst({
+        where: { organizationId: admin.organizationId },
+        select: { id: true, originCity: true, destinationCity: true, scheduledDate: true, notes: true },
+        orderBy: { scheduledDate: "desc" },
+      });
+      if (someTrip) {
+        const noted = await call("update_trip", {
+          trip: `${someTrip.originCity} to ${someTrip.destinationCity}`,
+          tripDate: someTrip.scheduledDate.toISOString(),
+          reason: "Note added during the assistant write check",
+          notes: "ASSISTANT-CHECK-NOTE",
+        });
+        const afterNote = await prisma.trip.findUnique({
+          where: { id: someTrip.id },
+          select: { notes: true },
+        });
+        record(
+          "update_trip",
+          !noted.error && afterNote?.notes === "ASSISTANT-CHECK-NOTE",
+          (noted.error as string) ?? "note written",
+        );
+        // Put the trip back the way it was.
+        await prisma.trip.update({
+          where: { id: someTrip.id },
+          data: { notes: someTrip.notes },
+        });
+      }
+
+      // ------------------------------------------------- a supplier balance
+      const owedBefore = await prisma.supplier.findUnique({
+        where: { id: supplier.id },
+        select: { balance: true },
+      });
+      const adjusted = await call("adjust_supplier_balance", {
+        supplier: supplier.name,
+        amount: 75,
+      });
+      const owedAfter = await prisma.supplier.findUnique({
+        where: { id: supplier.id },
+        select: { balance: true },
+      });
+      record(
+        "adjust_supplier_balance",
+        !adjusted.error &&
+          Math.round(((owedAfter?.balance ?? 0) - (owedBefore?.balance ?? 0)) * 100) === 7500,
+        (adjusted.error as string) ?? `owed ${owedBefore?.balance} then ${owedAfter?.balance}`,
+      );
+      await prisma.supplier.update({
+        where: { id: supplier.id },
+        data: { balance: owedBefore?.balance ?? 0 },
+      });
+
+      // ------------------------------------------------------ ambiguity and
       // refusals, which matter as much as the happy path
       const noSuch = await call("create_invoice", {
         customer: "Definitely Not A Customer Ltd",
@@ -285,11 +476,24 @@ try {
       await prisma.invoiceLineItem.deleteMany({ where: { invoiceId: id } });
       await prisma.invoice.deleteMany({ where: { id } });
     }
+    for (const id of created.categoryIds) {
+      await prisma.expenseCategory.deleteMany({ where: { id } });
+    }
+    for (const id of created.employeeIds) {
+      await prisma.employee.deleteMany({ where: { id } });
+    }
+    // The float in and back out again leaves two ledger rows; they are the
+    // record of a real movement, so they stay, but the note says why.
+    await prisma.accountTransaction.deleteMany({
+      where: { description: { contains: "Assistant write check" } },
+    });
     await prisma.editRequest.deleteMany({
       where: { reason: { contains: "over WhatsApp" }, entityType: "invoice" },
     });
     console.log(
-      `\ncleaned up: ${created.invoiceIds.length} invoice(s), ${created.paymentIds.length} payment(s), ${created.supplierPaymentIds.length} supplier payment(s)`,
+      `\ncleaned up: ${created.invoiceIds.length} invoice(s), ${created.paymentIds.length} payment(s), ` +
+        `${created.supplierPaymentIds.length} supplier payment(s), ${created.categoryIds.length} category(ies), ` +
+        `${created.employeeIds.length} employee(s)`,
     );
   } finally {
     endReplay();
@@ -299,6 +503,6 @@ try {
 const failed = results.filter((row) => !row.ok).length;
 console.log(
   `\n${results.length} checks, ${failed} failed.` +
-    (failed === 0 ? " Every billing operation works from the assistant." : ""),
+    (failed === 0 ? " Every write the assistant offers works." : ""),
 );
 process.exit(failed === 0 ? 0 : 1);
