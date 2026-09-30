@@ -78,6 +78,9 @@ Commit message style:
 ### Before each commit
 
 - `bunx tsc --noEmit` from `app/`, compared against the recorded baseline (see `PROGRESS.md`) — the error count must not grow. Type errors are not caught at build time here, because `next.config.ts` sets `ignoreBuildErrors: true`.
+- `bun run check` from `app/` — the whole offline suite, in one command. No model, no tokens, no outbound email (the email checks run against a local SMTP stub); every one of them cleans up the rows it writes. Each exits non-zero on failure, so the chain stops at the first red.
+  A failing assertion typechecks perfectly, so `tsc` says nothing about it. Three assertions in `test:trails` encoded a rule the client had changed and had been red for weeks, and one of them was overdrawing Petty Cash by $9,999,999 a run without cleaning up, because nothing in the routine ran that file.
+  The live checks are separate and deliberately not in `check` — `bun run check:assistant` and `bun run check:capabilities` from `agent/` cost real tokens and drive the real model.
 - Load the affected page in a browser, as each role that can reach it. This codebase has repeatedly shipped changes that typecheck and then throw at runtime.
 
 ## Architecture
