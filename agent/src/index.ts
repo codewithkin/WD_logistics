@@ -379,20 +379,32 @@ const initWhatsApp = async () => {
           // 122 times in a loop once. Silence is the safe failure.
           const allowance = await checkMessageAllowance();
           if (allowance.blocked) {
+            // Two different reasons, and they need telling apart. An
+            // unreadable count comes back as 0/0 with no reset date, so
+            // reporting it as "cap reached" would have an operator believing
+            // the client had spent their month's messages when in fact the
+            // app is unreachable — opposite diagnosis, opposite fix.
             console.log(
-              `🚫 EARLY RETURN: month's message cap reached ` +
-                `(${allowance.used}/${allowance.limit}, resets ${allowance.resetsOn}). ` +
-                `No reply, no model call, nothing transcribed.`,
+              allowance.known
+                ? `🚫 EARLY RETURN: month's message cap reached ` +
+                    `(${allowance.used}/${allowance.limit}, resets ${allowance.resetsOn}). ` +
+                    `No reply, no model call, nothing transcribed.`
+                : `🚫 EARLY RETURN: could not read the month's usage from the app, ` +
+                    `so the message is refused. Not knowing how many have gone ` +
+                    `out is not evidence there is room left. No reply, no model ` +
+                    `call, nothing transcribed.`,
             );
             console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
             return;
           }
           noteMessageAccepted();
-          console.log(
-            allowance.known
-              ? `📊 Message ${allowance.used} of ${allowance.limit} this month`
-              : `📊 Could not read the month's usage — allowing the message`,
-          );
+          // Always a real number by this point. An unreadable count is
+          // `blocked: true, known: false` and returned above — not knowing how
+          // many messages have gone out is not evidence there is room left.
+          // This used to read "could not read the month's usage — allowing the
+          // message", which was both unreachable and the opposite of what the
+          // code does, and is the sort of line somebody later trusts.
+          console.log(`📊 Message ${allowance.used} of ${allowance.limit} this month`);
 
           // Who is this? The allowlist lives in the app now, managed by an
           // admin under Settings, rather than in three environment variables
