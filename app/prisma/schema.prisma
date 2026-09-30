@@ -736,6 +736,17 @@ model Expense {
   categoryId       String
   category         ExpenseCategory @relation(fields: [categoryId], references: [id])
   amount           Float
+  // How much of the thing was bought, and in what. Litres of diesel, tyres
+  // fitted, hours of labour. Added 2026-09-30 so a supervisor can be shown
+  // what a truck used without being shown what it cost, and so fuel economy
+  // (km per litre) is a measured number rather than an inference from spend.
+  // Null on every expense recorded before that, which the UI says plainly
+  // rather than showing a zero.
+  quantity         Float?
+  // litres | units | hours | kg | km — a plain string with the valid values
+  // listed, as everywhere else in this schema. Validated in the Zod schema
+  // beside the form, not by the database.
+  unit             String?
   description      String?
   date             DateTime @default(now())
   receiptUrl       String?

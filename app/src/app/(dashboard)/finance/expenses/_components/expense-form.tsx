@@ -20,6 +20,18 @@ import {
     FormDescription,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import {
+    EXPENSE_UNITS,
+    EXPENSE_UNIT_VALUES,
+    type ExpenseUnit,
+} from "@/lib/expense-units";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { useForm } from "react-hook-form";
@@ -38,6 +50,13 @@ const expenseSchema = z.object({
     // z.coerce.number() converts before validating, matching the pattern
     // already used correctly in operations/expenses/_components/expense-form.tsx.
     amount: z.coerce.number().positive("Amount must be positive"),
+    // Blank means "not recorded" and must stay blank — an empty <input
+    // type="number"> arrives as "", which z.coerce.number() would turn into
+    // 0, and a zero litres on a fuel expense is worse than nothing.
+    quantity: z
+        .union([z.literal(""), z.coerce.number().positive("Quantity must be positive")])
+        .optional(),
+    unit: z.enum(EXPENSE_UNIT_VALUES).optional(),
     date: z.date(),
     notes: z.string().optional(),
     isBusinessExpense: z.boolean(),
@@ -82,6 +101,8 @@ interface ExpenseFormProps {
         id: string;
         categoryId: string;
         amount: number;
+        quantity?: number | null;
+        unit?: string | null;
         date: Date;
         vendor: string | null;
         reference: string | null;
@@ -120,6 +141,8 @@ export function ExpenseForm({ initialSelected, expense, prefilledTripId, prefill
         defaultValues: {
             categoryId: expense?.categoryId || "",
             amount: expense?.amount || 0,
+            quantity: expense?.quantity ?? "",
+            unit: (expense?.unit as ExpenseUnit | undefined) ?? undefined,
             date: expense?.date || new Date(),
             notes: expense?.notes || "",
             isBusinessExpense: expense?.isBusinessExpense ?? prefilledIsBusinessExpense ?? false,
@@ -160,6 +183,8 @@ export function ExpenseForm({ initialSelected, expense, prefilledTripId, prefill
             const data: ExpenseFormData = {
                 categoryId: values.categoryId,
                 amount: values.amount,
+                quantity: values.quantity === "" || values.quantity === undefined ? null : values.quantity,
+                unit: values.unit ?? null,
                 date: values.date,
                 notes: values.notes,
                 isBusinessExpense: values.isBusinessExpense,
@@ -240,6 +265,62 @@ export function ExpenseForm({ initialSelected, expense, prefilledTripId, prefill
                                         {...field}
                                     />
                                 </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+
+                    {/* What the money bought. Optional — most expenses have no
+                        sensible quantity — but on fuel it is what a supervisor
+                        is shown instead of the amount, and what makes km per
+                        litre a measurement rather than a guess. */}
+                    <FormField
+                        control={form.control}
+                        name="quantity"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Quantity</FormLabel>
+                                <FormControl>
+                                    <Input
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        placeholder="e.g. 420"
+                                        {...field}
+                                        value={field.value ?? ""}
+                                    />
+                                </FormControl>
+                                <FormDescription>
+                                    Litres of fuel, tyres fitted, hours of labour — leave blank if it does not apply.
+                                </FormDescription>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+
+                    <FormField
+                        control={form.control}
+                        name="unit"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Unit</FormLabel>
+                                <Select
+                                    onValueChange={field.onChange}
+                                    value={field.value ?? ""}
+                                >
+                                    <FormControl>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select unit" />
+                                        </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                        {EXPENSE_UNITS.map((unit) => (
+                                            <SelectItem key={unit.value} value={unit.value}>
+                                                {unit.label}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                                 <FormMessage />
                             </FormItem>
                         )}

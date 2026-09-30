@@ -13,6 +13,7 @@ import {
   notifyIfAccountOverdrawn,
 } from "@/lib/notifications";
 import { InsufficientBalanceError } from "@/lib/accounts";
+import { isExpenseUnit } from "@/lib/expense-units";
 import { debitAccountForExpense, creditAccountForExpense } from "@/lib/accounts-server";
 import { handleActionError } from "@/lib/error-messages";
 
@@ -34,6 +35,16 @@ class SupplierNotFoundError extends Error {
 export interface ExpenseFormData {
   categoryId: string;
   amount: number;
+  /**
+   * How much was bought and in what — 420 litres, 4 units, 6 hours.
+   *
+   * Optional, and optional on purpose: plenty of expenses have no sensible
+   * quantity, and nothing recorded before 30 Sep 2026 has one. What it buys
+   * is a truck page a supervisor can read without being shown money, and a
+   * measured km-per-litre instead of one inferred from spending.
+   */
+  quantity?: number | null;
+  unit?: string | null;
   date: Date;
   notes?: string;
   /**
@@ -49,6 +60,22 @@ export interface ExpenseFormData {
   driverIds?: string[];
   isBusinessExpense?: boolean;
   supplierId?: string;
+}
+
+/** A blank, a zero or a negative means "not recorded", not 0. */
+function normaliseQuantity(quantity: number | null | undefined): number | null {
+  if (quantity === null || quantity === undefined) return null;
+  if (!Number.isFinite(quantity) || quantity <= 0) return null;
+  return Math.round(quantity * 1000) / 1000;
+}
+
+/** A unit without a quantity says nothing, so it is dropped with it. */
+function normaliseUnit(
+  unit: string | null | undefined,
+  quantity: number | null | undefined,
+): string | null {
+  if (normaliseQuantity(quantity) === null) return null;
+  return isExpenseUnit(unit) ? unit : null;
 }
 
 export type ExpenseActionResponse = {
@@ -86,6 +113,8 @@ export async function createExpense(data: ExpenseFormData): Promise<ExpenseActio
           organizationId: user.organizationId,
           categoryId: data.categoryId,
           amount: data.amount,
+          quantity: normaliseQuantity(data.quantity),
+          unit: normaliseUnit(data.unit, data.quantity),
           date: data.date,
           notes: data.notes,
           receiptUrl: data.receiptUrl,
@@ -284,6 +313,8 @@ export async function updateExpense(id: string, data: ExpenseFormData,
         data: {
           categoryId: data.categoryId,
           amount: data.amount,
+          quantity: normaliseQuantity(data.quantity),
+          unit: normaliseUnit(data.unit, data.quantity),
           date: data.date,
           notes: data.notes,
           receiptUrl: data.receiptUrl,

@@ -23,6 +23,7 @@ import {
     FormItem,
     FormLabel,
     FormMessage,
+    FormDescription,
 } from "@/components/ui/form";
 import {
     Select,
@@ -38,10 +39,21 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { createExpense, updateExpense } from "../actions";
 import { toast } from "sonner";
+import {
+    EXPENSE_UNITS,
+    EXPENSE_UNIT_VALUES,
+    type ExpenseUnit,
+} from "@/lib/expense-units";
 
 const expenseSchema = z.object({
     description: z.string().optional(),
     amount: z.coerce.number().min(0.01, "Amount must be greater than 0"),
+    // Blank stays blank: an empty number input arrives as "", and coercing
+    // that to 0 would record "0 litres" on every expense without a quantity.
+    quantity: z
+        .union([z.literal(""), z.coerce.number().positive("Quantity must be positive")])
+        .optional(),
+    unit: z.enum(EXPENSE_UNIT_VALUES).optional(),
     date: z.date({ message: "Date is required" }),
     categoryId: z.string().min(1, "Category is required"),
     tripId: z.string().optional(),
@@ -58,6 +70,8 @@ interface ExpenseFormProps {
         id: string;
         description: string | null;
         amount: number;
+        quantity?: number | null;
+        unit?: string | null;
         date: Date;
         categoryId: string;
         vendor: string | null;
@@ -92,6 +106,8 @@ export function ExpenseForm({ expense, initialSelected, defaultTripId }: Expense
         defaultValues: {
             description: expense?.description ?? "",
             amount: expense?.amount ?? 0,
+            quantity: expense?.quantity ?? "",
+            unit: (expense?.unit as ExpenseUnit | undefined) ?? undefined,
             date: expense?.date ?? new Date(),
             categoryId: expense?.categoryId ?? "",
             tripId: expense?.tripExpenses?.[0]?.tripId ?? defaultTripId ?? "",
@@ -110,9 +126,16 @@ export function ExpenseForm({ expense, initialSelected, defaultTripId }: Expense
                 setIsLoading(false);
                 return;
             }
+            // "" is what an empty number input gives back, and it means the
+            // quantity was not recorded — not that it was zero.
+            const payload = {
+                ...data,
+                quantity: data.quantity === "" || data.quantity === undefined ? null : data.quantity,
+                unit: data.unit ?? null,
+            };
             const result = isEditing
-                ? await updateExpense(expense.id, data, approvalReason)
-                : await createExpense(data);
+                ? await updateExpense(expense.id, payload, approvalReason)
+                : await createExpense(payload);
 
             if (isPendingApproval(result)) {
 
@@ -170,6 +193,57 @@ export function ExpenseForm({ expense, initialSelected, defaultTripId }: Expense
                                         <FormControl>
                                             <Input type="number" step="0.01" placeholder="0.00" {...field} />
                                         </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            {/* What the money bought. Optional, but on a fuel
+                                expense it is what a supervisor is shown on the
+                                truck instead of the amount — and what turns km
+                                per litre into a measurement. */}
+                            <FormField
+                                control={form.control}
+                                name="quantity"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Quantity</FormLabel>
+                                        <FormControl>
+                                            <Input
+                                                type="number"
+                                                step="0.01"
+                                                min="0"
+                                                placeholder="e.g. 420"
+                                                {...field}
+                                                value={field.value ?? ""}
+                                            />
+                                        </FormControl>
+                                        <FormDescription>
+                                            Litres, tyres, hours — leave blank if it does not apply.
+                                        </FormDescription>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
+                                name="unit"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Unit</FormLabel>
+                                        <Select onValueChange={field.onChange} value={field.value ?? ""}>
+                                            <FormControl>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select unit" />
+                                                </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                {EXPENSE_UNITS.map((unit) => (
+                                                    <SelectItem key={unit.value} value={unit.value}>
+                                                        {unit.label}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
                                         <FormMessage />
                                     </FormItem>
                                 )}

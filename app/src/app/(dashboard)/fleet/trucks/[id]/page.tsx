@@ -3,14 +3,19 @@ import Link from "next/link";
 import { pageAccess } from "@/lib/session";
 import { NoAccess } from "@/components/layout/no-access";
 import { prisma } from "@/lib/prisma";
-import { canViewCostData, canViewFinancialData } from "@/lib/permissions";
+import {
+    canViewFinancialData,
+    canViewFleetCostTotals,
+    canViewFuelEconomy,
+} from "@/lib/permissions";
+import { formatQuantity } from "@/lib/expense-units";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Pencil, User, Gauge, FileText, DollarSign, TrendingUp, TrendingDown, Download, Calendar } from "lucide-react";
+import { Pencil, User, Gauge, Fuel, FileText, DollarSign, TrendingUp, TrendingDown, Download, Calendar } from "lucide-react";
 import { format } from "date-fns";
 import { AssignDriver } from "./_components/assign-driver";
 import { ExportTruckButton } from "./_components/export-truck-button";
@@ -100,10 +105,13 @@ export default async function TruckDetailPage({ params, searchParams }: TruckDet
     const profitLoss = totalRevenue - totalExpenses;
 
     const canEdit = role === "admin" || role === "supervisor";
-    // A supervisor may see what the truck *costs* — that is their job. What
-    // it *earns* is the owner's business (ACCESS_CONTROL.md). Two predicates,
-    // because one gate made supervisors blind to costs as well.
-    const showCosts = canViewCostData(role);
+    // Narrowed on 2026-09-30. A supervisor used to see this truck's expense
+    // total and its whole cost breakdown; the client moved a running total
+    // nobody typed in to the owner. What a supervisor keeps is the physical
+    // side — trips, kilometres, litres, parts fitted, days in the workshop —
+    // which is what running the fleet actually needs.
+    const showCosts = canViewFleetCostTotals(role);
+    const showQuantities = canViewFuelEconomy(role);
     // A single-entity report is still a report, and reports are admin-only
     // (ACCESS_CONTROL.md). The export action refuses everyone else, so the
     // button is not offered rather than offered and then refused.
@@ -113,12 +121,35 @@ export default async function TruckDetailPage({ params, searchParams }: TruckDet
     // The paper trail for "is this truck losing money, and where" — admin
     // only, and not fetched at all otherwise, so it never travels in the RSC
     // payload for a supervisor.
-    const costBreakdown = showCosts
-        ? await getTruckCostBreakdown(organizationId, id, {
-              from: dateRange.from,
-              to: dateRange.to,
-          })
-        : null;
+    // Fetched for a supervisor too now, but only the physical fields are
+    // passed on — see `quantitySummary`. The money never reaches the client.
+    const costBreakdown =
+        showCosts || showQuantities
+            ? await getTruckCostBreakdown(organizationId, id, {
+                  from: dateRange.from,
+                  to: dateRange.to,
+              })
+            : null;
+
+    // What the truck used, with nothing about what it cost: litres and km per
+    // litre from the fuel expenses, and everything else that recorded a
+    // quantity — tyres fitted, hours of labour — added up by unit.
+    const quantitySummary =
+        costBreakdown && showQuantities
+            ? {
+                  kilometres: costBreakdown.kilometres,
+                  fuelLitres: costBreakdown.fuelLitres,
+                  kmPerLitre: costBreakdown.kmPerLitre,
+                  byUnit: Object.entries(
+                      costBreakdown.expenses_list.reduce<Record<string, number>>((acc, expense) => {
+                          if (expense.quantity === null || !expense.unit) return acc;
+                          if (expense.unit === "litres") return acc; // shown above
+                          acc[expense.unit] = (acc[expense.unit] ?? 0) + expense.quantity;
+                          return acc;
+                      }, {}),
+                  ).map(([unit, quantity]) => ({ unit, quantity })),
+              }
+            : null;
     // Same audience as the maintenance screen itself: the office, not staff.
     const canViewMaintenance = role === "admin" || role === "supervisor";
 
@@ -169,6 +200,102 @@ export default async function TruckDetailPage({ params, searchParams }: TruckDet
                 </PageHeader>
                 <PagePeriodSelector defaultPreset="3m" />
             </div>
+
+            {/* What the truck used — no money in any of it, so this is the
+                supervisor's half of the page. */}
+            {quantitySummary && !showCosts && (
+                <div className="grid gap-4 mb-6 md:grid-cols-4">
+                    <Card>
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                                <Calendar className="h-4 w-4" /> Total Trips
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <p className="text-2xl font-bold">{totalTrips}</p>
+                            <p className="text-xs text-muted-foreground">{completedTrips} completed</p>
+                        </CardContent>
+                    </Card>
+                    <Card>
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                                <Gauge className="h-4 w-4" /> Distance
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <p className="text-2xl font-bold">
+                                {quantitySummary.kilometres.toLocaleString()} km
+                            </p>
+                            <p className="text-xs text-muted-foreground">on completed trips</p>
+                        </CardContent>
+                    </Card>
+                    <Card>
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                                <Fuel className="h-4 w-4" /> Fuel
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            {quantitySummary.fuelLitres === null ? (
+                                <>
+                                    <p className="text-2xl font-bold text-muted-foreground">—</p>
+                                    {/* Not zero. Nothing recorded a quantity, and
+                                        a 0 here would read as a truck that used
+                                        no diesel. */}
+                                    <p className="text-xs text-muted-foreground">not recorded</p>
+                                </>
+                            ) : (
+                                <>
+                                    <p className="text-2xl font-bold">
+                                        {quantitySummary.fuelLitres.toLocaleString()} L
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">bought in this period</p>
+                                </>
+                            )}
+                        </CardContent>
+                    </Card>
+                    <Card>
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                                <Gauge className="h-4 w-4" /> Fuel economy
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            {quantitySummary.kmPerLitre === null ? (
+                                <>
+                                    <p className="text-2xl font-bold text-muted-foreground">—</p>
+                                    <p className="text-xs text-muted-foreground">
+                                        needs litres on the fuel expenses
+                                    </p>
+                                </>
+                            ) : (
+                                <>
+                                    <p className="text-2xl font-bold">{quantitySummary.kmPerLitre} km/L</p>
+                                    <p className="text-xs text-muted-foreground">measured over the period</p>
+                                </>
+                            )}
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
+
+            {quantitySummary && !showCosts && quantitySummary.byUnit.length > 0 && (
+                <Card className="mb-6">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium text-muted-foreground">
+                            Also used in this period
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="flex flex-wrap gap-6">
+                        {quantitySummary.byUnit.map(({ unit, quantity }) => (
+                            <div key={unit}>
+                                <p className="text-xl font-bold">{formatQuantity(quantity, unit)}</p>
+                                <p className="text-xs text-muted-foreground capitalize">{unit}</p>
+                            </div>
+                        ))}
+                    </CardContent>
+                </Card>
+            )}
 
             {/* Financial Summary for Selected Period */}
             {showCosts && (
@@ -371,7 +498,7 @@ export default async function TruckDetailPage({ params, searchParams }: TruckDet
                 </CardContent>
             </Card>
 
-            {costBreakdown && (
+            {costBreakdown && showCosts && (
                 <TruckCostBreakdownPanel
                     data={costBreakdown}
                     periodLabel={dateRange.label}

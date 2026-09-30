@@ -13,12 +13,32 @@ import {
   notifyIfAccountOverdrawn,
 } from "@/lib/notifications";
 import { InsufficientBalanceError } from "@/lib/accounts";
+import { isExpenseUnit } from "@/lib/expense-units";
 import { debitAccountForExpense, creditAccountForExpense } from "@/lib/accounts-server";
 import { handleActionError } from "@/lib/error-messages";
+
+/** A blank, a zero or a negative means "not recorded", not 0. */
+function normaliseQuantity(quantity: number | null | undefined): number | null {
+  if (quantity === null || quantity === undefined) return null;
+  if (!Number.isFinite(quantity) || quantity <= 0) return null;
+  return Math.round(quantity * 1000) / 1000;
+}
+
+/** A unit without a quantity says nothing, so it is dropped with it. */
+function normaliseUnit(
+  unit: string | null | undefined,
+  quantity: number | null | undefined,
+): string | null {
+  if (normaliseQuantity(quantity) === null) return null;
+  return isExpenseUnit(unit) ? unit : null;
+}
 
 export async function createExpense(data: {
   description?: string;
   amount: number;
+  /** What the money bought — 420 litres, 4 tyres. See lib/expense-units.ts. */
+  quantity?: number | null;
+  unit?: string | null;
   date: Date;
   categoryId: string;
   tripId?: string;
@@ -58,6 +78,8 @@ export async function createExpense(data: {
           organizationId: session.organizationId,
           categoryId: data.categoryId,
           amount: data.amount,
+          quantity: normaliseQuantity(data.quantity),
+          unit: normaliseUnit(data.unit, data.quantity),
           description: data.description,
           date: data.date,
           vendor: data.vendor,
@@ -129,6 +151,8 @@ export async function updateExpense(
   data: {
     description?: string;
     amount?: number;
+    quantity?: number | null;
+    unit?: string | null;
     date?: Date;
     categoryId?: string;
     tripId?: string;
@@ -210,6 +234,8 @@ export async function updateExpense(
         data: {
           categoryId: data.categoryId,
           amount: data.amount,
+          quantity: normaliseQuantity(data.quantity),
+          unit: normaliseUnit(data.unit, data.quantity),
           description: data.description,
           date: data.date,
           vendor: data.vendor,

@@ -59,6 +59,13 @@ export interface TruckCostExpense {
   tripId: string | null;
   /** How many records the cost was split across. */
   sharedWith: number;
+  /**
+   * How much the money bought, already split the same way the amount is —
+   * half a shared 400-litre fill is 200 litres against each truck. Null on
+   * anything recorded before 30 Sep 2026, when the field did not exist.
+   */
+  quantity: number | null;
+  unit: string | null;
 }
 
 export interface TruckCostBreakdown {
@@ -74,6 +81,15 @@ export interface TruckCostBreakdown {
   costPerKm: number | null;
   fuelSpend: number;
   fuelPerKm: number | null;
+  /**
+   * Litres actually bought in the period, from the quantity on each fuel
+   * expense — null when none of them recorded one, which is every expense
+   * entered before 30 Sep 2026. Null and 0 mean different things here and the
+   * UI says so: "not recorded" rather than a fuel economy of zero.
+   */
+  fuelLitres: number | null;
+  /** Kilometres per litre, measured. Null without both halves. */
+  kmPerLitre: number | null;
   maintenanceSpend: number;
   /** Days the truck was off the road, from the workshop records. */
   downtimeDays: number;
@@ -157,6 +173,8 @@ async function loadTruckExpenses(
         tripLabel: null,
         tripId: null,
         sharedWith: linked,
+        quantity: expense.quantity === null ? null : expense.quantity / linked,
+        unit: expense.unit,
       });
     }
   }
@@ -211,6 +229,8 @@ async function loadTruckExpenses(
         tripLabel: `${link.trip.originCity} → ${link.trip.destinationCity}`,
         tripId: link.trip.id,
         sharedWith: linked,
+        quantity: expense.quantity === null ? null : expense.quantity / linked,
+        unit: expense.unit,
       });
     }
   }
@@ -353,6 +373,23 @@ export async function getTruckCostBreakdown(
   const fuelSpend = spendOfKind("fuel");
   const maintenanceSpend = spendOfKind("maintenance");
 
+  // Litres, not dollars. Only the fuel expenses that actually recorded a
+  // quantity in litres count — an expense with no quantity is missing data,
+  // and treating it as zero would make a truck look twice as efficient as it
+  // is. So the total is null until at least one fill has been recorded
+  // properly, and the page says "not recorded" instead of printing a number
+  // nobody should act on.
+  const fuelWithLitres = expenses.filter(
+    (e) =>
+      kindByCategory.get(e.categoryId) === "fuel" &&
+      e.unit === "litres" &&
+      e.quantity !== null,
+  );
+  const fuelLitres =
+    fuelWithLitres.length === 0
+      ? null
+      : fuelWithLitres.reduce((sum, e) => sum + (e.quantity ?? 0), 0);
+
   // ---- Month by month, so a trend is visible rather than one number ----
   const monthlyRevenue = groupByMonth(
     trips,
@@ -421,6 +458,11 @@ export async function getTruckCostBreakdown(
     costPerKm: kilometres > 0 ? round(totalExpenses / kilometres) : null,
     fuelSpend: round(fuelSpend),
     fuelPerKm: kilometres > 0 ? round(fuelSpend / kilometres) : null,
+    fuelLitres: fuelLitres === null ? null : round(fuelLitres),
+    kmPerLitre:
+      fuelLitres !== null && fuelLitres > 0 && kilometres > 0
+        ? round(kilometres / fuelLitres)
+        : null,
     maintenanceSpend: round(maintenanceSpend),
     downtimeDays:
       Math.round(
