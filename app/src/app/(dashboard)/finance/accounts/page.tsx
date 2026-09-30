@@ -4,8 +4,14 @@ import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/layout/page-header";
 import { PagePeriodSelector } from "@/components/ui/page-period-selector";
 import { getDateRangeFromParams } from "@/lib/period-utils";
-import { isDebitTransaction } from "@/lib/accounts";
-import { canRecordMoneyIn, canRecordMoneyOut, canTransferFunds } from "@/lib/permissions";
+import { DEBIT_TYPE_LIST, isDebitTransaction } from "@/lib/accounts";
+import {
+    canRecordMoneyIn,
+    canRecordMoneyOut,
+    canTransferFunds,
+    canViewAccountBalances,
+    canViewMoneyIn,
+} from "@/lib/permissions";
 import { AccountsClient } from "./_components/accounts-client";
 import { getAccounts } from "./actions";
 
@@ -21,6 +27,13 @@ export default async function AccountsPage({ searchParams }: AccountsPageProps) 
     const { organizationId, role } = session;
     const dateRange = getDateRangeFromParams(params, "1m");
 
+    // What a supervisor gets here changed on 2026-09-30: no balances, no
+    // totals, and no money-in lines — because a list of everything in and out
+    // *is* the balance, arrived at with a calculator. They keep the entries
+    // they recorded themselves, so they can check their own work.
+    const showBalances = canViewAccountBalances(role);
+    const showMoneyIn = canViewMoneyIn(role);
+
     const accounts = await getAccounts();
 
     const [transactions, lastActivity] = await Promise.all([
@@ -28,6 +41,9 @@ export default async function AccountsPage({ searchParams }: AccountsPageProps) 
             where: {
                 account: { organizationId },
                 date: { gte: dateRange.from, lte: dateRange.to },
+                ...(showMoneyIn
+                    ? {}
+                    : { type: { in: [...DEBIT_TYPE_LIST] }, createdById: session.user.id }),
             },
             orderBy: [{ date: "desc" }, { createdAt: "desc" }],
             include: {
@@ -50,20 +66,36 @@ export default async function AccountsPage({ searchParams }: AccountsPageProps) 
             id: account.id,
             type: account.type,
             name: account.name,
-            balance: account.balance,
-            startingBalance: account.startingBalance,
+            // Left out entirely rather than passed and not rendered: a value
+            // handed to a client component is in the RSC payload and readable
+            // in devtools whether it appears on screen or not.
+            ...(showBalances
+                ? {
+                      balance: account.balance,
+                      startingBalance: account.startingBalance,
+                      periodIn: moneyIn,
+                      periodOut: moneyOut,
+                  }
+                : {}),
             transactionCount: account._count.transactions,
-            periodIn: moneyIn,
-            periodOut: moneyOut,
             lastActivity: lastActivity.find((l) => l.accountId === account.id)?._max.date ?? null,
         };
     });
+
+    // What they spent themselves — a total they entered, which is theirs.
+    const ownSpend = showBalances
+        ? null
+        : transactions.reduce((sum, t) => sum + t.amount, 0);
 
     return (
         <div className="space-y-6">
             <PageHeader
                 title="Accounts"
-                description={`Cash, Bank and Petty Cash — balances and every movement of money · ${dateRange.label}`}
+                description={
+                    showBalances
+                        ? `Cash, Bank and Petty Cash — balances and every movement of money · ${dateRange.label}`
+                        : `Record money paid out of Cash, Bank or Petty Cash · ${dateRange.label}`
+                }
             >
                 <PagePeriodSelector defaultPreset="1m" />
             </PageHeader>
@@ -73,7 +105,7 @@ export default async function AccountsPage({ searchParams }: AccountsPageProps) 
                     id: t.id,
                     type: t.type,
                     amount: t.amount,
-                    balanceAfter: t.balanceAfter,
+                    ...(showBalances ? { balanceAfter: t.balanceAfter } : {}),
                     description: t.description,
                     expenseId: t.expenseId,
                     date: t.date,
@@ -83,6 +115,8 @@ export default async function AccountsPage({ searchParams }: AccountsPageProps) 
                 }))}
                 periodLabel={dateRange.label}
                 role={role}
+                showBalances={showBalances}
+                ownSpend={ownSpend}
                 canRecordIn={canRecordMoneyIn(role)}
                 canRecordOut={canRecordMoneyOut(role)}
                 canTransfer={canTransferFunds(role)}

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
-import { notifyByTierKey } from "@/lib/notifications";
+import { notifyByTierKey, notifyIfAccountOverdrawn } from "@/lib/notifications";
 import { ACCOUNT_TYPES, AccountType, InsufficientBalanceError } from "@/lib/accounts";
 import { ensureAccountsExist, recordManualMovement, transferFunds } from "@/lib/accounts-server";
 
@@ -121,11 +121,21 @@ export async function recordAccountMovementAction(data: {
       createdById: session.user.id,
     });
   } catch (error) {
-    if (error instanceof InsufficientBalanceError) {
-      return { success: false, error: error.message };
-    }
     console.error("Failed to record account movement:", error);
     return { success: false, error: "Failed to record this entry" };
+  }
+
+  // Money out is no longer refused for want of funds. Whoever recorded it
+  // may not be allowed to see the balance they just pushed below zero, so
+  // the owner is told instead.
+  if (data.direction === "withdrawal") {
+    await notifyIfAccountOverdrawn({
+      organizationId: session.organizationId,
+      accountId: account.id,
+      actorName: session.user.name,
+      actorEmail: session.user.email,
+      what: `${formatMoney(amount)} out — ${description}`,
+    });
   }
 
   // Money moving in or out of the three accounts is exactly what an admin

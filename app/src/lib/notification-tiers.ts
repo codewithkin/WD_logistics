@@ -101,6 +101,10 @@ export const NOTIFICATION_TIERS: Record<string, TierDefinition> = {
   // Money moving, and work finishing.
   account_money_in: { tier: 1, channels: ["webPush", "inApp"], roles: ["admin"] },
   account_large_money_out: { tier: 1, channels: ["webPush", "inApp"], roles: ["admin"] },
+  // Spending is never refused for lack of funds — a supervisor cannot see
+  // balances, so refusing would either name the balance or stop the work.
+  // The owner finds out instead, the moment it happens.
+  account_overdrawn: { tier: 1, channels: ["webPush", "inApp"], roles: ["admin"] },
   trip_completed: { tier: 2, channels: ["webPush", "inApp"], roles: ["admin"] },
   trip_message_failed: { tier: 1, channels: ["webPush", "inApp"], roles: ["admin", "supervisor"] },
   invoice_overdue: { tier: 2, channels: ["webPush", "inApp"], roles: ["admin"] },

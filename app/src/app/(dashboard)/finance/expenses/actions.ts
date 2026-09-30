@@ -6,7 +6,12 @@ import { resolvePeriod, type PeriodInput } from "@/lib/period-range";
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { generateExpenseReportPDF } from "@/lib/reports/pdf-report-generator";
-import { notifyExpenseCreated, notifyExpenseUpdated, notifyExpenseDeleted } from "@/lib/notifications";
+import {
+  notifyExpenseCreated,
+  notifyExpenseUpdated,
+  notifyExpenseDeleted,
+  notifyIfAccountOverdrawn,
+} from "@/lib/notifications";
 import { InsufficientBalanceError } from "@/lib/accounts";
 import { debitAccountForExpense, creditAccountForExpense } from "@/lib/accounts-server";
 import { handleActionError } from "@/lib/error-messages";
@@ -132,6 +137,19 @@ export async function createExpense(data: ExpenseFormData): Promise<ExpenseActio
 
       return created;
     });
+
+    // An expense paid out of an account can take it below zero now — the
+    // person recording it is no longer shown the balance, so refusing would
+    // either name the figure or stop the work. The owner is told instead.
+    if (category?.defaultAccountId) {
+      await notifyIfAccountOverdrawn({
+        organizationId: user.organizationId,
+        accountId: category.defaultAccountId,
+        actorName: user.user.name,
+        actorEmail: user.user.email,
+        what: `an expense of $${data.amount.toFixed(2)} — ${data.notes || category.name}`,
+      });
+    }
 
     // Send admin notification
     notifyExpenseCreated(
@@ -322,6 +340,16 @@ export async function updateExpense(id: string, data: ExpenseFormData,
         }
       }
     });
+
+    if (category?.defaultAccountId) {
+      await notifyIfAccountOverdrawn({
+        organizationId: user.organizationId,
+        accountId: category.defaultAccountId,
+        actorName: user.user.name,
+        actorEmail: user.user.email,
+        what: `an expense changed to $${data.amount.toFixed(2)} — ${data.notes || category.name}`,
+      });
+    }
 
     // Send admin notification
     notifyExpenseUpdated(

@@ -34,7 +34,11 @@ export const TRANSACTION_TYPE_LABELS: Record<AccountTransactionType, string> = {
   withdrawal: "Money out",
 };
 
-const DEBIT_TYPES = new Set<string>(["expense_debit", "transfer_out", "withdrawal"]);
+/** The movement types that take money out. Exported because the accounts
+ *  page filters on them in SQL: a supervisor is served only these. */
+export const DEBIT_TYPE_LIST = ["expense_debit", "transfer_out", "withdrawal"] as const;
+
+const DEBIT_TYPES = new Set<string>(DEBIT_TYPE_LIST);
 
 /** True when the transaction took money out of the account. */
 export function isDebitTransaction(type: string): boolean {

@@ -1417,6 +1417,47 @@ function escapeForEmail(value: string): string {
     .replace(/"/g, "&quot;");
 }
 
+/**
+ * Tell the owner an account has gone into the red.
+ *
+ * Money out is never refused for lack of funds (see `allowOverdraw` in
+ * lib/accounts-server.ts): a supervisor cannot see balances, so a refusal
+ * would either hand them the figure in the error or stop a yard paying for a
+ * tyre at six in the evening. The client chose to let it through — which is
+ * only safe if somebody is told, which is this.
+ *
+ * Called after the write, reading the balance that resulted. Never throws:
+ * the money has already moved and a failed notification must not undo it.
+ */
+export async function notifyIfAccountOverdrawn(params: {
+  organizationId: string;
+  accountId: string;
+  actorName: string;
+  actorEmail: string;
+  /** What caused it, in the words the person recording it used. */
+  what: string;
+}): Promise<void> {
+  try {
+    const account = await prisma.financialAccount.findFirst({
+      where: { id: params.accountId, organizationId: params.organizationId },
+      select: { name: true, balance: true },
+    });
+    if (!account || account.balance >= 0) return;
+
+    await notifyByTierKey({
+      key: "account_overdrawn",
+      organizationId: params.organizationId,
+      title: `${account.name} is overdrawn`,
+      message: `${account.name} is at ${account.balance < 0 ? "−" : ""}$${Math.abs(account.balance).toFixed(2)} after ${params.actorName} recorded ${params.what}.`,
+      link: "/finance/accounts",
+      excludeUserEmails: [params.actorEmail],
+      metadata: { accountId: params.accountId, balance: account.balance },
+    });
+  } catch (error) {
+    console.error("[NOTIFICATION] Could not report an overdrawn account:", error);
+  }
+}
+
 export async function notifyByTierKey(params: {
   key: string;
   organizationId: string;

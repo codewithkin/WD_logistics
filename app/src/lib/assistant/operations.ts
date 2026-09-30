@@ -78,6 +78,19 @@ function seesBilling(level: string): boolean {
   return level === "admin" || level === "supervisor";
 }
 
+/**
+ * Whether this level may see what a truck has *cost* — its expense total, its
+ * cost per km, its spending by category.
+ *
+ * The web app's `canViewFleetCostTotals`, restated here because the assistant
+ * runs with a contact level rather than a session role. Same rule, same date:
+ * a running total nobody typed in is the owner's, and a supervisor asking
+ * over WhatsApp was the obvious way round the change.
+ */
+function canSeeFleetCostTotals(level: string): boolean {
+  return level === "admin";
+}
+
 export interface OperationContext {
   organizationId: string;
   /** The contact's role, already resolved from their phone number. */
@@ -479,7 +492,10 @@ const readOperations: Operation[] = [
     name: "get_expense_breakdown",
     description:
       "What the company spent in a period, broken down by expense category and by cost type (fuel, maintenance, tyres, tolls, salaries...). Use this to compare spending between categories — it answers in one call.",
-    requires: "supervisor",
+    // Admin since 2026-09-30: spending grouped by category is how the owner
+    // reads the business, and ACCESS_CONTROL.md now puts it beside revenue
+    // rather than beside the expense a supervisor records.
+    requires: "admin",
     schema: z.object({ ...periodArgs }),
     handler: async (args, ctx) => {
       const a = args as Record<string, string | undefined>;
@@ -518,7 +534,12 @@ const readOperations: Operation[] = [
   {
     name: "get_truck_costs",
     description:
-      "Where one truck's money goes: cost by category, fuel per km, workshop downtime, against the fleet average. Answers 'what is this truck costing us and why'. Revenue and profit are included only for an admin.",
+      "How one truck is doing: trips, kilometres, fuel economy, days out of service and open workshop jobs — and, for an admin, what it has cost and earned, by category, against the fleet average.",
+    // Still offered to a supervisor, but from 2026-09-30 it answers them with
+    // the physical side only. A truck's lifetime spend, its cost per km and
+    // its category breakdown are totals nobody entered by hand, which
+    // ACCESS_CONTROL.md now keeps with the owner; litres, kilometres and days
+    // off the road are what running a fleet needs.
     requires: "supervisor",
     schema: z.object({
       truckId: z.string().describe("The truck's id, from list_trucks"),
@@ -531,14 +552,23 @@ const readOperations: Operation[] = [
         from: range.from,
         to: range.to,
       });
-      return {
+      // Every figure here is money except these four, and the four are what a
+      // supervisor keeps. Built as a separate object rather than deleted from
+      // the full one, so a field added to the breakdown later cannot arrive
+      // in a supervisor's answer by default.
+      const physical = {
         period: range.label,
-        // Costs yes, earnings no — the same split as the truck's page on the
-        // web. This tool is offered to supervisors because they need to know
-        // what a truck *costs*, and it was handing them revenue, profit and
-        // margin alongside: exactly the mistake list_trips made, which is why
-        // ACCESS_CONTROL.md says hiding the financial tools is not enough
-        // when an operational one carries the figures.
+        trips: b.trips,
+        kilometres: b.kilometres,
+        daysOutOfService: b.downtimeDays,
+        openWorkshopJobs: b.openJobs,
+      };
+
+      if (!canSeeFleetCostTotals(ctx.role)) return physical;
+
+      return {
+        ...physical,
+        // Earnings are a further step in: admin only, as everywhere else.
         ...(seesEarnings(ctx.role)
           ? {
               revenue: money(b.revenue),
@@ -547,16 +577,12 @@ const readOperations: Operation[] = [
             }
           : {}),
         expenses: money(b.expenses),
-        trips: b.trips,
-        kilometres: b.kilometres,
         costPerKm: b.costPerKm === null ? "n/a" : money(b.costPerKm),
         fleetAverageCostPerKm:
           b.fleet.averageCostPerKm === null ? "n/a" : money(b.fleet.averageCostPerKm),
         fuelPerKm: b.fuelPerKm === null ? "n/a" : money(b.fuelPerKm),
         fleetAverageFuelPerKm:
           b.fleet.averageFuelPerKm === null ? "n/a" : money(b.fleet.averageFuelPerKm),
-        daysOutOfService: b.downtimeDays,
-        openWorkshopJobs: b.openJobs,
         topCategories: b.byCategory.slice(0, 6).map((c) => ({
           category: c.category,
           amount: money(c.amount),
@@ -638,7 +664,10 @@ const readOperations: Operation[] = [
   {
     name: "get_account_balances",
     description: "The three account balances: cash, bank and petty cash.",
-    requires: "supervisor",
+    // Admin since 2026-09-30. A supervisor cannot see these in the browser
+    // any more, and the assistant mirrors the web rules exactly — asking over
+    // WhatsApp was the obvious way round the change.
+    requires: "admin",
     schema: z.object({}),
     handler: async (_args, ctx) => {
       const accounts = await prisma.financialAccount.findMany({

@@ -38,6 +38,12 @@ interface AccountMovementDialogProps {
     /** Money in is admin-only; decided by lib/permissions, passed in here. */
     canRecordIn: boolean;
     balances: Record<string, number>;
+    /**
+     * False for a supervisor: no balance beside each account, no
+     * before-and-after panel, and no refusal for want of funds — the entry
+     * goes through and the admin is told (ACCESS_CONTROL.md, 30 Sep).
+     */
+    showBalances: boolean;
 }
 
 export function AccountMovementDialog({
@@ -47,6 +53,7 @@ export function AccountMovementDialog({
     initialDirection = "deposit",
     canRecordIn,
     balances,
+    showBalances,
 }: AccountMovementDialogProps) {
     const router = useRouter();
     const [direction, setDirection] = useState<MovementDirection>(initialDirection);
@@ -84,7 +91,9 @@ export function AccountMovementDialog({
     const parsed = Number(amount);
     const validAmount = amount !== "" && parsed > 0;
     const resulting = validAmount ? currentBalance + (isIn ? parsed : -parsed) : null;
-    const overdraws = !isIn && resulting !== null && resulting < 0;
+    // Only meaningful to somebody who can see the balance. For everyone else
+    // the entry goes through and `notifyIfAccountOverdrawn` tells the owner.
+    const overdraws = showBalances && !isIn && resulting !== null && resulting < 0;
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -181,7 +190,8 @@ export function AccountMovementDialog({
                             <SelectContent>
                                 {ACCOUNT_TYPES.map((type) => (
                                     <SelectItem key={type} value={type}>
-                                        {ACCOUNT_TYPE_LABELS[type]} · {formatCurrency(balances[type] ?? 0)}
+                                        {ACCOUNT_TYPE_LABELS[type]}
+                                        {showBalances ? ` · ${formatCurrency(balances[type] ?? 0)}` : ""}
                                     </SelectItem>
                                 ))}
                             </SelectContent>
@@ -202,6 +212,7 @@ export function AccountMovementDialog({
                         />
                     </div>
 
+                    {showBalances && (
                     <div className="flex items-center justify-center gap-3 rounded-lg bg-muted/60 py-3 text-sm">
                         <div className="text-center">
                             <div className="text-xs text-muted-foreground">Balance now</div>
@@ -226,6 +237,7 @@ export function AccountMovementDialog({
                             </div>
                         </div>
                     </div>
+                    )}
 
                     <div className="space-y-2">
                         <Label htmlFor="movement-description">What is this for?</Label>

@@ -54,12 +54,27 @@ async function recordAccountMovement(
     description?: string;
     date?: Date;
     createdById: string;
+    /**
+     * Let the account go negative rather than refusing.
+     *
+     * True for spending — money out and an expense paid from an account.
+     * A supervisor cannot see balances any more (ACCESS_CONTROL.md, 30 Sep),
+     * so refusing with "the Cash account only has $40" would hand them the
+     * balance in an error message, and refusing without a figure would stop
+     * a yard from paying for a tyre at six in the evening. The client chose
+     * to let it through and tell the owner: the caller notifies an admin when
+     * the balance it gets back is negative.
+     *
+     * False for a transfer between accounts, which is admin-only bookkeeping
+     * rather than spending, and which an admin can see the balance for.
+     */
+    allowOverdraw?: boolean;
   }
 ) {
   const isDebit = isDebitTransaction(params.type);
 
   let updated;
-  if (isDebit) {
+  if (isDebit && !params.allowOverdraw) {
     // The balance check and the decrement are one statement on purpose.
     // Reading the balance, deciding, and then decrementing let two people
     // spend the same petty cash at once: at Postgres's default isolation both
@@ -80,6 +95,11 @@ async function recordAccountMovement(
 
     updated = await tx.financialAccount.findUniqueOrThrow({
       where: { id: params.accountId },
+    });
+  } else if (isDebit) {
+    updated = await tx.financialAccount.update({
+      where: { id: params.accountId },
+      data: { balance: { decrement: params.amount } },
     });
   } else {
     updated = await tx.financialAccount.update({
@@ -104,12 +124,19 @@ async function recordAccountMovement(
   return updated;
 }
 
-/** Debits an account for a new/increased expense. Throws InsufficientBalanceError if it would overdraw. */
+/**
+ * Debits an account for a new or increased expense.
+ *
+ * Overdraws rather than refusing, for the reason on `allowOverdraw` above —
+ * an expense paid out of an account is spending, and the person recording it
+ * may not be allowed to see what is in there. Returns the account, so the
+ * caller can tell an admin when it has gone negative.
+ */
 export async function debitAccountForExpense(
   tx: TxClient,
   params: { accountId: string; amount: number; expenseId?: string; description?: string; date?: Date; createdById: string }
 ) {
-  return recordAccountMovement(tx, { ...params, type: "expense_debit" });
+  return recordAccountMovement(tx, { ...params, type: "expense_debit", allowOverdraw: true });
 }
 
 /** Credits an account back for a deleted/reduced expense. Never blocked — crediting money back can't overdraw. */
@@ -122,8 +149,11 @@ export async function creditAccountForExpense(
 
 /**
  * Records money handed into (deposit) or taken out of (withdrawal) an account
- * outside of expenses/transfers, e.g. cash given to a supervisor for petty
- * cash. Withdrawals throw InsufficientBalanceError if they would overdraw.
+ * outside of expenses and transfers — cash given to a supervisor for petty
+ * cash, a note taken out to pay a tow truck.
+ *
+ * A withdrawal overdraws rather than being refused; the caller tells an admin
+ * when the balance it gets back has gone negative. See `allowOverdraw`.
  */
 export async function recordManualMovement(params: {
   accountId: string;
@@ -132,7 +162,9 @@ export async function recordManualMovement(params: {
   description: string;
   createdById: string;
 }) {
-  return prisma.$transaction((tx) => recordAccountMovement(tx, params));
+  return prisma.$transaction((tx) =>
+    recordAccountMovement(tx, { ...params, allowOverdraw: true }),
+  );
 }
 
 /**

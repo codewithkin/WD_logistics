@@ -36,7 +36,9 @@ export interface LedgerRow {
     id: string;
     type: string;
     amount: number;
-    balanceAfter: number;
+    /** Absent for anyone who may not see balances — the running total is the
+     *  balance, one row at a time. */
+    balanceAfter?: number;
     description: string | null;
     expenseId: string | null;
     date: Date;
@@ -74,9 +76,15 @@ interface AccountLedgerTableProps {
     accountFilter: string;
     onAccountFilterChange: (value: string) => void;
     currentUserId: string;
+    /**
+     * False for a supervisor: no "balance after" column, no money-in column
+     * and no totals row. Without this the table rebuilt the balance in front
+     * of them a row at a time, which is the thing being withheld.
+     */
+    showBalances: boolean;
 }
 
-export function AccountLedgerTable({ transactions, accountFilter, onAccountFilterChange, currentUserId }: AccountLedgerTableProps) {
+export function AccountLedgerTable({ transactions, accountFilter, onAccountFilterChange, currentUserId, showBalances }: AccountLedgerTableProps) {
     const [search, setSearch] = useState("");
     const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
     const [personFilter, setPersonFilter] = useState("all");
@@ -175,15 +183,15 @@ export function AccountLedgerTable({ transactions, accountFilter, onAccountFilte
                             <TableHead>Type</TableHead>
                             <TableHead className="min-w-48">Description</TableHead>
                             <TableHead className="whitespace-nowrap">Recorded by</TableHead>
-                            <TableHead className="text-right whitespace-nowrap">Money in</TableHead>
+                            {showBalances && <TableHead className="text-right whitespace-nowrap">Money in</TableHead>}
                             <TableHead className="text-right whitespace-nowrap">Money out</TableHead>
-                            <TableHead className="text-right whitespace-nowrap">Balance after</TableHead>
+                            {showBalances && <TableHead className="text-right whitespace-nowrap">Balance after</TableHead>}
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {rows.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={8} className="text-center py-10 text-muted-foreground">
+                                <TableCell colSpan={showBalances ? 8 : 6} className="text-center py-10 text-muted-foreground">
                                     {transactions.length === 0
                                         ? "No money has moved in this period"
                                         : "No entries match your filters"}
@@ -225,13 +233,19 @@ export function AccountLedgerTable({ transactions, accountFilter, onAccountFilte
                                                 <span className="ml-1 text-xs text-muted-foreground">(you)</span>
                                             )}
                                         </TableCell>
-                                        <TableCell className="text-right font-medium text-green-600 whitespace-nowrap">
-                                            {debit ? "" : `+${formatCurrency(t.amount)}`}
-                                        </TableCell>
+                                        {showBalances && (
+                                            <TableCell className="text-right font-medium text-green-600 whitespace-nowrap">
+                                                {debit ? "" : `+${formatCurrency(t.amount)}`}
+                                            </TableCell>
+                                        )}
                                         <TableCell className="text-right font-medium text-red-600 whitespace-nowrap">
                                             {debit ? `−${formatCurrency(t.amount)}` : ""}
                                         </TableCell>
-                                        <TableCell className="text-right whitespace-nowrap">{formatCurrency(t.balanceAfter)}</TableCell>
+                                        {showBalances && (
+                                            <TableCell className="text-right whitespace-nowrap">
+                                                {formatCurrency(t.balanceAfter ?? 0)}
+                                            </TableCell>
+                                        )}
                                     </TableRow>
                                 );
                             })
@@ -241,19 +255,29 @@ export function AccountLedgerTable({ transactions, accountFilter, onAccountFilte
                         <TableFooter>
                             <TableRow>
                                 <TableCell colSpan={5} className="font-medium">
-                                    {filtered.length} {filtered.length === 1 ? "entry" : "entries"} · net{" "}
-                                    <span className={cn(totalIn - totalOut >= 0 ? "text-green-600" : "text-red-600")}>
-                                        {totalIn - totalOut >= 0 ? "+" : "−"}
-                                        {formatCurrency(Math.abs(totalIn - totalOut))}
-                                    </span>
+                                    {filtered.length} {filtered.length === 1 ? "entry" : "entries"}
+                                    {showBalances && (
+                                        <>
+                                            {" "}
+                                            · net{" "}
+                                            <span className={cn(totalIn - totalOut >= 0 ? "text-green-600" : "text-red-600")}>
+                                                {totalIn - totalOut >= 0 ? "+" : "−"}
+                                                {formatCurrency(Math.abs(totalIn - totalOut))}
+                                            </span>
+                                        </>
+                                    )}
                                 </TableCell>
-                                <TableCell className="text-right font-semibold text-green-600 whitespace-nowrap">
-                                    +{formatCurrency(totalIn)}
-                                </TableCell>
+                                {showBalances && (
+                                    <TableCell className="text-right font-semibold text-green-600 whitespace-nowrap">
+                                        +{formatCurrency(totalIn)}
+                                    </TableCell>
+                                )}
+                                {/* Their own spending, which they entered — that
+                                    total is theirs to see. */}
                                 <TableCell className="text-right font-semibold text-red-600 whitespace-nowrap">
                                     −{formatCurrency(totalOut)}
                                 </TableCell>
-                                <TableCell />
+                                {showBalances && <TableCell />}
                             </TableRow>
                         </TableFooter>
                     )}

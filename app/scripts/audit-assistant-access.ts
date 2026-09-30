@@ -41,6 +41,34 @@ type Level = "readonly" | "staff" | "supervisor" | "admin";
 /** ACCESS_CONTROL.md: "Trip revenue, profit, margin, financial summary, fleet ranking → admin". */
 const EARNINGS_WORDS = ["revenue", "profit", "margin", "earned", "earnings"];
 
+/**
+ * The second half of the rule, added 2026-09-30: a supervisor sees what they
+ * spend, not what it adds up to. These name a running total nobody typed in —
+ * a truck's spend, a cost per km, an account balance — and none of them may
+ * come back from an operation called as a supervisor.
+ *
+ * `expenses` is here and `amount` deliberately is not: a supervisor recording
+ * an expense still gets its amount back, and a trip's expenses are theirs.
+ * What they cannot have is the total across a truck, a category or an
+ * account.
+ *
+ * Bare `balance` is not here either, and that is not an oversight: a
+ * customer's balance and an invoice's balance are *debt*, which
+ * ACCESS_CONTROL.md gives a supervisor along with invoices and payments. Only
+ * an account's balance is withheld, and the operation that returns one is
+ * admin-only, so the words that matter are the ones a running total arrives
+ * under.
+ */
+const TOTAL_WORDS = [
+  "accountbalance",
+  "balanceafter",
+  "costperkm",
+  "fuelperkm",
+  "expenses",
+  "topcategories",
+  "bycategory",
+];
+
 /** What each level must be offered. Anything else is a drift. */
 const EXPECTED_NEW_AT: Record<Level, string[]> = {
   readonly: [
@@ -73,8 +101,6 @@ const EXPECTED_NEW_AT: Record<Level, string[]> = {
     "create_trailer",
     "create_trip",
     "create_truck",
-    "get_account_balances",
-    "get_expense_breakdown",
     "get_truck_costs",
     "list_invoices",
     "list_sent_messages",
@@ -107,6 +133,10 @@ const EXPECTED_NEW_AT: Record<Level, string[]> = {
   admin: [
     "approve_change",
     "change_user_role",
+    // Moved up on 2026-09-30: what is in the accounts, and what the business
+    // spends by category, are totals nobody typed in. See ACCESS_CONTROL.md.
+    "get_account_balances",
+    "get_expense_breakdown",
     "create_expense_category",
     "create_pdf",
     "create_user",
@@ -292,30 +322,42 @@ if (!organization) {
         continue;
       }
 
-      const leaked = earningsKeysIn(result);
+      const leaked = keysNamed(result, EARNINGS_WORDS);
       if (leaked.length > 0) {
         problems.push(
           `${tool.name} returns ${leaked.join(", ")} to a ${level} — ACCESS_CONTROL.md keeps earnings at admin`,
+        );
+      }
+
+      // The second half of the rule: not what the business earns, but what a
+      // supervisor's own spending adds up to. get_truck_costs was handing a
+      // supervisor the truck's expense total, its cost per km and its
+      // category breakdown long after the client had asked for that to stop.
+      const totals = keysNamed(result, TOTAL_WORDS);
+      if (totals.length > 0) {
+        problems.push(
+          `${tool.name} returns ${totals.join(", ")} to a ${level} — ACCESS_CONTROL.md keeps running totals at admin`,
         );
       }
     }
   }
   console.log(
     "\nmoney check: every read operation called for readonly, staff and supervisor,\n" +
-      "             and every tool schema checked for an earnings field",
+      "             checked for earnings AND for running totals, and every\n" +
+      "             tool schema checked for an earnings field",
   );
 }
 
-/** Every key anywhere in the result whose name reads as an earnings figure. */
-function earningsKeysIn(value: unknown, path = ""): string[] {
+/** Every key anywhere in the result whose name matches one of `words`. */
+function keysNamed(value: unknown, words: string[], path = ""): string[] {
   if (Array.isArray(value)) {
-    return value.flatMap((entry, index) => earningsKeysIn(entry, `${path}[${index}]`));
+    return value.flatMap((entry, index) => keysNamed(entry, words, `${path}[${index}]`));
   }
   if (value && typeof value === "object") {
     return Object.entries(value).flatMap(([key, inner]) => {
       const here = path ? `${path}.${key}` : key;
-      const named = EARNINGS_WORDS.some((word) => key.toLowerCase().includes(word));
-      return named ? [here] : earningsKeysIn(inner, here);
+      const named = words.some((word) => key.toLowerCase().includes(word));
+      return named ? [here] : keysNamed(inner, words, here);
     });
   }
   return [];

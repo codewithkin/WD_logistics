@@ -6,7 +6,12 @@ import { assertRole, requireAuth, requireRole } from "@/lib/session";
 import { gateChange } from "@/lib/edit-requests/gate";
 import { resolvePeriod, type PeriodInput } from "@/lib/period-range";
 import { generateOperationsExpenseReportPDF } from "@/lib/reports/pdf-report-generator";
-import { notifyExpenseCreated, notifyExpenseUpdated, notifyExpenseDeleted } from "@/lib/notifications";
+import {
+  notifyExpenseCreated,
+  notifyExpenseUpdated,
+  notifyExpenseDeleted,
+  notifyIfAccountOverdrawn,
+} from "@/lib/notifications";
 import { InsufficientBalanceError } from "@/lib/accounts";
 import { debitAccountForExpense, creditAccountForExpense } from "@/lib/accounts-server";
 import { handleActionError } from "@/lib/error-messages";
@@ -78,6 +83,19 @@ export async function createExpense(data: {
 
       return created;
     });
+
+    // An expense paid out of an account can take it below zero now — the
+    // person recording it is no longer shown the balance, so refusing would
+    // either name the figure or stop the work. The owner is told instead.
+    if (category.defaultAccountId) {
+      await notifyIfAccountOverdrawn({
+        organizationId: session.organizationId,
+        accountId: category.defaultAccountId,
+        actorName: session.user.name,
+        actorEmail: session.user.email,
+        what: `an expense of $${data.amount.toFixed(2)} — ${data.description || category.name}`,
+      });
+    }
 
     // Send admin notification
     notifyExpenseCreated(
@@ -202,6 +220,16 @@ export async function updateExpense(
         include: { category: { select: { name: true } } },
       });
     });
+
+    if (newCategory?.defaultAccountId) {
+      await notifyIfAccountOverdrawn({
+        organizationId: session.organizationId,
+        accountId: newCategory.defaultAccountId,
+        actorName: session.user.name,
+        actorEmail: session.user.email,
+        what: `an expense changed to $${newAmount.toFixed(2)} — ${data.description || newCategory.name}`,
+      });
+    }
 
     // Handle trip link changes
     const currentTripId = expense.tripExpenses[0]?.tripId;

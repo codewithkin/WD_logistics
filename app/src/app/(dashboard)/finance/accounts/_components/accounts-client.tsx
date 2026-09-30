@@ -46,11 +46,12 @@ interface AccountSummary {
     id: string;
     type: string;
     name: string;
-    balance: number;
-    startingBalance: number;
+    /** Absent for anyone who may not see balances — see `showBalances`. */
+    balance?: number;
+    startingBalance?: number;
+    periodIn?: number;
+    periodOut?: number;
     transactionCount: number;
-    periodIn: number;
-    periodOut: number;
     lastActivity: Date | null;
 }
 
@@ -63,6 +64,15 @@ interface AccountsClientProps {
     canRecordIn: boolean;
     canRecordOut: boolean;
     canTransfer: boolean;
+    /**
+     * Whether this person may see what is in the accounts. False for a
+     * supervisor since 2026-09-30: they record spending, they do not see the
+     * float. When false the balance fields above are absent rather than
+     * hidden, and `transactions` holds only the entries they recorded.
+     */
+    showBalances: boolean;
+    /** What they themselves recorded out this period, when balances are off. */
+    ownSpend: number | null;
     currentUserId: string;
 }
 
@@ -103,6 +113,8 @@ export function AccountsClient({
     canRecordIn,
     canRecordOut,
     canTransfer,
+    showBalances,
+    ownSpend,
     currentUserId,
 }: AccountsClientProps) {
     const router = useRouter();
@@ -122,10 +134,10 @@ export function AccountsClient({
     const [startingBalanceInput, setStartingBalanceInput] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const balances = Object.fromEntries(accounts.map((a) => [a.type, a.balance]));
-    const totalBalance = accounts.reduce((sum, a) => sum + a.balance, 0);
-    const totalIn = accounts.reduce((sum, a) => sum + a.periodIn, 0);
-    const totalOut = accounts.reduce((sum, a) => sum + a.periodOut, 0);
+    const balances = Object.fromEntries(accounts.map((a) => [a.type, a.balance ?? 0]));
+    const totalBalance = accounts.reduce((sum, a) => sum + (a.balance ?? 0), 0);
+    const totalIn = accounts.reduce((sum, a) => sum + (a.periodIn ?? 0), 0);
+    const totalOut = accounts.reduce((sum, a) => sum + (a.periodOut ?? 0), 0);
     const net = totalIn - totalOut;
 
     const handleTransfer = async () => {
@@ -193,33 +205,48 @@ export function AccountsClient({
                 />
                 <CardContent className="relative p-6">
                     <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-                        <div>
-                            <p className="text-sm font-medium text-muted-foreground">Total across all accounts</p>
-                            <p className="mt-1 text-3xl sm:text-4xl font-bold tracking-tight" style={{ color: "#16a34a" }}>
-                                {formatCurrency(totalBalance)}
-                            </p>
-                            <p className="mt-2 text-sm text-muted-foreground">{periodLabel}</p>
-                        </div>
-                        <div className="grid grid-cols-3 gap-3 sm:gap-6">
+                        {showBalances ? (
+                            <>
+                                <div>
+                                    <p className="text-sm font-medium text-muted-foreground">Total across all accounts</p>
+                                    <p className="mt-1 text-3xl sm:text-4xl font-bold tracking-tight" style={{ color: "#16a34a" }}>
+                                        {formatCurrency(totalBalance)}
+                                    </p>
+                                    <p className="mt-2 text-sm text-muted-foreground">{periodLabel}</p>
+                                </div>
+                                <div className="grid grid-cols-3 gap-3 sm:gap-6">
+                                    <div>
+                                        <p className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                                            <ArrowDownLeft className="h-3.5 w-3.5 text-green-600" /> Money in
+                                        </p>
+                                        <p className="mt-1 text-lg sm:text-xl font-semibold text-green-600">{formatCurrency(totalIn)}</p>
+                                    </div>
+                                    <div>
+                                        <p className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                                            <ArrowUpRight className="h-3.5 w-3.5 text-red-600" /> Money out
+                                        </p>
+                                        <p className="mt-1 text-lg sm:text-xl font-semibold text-red-600">{formatCurrency(totalOut)}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs font-medium text-muted-foreground">Net change</p>
+                                        <p className={cn("mt-1 text-lg sm:text-xl font-semibold", net >= 0 ? "text-green-600" : "text-red-600")}>
+                                            {net >= 0 ? "+" : "−"}{formatCurrency(Math.abs(net))}
+                                        </p>
+                                    </div>
+                                </div>
+                            </>
+                        ) : (
+                            /* No balance, no totals of anyone else's money. What
+                               is left is the one figure that is theirs: what they
+                               recorded out themselves this period. */
                             <div>
-                                <p className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
-                                    <ArrowDownLeft className="h-3.5 w-3.5 text-green-600" /> Money in
+                                <p className="text-sm font-medium text-muted-foreground">You recorded out</p>
+                                <p className="mt-1 text-3xl sm:text-4xl font-bold tracking-tight" style={{ color: "#16a34a" }}>
+                                    {formatCurrency(ownSpend ?? 0)}
                                 </p>
-                                <p className="mt-1 text-lg sm:text-xl font-semibold text-green-600">{formatCurrency(totalIn)}</p>
+                                <p className="mt-2 text-sm text-muted-foreground">{periodLabel}</p>
                             </div>
-                            <div>
-                                <p className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
-                                    <ArrowUpRight className="h-3.5 w-3.5 text-red-600" /> Money out
-                                </p>
-                                <p className="mt-1 text-lg sm:text-xl font-semibold text-red-600">{formatCurrency(totalOut)}</p>
-                            </div>
-                            <div>
-                                <p className="text-xs font-medium text-muted-foreground">Net change</p>
-                                <p className={cn("mt-1 text-lg sm:text-xl font-semibold", net >= 0 ? "text-green-600" : "text-red-600")}>
-                                    {net >= 0 ? "+" : "−"}{formatCurrency(Math.abs(net))}
-                                </p>
-                            </div>
-                        </div>
+                        )}
                     </div>
 
                     {(canRecordIn || canRecordOut || canTransfer) && (
@@ -287,7 +314,7 @@ export function AccountsClient({
                                         title="Set starting balance"
                                         onClick={(e) => {
                                             e.stopPropagation();
-                                            setStartingBalanceInput(String(account.startingBalance));
+                                            setStartingBalanceInput(String(account.startingBalance ?? 0));
                                             setEditingType(account.type as AccountType);
                                         }}
                                     >
@@ -296,19 +323,23 @@ export function AccountsClient({
                                 )}
                             </CardHeader>
                             <CardContent className="relative space-y-3">
-                                <p className="text-2xl font-bold" style={{ color: style.textColor }}>
-                                    {formatCurrency(account.balance)}
-                                </p>
-                                <div className="flex items-center gap-4 text-xs">
-                                    <span className="flex items-center gap-1 text-green-600">
-                                        <ArrowDownLeft className="h-3 w-3" />
-                                        {formatCurrency(account.periodIn)}
-                                    </span>
-                                    <span className="flex items-center gap-1 text-red-600">
-                                        <ArrowUpRight className="h-3 w-3" />
-                                        {formatCurrency(account.periodOut)}
-                                    </span>
-                                </div>
+                                {showBalances && (
+                                    <>
+                                        <p className="text-2xl font-bold" style={{ color: style.textColor }}>
+                                            {formatCurrency(account.balance ?? 0)}
+                                        </p>
+                                        <div className="flex items-center gap-4 text-xs">
+                                            <span className="flex items-center gap-1 text-green-600">
+                                                <ArrowDownLeft className="h-3 w-3" />
+                                                {formatCurrency(account.periodIn ?? 0)}
+                                            </span>
+                                            <span className="flex items-center gap-1 text-red-600">
+                                                <ArrowUpRight className="h-3 w-3" />
+                                                {formatCurrency(account.periodOut ?? 0)}
+                                            </span>
+                                        </div>
+                                    </>
+                                )}
                                 <p className="text-xs text-muted-foreground">
                                     {account.lastActivity ? (
                                         <>
@@ -360,8 +391,10 @@ export function AccountsClient({
                 <div className="flex items-start gap-2 rounded-lg border bg-muted/40 p-3 text-sm text-muted-foreground">
                     <Info className="mt-0.5 h-4 w-4 shrink-0" />
                     <p>
-                        You can record money handed in or taken out — every entry shows your name. Transfers between
-                        accounts and starting balances are handled by an admin.
+                        You can record money taken out of any account — every entry shows your name, and the list
+                        below is your own. Balances, money coming in, transfers and starting balances are the
+                        admin&apos;s. If what you are paying out is more than the account holds, record it anyway:
+                        it goes through and the admin is told.
                     </p>
                 </div>
             )}
@@ -369,9 +402,11 @@ export function AccountsClient({
             {/* Ledger */}
             <Card>
                 <CardHeader>
-                    <CardTitle className="text-lg">Transaction History</CardTitle>
+                    <CardTitle className="text-lg">{showBalances ? "Transaction History" : "What you recorded out"}</CardTitle>
                     <p className="text-sm text-muted-foreground">
-                        Every movement of money — when, what for, and who recorded it. Click an account card to filter.
+                        {showBalances
+                            ? "Every movement of money — when, what for, and who recorded it. Click an account card to filter."
+                            : "The money you have recorded out of each account. Click an account card to filter."}
                     </p>
                 </CardHeader>
                 <CardContent>
@@ -380,6 +415,7 @@ export function AccountsClient({
                         accountFilter={accountFilter}
                         onAccountFilterChange={setAccountFilter}
                         currentUserId={currentUserId}
+                        showBalances={showBalances}
                     />
                 </CardContent>
             </Card>
@@ -390,7 +426,8 @@ export function AccountsClient({
                 initialAccount={movementDialog?.account}
                 initialDirection={movementDialog?.direction}
                 canRecordIn={canRecordIn}
-                balances={balances}
+                balances={showBalances ? balances : {}}
+                showBalances={showBalances}
             />
 
             {canTransfer && (
