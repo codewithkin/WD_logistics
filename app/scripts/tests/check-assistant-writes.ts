@@ -71,16 +71,6 @@ async function call(name: string, args: Record<string, unknown>) {
   )) as Record<string, unknown>;
 }
 
-const customer = await prisma.customer.findFirst({
-  where: { organizationId: admin.organizationId },
-  select: { id: true, name: true },
-});
-const supplier = await prisma.supplier.findFirst({
-  where: { organizationId: admin.organizationId },
-  select: { id: true, name: true },
-});
-if (!customer || !supplier) throw new Error("seed a customer and a supplier first");
-
 // Anything this run creates, so it can be taken out again even if a step
 // throws. Ids are collected as they are made.
 const created = {
@@ -89,7 +79,45 @@ const created = {
   supplierPaymentIds: [] as string[],
   categoryIds: [] as string[],
   employeeIds: [] as string[],
+  fixtureCustomerId: null as string | null,
+  fixtureSupplierId: null as string | null,
 };
+
+// A customer and a supplier to bill and to pay. Made here when the database
+// has none, which is the state the client's own system is in the morning
+// after a reset — this used to throw "seed a customer and a supplier first"
+// and take the whole suite with it.
+let customer = await prisma.customer.findFirst({
+  where: { organizationId: admin.organizationId },
+  select: { id: true, name: true },
+});
+if (!customer) {
+  customer = await prisma.customer.create({
+    data: {
+      organizationId: admin.organizationId,
+      name: "Write Check Customer",
+      phone: "+263770000002",
+    },
+    select: { id: true, name: true },
+  });
+  created.fixtureCustomerId = customer.id;
+}
+
+let supplier = await prisma.supplier.findFirst({
+  where: { organizationId: admin.organizationId },
+  select: { id: true, name: true },
+});
+if (!supplier) {
+  supplier = await prisma.supplier.create({
+    data: {
+      organizationId: admin.organizationId,
+      name: "Write Check Supplier",
+      phone: "+263770000003",
+    },
+    select: { id: true, name: true },
+  });
+  created.fixtureSupplierId = supplier.id;
+}
 
 const startedAt = new Date();
 
@@ -331,12 +359,31 @@ try {
       // overspend recorded from a phone invokes it, and the admin's row is
       // then checked for.
       const { notifyIfAccountOverdrawn } = await import("../../src/lib/notifications");
-      const supervisor = await prisma.member.findFirst({
+      // Made here when there is none, rather than reported as a missing
+      // fixture: a database that has just been reset has nobody but the root
+      // admin, and that is exactly when somebody is most likely to run this.
+      let supervisor = await prisma.member.findFirst({
         where: { organizationId: admin.organizationId, role: "supervisor" },
         include: { user: { select: { name: true, email: true } } },
       });
+      let temporarySupervisorId: string | null = null;
       if (!supervisor) {
-        record("and the admin is told about it", false, "no supervisor member — run db:seed");
+        const made = await prisma.user.create({
+          data: {
+            name: "Write Check Supervisor",
+            email: `write-check-${Date.now()}@wd.test`,
+            emailVerified: true,
+            members: { create: { organizationId: admin.organizationId, role: "supervisor" } },
+          },
+        });
+        temporarySupervisorId = made.id;
+        supervisor = await prisma.member.findFirst({
+          where: { userId: made.id },
+          include: { user: { select: { name: true, email: true } } },
+        });
+      }
+      if (!supervisor) {
+        record("and the admin is told about it", false, "could not make a supervisor to act as");
       } else {
         await notifyIfAccountOverdrawn({
           organizationId: admin.organizationId,
@@ -359,6 +406,9 @@ try {
           Boolean(told),
           told?.message ?? "no overdrawn notification reached the admin",
         );
+        if (temporarySupervisorId) {
+          await prisma.user.delete({ where: { id: temporarySupervisorId } }).catch(() => {});
+        }
       }
 
       // -------------------------------------------------- expense categories
@@ -581,6 +631,17 @@ try {
     await prisma.editRequest.deleteMany({
       where: { reason: { contains: "over WhatsApp" }, entityType: "invoice" },
     });
+    // The customer and supplier this run invented, if it had to.
+    if (created.fixtureCustomerId) {
+      await prisma.customer
+        .delete({ where: { id: created.fixtureCustomerId } })
+        .catch(() => {});
+    }
+    if (created.fixtureSupplierId) {
+      await prisma.supplier
+        .delete({ where: { id: created.fixtureSupplierId } })
+        .catch(() => {});
+    }
     console.log(
       `\ncleaned up: ${created.invoiceIds.length} invoice(s), ${created.paymentIds.length} payment(s), ` +
         `${created.supplierPaymentIds.length} supplier payment(s), ${created.categoryIds.length} category(ies), ` +

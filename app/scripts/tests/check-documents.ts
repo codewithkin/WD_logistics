@@ -55,6 +55,85 @@ function forbids(document: string, body: string, needles: string[], why: string)
 
 const organization = await prisma.organization.findFirst();
 
+/**
+ * Something to render.
+ *
+ * This used to read whatever the seed happened to leave behind, which meant it
+ * proved nothing on a database that had just been reset — the three documents
+ * reported "an invoice exists to render: no" and the suite went red for a
+ * reason that had nothing to do with the documents. The client's own system
+ * starts empty, so the check has to bring its own paper.
+ *
+ * Created only when there is nothing suitable already, and removed at the end
+ * either way, so running this against a populated development database still
+ * exercises real records.
+ */
+async function makeFixtures() {
+  if (!organization) return null;
+
+  const customer = await prisma.customer.create({
+    data: {
+      organizationId: organization.id,
+      name: "Document Check Ltd",
+      email: "accounts@document-check.test",
+      phone: "+263770000001",
+      address: "12 Herbert Chitepo Street, Mutare",
+      taxId: "TAX-CHECK-1",
+    },
+  });
+
+  const invoice = await prisma.invoice.create({
+    data: {
+      organizationId: organization.id,
+      customerId: customer.id,
+      invoiceNumber: `CHK-${Date.now()}`,
+      issueDate: new Date(),
+      dueDate: new Date(Date.now() + 30 * 864e5),
+      status: "partial",
+      subtotal: 1000,
+      tax: 150,
+      total: 1150,
+      amountPaid: 400,
+      balance: 750,
+      notes: "Raised by the document check.",
+      lineItems: {
+        create: [
+          {
+            description: "Mutare to Beira, 30t maize",
+            quantity: 1,
+            unitPrice: 1000,
+            total: 1000,
+          },
+        ],
+      },
+    },
+  });
+
+  const payment = await prisma.payment.create({
+    data: {
+      customerId: customer.id,
+      invoiceId: invoice.id,
+      amount: 400,
+      paymentDate: new Date(),
+      method: "bank_transfer",
+      reference: "CHK-REF-1",
+    },
+  });
+
+  return { customerId: customer.id, invoiceId: invoice.id, paymentId: payment.id };
+}
+
+// Only if the database has nothing to work with. A seeded development
+// database has richer records than anything invented here.
+const needsFixtures =
+  (await prisma.invoice.count({ where: { status: "partial", amountPaid: { gt: 0 } } })) === 0 ||
+  (await prisma.payment.count()) === 0;
+
+const fixtures = needsFixtures ? await makeFixtures() : null;
+if (fixtures) {
+  console.log("(the database had no invoices, so this check made its own)\n");
+}
+
 // ---------------------------------------------------------------------------
 // Invoice
 //
@@ -285,6 +364,16 @@ if (!payment) {
 // ---------------------------------------------------------------------------
 
 const failed = results.filter((r) => !r.ok);
+// Put the database back as it was found.
+if (fixtures) {
+  await prisma.payment.delete({ where: { id: fixtures.paymentId } }).catch(() => {});
+  await prisma.invoiceLineItem
+    .deleteMany({ where: { invoiceId: fixtures.invoiceId } })
+    .catch(() => {});
+  await prisma.invoice.delete({ where: { id: fixtures.invoiceId } }).catch(() => {});
+  await prisma.customer.delete({ where: { id: fixtures.customerId } }).catch(() => {});
+}
+
 const byDocument = new Map<string, Check[]>();
 for (const result of results) {
   const list = byDocument.get(result.document) ?? [];

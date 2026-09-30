@@ -28,6 +28,7 @@ import "dotenv/config";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { hashPassword } from "better-auth/crypto";
+import { STANDARD_EXPENSE_CATEGORIES } from "../src/lib/setup/standard-categories-data";
 
 const prismaConfig = { log: ["error", "warn"] };
 if (process.env.ACCELERATE_URL) {
@@ -57,6 +58,30 @@ async function main() {
     console.log(`✅ Created organization: ${organization.name}`);
   } else {
     console.log(`✅ Using existing organization: ${organization.name}`);
+  }
+
+  // Somewhere to put the first expense. Every expense form needs a category,
+  // and a brand-new deployment has none — so the first thing the client meets
+  // is a form they cannot complete. Additive and matched on name: an
+  // organisation that already has its own categories gets nothing new, and
+  // one that renamed "Fuel" keeps the rename.
+  const existingCategories = await prisma.expenseCategory.findMany({
+    where: { organizationId: organization.id },
+    select: { name: true },
+  });
+  const have = new Set(existingCategories.map((c) => c.name.trim().toLowerCase()));
+  const missingCategories = STANDARD_EXPENSE_CATEGORIES.filter(
+    (category) => !have.has(category.name.toLowerCase())
+  );
+  if (missingCategories.length > 0) {
+    await prisma.expenseCategory.createMany({
+      data: missingCategories.map((category) => ({
+        ...category,
+        organizationId: organization.id,
+      })),
+      skipDuplicates: true,
+    });
+    console.log(`✅ Added ${missingCategories.length} standard expense categories`);
   }
 
   const existingAdmin = await prisma.user.findFirst({

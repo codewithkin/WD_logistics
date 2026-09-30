@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { requireRole, assertRole } from "@/lib/session";
 import { sendEmail, generateRandomPassword } from "@/lib/email";
 import { ROOT_ADMIN_EMAIL, isRootAdmin } from "@/lib/root-admin";
+import { ensureStandardExpenseCategories } from "@/lib/setup/standard-categories";
 
 export async function updateOrganizationSettings(data: {
   name: string;
@@ -551,6 +552,14 @@ export async function wipeAllData(confirmation?: string) {
       data: { balance: 0, startingBalance: 0 },
     });
 
+    // ---- Somewhere to start from ----
+    //
+    // Every expense form needs a category, and the wipe above took them with
+    // the expenses. Without this the first thing the client meets after
+    // starting afresh is an Expenses page they cannot use and a chart of
+    // accounts they have to invent before recording a tank of diesel.
+    const categoriesAdded = await ensureStandardExpenseCategories(organizationId);
+
     // ---- The assistant's memory ----
     //
     // Mastra's tables, in their own `mastra` schema (see
@@ -573,6 +582,7 @@ export async function wipeAllData(confirmation?: string) {
       deleted,
       usersRemoved: removedUsers.count,
       assistantMemoryCleared: memoryCleared,
+      categoriesAdded,
     };
   } catch (error) {
     console.error("Failed to wipe data:", error);

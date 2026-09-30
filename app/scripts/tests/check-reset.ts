@@ -198,7 +198,6 @@ const remaining: Record<string, number> = {
   invoices: await prisma.invoice.count({ where: { organizationId: org.id } }),
   payments: await prisma.payment.count({ where: { customer: { organizationId: org.id } } }),
   expenses: await prisma.expense.count({ where: { organizationId: org.id } }),
-  categories: await prisma.expenseCategory.count({ where: { organizationId: org.id } }),
   stock: await prisma.inventoryItem.count({ where: { organizationId: org.id } }),
   employees: await prisma.employee.count({ where: { organizationId: org.id } }),
   maintenance: await prisma.maintenanceRequest.count({ where: { organizationId: org.id } }),
@@ -217,6 +216,24 @@ record(
   leftBehind.length === 0
     ? `${Object.keys(remaining).length} tables checked, all empty`
     : leftBehind.map(([name, count]) => `${name}: ${count}`).join(", "),
+);
+
+// ---- and what is deliberately put back ------------------------------------
+const categories = await prisma.expenseCategory.findMany({
+  where: { organizationId: org.id },
+  select: { name: true, kind: true },
+});
+record(
+  "a standard set of expense categories is there to start with",
+  categories.length > 0 && categories.some((c) => c.kind === "fuel"),
+  categories.length
+    ? `${categories.length} categories, fuel among them — an expense can be recorded on day one`
+    : "none — the first expense cannot be recorded at all",
+);
+record(
+  "the practice categories are not among them",
+  !categories.some((c) => c.name === "Tires"),
+  "the old demo spelling is gone",
 );
 
 // ---- the assistant --------------------------------------------------------

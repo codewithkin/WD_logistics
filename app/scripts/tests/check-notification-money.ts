@@ -39,14 +39,39 @@ if (!org) {
   process.exit(1);
 }
 
-const members = await prisma.member.findMany({
-  where: { organizationId: org.id },
-  select: { userId: true, role: true, user: { select: { name: true, email: true } } },
-});
+async function loadMembers() {
+  return prisma.member.findMany({
+    where: { organizationId: org!.id },
+    select: { userId: true, role: true, user: { select: { name: true, email: true } } },
+  });
+}
+
+let members = await loadMembers();
+
+// A supervisor is the whole point — the leak was revenue reaching one — and a
+// database that has just been reset has nobody but the root admin in it. So
+// the check makes the recipient it needs and removes it afterwards, rather
+// than reporting "needs a supervisor" and passing the problem to whoever ran
+// it.
+let temporarySupervisorId: string | null = null;
+if (!members.some((m) => m.role === "supervisor")) {
+  const created = await prisma.user.create({
+    data: {
+      name: "Notification Check Supervisor",
+      email: `notif-check-${Date.now()}@wd.test`,
+      emailVerified: true,
+      members: { create: { organizationId: org.id, role: "supervisor" } },
+    },
+  });
+  temporarySupervisorId = created.id;
+  members = await loadMembers();
+  console.log("(no supervisor in the database, so this check made one)");
+}
+
 const admin = members.find((m) => m.role === "admin");
 const supervisor = members.find((m) => m.role === "supervisor");
 if (!admin || !supervisor) {
-  console.log("needs an admin and a supervisor — run bun prisma/dev-fixtures.ts");
+  console.log("needs an admin in the organisation — run bun prisma/ensure-admin.mjs");
   process.exit(1);
 }
 
@@ -167,6 +192,9 @@ record(
 );
 
 await prisma.userNotification.deleteMany({ where: { entityId: marker } });
+if (temporarySupervisorId) {
+  await prisma.user.delete({ where: { id: temporarySupervisorId } }).catch(() => {});
+}
 
 const failed = checks.filter((check) => !check.ok).length;
 console.log(`\n${checks.length} checks, ${failed} failed.`);

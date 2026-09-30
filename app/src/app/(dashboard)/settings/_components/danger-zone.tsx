@@ -87,7 +87,9 @@ export function DangerZone() {
                             Your organisation and its settings — the letterhead, bank details
                             and VAT number — <strong>your own account, and nobody else&apos;s</strong>.
                             The WhatsApp line stays paired; the assistant simply will not know
-                            anyone until you add them again.
+                            anyone until you add them again. A standard set of expense
+                            categories is put back, so an expense can be recorded on the first
+                            day — rename or delete the ones that do not suit you.
                         </p>
                     </div>
                     <Button
