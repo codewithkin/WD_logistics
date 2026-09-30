@@ -84,6 +84,14 @@ People message you from a phone, usually standing in a yard or on the road. They
 - When someone asks you to *send*, *share* or *forward* a report, statement or summary — anything phrased as wanting a document rather than a number — use generate_report. Answering with figures instead is not what they asked for.
 - When they just ask what a figure *is*, answer with the figure. Do not produce a document nobody asked for.
 - The file arrives in this chat, as an attachment, right after your message. You have not seen its contents and you cannot email it — never say you have emailed something or attached it to anything else. "Sending it now" is the honest phrasing.
+- If it is too large to send in the chat, a link is sent instead and the tool tells you so. Pass the link on in your own words and say it lasts a day.
+
+## Photographs
+
+- You can see the pictures people send. Read them: a fuel receipt has a total and usually a litre count, a delivery note has a reference, an odometer has a number. Use what you can read rather than asking for it again.
+- Say what you read before acting on it — "that receipt shows $86.40 for 54 litres" — so a misread is caught by the person who took the photo.
+- If it is blurred, cropped or you are not sure of a figure, ask for the one thing you need rather than guessing. A wrong amount recorded confidently is worse than a question.
+- The photo is also filed, and the tool gives you its URL. Keep passing that as receiptUrl when you record the expense; what you can read does not replace the record of the picture itself.
 
 ## Recording things
 
@@ -145,6 +153,17 @@ export async function answerMessage(params: {
   phone: string;
   message: string;
   history?: Array<{ role: "user" | "assistant"; content: string }>;
+  /**
+   * Photographs sent with the message, for the model to actually look at.
+   *
+   * Until now a photo was uploaded to storage and the model was handed a
+   * sentence saying a file existed at a URL — which it cannot open. So
+   * somebody photographing a fuel receipt and writing "put this on KBZ 456H"
+   * got asked what was on the receipt. The file is still stored, because the
+   * expense needs something to point at; this is the same image passed in as
+   * an image so the assistant can read the total off it.
+   */
+  images?: Array<{ base64: string; mimeType: string }>;
   /**
    * Keep this exchange in the caller's conversation, and recall earlier ones.
    * On by default — a phone conversation is a conversation.
@@ -225,13 +244,30 @@ export async function answerMessage(params: {
   });
 
   try {
+    // A message with photographs becomes a content array — text first, so the
+    // model reads the instruction before looking, then one part per image.
+    // Without images it stays a plain string, which is what every provider
+    // handles most predictably.
+    const userContent = params.images?.length
+      ? [
+          { type: "text" as const, text: params.message },
+          ...params.images.map((image) => ({
+            type: "image" as const,
+            // A data URL rather than a link: the picture was just taken on a
+            // phone and lives nowhere the model could fetch it from.
+            image: `data:${image.mimeType};base64,${image.base64}`,
+            mimeType: image.mimeType,
+          })),
+        ]
+      : params.message;
+
     const result = await agent.generate(
       [
         ...(params.history ?? []).map((turn) => ({
           role: turn.role,
           content: turn.content,
         })),
-        { role: "user" as const, content: params.message },
+        { role: "user" as const, content: userContent as never },
       ],
       {
         // Enough hops to list, pick and then act, without letting a confused

@@ -404,6 +404,8 @@ const initWhatsApp = async () => {
           // "fuel, 250, KBZ 456H" with a photo becomes an expense with the
           // receipt attached rather than an expense and a lost photo.
           let messageText: string = msg.body || "";
+          // Photographs go to the model to be looked at, not just to storage.
+          const images: Array<{ base64: string; mimeType: string }> = [];
           if (msg.hasMedia) {
             try {
               console.log(`📥 Downloading the attached file...`);
@@ -439,6 +441,14 @@ const initWhatsApp = async () => {
 [The sender left a voice note that could not be transcribed. Ask them to type it or send it again.]`.trim();
                 }
               } else if (media?.data) {
+                // Shown to the model as well as stored. Storing gives the
+                // expense something to point at; showing is what lets the
+                // assistant read the total off a photographed receipt
+                // instead of asking what the picture was.
+                if ((media.mimetype ?? "").startsWith("image/")) {
+                  images.push({ base64: media.data, mimeType: media.mimetype });
+                }
+
                 const stored = await uploadFile({
                   phone: phoneNumber,
                   base64: media.data,
@@ -448,12 +458,15 @@ const initWhatsApp = async () => {
 
                 if ("url" in stored) {
                   console.log(`🧾 Stored (${stored.sizeKb}KB) at ${stored.url}`);
-                  messageText =
+                  messageText = (
                     `${messageText}
 
 [The sender attached a file, already stored at ${stored.url} — ` +
-                    `use exactly this URL as receiptUrl if they are recording an expense. ` +
-                    `If they have not said what it is for, ask.]`.trim();
+                    `use exactly this URL as receiptUrl if they are recording an expense.` +
+                    (images.length > 0
+                      ? ` The picture itself is attached to this message: read it, say what you read, and act on it.]`
+                      : ` If they have not said what it is for, ask.]`)
+                  ).trim();
                 } else {
                   console.log(`⚠️  Could not store the file: ${stored.error}`);
                   messageText = `${messageText}
@@ -472,6 +485,7 @@ const initWhatsApp = async () => {
           const reply = await answerMessage({
             phone: phoneNumber,
             message: messageText,
+            images,
           });
 
           // A number that isn't on the contact list is answered with nothing.
