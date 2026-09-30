@@ -98,11 +98,8 @@ export default async function TruckDetailPage({ params, searchParams }: TruckDet
         select: { revenue: true, status: true },
     });
 
-    const totalRevenue = tripsInPeriod.reduce((sum, t) => sum + t.revenue, 0);
     const totalTrips = tripsInPeriod.length;
     const completedTrips = tripsInPeriod.filter(t => t.status === "completed").length;
-    const totalExpenses = truck.truckExpenses.reduce((sum, te) => sum + te.expense.amount, 0);
-    const profitLoss = totalRevenue - totalExpenses;
 
     const canEdit = role === "admin" || role === "supervisor";
     // Narrowed on 2026-09-30. A supervisor used to see this truck's expense
@@ -130,6 +127,20 @@ export default async function TruckDetailPage({ params, searchParams }: TruckDet
                   to: dateRange.to,
               })
             : null;
+
+    // The cards at the top of this page used to work their own figures out:
+    // revenue as the sum of every trip's `revenue` whatever its status, and
+    // expenses as the costs booked *directly* against the truck. The panel
+    // lower down used the canonical definitions instead — revenue earned on
+    // completed trips, costs including the trip expenses the truck ran up.
+    //
+    // So one screen showed a truck with "Revenue $2,400, Expenses $0, Profit
+    // $2,400" at the top and "Revenue earned $0, Costs $1,280, Loss $1,280"
+    // immediately below it, both correct by their own reading and impossible
+    // to reconcile by eye. They come from one place now.
+    const totalRevenue = costBreakdown?.revenue ?? 0;
+    const totalExpenses = costBreakdown?.expenses ?? 0;
+    const profitLoss = costBreakdown?.profit ?? 0;
 
     // What the truck used, with nothing about what it cost: litres and km per
     // litre from the fuel expenses, and everything else that recorded a
