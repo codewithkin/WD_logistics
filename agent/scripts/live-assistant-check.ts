@@ -4,8 +4,11 @@
  *   bunx tsx scripts/live-assistant-check.ts
  *
  * ⚠️ This costs real tokens and writes real rows — it records an expense as
- * part of proving writes work. Run it against a development database, and
- * remove anything tagged LIVETEST afterwards.
+ * part of proving writes work. Run it against a development database.
+ *
+ * It takes those rows back out itself, in a finally, and says how many. It
+ * used to ask whoever ran it to do that by hand, which meant every untidied
+ * run left money in the accounts.
  *
  * It needs four contacts to exist (Settings -> WhatsApp assistant), one per
  * role, because the point is to prove the boundaries between them:
@@ -293,6 +296,15 @@ const CASES: Case[] = [
     ask: "record a fuel expense of 92 dollars for truck KBZ 456H, note it as LIVETEST supervisor top-up",
     expect: { anyTool: ["record_expense"], wrote: true, says: [/92/] },
   },
+  // --- ...and so is logging a fault, which is where staff stops and they
+  // carry on. Kept as a passing case and not only as the staff refusal
+  // above, so that narrowing the rule cannot quietly turn the feature off
+  // for everyone and still look green.
+  {
+    who: "dispatcher", phone: DISPATCH,
+    ask: "the brakes on KBZ 456H are grinding, log it for the workshop — LIVETEST",
+    expect: { anyTool: ["log_maintenance"], wrote: true, says: [/KBZ ?456H|logged|brake/i] },
+  },
   // --- ...but what the account holds is not, since 30 Sep.
   //
   // This case used to assert the opposite. ACCESS_CONTROL.md now has the
@@ -338,109 +350,211 @@ const CASES: Case[] = [
   },
 ];
 
+/**
+ * The ids in a table, before the run.
+ *
+ * The header used to say "remove anything tagged LIVETEST afterwards", which
+ * meant the rows survived every run nobody tidied up after — two fuel
+ * expenses, $137 and $92, were sitting in the accounts when this was written.
+ * A check that spends the company's money and leaves it spent is not a check
+ * anybody will keep running.
+ *
+ * Ids, not timestamps and not the tag. The tag is reliable here because these
+ * asks are typed, but the model is free to paraphrase a note, and the sibling
+ * capability check already learned that `createdAt` is `timestamp without
+ * time zone` and comes back through node-pg shifted by the local offset.
+ * Whatever is new is ours.
+ */
+async function snapshot(table: string): Promise<Set<string>> {
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) return new Set();
+
+  const { Client } = await import("pg");
+  const db = new Client({ connectionString });
+  try {
+    await db.connect();
+    const rows = await db.query<{ id: string }>(`SELECT id FROM ${table}`);
+    return new Set(rows.rows.map((r) => r.id));
+  } catch {
+    return new Set();
+  } finally {
+    await db.end().catch(() => {});
+  }
+}
+
+/** Put the books back: anything these cases wrote, and any tagged leftovers. */
+async function removeWrites(before: {
+  expense: Set<string>;
+  maintenance: Set<string>;
+}): Promise<void> {
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) {
+    console.log("\n! DATABASE_URL is not set — remove the LIVETEST rows by hand.");
+    return;
+  }
+
+  const { Client } = await import("pg");
+  const db = new Client({ connectionString });
+  try {
+    await db.connect();
+
+    const maintenanceNow = await snapshot("maintenance_request");
+    const maintenanceIds = [...maintenanceNow].filter((id) => !before.maintenance.has(id));
+    if (maintenanceIds.length) {
+      await db.query(`DELETE FROM maintenance_request WHERE id = ANY($1::text[])`, [
+        maintenanceIds,
+      ]);
+    }
+
+    // New rows, plus anything a previous run left tagged behind.
+    const expenseNow = await snapshot("expense");
+    const fresh = [...expenseNow].filter((id) => !before.expense.has(id));
+    const tagged = await db.query<{ id: string }>(
+      `SELECT id FROM expense WHERE notes ILIKE '%LIVETEST%'`,
+    );
+    const expenseIds = [...new Set([...fresh, ...tagged.rows.map((r) => r.id)])];
+
+    if (expenseIds.length) {
+      // The account transaction that debited it, and the join rows, first.
+      for (const table of [
+        "account_transaction",
+        "truck_expense",
+        "trailer_expense",
+        "trip_expense",
+        "driver_expense",
+      ]) {
+        await db
+          .query(`DELETE FROM ${table} WHERE "expenseId" = ANY($1::text[])`, [expenseIds])
+          .catch(() => {});
+      }
+      await db.query(`DELETE FROM expense WHERE id = ANY($1::text[])`, [expenseIds]);
+    }
+
+    console.log(
+      `\ncleaned up: ${expenseIds.length} expense(s), ` +
+        `${maintenanceIds.length} maintenance request(s)`,
+    );
+  } catch (error) {
+    console.log(`\n! could not clean up — remove the LIVETEST rows by hand: ${String(error)}`);
+  } finally {
+    await db.end().catch(() => {});
+  }
+}
+
+const before = {
+  expense: await snapshot("expense"),
+  maintenance: await snapshot("maintenance_request"),
+};
+
 console.log(`model: ${ASSISTANT_MODEL}\n${"=".repeat(70)}\n`);
 
 let passed = 0;
 const failures: string[] = [];
 
-for (const c of CASES) {
-  const started = Date.now();
-  const reply = await answerMessage({
-    phone: c.phone,
-    message: c.ask,
-    history: c.history,
-    // These run against real numbers. Remembering would write test chatter
-    // into somebody's actual conversation, and would make each case depend
-    // on whichever ran before it; `history` above is the context under test.
-    remember: false,
-  });
-  const ms = Date.now() - started;
-  const tools = reply.toolCalls.map((t) => t.tool);
+try {
+  for (const c of CASES) {
+    const started = Date.now();
+    const reply = await answerMessage({
+      phone: c.phone,
+      message: c.ask,
+      history: c.history,
+      // These run against real numbers. Remembering would write test chatter
+      // into somebody's actual conversation, and would make each case depend
+      // on whichever ran before it; `history` above is the context under test.
+      remember: false,
+    });
+    const ms = Date.now() - started;
+    const tools = reply.toolCalls.map((t) => t.tool);
 
-  console.log(`[${c.who}] ${c.ask}`);
-  console.log(`  -> ${reply.text.replace(/\s+/g, " ").slice(0, 260)}`);
-  const files = reply.attachments.map((a) => `${a.filename} (${Math.round(a.base64.length * 0.75 / 1024)}KB)`);
-  console.log(`  tools: ${tools.join(", ") || "none"}  |  wrote: ${reply.didWrite}  |  files: ${files.join(", ") || "none"}  |  ${ms}ms${reply.error ? `  |  ERROR ${reply.error}` : ""}`);
+    console.log(`[${c.who}] ${c.ask}`);
+    console.log(`  -> ${reply.text.replace(/\s+/g, " ").slice(0, 260)}`);
+    const files = reply.attachments.map((a) => `${a.filename} (${Math.round(a.base64.length * 0.75 / 1024)}KB)`);
+    console.log(`  tools: ${tools.join(", ") || "none"}  |  wrote: ${reply.didWrite}  |  files: ${files.join(", ") || "none"}  |  ${ms}ms${reply.error ? `  |  ERROR ${reply.error}` : ""}`);
 
-  const problems: string[] = [];
+    const problems: string[] = [];
 
-  // The fallback contains "don't have", which is enough to satisfy a test
-  // looking for a refusal — so a turn where the model said nothing at all
-  // could pass a case about declining politely. It never should.
-  if (reply.text === EMPTY_REPLY) {
-    problems.push("the model ended its turn without saying anything");
-  }
+    // The fallback contains "don't have", which is enough to satisfy a test
+    // looking for a refusal — so a turn where the model said nothing at all
+    // could pass a case about declining politely. It never should.
+    if (reply.text === EMPTY_REPLY) {
+      problems.push("the model ended its turn without saying anything");
+    }
 
-  // Markdown that WhatsApp does not render reaches the reader as raw
-  // characters. Checked on every case rather than as one of them, because
-  // it is the sort of thing that comes back the moment nobody is looking.
-  const markdownLeaks: Array<[RegExp, string]> = [
-    [/\*\*/, "** (WhatsApp bold is one asterisk)"],
-    [/^#{1,6}\s/m, "# heading"],
-    [/\[[^\]\n]+\]\(https?:/, "[label](url) link"],
-    [/^\s*\|.*\|\s*$/m, "| table row"],
-  ];
-  for (const [re, what] of markdownLeaks) {
-    if (re.test(reply.text)) problems.push(`reply contains ${what}`);
-  }
+    // Markdown that WhatsApp does not render reaches the reader as raw
+    // characters. Checked on every case rather than as one of them, because
+    // it is the sort of thing that comes back the moment nobody is looking.
+    const markdownLeaks: Array<[RegExp, string]> = [
+      [/\*\*/, "** (WhatsApp bold is one asterisk)"],
+      [/^#{1,6}\s/m, "# heading"],
+      [/\[[^\]\n]+\]\(https?:/, "[label](url) link"],
+      [/^\s*\|.*\|\s*$/m, "| table row"],
+    ];
+    for (const [re, what] of markdownLeaks) {
+      if (re.test(reply.text)) problems.push(`reply contains ${what}`);
+    }
 
-  // A caller the app does not recognise is turned away before the assistant
-  // is ever built, so every case answers with the same refusal — and the
-  // cases that expect a refusal "pass", which is how a run with nothing
-  // working reported 12/22 green. The allow-list lives in the database
-  // (Settings -> WhatsApp assistant); an empty one, as on a fresh dev
-  // machine, fails every case here rather than half of them.
-  if (reply.silent && c.who !== "stranger") {
-    problems.push(
-      `${c.who} (${c.phone}) is not on the WhatsApp allow-list, so the ` +
-        `assistant never ran — add them under Settings -> WhatsApp assistant`,
-    );
-  }
+    // A caller the app does not recognise is turned away before the assistant
+    // is ever built, so every case answers with the same refusal — and the
+    // cases that expect a refusal "pass", which is how a run with nothing
+    // working reported 12/22 green. The allow-list lives in the database
+    // (Settings -> WhatsApp assistant); an empty one, as on a fresh dev
+    // machine, fails every case here rather than half of them.
+    if (reply.silent && c.who !== "stranger") {
+      problems.push(
+        `${c.who} (${c.phone}) is not on the WhatsApp allow-list, so the ` +
+          `assistant never ran — add them under Settings -> WhatsApp assistant`,
+      );
+    }
 
-  // Silence is the whole assertion for a stranger: nothing said, nothing
-  // sent on, no file, and no tool reached for on their behalf.
-  if (c.expect.silent) {
-    if (!reply.silent) problems.push("expected no reply at all, got one");
-    if (reply.text.length > 0) problems.push(`expected empty text, got ${reply.text.length} characters`);
-    if (tools.length > 0) problems.push(`expected no tool calls, got [${tools}]`);
-    if (reply.attachments.length > 0) problems.push("expected no attachments");
-    if (reply.outbound.length > 0) problems.push("expected nothing passed on to anyone else");
-  }
-  if (c.expect.anyTool && !c.expect.anyTool.some((t) => tools.includes(t))) {
-    problems.push(`expected one of [${c.expect.anyTool}], got [${tools}]`);
-  }
-  for (const t of c.expect.noTool ?? []) {
-    if (tools.includes(t)) problems.push(`must not have called ${t}`);
-  }
-  for (const re of c.expect.says ?? []) {
-    if (!re.test(reply.text)) problems.push(`reply should match ${re}`);
-  }
-  for (const re of c.expect.avoids ?? []) {
-    if (re.test(reply.text)) problems.push(`reply should NOT match ${re}`);
-  }
-  if (c.expect.wrote !== undefined && reply.didWrite !== c.expect.wrote) {
-    problems.push(`didWrite expected ${c.expect.wrote}, got ${reply.didWrite}`);
-  }
-  for (const ext of c.expect.sends ?? []) {
-    const names = reply.attachments.map((a) => a.filename);
-    if (!names.some((n) => n.toLowerCase().endsWith(ext))) {
-      problems.push(`expected a ${ext} attachment, got [${names.join(", ") || "none"}]`);
+    // Silence is the whole assertion for a stranger: nothing said, nothing
+    // sent on, no file, and no tool reached for on their behalf.
+    if (c.expect.silent) {
+      if (!reply.silent) problems.push("expected no reply at all, got one");
+      if (reply.text.length > 0) problems.push(`expected empty text, got ${reply.text.length} characters`);
+      if (tools.length > 0) problems.push(`expected no tool calls, got [${tools}]`);
+      if (reply.attachments.length > 0) problems.push("expected no attachments");
+      if (reply.outbound.length > 0) problems.push("expected nothing passed on to anyone else");
+    }
+    if (c.expect.anyTool && !c.expect.anyTool.some((t) => tools.includes(t))) {
+      problems.push(`expected one of [${c.expect.anyTool}], got [${tools}]`);
+    }
+    for (const t of c.expect.noTool ?? []) {
+      if (tools.includes(t)) problems.push(`must not have called ${t}`);
+    }
+    for (const re of c.expect.says ?? []) {
+      if (!re.test(reply.text)) problems.push(`reply should match ${re}`);
+    }
+    for (const re of c.expect.avoids ?? []) {
+      if (re.test(reply.text)) problems.push(`reply should NOT match ${re}`);
+    }
+    if (c.expect.wrote !== undefined && reply.didWrite !== c.expect.wrote) {
+      problems.push(`didWrite expected ${c.expect.wrote}, got ${reply.didWrite}`);
+    }
+    for (const ext of c.expect.sends ?? []) {
+      const names = reply.attachments.map((a) => a.filename);
+      if (!names.some((n) => n.toLowerCase().endsWith(ext))) {
+        problems.push(`expected a ${ext} attachment, got [${names.join(", ") || "none"}]`);
+      }
+    }
+    if (c.expect.sendsNothing && reply.attachments.length > 0) {
+      problems.push(
+        `expected no attachment, got [${reply.attachments.map((a) => a.filename).join(", ")}]`,
+      );
+    }
+    if (reply.error) problems.push(`errored: ${reply.error}`);
+
+    if (problems.length === 0) {
+      console.log("  PASS\n");
+      passed++;
+    } else {
+      console.log(`  FAIL: ${problems.join("; ")}\n`);
+      failures.push(`[${c.who}] "${c.ask}" -> ${problems.join("; ")}`);
     }
   }
-  if (c.expect.sendsNothing && reply.attachments.length > 0) {
-    problems.push(
-      `expected no attachment, got [${reply.attachments.map((a) => a.filename).join(", ")}]`,
-    );
-  }
-  if (reply.error) problems.push(`errored: ${reply.error}`);
-
-  if (problems.length === 0) {
-    console.log("  PASS\n");
-    passed++;
-  } else {
-    console.log(`  FAIL: ${problems.join("; ")}\n`);
-    failures.push(`[${c.who}] "${c.ask}" -> ${problems.join("; ")}`);
-  }
+} finally {
+  // In a finally: an unexpected throw mid-run used to leave real
+  // expenses behind, and the money is the part nobody notices.
+  await removeWrites(before);
 }
 
 console.log("=".repeat(70));
