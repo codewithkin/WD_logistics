@@ -1,170 +1,74 @@
-"use client";
-
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-    Form,
-    FormControl,
-    FormField,
-    FormItem,
-    FormLabel,
-    FormMessage,
-} from "@/components/ui/form";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
-import { Loader2 } from "lucide-react";
-import { updateOrganizationSettings } from "../actions";
-import { toast } from "sonner";
+import { Banknote, Clock, Globe } from "lucide-react";
 
-const generalSettingsSchema = z.object({
-    currency: z.string(),
-    timezone: z.string(),
-});
-
-type GeneralSettingsData = z.infer<typeof generalSettingsSchema>;
-
-interface GeneralSettingsProps {
-    settings: {
-        currency: string;
-        timezone: string;
-    };
-    organizationName: string;
-}
-
-const CURRENCIES = [
-    { value: "USD", label: "US Dollar ($)" },
-    { value: "EUR", label: "Euro (€)" },
-    { value: "GBP", label: "British Pound (£)" },
-    { value: "KES", label: "Kenyan Shilling (KSh)" },
-    { value: "NGN", label: "Nigerian Naira (₦)" },
-    { value: "ZAR", label: "South African Rand (R)" },
-];
-
-const TIMEZONES = [
-    { value: "UTC", label: "UTC" },
-    { value: "Africa/Nairobi", label: "East Africa Time (EAT)" },
-    { value: "Africa/Lagos", label: "West Africa Time (WAT)" },
-    { value: "Africa/Johannesburg", label: "South Africa Standard Time (SAST)" },
-    { value: "America/New_York", label: "Eastern Time (ET)" },
-    { value: "America/Los_Angeles", label: "Pacific Time (PT)" },
-    { value: "Europe/London", label: "Greenwich Mean Time (GMT)" },
-];
-
-export function GeneralSettings({ settings, organizationName }: GeneralSettingsProps) {
-    const router = useRouter();
-    const [isLoading, setIsLoading] = useState(false);
-
-    const form = useForm<GeneralSettingsData>({
-        resolver: zodResolver(generalSettingsSchema),
-        defaultValues: {
-            currency: settings.currency,
-            timezone: settings.timezone,
-        },
-    });
-
-    const onSubmit = async (data: GeneralSettingsData) => {
-        setIsLoading(true);
-        try {
-            const result = await updateOrganizationSettings({
-                name: organizationName,
-                currency: data.currency,
-                timezone: data.timezone,
-            });
-
-            if (result.success) {
-                toast.success("Settings updated successfully");
-                router.refresh();
-            } else {
-                toast.error(result.error || "Failed to update settings");
-            }
-        } catch {
-            toast.error("An error occurred");
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
+/**
+ * What the system does about money and time.
+ *
+ * This used to be two dropdowns — Currency and Timezone — with a Save button
+ * that reported "Settings updated successfully". Neither value was ever read
+ * again. Every figure in the app, on every invoice, in every report and in
+ * every email is formatted as USD by `formatCurrency`, and every date is
+ * rendered in whatever timezone the person's own browser is in. So an admin
+ * could set the currency to Kenyan Shilling, be told it had worked, and watch
+ * nothing change — the worst kind of setting, because it is believed.
+ *
+ * The list did not even offer the country the business is in: Africa/Harare
+ * was missing while Africa/Nairobi and the Kenyan Shilling were both there,
+ * left over from the demo data this was built against.
+ *
+ * Rather than wire a second currency through a system that invoices in
+ * dollars, this says plainly what happens. If the client ever does need to
+ * invoice in ZWG, that is a real piece of work — the rate, the rounding, the
+ * figure on a statement that spans a change — and not a dropdown.
+ */
+export function GeneralSettings() {
     return (
         <Card>
             <CardHeader>
-                <CardTitle>General Settings</CardTitle>
+                <CardTitle>Money and time</CardTitle>
                 <CardDescription>
-                    Configure general application preferences.
+                    How this system handles figures and dates. None of it is configurable,
+                    and saying so is more use than a setting that does nothing.
                 </CardDescription>
             </CardHeader>
-            <CardContent>
-                <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                        <div className="grid gap-4 md:grid-cols-2">
-                            <FormField
-                                control={form.control}
-                                name="currency"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Currency</FormLabel>
-                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                            <FormControl>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Select currency" />
-                                                </SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                {CURRENCIES.map((c) => (
-                                                    <SelectItem key={c.value} value={c.value}>
-                                                        {c.label}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                            <FormField
-                                control={form.control}
-                                name="timezone"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Timezone</FormLabel>
-                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                            <FormControl>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Select timezone" />
-                                                </SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                {TIMEZONES.map((tz) => (
-                                                    <SelectItem key={tz.value} value={tz.value}>
-                                                        {tz.label}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                        </div>
+            <CardContent className="space-y-5">
+                <div className="flex items-start gap-3">
+                    <Banknote className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                    <div className="space-y-1">
+                        <p className="text-sm font-medium">Everything is in US dollars</p>
+                        <p className="text-sm text-muted-foreground">
+                            Invoices, statements, expenses, reports and the WhatsApp assistant
+                            all show USD. Amounts are stored as entered — the system does no
+                            conversion, so enter what was actually charged or paid.
+                        </p>
+                    </div>
+                </div>
 
-                        <div className="flex justify-end">
-                            <Button type="submit" disabled={isLoading}>
-                                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                Save Changes
-                            </Button>
-                        </div>
-                    </form>
-                </Form>
+                <div className="flex items-start gap-3">
+                    <Clock className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                    <div className="space-y-1">
+                        <p className="text-sm font-medium">Times show in your own timezone</p>
+                        <p className="text-sm text-muted-foreground">
+                            Every date and time is rendered on the device reading it, so a
+                            driver&apos;s phone and the office screen agree about when something
+                            happened without either of them setting anything.
+                        </p>
+                    </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                    <Globe className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                    <div className="space-y-1">
+                        <p className="text-sm font-medium">The business day runs on Harare time</p>
+                        <p className="text-sm text-muted-foreground">
+                            Anything that has to pick a day rather than a moment — the
+                            assistant&apos;s monthly message allowance, a daily digest, a
+                            period that ends &quot;today&quot; — uses Central Africa Time, so a
+                            record entered at half past ten at night lands on the day it was
+                            entered.
+                        </p>
+                    </div>
+                </div>
             </CardContent>
         </Card>
     );

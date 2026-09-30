@@ -71,13 +71,16 @@ services:
       ACCELERATE_URL: ${ACCELERATE_URL:-}
 
       # Admin bootstrap (prisma/ensure-admin.mjs, runs every container start —
-      # idempotent, never deletes data). Defaults to dziruniw@gmail.com /
-      # @logisticswd if left unset.
+      # idempotent, never deletes data). This is the root admin: the account
+      # no other admin can take, and the one a reset leaves standing.
+      # ROOT_ADMIN_EMAIL follows SEED_ADMIN_EMAIL unless set separately, and
+      # the two must agree or the seeded account is not the protected one.
       SEED_ORG_NAME: ${SEED_ORG_NAME:-WD Logistics}
       SEED_ORG_SLUG: ${SEED_ORG_SLUG:-wd-logistics}
-      SEED_ADMIN_NAME: ${SEED_ADMIN_NAME:-Mr Dziruni}
-      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-dziruniw@gmail.com}
-      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-@logisticswd}
+      SEED_ADMIN_NAME: ${SEED_ADMIN_NAME:-Administrator}
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-admin@wd-logistics.co.zw}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-00000000}
+      ROOT_ADMIN_EMAIL: ${ROOT_ADMIN_EMAIL:-}
 
       # Auth (better-auth)
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?BETTER_AUTH_SECRET is required}

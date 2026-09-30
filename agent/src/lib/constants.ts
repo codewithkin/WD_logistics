@@ -109,22 +109,3 @@ export function normalizePhoneNumber(phoneNumber: string): string {
   return cleaned;
 }
 
-/**
- * Business information for WD Logistics
- * Used for basic company info queries (not currently used in authorized flow)
- */
-export const BUSINESS_INFO = {
-  name: "WD Logistics",
-  description: "WD Logistics provide short and long distance transport to its clients from Zimbabwe and the SADC region.",
-  services: [
-    "All our vehicles are fully equipped with satellite tracking devices for real time tracking",
-    "Drivers and vehicles are 100% Hazmat compliant",
-    "Well maintained fleet, trained drivers ensures a competent and efficient service",
-    "WD Logistics provides customers with courteous, prompt and dependable service"
-  ],
-  hours: "08:00 - 17:00",
-  address: "5182 Tameside Close Nyakamete, Mutare, Zimbabwe",
-  contact: {
-    phone: "+263 77 295 8986",
-  }
-};

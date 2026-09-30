@@ -116,20 +116,20 @@ async function main() {
   // STEP 3: Get or Create Admin User
   // ============================================================================
   const existingAdmin = await prisma.user.findFirst({
-    where: { email: "dziruniw@gmail.com" },
+    where: { email: "admin@wd-logistics.co.zw" },
     include: { members: true },
   });
 
   if (!existingAdmin) {
-    const hashedPassword = await hashPassword("@logisticswd");
+    const hashedPassword = await hashPassword("00000000");
     await prisma.user.create({
       data: {
-        name: "Mr Dziruni",
-        email: "dziruniw@gmail.com",
+        name: "Administrator",
+        email: "admin@wd-logistics.co.zw",
         emailVerified: true,
         accounts: {
           create: {
-            accountId: "dziruniw@gmail.com",
+            accountId: "admin@wd-logistics.co.zw",
             providerId: "credential",
             password: hashedPassword,
           },
@@ -142,7 +142,7 @@ async function main() {
         },
       },
     });
-    console.log("✅ Created admin user: dziruniw@gmail.com");
+    console.log("✅ Created admin user: admin@wd-logistics.co.zw");
   } else if (existingAdmin.members.length === 0) {
     await prisma.member.create({
       data: {
@@ -535,7 +535,7 @@ async function main() {
       country: "Zimbabwe",
       phone: "+263 772 958 986",
       altPhone: "+263 20 60712",
-      email: "dziruniw@gmail.com",
+      email: "admin@wd-logistics.co.zw",
       vatNumber: "10012345",
       bpNumber: "0200123456",
       bankDetails:
@@ -845,8 +845,8 @@ async function main() {
   console.log(`   • TruckExpenses:  ${allTruckExpenses.length}`);
   console.log(`   • DriverExpenses: ${allDriverExpenses.length}`);
   console.log("\n📝 Admin Credentials:");
-  console.log("   Email:    dziruniw@gmail.com");
-  console.log("   Password: @logisticswd");
+  console.log("   Email:    admin@wd-logistics.co.zw");
+  console.log("   Password: 00000000");
   console.log("\n⚠️  Please change the password after first login!");
   console.log("=".repeat(60) + "\n");
 }

@@ -30,7 +30,7 @@ export function getVapidPublicKey(): string | undefined {
 }
 
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY;
-const VAPID_SUBJECT = process.env.VAPID_SUBJECT || "mailto:admin@example.com";
+const VAPID_SUBJECT = process.env.VAPID_SUBJECT || "mailto:operations@wd-logistics.co.zw";
 
 /** Why push is unavailable, in words an admin can act on. */
 export function pushConfigurationProblem(): string | null {
@@ -39,11 +39,6 @@ export function pushConfigurationProblem(): string | null {
   }
   if (!VAPID_PRIVATE_KEY) {
     return "VAPID_PRIVATE_KEY is not set on the server, so notifications cannot be signed.";
-  }
-  if (VAPID_SUBJECT === "mailto:admin@example.com") {
-    // Not fatal, but Apple rejects placeholder subjects, so an iOS user would
-    // see this as "push works everywhere except my phone".
-    return null;
   }
   return null;
 }
@@ -66,11 +61,15 @@ function ensureConfigured(): boolean {
     return false;
   }
 
-  if (VAPID_SUBJECT === "mailto:admin@example.com" && !warnedAtBoot) {
+  // Apple's push service rejects a placeholder subject, which shows up as
+  // "push works everywhere except my phone". The fallback is a real WD
+  // mailbox now rather than admin@example.com, so this is a note rather than
+  // a warning — but an operator should still know the value is not theirs.
+  if (!process.env.VAPID_SUBJECT && !warnedAtBoot) {
     warnedAtBoot = true;
     console.warn(
-      "[push] VAPID_SUBJECT is still the placeholder mailto:admin@example.com. " +
-        "Apple's push service rejects placeholder subjects — set a real contact address.",
+      `[push] VAPID_SUBJECT is unset; using ${VAPID_SUBJECT}. Set it to the address ` +
+        "you want Apple and Google to contact about this deployment's push traffic.",
     );
   }
 

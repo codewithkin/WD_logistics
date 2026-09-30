@@ -106,7 +106,12 @@ const FALLBACK: CompanyDetails = {
   motto: "Efficiency in Motion",
   addressLines: ["1 Tameside Close", "Nyakamete Industrial Area", "Mutare"],
   phone: "+263 772 958 986",
-  email: "dziruniw@gmail.com",
+  // The company mailbox, not a person's. This was the founder's personal
+  // Gmail, printed on every invoice and statement that went out before an
+  // Organization row filled the field in — so a customer replying to an
+  // invoice reached one inbox rather than the office, and it stayed true for
+  // as long as nobody typed an address into Settings.
+  email: "operations@wd-logistics.co.zw",
   website: "wd-logistics.co.zw",
 };
 

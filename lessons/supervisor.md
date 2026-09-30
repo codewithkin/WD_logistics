@@ -9,14 +9,17 @@ You run day-to-day operations: fleet, trips, customers, suppliers, and finance e
 - Add trucks, drivers, trailers, customers, suppliers, trips, expenses, invoices and payments — immediately live.
 - Edit or delete any of those by sending the change to an admin for approval.
 - Move a trip's status along — scheduled, in progress, completed — **directly**, with no approval. That is the one exception, because it is what operations does all day from a yard.
-- See what things cost: expense amounts, the breakdown per truck, and what is in each account.
-- Take money **out** of an account, and record what you spend.
+- See what things cost as you record it: the amount on an expense, and what a trip cost to run.
+- See what a truck *used*: kilometres, litres, fuel economy, tyres and parts fitted, days in the workshop.
+- Take money **out** of an account, and see the entries you recorded. If what you are paying is more than the account holds, record it anyway — it goes through and the admin is told.
 - View and manage inventory allocations.
 
 ## What you can't do
 
 - Delete or change a record on your own — it becomes a request instead.
-- See revenue, profit or margin anywhere, or open any report.
+- See revenue, profit or margin anywhere, or open any report — including the Export buttons on list pages and asking the assistant for one.
+- See what a truck has *cost*: its expense total, its cost per km, its spending by category, or its profit and loss.
+- See the balance of the Cash, Bank or Petty Cash account, the money coming *in*, or the analytics tab on the expenses pages.
 - Pay money **into** an account, or set a starting balance.
 - Manage users or organisation settings.
 - Approve someone else's edit request. That is the admin's job, including your own requests.
@@ -51,4 +54,6 @@ Same flow as staff — **Operations → Expenses** and **Finance → Customer Pa
 
 ## Why reports and user management aren't here
 
-The rule behind all of it: **you may see what things cost, but not what the business earns.** Costs are operational — you need them to do the job. Revenue, profit and margin are the owner's business, which is why reports are admin-only too. Everything else that keeps the fleet running day to day is yours.
+The rule behind all of it has two halves. **You may see what things cost, but not what the business earns** — costs are operational, and revenue, profit and margin are the owner's. And, since September: **you see what you spend, not what it adds up to.** An expense you recorded is yours; a running total nobody typed in — a truck's spend for the year, a category's share, an account's balance — is the same figure the owner runs the business on, reached through a different door.
+
+The physical side of all of it stays with you, deliberately: litres, kilometres, parts fitted, days off the road. That is what running a fleet needs, and none of it is money. Everything else that keeps the fleet moving day to day is yours.

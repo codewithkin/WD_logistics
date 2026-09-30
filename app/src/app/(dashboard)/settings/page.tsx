@@ -51,20 +51,12 @@ export default async function SettingsPage() {
         address: metadata.address || "",
     };
 
-    const generalSettings = {
-        currency: metadata.currency || "USD",
-        timezone: metadata.timezone || "UTC",
-    };
-
     return (
         <SettingsLayout
             children={{
                 general: (
                     <>
-                        <GeneralSettings
-                            settings={generalSettings}
-                            organizationName={organization.name}
-                        />
+                        <GeneralSettings />
                         {/* One account can empty the system, and it is the
                             one the reset leaves standing. Any other admin
                             pressing this would delete their own account

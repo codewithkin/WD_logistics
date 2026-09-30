@@ -209,7 +209,7 @@ function adminDriverCreatedTemplate(data: {
   const lines = [
     `*NEW DRIVER ADDED*`,
     ``,
-    `Mr Dziruni, a new driver has been added to the fleet.`,
+    `A new driver has been added to the fleet.`,
     ``,
     `*NAME:* ${data.driverName}`,
     `*PHONE:* ${data.phone}`,
@@ -249,7 +249,7 @@ function adminTruckCreatedTemplate(data: {
   const lines = [
     `*NEW TRUCK ADDED*`,
     ``,
-    `Mr Dziruni, a new truck has been added to the fleet.`,
+    `A new truck has been added to the fleet.`,
     ``,
     `*REGISTRATION:* ${data.registrationNo}`,
     `*MAKE:* ${data.make}`,
@@ -288,7 +288,7 @@ function adminInvoiceCreatedTemplate(data: {
   const lines = [
     `*NEW INVOICE CREATED*`,
     ``,
-    `Mr Dziruni, a new invoice has been created.`,
+    `A new invoice has been created.`,
     ``,
     `*INVOICE NUMBER:* ${data.invoiceNumber}`,
     `*CUSTOMER:* ${data.customerName}`,
@@ -333,7 +333,7 @@ function adminEmployeeCreatedTemplate(data: {
   const lines = [
     `*NEW EMPLOYEE ADDED*`,
     ``,
-    `Mr Dziruni, a new employee has been added.`,
+    `A new employee has been added.`,
     ``,
     `*NAME:* ${data.employeeName}`,
     `*POSITION:* ${data.position}`,
@@ -371,7 +371,7 @@ function adminPaymentReceivedTemplate(data: {
   const lines = [
     `*PAYMENT RECEIVED*`,
     ``,
-    `Mr Dziruni, a payment has been recorded.`,
+    `A payment has been recorded.`,
     ``,
     `*PAYMENT NUMBER:* ${data.paymentNumber}`,
     `*INVOICE NUMBER:* ${data.invoiceNumber}`,

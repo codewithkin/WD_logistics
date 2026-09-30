@@ -50,6 +50,34 @@ Same as the supervisor flow: **Edit Requests** in the sidebar shows what staff h
 
 **Settings** covers the company profile (name, logo, contact details), expense categories, and a few feature toggles. Changes here apply organization-wide immediately.
 
+### 7. Start the system afresh
+
+Settings → General → **Reset Everything**, and only from the root account
+(`admin@wd-logistics.co.zw`). It empties the system: every trip, truck,
+trailer, driver, customer, supplier, invoice, payment, expense, stock item,
+employee, report and edit request, **every other user account**, every number
+allowed to use the WhatsApp assistant, and everything the assistant remembers.
+
+What survives is the organisation's own settings — name, letterhead, bank
+details, VAT number — the WhatsApp line's pairing, and the root account. The
+three accounts come back at zero.
+
+There is no undo. Type `DELETE ALL DATA` to confirm, and afterwards invite the
+real team from Users.
+
+### The root account
+
+One email is the root: `admin@wd-logistics.co.zw`. It is an ordinary admin in
+every respect except three:
+
+- no other admin can change its password, demote it or remove it;
+- it is the only account that can press Reset Everything;
+- it is the account a reset leaves standing.
+
+Everyone else's password can still be set or reset by any admin, including
+other admins'. Change the root's password at the first sign-in — Settings →
+Account — because the one it ships with is deliberately simple.
+
 ## A note on scope
 
 Being able to do everything doesn't mean you have to review everything — day-to-day fleet and finance entries are exactly what supervisors are for. Your extra access exists for the handful of things (reports, accounts, settings) that specifically need one accountable owner.

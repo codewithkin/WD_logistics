@@ -246,7 +246,7 @@ export function AccountMovementDialog({
                             className="min-h-16"
                             placeholder={
                                 isIn
-                                    ? "e.g. Petty cash float handed to Tendai by Mr Dziruni"
+                                    ? "e.g. Petty cash float handed to the yard for fuel"
                                     : "e.g. Cash taken out for fuel advance, trip to Beitbridge"
                             }
                             value={description}
