@@ -33,6 +33,7 @@
  */
 
 import { operationManifest, findOperation } from "../src/lib/assistant/operations";
+import { ROLE_HINTS } from "../src/lib/assistant/role-hints";
 import { prisma } from "../src/lib/prisma";
 import { runAsActor } from "../src/lib/acting-session";
 
@@ -349,6 +350,62 @@ if (!organization) {
   );
 }
 
+/**
+ * The sentences on Settings → WhatsApp, against the tools each role has.
+ *
+ * Those hints have been wrong four times: read only claimed to change
+ * nothing, staff claimed to see invoices, staff claimed to report a fault
+ * after log_maintenance moved to supervisor, and supervisor claimed to see
+ * account balances after they moved to admin. Every one of them broke the
+ * same way — an operation moved a level and the prose describing it stayed
+ * put — and no amount of looking at the page would catch it, because the
+ * sentence reads perfectly well either way.
+ *
+ * So each phrase is tied to the tool that would have to exist for it to be
+ * true. A claim is a failure when the role does not have the tool; a tool the
+ * role does have and the sentence does not mention is not checked, because
+ * these are summaries and not inventories.
+ */
+function auditRoleHints(): void {
+  const CLAIMS: Array<{ phrase: RegExp; tool: string; why: string }> = [
+    { phrase: /report(ing)? a fault|workshop job/i, tool: "log_maintenance", why: "promises reporting a fault" },
+    { phrase: /account balance/i, tool: "get_account_balances", why: "promises account balances" },
+    { phrase: /invoice/i, tool: "list_invoices", why: "mentions invoices" },
+    { phrase: /revenue|profit/i, tool: "get_financial_summary", why: "mentions revenue or profit" },
+    //  so that "reporting a fault" is not read as a claim about reports.
+    { phrase: /reports?/i, tool: "generate_report", why: "mentions reports" },
+    { phrase: /own password/i, tool: "change_my_password", why: "mentions changing a password" },
+    { phrase: /expense/i, tool: "record_expense", why: "mentions recording expenses" },
+    { phrase: /stock/i, tool: "list_inventory", why: "mentions stock" },
+  ];
+
+  for (const level of LEVELS) {
+    const hint = ROLE_HINTS[level];
+    if (!hint) {
+      problems.push(`no hint on Settings → WhatsApp for ${level}`);
+      continue;
+    }
+    const has = new Set(operationManifest(level).map((tool) => tool.name));
+
+    for (const claim of CLAIMS) {
+      // Only the positive half of the sentence counts. "No account balances,
+      // revenue, profit or reports" names them in order to deny them, and
+      // reading that as a promise would fail every correct hint.
+      const positive = hint.split(/\bno\b/i)[0];
+      if (claim.phrase.test(positive) && !has.has(claim.tool)) {
+        problems.push(
+          `the ${level} hint ${claim.why}, but ${level} has no ${claim.tool} — ` +
+            `fix src/lib/assistant/role-hints.ts`,
+        );
+      }
+    }
+  }
+  console.log(
+    "\nrole hints:  every claim on Settings → WhatsApp checked against the\n" +
+      "             tools that role actually has",
+  );
+}
+
 /** Every key anywhere in the result whose name matches one of `words`. */
 function keysNamed(value: unknown, words: string[], path = ""): string[] {
   if (Array.isArray(value)) {
@@ -363,6 +420,8 @@ function keysNamed(value: unknown, words: string[], path = ""): string[] {
   }
   return [];
 }
+
+auditRoleHints();
 
 console.log();
 if (problems.length === 0) {

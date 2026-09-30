@@ -11,6 +11,7 @@
  */
 
 import { useEffect, useState, useTransition } from "react";
+import { ROLE_HINTS } from "@/lib/assistant/role-hints";
 import {
   Card,
   CardContent,
@@ -61,25 +62,6 @@ const ROLE_LABELS: Record<string, string> = {
   staff: "Staff",
   supervisor: "Supervisor",
   admin: "Admin",
-};
-
-/**
- * What each role actually gets, checked against the operation list rather
- * than written from memory.
- *
- * Two of these used to be wrong. Read only claimed to change nothing, when it
- * can always change its own password; staff claimed to see invoices, which
- * start at supervisor. Both are the kind of sentence nobody notices is false
- * until someone relies on it — if you add a role or move an operation, run
- * the per-role tool list again and correct these.
- */
-const ROLE_HINTS: Record<string, string> = {
-  readonly:
-    "Can ask about trucks, drivers, trips, stock, customers and expiring documents. Sees no money, and changes nothing but their own password.",
-  staff: "As read only, plus reporting a fault to the workshop.",
-  supervisor:
-    "Records expenses and payments, schedules trips, adjusts stock, manages customers and suppliers, and sees account balances. No revenue, profit or reports.",
-  admin: "Everything, including revenue, profit, per-truck costs and generated reports.",
 };
 
 export function WhatsAppContacts() {
