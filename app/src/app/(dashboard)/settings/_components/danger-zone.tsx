@@ -34,7 +34,22 @@ export function DangerZone() {
         try {
             const result = await wipeAllData(confirmText);
             if (result.success) {
-                toast.success(`All operational data wiped (${result.deleted} records removed)`);
+                toast.success(
+                    `System reset — ${result.deleted} records removed` +
+                        (result.usersRemoved
+                            ? `, including ${result.usersRemoved} ${result.usersRemoved === 1 ? "account" : "accounts"}`
+                            : "") +
+                        ".",
+                );
+                // Said separately rather than buried in the line above: this
+                // is the one part that can fail on its own, and an admin who
+                // thinks the assistant has forgotten last month's
+                // conversations when it has not should hear about it.
+                if (result.assistantMemoryCleared === false) {
+                    toast.warning(
+                        "Everything else is gone, but the assistant's memory could not be cleared. Restart the agent and try again.",
+                    );
+                }
                 setDialogOpen(false);
                 router.refresh();
             } else {
@@ -56,10 +71,12 @@ export function DangerZone() {
                     Danger Zone
                 </CardTitle>
                 <CardDescription>
-                    Wipe all operational data from this system. This permanently deletes trips,
-                    trucks, drivers, customers, suppliers, invoices, payments, expenses,
-                    inventory, reports, notifications and edit requests, and resets the
-                    three account balances to their starting figures.
+                    Empty the system and start again. This permanently deletes every trip,
+                    truck, trailer, driver, customer, supplier, invoice, payment, expense,
+                    stock item, employee, report, notification and edit request — along with
+                    every other user account, every contact allowed to use the WhatsApp
+                    assistant, and everything the assistant remembers. The three accounts
+                    come back at zero.
                 </CardDescription>
             </CardHeader>
             <CardContent>
@@ -67,8 +84,10 @@ export function DangerZone() {
                     <div className="text-sm text-muted-foreground">
                         <p className="text-foreground font-medium mb-1">What stays?</p>
                         <p>
-                            Your organisation, every user and member including you, and all
-                            employee records are <strong>not</strong> affected.
+                            Your organisation and its settings — the letterhead, bank details
+                            and VAT number — <strong>your own account, and nobody else&apos;s</strong>.
+                            The WhatsApp line stays paired; the assistant simply will not know
+                            anyone until you add them again.
                         </p>
                     </div>
                     <Button
@@ -77,7 +96,7 @@ export function DangerZone() {
                         className="shrink-0"
                     >
                         <Trash2 className="mr-2 h-4 w-4" />
-                        Wipe All Data
+                        Reset Everything
                     </Button>
                 </div>
             </CardContent>
@@ -89,12 +108,18 @@ export function DangerZone() {
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle className="text-destructive">
-                            Wipe all operational data?
+                            Reset the whole system?
                         </AlertDialogTitle>
                         <AlertDialogDescription>
-                            This will permanently delete every trip, truck, driver, customer,
-                            supplier, invoice, payment, expense, inventory item, report,
-                            notification and edit request. Employees and user accounts are kept.
+                            Every trip, truck, trailer, driver, customer, supplier, invoice,
+                            payment, expense, stock item, employee, report, notification and
+                            edit request will be permanently deleted.
+                            <br />
+                            <br />
+                            <strong>Everyone else loses their account.</strong> Supervisors,
+                            staff and workshop users are removed and will be signed out;
+                            you will need to invite the real team afterwards. The assistant
+                            forgets every conversation and every number allowed to use it.
                             <br />
                             <br />
                             This action <strong>cannot be undone</strong>. Type{" "}
@@ -117,7 +142,7 @@ export function DangerZone() {
                             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                         >
                             {isWiping && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            {isWiping ? "Wiping..." : "Yes, Wipe Everything"}
+                            {isWiping ? "Resetting..." : "Yes, reset everything"}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>

@@ -81,6 +81,7 @@ Commit message style:
 - `bun run check` from `app/` — the whole offline suite, in one command. No model, no tokens, no outbound email (the email checks run against a local SMTP stub); every one of them cleans up the rows it writes. Each exits non-zero on failure, so the chain stops at the first red.
   A failing assertion typechecks perfectly, so `tsc` says nothing about it. Three assertions in `test:trails` encoded a rule the client had changed and had been red for weeks, and one of them was overdrawing Petty Cash by $9,999,999 a run without cleaning up, because nothing in the routine ran that file.
   The live checks are separate and deliberately not in `check` — `bun run check:assistant` and `bun run check:capabilities` from `agent/` cost real tokens and drive the real model.
+  `bun run check:reset` is also out of the chain, for the opposite reason: it proves the reset button by *using* it, so it empties the database it runs against. Run it deliberately, on a database you are willing to lose.
 - Load the affected page in a browser, as each role that can reach it. This codebase has repeatedly shipped changes that typecheck and then throw at runtime.
 
 ## Architecture

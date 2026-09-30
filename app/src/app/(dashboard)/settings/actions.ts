@@ -6,6 +6,7 @@ import { hashPassword } from "better-auth/crypto";
 import { prisma } from "@/lib/prisma";
 import { requireRole, assertRole } from "@/lib/session";
 import { sendEmail, generateRandomPassword } from "@/lib/email";
+import { ROOT_ADMIN_EMAIL, isRootAdmin } from "@/lib/root-admin";
 
 export async function updateOrganizationSettings(data: {
   name: string;
@@ -406,23 +407,55 @@ export async function cancelInvitation(invitationId: string) {
 }
 
 /**
- * Wipe all operational/business data (trips, trucks, drivers, customers,
- * suppliers, invoices, expenses, inventory, reports, notifications, edit
- * requests) while KEEPING the organization, users/members, and employees.
+ * Empty the system and start again.
+ *
+ * The team spent weeks in here learning the UI, so the database is full of
+ * practice trips, invented customers and invoices nobody owes. This is the
+ * button that clears it on the morning the business actually starts using it.
+ *
+ * **What survives, and why each one.**
+ *
+ * - **The organisation and its settings** — the name, the letterhead, the
+ *   bank details, the VAT number. Configuration the client typed in, not
+ *   data the team made up, and retyping it is how an invoice goes out with
+ *   the wrong account number on it.
+ * - **The root administrator** (src/lib/root-admin.ts), and only them. Every
+ *   other account goes, because the point is to start again from one person
+ *   who then invites the real team.
+ * - **The three accounts** — Cash, Bank and Petty Cash exist as
+ *   configuration. They come back at zero, with no transactions and no
+ *   starting balance, because a balance with nothing behind it is a lie the
+ *   ledger tells forever.
+ * - **The WhatsApp pairing.** The business's own number, scanned once from a
+ *   phone that may not be in the room. The assistant's *memory* and its
+ *   *contact list* both go; the line itself stays connected.
+ *
+ * Everything else is deleted: fleet, trips, money, people, the assistant's
+ * memory of every conversation it has had, every contact allowed to talk to
+ * it, every push subscription, every notification, every pending invitation
+ * and every document parked for collection.
  *
  * Delete order matters — every foreign key points at trucks/drivers/trips
- * (e.g. Trip → Truck/Driver, Invoice → Trip, Driver.assignedTruckId → Truck),
- * and none of those relations cascade on delete, so children must go first.
- * All deletes run in a single transaction; if anything fails, nothing changes.
+ * and most do not cascade, so children go first and the users who recorded
+ * them go last.
  */
 export async function wipeAllData(confirmation?: string) {
   const session = await requireRole(["admin"]);
   const { organizationId } = session;
 
-  // Every deleteMany below used to run unqualified, so wiping "all data"
-  // emptied every organisation in the database, not the caller's. Each one is
-  // scoped now, either directly or through the parent that owns the row.
-  //
+  // The root admin's button, not every admin's — and not only as a matter of
+  // authority. This deletes every account but the root's, so an ordinary
+  // admin pressing it would delete themselves halfway through their own
+  // request and be signed out into an organisation they can no longer
+  // administer.
+  if (!isRootAdmin(session.user.email)) {
+    return {
+      success: false,
+      error:
+        "Only the root administrator can reset the system. Ask them to do it from their own account.",
+    };
+  }
+
   // The typed confirmation is deliberate friction: this is the one action in
   // the app with no undo and no paper trail afterwards.
   if (confirmation !== "DELETE ALL DATA") {
@@ -434,35 +467,12 @@ export async function wipeAllData(confirmation?: string) {
 
   try {
     const orgFilter = { organizationId };
-    const [
-      lineItems,
-      payments,
-      invoices,
-      tripExpenses,
-      truckExpenses,
-      trailerExpenses,
-      driverExpenses,
-      expenses,
-      partAllocations,
-      stockMovements,
-      maintenanceRequests,
-      trips,
-      trailers,
-      drivers,
-      trucks,
-      customers,
-      supplierPayments,
-      suppliers,
-      expenseCategories,
-      inventoryItems,
-      expiryReminders,
-      reports,
-      notifications,
-      userNotifications,
-      editRequests,
-      accountTransactions,
-    ] = await prisma.$transaction([
-      // Join rows first: they hang off records deleted further down.
+
+    // Every deleteMany below is scoped to this organisation, directly or
+    // through the parent that owns the row. They used to run unqualified, so
+    // "wipe all data" emptied every organisation in the database.
+    const counts = await prisma.$transaction([
+      // ---- Money: the join rows and documents hang off records below ----
       prisma.invoiceLineItem.deleteMany({ where: { invoice: orgFilter } }),
       prisma.payment.deleteMany({ where: { customer: orgFilter } }),
       prisma.invoice.deleteMany({ where: orgFilter }),
@@ -471,69 +481,134 @@ export async function wipeAllData(confirmation?: string) {
       prisma.trailerExpense.deleteMany({ where: { expense: orgFilter } }),
       prisma.driverExpense.deleteMany({ where: { expense: orgFilter } }),
       prisma.expense.deleteMany({ where: orgFilter }),
+      prisma.accountTransaction.deleteMany({ where: { account: orgFilter } }),
+      prisma.supplierPayment.deleteMany({ where: orgFilter }),
+      prisma.supplier.deleteMany({ where: orgFilter }),
+      prisma.customer.deleteMany({ where: orgFilter }),
+      prisma.expenseCategory.deleteMany({ where: orgFilter }),
+
+      // ---- Fleet and the work it did ----
       prisma.partAllocation.deleteMany({ where: { inventoryItem: orgFilter } }),
       prisma.stockMovement.deleteMany({ where: orgFilter }),
+      prisma.inventoryItem.deleteMany({ where: orgFilter }),
       prisma.maintenanceRequest.deleteMany({ where: orgFilter }),
       prisma.trip.deleteMany({ where: orgFilter }),
+      // The history of who drove what. Left behind, it describes trucks and
+      // drivers that no longer exist and blocks deleting the users who
+      // recorded the switches.
+      prisma.driverTruckAssignment.deleteMany({ where: orgFilter }),
       prisma.trailer.deleteMany({ where: orgFilter }),
       prisma.driver.deleteMany({ where: orgFilter }),
       prisma.truck.deleteMany({ where: orgFilter }),
-      prisma.customer.deleteMany({ where: orgFilter }),
-      prisma.supplierPayment.deleteMany({ where: orgFilter }),
-      prisma.supplier.deleteMany({ where: orgFilter }),
-      prisma.expenseCategory.deleteMany({ where: orgFilter }),
-      prisma.inventoryItem.deleteMany({ where: orgFilter }),
       prisma.expiryReminder.deleteMany({ where: orgFilter }),
+      prisma.employee.deleteMany({ where: orgFilter }),
+
+      // ---- The paper trail ----
       prisma.report.deleteMany({ where: orgFilter }),
-      // Notification has no organisation column; it is the outbound WhatsApp
-      // log and is cleared wholesale for this deployment.
-      prisma.notification.deleteMany(),
-      prisma.userNotification.deleteMany({ where: orgFilter }),
+      prisma.documentHandoff.deleteMany({ where: orgFilter }),
       prisma.editRequest.deleteMany({ where: orgFilter }),
-      prisma.accountTransaction.deleteMany({
-        where: { account: orgFilter },
-      }),
+      prisma.userNotification.deleteMany({ where: orgFilter }),
+      // Notification is the outbound WhatsApp send log and has no
+      // organisation column; it is cleared wholesale for this deployment.
+      prisma.notification.deleteMany(),
+
+      // ---- The assistant ----
+      // Who was allowed to talk to it, and everything they said. The pairing
+      // itself (whatsapp_session) is left alone: it is the company's own
+      // number, scanned from a phone that may not be in the room.
+      prisma.whatsAppMessage.deleteMany({ where: orgFilter }),
+      prisma.whatsAppContact.deleteMany({ where: orgFilter }),
+
+      // ---- Invitations nobody accepted ----
+      prisma.invitation.deleteMany({ where: orgFilter }),
     ]);
 
-    // The three accounts survive — they are configuration, not data — but
-    // their balances have to go back to their starting figures, or the ledger
-    // claims money that no longer has any transactions behind it.
+    // ---- People ----
+    //
+    // Last, because everything above records who did it and most of those
+    // foreign keys do not cascade. Sessions, credentials, memberships, push
+    // subscriptions and notification preferences all hang off the user row
+    // and go with it.
+    const doomed = await prisma.member.findMany({
+      where: { organizationId, user: { email: { not: ROOT_ADMIN_EMAIL } } },
+      select: { userId: true },
+    });
+    const removedUsers = doomed.length
+      ? await prisma.user.deleteMany({
+          where: { id: { in: doomed.map((member) => member.userId) } },
+        })
+      : { count: 0 };
+
+    // Anything the root admin still has pinned to the old world.
+    await prisma.pushDelivery.deleteMany({ where: { organizationId } });
+
+    // ---- The accounts come back empty ----
+    //
+    // Both figures, not just the balance: a starting balance left behind is a
+    // number the new books open with and nobody can explain.
     await prisma.financialAccount.updateMany({
       where: orgFilter,
-      data: { balance: 0 },
+      data: { balance: 0, startingBalance: 0 },
     });
-    const accounts = await prisma.financialAccount.findMany({
-      where: orgFilter,
-      select: { id: true, startingBalance: true },
-    });
-    await prisma.$transaction(
-      accounts.map((account) =>
-        prisma.financialAccount.update({
-          where: { id: account.id },
-          data: { balance: account.startingBalance },
-        }),
-      ),
-    );
+
+    // ---- The assistant's memory ----
+    //
+    // Mastra's tables, in their own `mastra` schema (see
+    // agent/src/lib/agent-memory.ts). Prisma does not know about them, so
+    // this is raw SQL, and it is guarded: on a deployment where the agent has
+    // never started they do not exist yet, and a reset must not fail because
+    // of that.
+    const memoryCleared = await clearAssistantMemory();
 
     const deleted =
-      lineItems.count + payments.count + invoices.count +
-      tripExpenses.count + truckExpenses.count + trailerExpenses.count +
-      driverExpenses.count + expenses.count + partAllocations.count +
-      stockMovements.count + maintenanceRequests.count + trips.count +
-      trailers.count + drivers.count + trucks.count + customers.count +
-      supplierPayments.count + suppliers.count + expenseCategories.count +
-      inventoryItems.count + expiryReminders.count + reports.count +
-      notifications.count + userNotifications.count + editRequests.count +
-      accountTransactions.count;
+      counts.reduce((sum, result) => sum + result.count, 0) + removedUsers.count;
 
     revalidatePath("/");
     revalidatePath("/dashboard");
     revalidatePath("/settings");
+    revalidatePath("/users");
 
-    return { success: true, deleted };
+    return {
+      success: true,
+      deleted,
+      usersRemoved: removedUsers.count,
+      assistantMemoryCleared: memoryCleared,
+    };
   } catch (error) {
     console.error("Failed to wipe data:", error);
     return { success: false, error: "Failed to wipe data" };
+  }
+}
+
+/**
+ * Forget every conversation the assistant has had.
+ *
+ * Its memory lives in Mastra's own tables in the `mastra` schema, which
+ * Prisma neither created nor models — so this is raw SQL against table names
+ * that may not exist yet. `to_regclass` returns null rather than throwing for
+ * a missing table, which is what makes this safe to run on a deployment where
+ * the agent has never booted.
+ *
+ * Returns false rather than throwing: a reset that emptied the business but
+ * could not reach the chat history should say so, not roll back.
+ */
+async function clearAssistantMemory(): Promise<boolean> {
+  const tables = [
+    "mastra.mastra_messages",
+    "mastra.mastra_threads",
+    "mastra.mastra_resources",
+  ];
+
+  try {
+    for (const table of tables) {
+      await prisma.$executeRawUnsafe(
+        `DO $$ BEGIN IF to_regclass('${table}') IS NOT NULL THEN EXECUTE 'DELETE FROM ${table}'; END IF; END $$;`,
+      );
+    }
+    return true;
+  } catch (error) {
+    console.error("Could not clear the assistant's memory:", error);
+    return false;
   }
 }
 

@@ -7,6 +7,13 @@ import { Role } from "@/lib/types";
 import { passwordProblem } from "@/lib/passwords";
 import { generateRandomPassword, sendSupervisorCredentials, sendNewUserCredentials, sendEmail } from "@/lib/email";
 import { auth } from "@/lib/auth";
+import {
+  canSetPasswordFor,
+  isRootAdmin,
+  ROOT_PASSWORD_REFUSAL,
+  ROOT_REMOVE_REFUSAL,
+  ROOT_ROLE_REFUSAL,
+} from "@/lib/root-admin";
 import { notifyUserInvited, notifySupervisorCreated, notifyUserRoleChanged, notifyUserRemoved } from "@/lib/notifications";
 
 export async function updateMemberRole(memberId: string, role: Role) {
@@ -25,6 +32,12 @@ export async function updateMemberRole(memberId: string, role: Role) {
     // Prevent changing own role
     if (member.userId === session.user.id) {
       return { success: false, error: "Cannot change your own role" };
+    }
+
+    // The root account is what the system is recovered from. Demoting it
+    // leaves an organisation that cannot be administered by anyone.
+    if (isRootAdmin(member.user.email)) {
+      return { success: false, error: ROOT_ROLE_REFUSAL };
     }
 
     const oldRole = member.role;
@@ -70,6 +83,10 @@ export async function removeMember(memberId: string) {
     // Prevent removing self
     if (member.userId === session.user.id) {
       return { success: false, error: "Cannot remove yourself" };
+    }
+
+    if (isRootAdmin(member.user.email)) {
+      return { success: false, error: ROOT_REMOVE_REFUSAL };
     }
 
     // Delete the user entirely from the database
@@ -246,6 +263,13 @@ export async function resetUserPassword(memberId: string) {
     // refused and pointed at Account Settings, which is no help to an admin
     // who has forgotten the current password — the only way out was editing
     // the database. The new password is emailed to them like anyone else's.
+    //
+    // The root's password is the exception, and only for other people: any
+    // admin could otherwise generate a new one for the owner's account and
+    // read it out of the email they are copied on.
+    if (!canSetPasswordFor(session.user.email, member.user.email)) {
+      return { success: false, error: ROOT_PASSWORD_REFUSAL };
+    }
 
     // Generate a new random password
     const newPassword = generateRandomPassword(12);
@@ -389,6 +413,10 @@ export async function setUserPassword(memberId: string, newPassword: string) {
 
     if (!member) {
       return { success: false as const, error: "Member not found" };
+    }
+
+    if (!canSetPasswordFor(session.user.email, member.user.email)) {
+      return { success: false as const, error: ROOT_PASSWORD_REFUSAL };
     }
 
     const ctx = await auth.$context;
