@@ -16,6 +16,7 @@ import "server-only";
  */
 
 import { z } from "zod";
+import { stashDocument } from "@/lib/documents/handoff";
 import { prisma } from "@/lib/prisma";
 import { reportConfigs } from "@/config/reports";
 import { getDateRangeFromParams } from "@/lib/period-utils";
@@ -23,6 +24,17 @@ import type { Operation, OperationContext } from "@/lib/assistant/operations";
 
 /** Report ids a person might reasonably ask for by name over a message. */
 const REPORT_IDS = Object.keys(reportConfigs) as [string, ...string[]];
+
+/**
+ * Above this a document is handed over as a link instead of a file.
+ *
+ * Not WhatsApp's own limit (roughly 100MB) — the limit of the thing doing the
+ * sending. whatsapp-web.js serialises the file through the Chromium page it
+ * drives, which is slow at a megabyte and unreliable well below WhatsApp's
+ * ceiling. 8MB keeps the common case a real attachment and the rare case a
+ * link that works.
+ */
+const ATTACHMENT_LIMIT_BYTES = 8 * 1024 * 1024;
 
 /**
  * What a report about one record needs naming, in words a person would use.
@@ -374,11 +386,31 @@ export const reportOperations: Operation[] = [
 
       const bytes = Buffer.from(result.data, "base64").length;
 
-      // WhatsApp refuses documents over roughly 100MB, and anything close to
-      // that is useless on a phone anyway. Saying so beats a silent failure.
-      if (bytes > 40 * 1024 * 1024) {
+      // Past this, do not even try to put it in the chat. whatsapp-web.js
+      // sends a document by pushing the whole thing through the browser it
+      // drives, and that is where "it generated the report but never sent it"
+      // came from. The file exists either way, so park it and send a link:
+      // the person gets the report, which is the point.
+      if (bytes > ATTACHMENT_LIMIT_BYTES) {
+        const stashed = await stashDocument({
+          organizationId: ctx.organizationId,
+          filename: friendlyFilename(config.name, range.from, range.to, format),
+          // The generator always sets one; the type allows undefined.
+          mimeType: result.mimeType ?? "application/octet-stream",
+          base64: result.data,
+          forPhone: ctx.actorPhone ?? null,
+          createdById: ctx.actorUserId ?? null,
+        });
         return {
-          error: `That report came to ${(bytes / 1024 / 1024).toFixed(0)}MB, which is too large to send over WhatsApp. Narrow the period, or download it from Reports in the web app.`,
+          report: config.name,
+          period: range.label,
+          format,
+          sizeKb: stashed.sizeKb,
+          sending: false,
+          // The model is told to pass this on, in its own words.
+          downloadUrl: stashed.url,
+          expiresAt: stashed.expiresAt.toISOString(),
+          note: `Too big to send in the chat (${(bytes / 1024 / 1024).toFixed(1)}MB). Give them the link — it works for 24 hours.`,
         };
       }
 

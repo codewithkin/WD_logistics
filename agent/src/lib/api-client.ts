@@ -759,8 +759,35 @@ export const notificationsApi = {
     }),
 };
 
+/**
+ * Somewhere to put a document WhatsApp would not carry.
+ *
+ * whatsapp-web.js sends a file by pushing it through the Chromium page it
+ * drives, which is slow at a megabyte and gives up well below WhatsApp's own
+ * limit — so "the report generated but never arrived" was the normal outcome
+ * for anything sizeable. The report exists by then, so it is parked in the
+ * app and the chat carries a link instead of an apology.
+ */
+export const documentsApi = {
+  stash: ({
+    organizationId,
+    ...file
+  }: {
+    organizationId: string;
+    filename: string;
+    mimeType: string;
+    base64: string;
+    phone?: string;
+  }) =>
+    makeRequest<{ url: string; filename: string; sizeKb: number; expiresAt: string }>(
+      "documents",
+      { organizationId, action: "stash", params: file },
+    ),
+};
+
 export const api = {
   trucks: trucksApi,
+  documents: documentsApi,
   drivers: driversApi,
   trips: tripsApi,
   invoices: invoicesApi,

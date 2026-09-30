@@ -169,6 +169,7 @@ export async function POST(request: NextRequest) {
     role: effectiveRole,
     actorName: contact.name,
     actorUserId: contact.userId,
+    actorPhone: phone,
   };
 
   switch (action) {

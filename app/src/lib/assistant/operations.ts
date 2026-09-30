@@ -99,6 +99,11 @@ export interface OperationContext {
   actorName: string;
   /** Linked dashboard user, where the admin has connected one. */
   actorUserId: string | null;
+  /**
+   * The number they are chatting from, for the audit trail on a document
+   * parked for collection. Optional: the in-app chat has no phone.
+   */
+  actorPhone?: string | null;
 }
 
 export interface Operation {

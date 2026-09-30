@@ -100,7 +100,7 @@ await notifyInvoiceCreated(
 );
 
 await notifyPaymentCreated(
-  { id: marker, invoiceNumber: "INV-TEST", customerName: "Farm Co", amount: 4200, method: "cash" },
+  { id: marker, paymentNumber: "PMT-TEST", customerName: "Farm Co", amount: 4200, method: "cash" },
   org.id,
   actor,
 );

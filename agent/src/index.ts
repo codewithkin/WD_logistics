@@ -15,7 +15,7 @@ import { answerMessage } from "./agents/assistant";
 import { uploadFile } from "./lib/assistant-client";
 import { logModelConfiguration } from "./lib/model";
 import { checkConfiguration } from "./lib/config-check";
-import { notificationsApi } from "./lib/api-client";
+import { documentsApi, notificationsApi } from "./lib/api-client";
 import { installCrashGuard } from "./lib/crash-guard";
 import { isAudio, transcribeVoiceNote } from "./lib/transcribe";
 import { checkMessageAllowance, noteMessageAccepted } from "./lib/usage-cap";
@@ -529,25 +529,7 @@ const initWhatsApp = async () => {
           // it after the sentence about it, so the chat reads as an answer
           // followed by the document rather than a document out of nowhere.
           for (const file of reply.attachments) {
-            try {
-              const { MessageMedia } = await import("whatsapp-web.js");
-              const media = new MessageMedia(
-                file.mimeType,
-                file.base64,
-                file.filename,
-              );
-              await msg.reply(media, undefined, {
-                sendMediaAsDocument: true,
-                caption: file.filename,
-              });
-              console.log(`📎 Sent ${file.filename}`);
-            } catch (sendError) {
-              console.error(`❌ Could not send ${file.filename}:`, sendError);
-              await replyToMessage(
-                msg,
-                `I made ${file.filename} but couldn't send it here. Download it from Reports in the web app.`,
-              );
-            }
+            await deliverFile(msg, phoneNumber, file, replyToMessage);
           }
           console.log(`✅ Message sent to ${phoneNumber}`);
           console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
@@ -638,3 +620,71 @@ installCrashGuard(() => getAgentWhatsAppClient().markBrowserLost());
 initWhatsApp();
 
 export default app;
+
+/**
+ * Put a generated file in front of the person who asked for it.
+ *
+ * Tries the chat first, because a document in the thread is what was asked
+ * for. whatsapp-web.js sends one by serialising it through the Chromium page
+ * it drives, which is slow at a megabyte and fails outright often enough that
+ * "it generated the report but never sent it" was the normal experience. So a
+ * failure is not the end: the file is parked in the app and the chat gets a
+ * link that works for a day.
+ *
+ * The only outcome that should ever reach somebody is the report, one way or
+ * the other. Telling them to go and find it in the web app is what this
+ * replaces.
+ */
+async function deliverFile(
+  // Same loose type as the handler this is called from: whatsapp-web.js's
+  // Message is not exported in a form that survives the dynamic import.
+  msg: any, // eslint-disable-line @typescript-eslint/no-explicit-any
+  phoneNumber: string,
+  file: { filename: string; mimeType: string; base64: string },
+  reply: (msg: any, text: string) => Promise<unknown>, // eslint-disable-line @typescript-eslint/no-explicit-any
+): Promise<void> {
+  const sizeKb = Math.round((file.base64.length * 3) / 4 / 1024);
+
+  try {
+    const { MessageMedia } = await import("whatsapp-web.js");
+    const media = new MessageMedia(file.mimeType, file.base64, file.filename);
+    await msg.reply(media, undefined, {
+      sendMediaAsDocument: true,
+      caption: file.filename,
+    });
+    console.log(`📎 Sent ${file.filename} (${sizeKb}KB)`);
+    return;
+  } catch (sendError) {
+    // Logged in full: this is the failure that used to be invisible, and the
+    // reason matters when it happens again.
+    console.error(
+      `⚠️  WhatsApp would not carry ${file.filename} (${sizeKb}KB):`,
+      sendError instanceof Error ? sendError.message : sendError,
+    );
+  }
+
+  try {
+    const stashed = await documentsApi.stash({
+      organizationId: ORGANIZATION_ID,
+      filename: file.filename,
+      mimeType: file.mimeType,
+      base64: file.base64,
+      phone: phoneNumber,
+    });
+    await reply(
+      msg,
+      `Here is ${file.filename} — WhatsApp would not take the file itself:\n${stashed.url}\n\nThe link works for 24 hours.`,
+    );
+    console.log(`🔗 Handed over as a link instead: ${stashed.url}`);
+  } catch (stashError) {
+    console.error(
+      `❌ Could not park ${file.filename} either:`,
+      stashError instanceof Error ? stashError.message : stashError,
+    );
+    await reply(
+      msg,
+      `I made ${file.filename} but could not get it to you — the file would not send and the download link could not be created. An admin can pull it from Reports in the web app.`,
+    );
+  }
+}
+

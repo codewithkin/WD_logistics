@@ -95,8 +95,8 @@ that they did not themselves enter?** If yes, it is the owner's.
 | Revenue, profit, margin — anywhere | ✅ | **—** | — | — |
 
 > **Accounts is the subtle one, and it changed on 30 Sep.** A supervisor
-> records money *out* and can see the money-out entries, so they can check
-> their own work. They never see a balance, a total, or a money-**in** line —
+> records money *out* and can see **their own** money-out entries, so they can
+> check their own work — not anybody else's, and no running total beside them. They never see a balance, a total, or a money-**in** line —
 > because a list of everything in and out *is* the balance, arrived at with a
 > calculator.
 >

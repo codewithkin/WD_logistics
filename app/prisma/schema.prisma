@@ -154,6 +154,7 @@ model Organization {
   editRequests      EditRequest[]
   driverAssignments DriverTruckAssignment[]
   whatsappContacts  WhatsAppContact[]
+  documentHandoffs  DocumentHandoff[]
 
   @@map("organization")
 }
@@ -957,6 +958,40 @@ model Report {
 // The point of the extra columns: a driver turning up saying "what WhatsApp
 // message?" used to be unanswerable, because sending was fire-and-forget. The
 // trip page can now say sent, delivered, read or failed-and-why.
+/// A document produced for somebody in a chat, waiting to be collected.
+///
+/// The assistant sends a report as a WhatsApp document. When that fails — and
+/// it does: whatsapp-web.js pushes the whole file through the browser it
+/// drives, which gives up on anything large — the file has still been made,
+/// and dropping it on the floor is the worst of both worlds. It is parked
+/// here instead and the chat gets a link.
+///
+/// The token is the credential, so it is long, random and short-lived: the
+/// person receiving it is on a phone in a yard and will not be signing in.
+/// Rows past `expiresAt` are refused and swept.
+model DocumentHandoff {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  token          String   @unique
+  filename       String
+  mimeType       String
+  data           Bytes
+  sizeBytes      Int
+  /// The WhatsApp number it was made for, for the audit trail.
+  forPhone       String?
+  /// Who asked, when the number is linked to an account.
+  createdById    String?
+  expiresAt      DateTime
+  downloadedAt   DateTime?
+  downloadCount  Int      @default(0)
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId, createdAt])
+  @@index([expiresAt])
+  @@map("document_handoff")
+}
+
 model Notification {
   id             String    @id @default(cuid())
   organizationId String?
