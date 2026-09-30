@@ -173,20 +173,27 @@ try {
   let account = await prisma.financialAccount.findUniqueOrThrow({ where: { id: petty.id } });
   check(Math.abs(account.balance - 69.5) < 0.001, "deposit then withdrawal leaves 69.50");
 
-  let overdrawBlocked = false;
+  // An overspend goes through. `recordManualMovement` passes
+  // `allowOverdraw: true` because the client settled it on 30 Sep: refusing
+  // would either hand a supervisor the balance they may not see, in the error,
+  // or stop a yard paying for a tyre in the evening. The admin is told
+  // instead. These three assertions said the opposite and had been failing
+  // since — unnoticed, because this file is not wired into package.json.
+  let overdrawError: unknown = null;
   try {
-    await recordManualMovement({ accountId: petty.id, type: "withdrawal", amount: 1000, description: "Too much", createdById: user.id });
+    await recordManualMovement({ accountId: petty.id, type: "withdrawal", amount: 1000, description: "More than it holds", createdById: user.id });
   } catch (err) {
-    overdrawBlocked = err instanceof InsufficientBalanceError;
+    overdrawError = err;
   }
   account = await prisma.financialAccount.findUniqueOrThrow({ where: { id: petty.id } });
-  check(overdrawBlocked, "withdrawal larger than the balance is refused");
-  check(Math.abs(account.balance - 69.5) < 0.001, "refused withdrawal leaves the balance untouched");
+  check(!(overdrawError instanceof InsufficientBalanceError), "withdrawal larger than the balance goes through, not refused");
+  check(Math.abs(account.balance - -930.5) < 0.001, "and takes the balance negative (-930.50)");
 
   const ledger = await prisma.accountTransaction.findMany({ where: { accountId: petty.id }, orderBy: { createdAt: "asc" } });
-  check(ledger.length === 2, "exactly two ledger entries recorded (refused one isn't logged)");
+  check(ledger.length === 3, "all three movements are logged, the overspend included");
   check(ledger[0].type === "deposit" && ledger[0].balanceAfter === 100, "deposit entry has correct running balance");
   check(ledger[1].type === "withdrawal" && Math.abs(ledger[1].balanceAfter - 69.5) < 0.001, "withdrawal entry has correct running balance");
+  check(ledger[2].type === "withdrawal" && Math.abs(ledger[2].balanceAfter - -930.5) < 0.001, "the overspend is on the record with the balance it left");
   check(ledger.every((t) => t.createdById === user.id && t.description), "every entry records who and why");
   check(isDebitTransaction("withdrawal") && !isDebitTransaction("deposit"), "withdrawals count as money out in reports");
 
