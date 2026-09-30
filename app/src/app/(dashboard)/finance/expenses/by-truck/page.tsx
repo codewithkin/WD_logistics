@@ -19,7 +19,7 @@ interface ExpensesByTruckPageProps {
 }
 
 export default async function ExpensesByTruckPage({ searchParams }: ExpensesByTruckPageProps) {
-    const access = await pageAccess(["admin", "supervisor"]);
+    const access = await pageAccess(["admin"]);
     if (!access.allowed) return <NoAccess role={access.role} what="expenses by truck" />;
     const user = access.session;
     // A supervisor reads these costs on screen but cannot take them out of the

@@ -40,9 +40,16 @@ interface ExpensesOverviewProps {
      * the app, and the action refuses them, so the menu is not shown.
      */
     canExport?: boolean;
+    /**
+     * The Analytics tab: admin only since 2026-09-30. It is spending charted
+     * by truck, trip, driver and category — a report in everything but the
+     * name, and the same totals ACCESS_CONTROL.md keeps with the owner. The
+     * list beside it is the part of the page a supervisor works in and stays.
+     */
+    showAnalytics?: boolean;
 }
 
-export function ExpensesOverview({ categories, expenses, periodLabel = "This Period", canExport = false }: ExpensesOverviewProps) {
+export function ExpensesOverview({ categories, expenses, periodLabel = "This Period", canExport = false, showAnalytics = false }: ExpensesOverviewProps) {
     const [activeTab, setActiveTab] = useState("expenses");
     const tableRef = useState<any>(null)[1];
 
@@ -133,18 +140,25 @@ export function ExpensesOverview({ categories, expenses, periodLabel = "This Per
             {/* Main Content */}
             <div className="rounded-lg border bg-card">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b p-4">
-                    <Tabs value={activeTab} onValueChange={setActiveTab}>
-                        <TabsList className="grid w-full grid-cols-2 sm:w-auto">
-                            <TabsTrigger value="expenses" className="gap-2">
-                                <List className="h-4 w-4" />
-                                <span className="hidden sm:inline">Expenses</span>
-                            </TabsTrigger>
-                            <TabsTrigger value="charts" className="gap-2">
-                                <BarChart3 className="h-4 w-4" />
-                                <span className="hidden sm:inline">Analytics</span>
-                            </TabsTrigger>
-                        </TabsList>
-                    </Tabs>
+                    {showAnalytics ? (
+                        <Tabs value={activeTab} onValueChange={setActiveTab}>
+                            <TabsList className="grid w-full grid-cols-2 sm:w-auto">
+                                <TabsTrigger value="expenses" className="gap-2">
+                                    <List className="h-4 w-4" />
+                                    <span className="hidden sm:inline">Expenses</span>
+                                </TabsTrigger>
+                                <TabsTrigger value="charts" className="gap-2">
+                                    <BarChart3 className="h-4 w-4" />
+                                    <span className="hidden sm:inline">Analytics</span>
+                                </TabsTrigger>
+                            </TabsList>
+                        </Tabs>
+                    ) : (
+                        <h2 className="flex items-center gap-2 text-sm font-medium">
+                            <List className="h-4 w-4" />
+                            Expenses
+                        </h2>
+                    )}
 
                     <div className="flex gap-2 w-full sm:w-auto">
                         {canExport && (
@@ -182,9 +196,14 @@ export function ExpensesOverview({ categories, expenses, periodLabel = "This Per
                             <ExpensesTableClient expenses={expenses} />
                         </TabsContent>
 
-                        <TabsContent value="charts" className="mt-0">
-                            <ExpenseCharts categories={categories} />
-                        </TabsContent>
+                        {/* Not merely hidden: the charts fetch their own data,
+                            so leaving the panel mounted would have a supervisor
+                            pulling the by-category totals in the background. */}
+                        {showAnalytics && (
+                            <TabsContent value="charts" className="mt-0">
+                                <ExpenseCharts categories={categories} />
+                            </TabsContent>
+                        )}
                     </Tabs>
                 </div>
             </div>

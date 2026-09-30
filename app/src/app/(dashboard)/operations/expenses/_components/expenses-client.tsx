@@ -64,9 +64,15 @@ interface ExpensesClientProps {
     role: Role;
     canExport: boolean;
     periodLabel?: string;
+    /**
+     * The charts above the list: admin only since 2026-09-30. They are
+     * spending totalled by category, truck and driver — the owner's reading
+     * of the business, not a supervisor's record of what they paid out.
+     */
+    showAnalytics: boolean;
 }
 
-export function ExpensesClient({ expenses, categories, analytics, role, canExport, periodLabel }: ExpensesClientProps) {
+export function ExpensesClient({ expenses, categories, analytics, role, canExport, periodLabel, showAnalytics }: ExpensesClientProps) {
     const [selectedCategory, setSelectedCategory] = useState<string>("all");
 
     // Filter expenses based on selected category
@@ -152,14 +158,16 @@ export function ExpensesClient({ expenses, categories, analytics, role, canExpor
                 </TabsList>
 
                 <TabsContent value={selectedCategory} className="mt-6 space-y-6">
-                    <ExpensesAnalytics
-                        analytics={filteredAnalytics}
-                        expenses={analyticsExpenses}
-                        canExport={canExport}
-                        categoryId={selectedCategory === "all" ? undefined : selectedCategory}
-                        categoryName={currentCategoryName}
-                        periodLabel={periodLabel}
-                    />
+                    {showAnalytics && (
+                        <ExpensesAnalytics
+                            analytics={filteredAnalytics}
+                            expenses={analyticsExpenses}
+                            canExport={canExport}
+                            categoryId={selectedCategory === "all" ? undefined : selectedCategory}
+                            categoryName={currentCategoryName}
+                            periodLabel={periodLabel}
+                        />
+                    )}
                     <ExpensesTable expenses={filteredExpenses} role={role} />
                 </TabsContent>
             </Tabs>

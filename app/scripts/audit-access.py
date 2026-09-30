@@ -58,8 +58,11 @@ EXPECT = {
     "finance/expenses/new": {"admin", "supervisor"},
     "finance/expenses/[id]": {"admin", "supervisor"},
     "finance/expenses/[id]/edit": {"admin", "supervisor"},
-    "finance/expenses/analytics": {"admin", "supervisor"},
-    "finance/expenses/by-truck": {"admin", "supervisor"},
+    # 30 Sep: analytics is a report in all but name, and spending totalled by
+    # truck is a running total nobody typed in. By *trip* stays: that is the
+    # cost of a job a supervisor ran.
+    "finance/expenses/analytics": {"admin"},
+    "finance/expenses/by-truck": {"admin"},
     "finance/expenses/by-trip": {"admin", "supervisor"},
     "finance/expense-categories": {"admin", "supervisor"},
     "finance/expense-categories/[id]": {"admin", "supervisor"},

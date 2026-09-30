@@ -19,7 +19,7 @@ interface ExpenseAnalyticsPageProps {
 
 export default async function ExpenseAnalyticsPage({ searchParams }: ExpenseAnalyticsPageProps) {
     const params = await searchParams;
-    const access = await pageAccess(["admin", "supervisor"]);
+    const access = await pageAccess(["admin"]);
     if (!access.allowed) return <NoAccess role={access.role} what="expense analytics" />;
     const user = access.session;
 

@@ -6,7 +6,11 @@ import { NoAccess } from "@/components/layout/no-access";
 import { pageAccess } from "@/lib/session";
 import { getDateRangeFromParams } from "@/lib/period-utils";
 import { ExpensesPeriodSelector } from "./_components/expenses-period-selector";
-import { canViewExpensesPage, canViewAccountBalances } from "@/lib/permissions";
+import {
+    canViewExpensesPage,
+    canViewAccountBalances,
+    canViewExpenseAnalytics,
+} from "@/lib/permissions";
 import { getAccounts } from "../accounts/actions";
 import { redirect } from "next/navigation";
 
@@ -111,7 +115,13 @@ export default async function ExpensesPage({ searchParams }: ExpensesPageProps) 
                 <ExpensesPeriodSelector />
             </div>
             {showAccountBalances && <AccountBalancesSummary accounts={accounts} />}
-            <ExpensesOverview categories={categories} expenses={expenses} periodLabel={dateRange.label} canExport={user.role === "admin"} />
+            <ExpensesOverview
+                categories={categories}
+                expenses={expenses}
+                periodLabel={dateRange.label}
+                canExport={user.role === "admin"}
+                showAnalytics={canViewExpenseAnalytics(user.role)}
+            />
         </div>
     );
 }

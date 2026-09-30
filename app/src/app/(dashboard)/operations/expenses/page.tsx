@@ -8,7 +8,7 @@ import { getDateRangeFromParams } from "@/lib/period-utils";
 import { PagePeriodSelector } from "@/components/ui/page-period-selector";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { canViewExpensesPage } from "@/lib/permissions";
+import { canViewExpensesPage, canViewExpenseAnalytics } from "@/lib/permissions";
 import { redirect } from "next/navigation";
 
 interface ExpensesPageProps {
@@ -136,6 +136,7 @@ export default async function ExpensesPage({ searchParams }: ExpensesPageProps) 
                 role={role}
                 canExport={canExport}
                 periodLabel={dateRange.label}
+                showAnalytics={canViewExpenseAnalytics(role)}
             />
         </div>
     );
