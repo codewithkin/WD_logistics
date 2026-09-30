@@ -21,6 +21,25 @@ import type { Operation, OperationContext } from "@/lib/assistant/operations";
 
 const ROLES = ["admin", "supervisor", "staff", "workshop"] as const;
 
+/**
+ * The roles the assistant may hand out. Admin is not among them.
+ *
+ * Making someone an admin gives them every figure the business has and the
+ * power to make more admins. Over WhatsApp the only proof of who is asking
+ * is a phone number — a SIM swap, a borrowed handset or a lifted phone is
+ * enough — and unlike a write it cannot be undone by an edit request,
+ * because the new admin can approve their own.
+ *
+ * So it stays in the web app, behind a session. Everything else the
+ * assistant can do; this one it refuses and says where to go.
+ */
+const ASSISTANT_ASSIGNABLE_ROLES = ["supervisor", "staff", "workshop"] as const;
+
+const NOT_OVER_WHATSAPP =
+  "Making someone an admin has to be done in the web app, under Users — " +
+  "not by message. I can set them up as supervisor, staff or workshop here " +
+  "and an admin can raise them afterwards.";
+
 /** Finds one member by name or email, or explains why it can't. */
 async function findMember(ctx: OperationContext, phrase: string) {
   const words = phrase.trim().split(/\s+/).filter(Boolean);
@@ -112,13 +131,22 @@ export const adminOperations: Operation[] = [
       name: z.string().describe("Their full name"),
       email: z.string().describe("Their email address"),
       role: z
-        .enum(ROLES)
+        .enum(ASSISTANT_ASSIGNABLE_ROLES)
         .describe(
-          "admin (everything), supervisor (operations), staff (view and create), workshop (maintenance jobs)",
+          "supervisor (operations), staff (view and create), workshop (maintenance jobs). Admin cannot be set from here — it is done in the web app.",
         ),
     }),
     handler: async (args) => {
-      const a = args as { name: string; email: string; role: (typeof ROLES)[number] };
+      const a = args as {
+        name: string;
+        email: string;
+        role: (typeof ROLES)[number];
+      };
+
+      // The schema already refuses it; this is here because the schema is
+      // one cast away from being taken on trust, and the cost of being
+      // wrong is an admin nobody meant to create.
+      if (a.role === "admin") return { error: NOT_OVER_WHATSAPP };
 
       const { createUserWithRole } = await import(
         "@/app/(dashboard)/users/actions"
@@ -265,10 +293,16 @@ export const adminOperations: Operation[] = [
     writes: true,
     schema: z.object({
       person: z.string().describe("Their name or email"),
-      role: z.enum(ROLES),
+      role: z
+        .enum(ASSISTANT_ASSIGNABLE_ROLES)
+        .describe(
+          "supervisor, staff or workshop. Raising someone to admin is done in the web app.",
+        ),
     }),
     handler: async (args, ctx) => {
       const a = args as { person: string; role: (typeof ROLES)[number] };
+      if (a.role === "admin") return { error: NOT_OVER_WHATSAPP };
+
       const found = await findMember(ctx, a.person);
       if (!found.ok) return { error: found.error };
 
