@@ -81,6 +81,50 @@ async function receiptPng(): Promise<{ base64: string; mimeType: string }> {
   };
 }
 
+/**
+ * Delete the account the invite check created, and everything hanging off it.
+ *
+ * This used to import the app's Prisma client across the package boundary,
+ * which never resolved from here — so every run left a real user behind and
+ * printed a note asking someone to go and delete it. The agent already has
+ * `pg` and DATABASE_URL for the WhatsApp session store.
+ *
+ * Better-auth spreads a user across member, account and session rows, all
+ * with foreign keys back to user, so deleting the user alone fails on those.
+ */
+async function removeUser(email: string): Promise<void> {
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) {
+    console.log(`   ! DATABASE_URL is not set, so ${email} is still there. Remove it by hand.`);
+    return;
+  }
+
+  const { Client } = await import("pg");
+  const db = new Client({ connectionString });
+  try {
+    await db.connect();
+    const found = await db.query<{ id: string }>(
+      `SELECT id FROM "user" WHERE email = $1`,
+      [email],
+    );
+    if (found.rows.length === 0) {
+      console.log(`   ! ${email} was never created, so there was nothing to clean up.`);
+      return;
+    }
+    const id = found.rows[0]!.id;
+    for (const table of ["member", "account", "session"]) {
+      await db.query(`DELETE FROM "${table}" WHERE "userId" = $1`, [id]);
+    }
+    await db.query(`DELETE FROM "user" WHERE id = $1`, [id]);
+    console.log(`   removed ${email}`);
+  } catch (error) {
+    console.log(`   ! could not remove ${email}: ${String(error)}. Remove it by hand.`);
+  } finally {
+    await db.end().catch(() => {});
+  }
+}
+
+
 console.log(`model: ${ASSISTANT_MODEL}\n`);
 
 // ---------------------------------------------------------------- 1. invites
@@ -104,15 +148,13 @@ console.log(`model: ${ASSISTANT_MODEL}\n`);
   );
 
   // Clean up the account it just made.
-  const { prisma } = await import("../../app/src/lib/prisma").catch(() => ({
-    prisma: null as never,
-  }));
-  if (prisma) {
-    await prisma.member.deleteMany({ where: { user: { email } } }).catch(() => {});
-    await prisma.user.deleteMany({ where: { email } }).catch(() => {});
-  } else {
-    console.log(`   ↳ remove ${email} by hand (this script cannot reach the app's Prisma)`);
-  }
+  //
+  // This used to import the app's Prisma client across the package boundary,
+  // which never resolved from here — so every run left a real user behind and
+  // printed a note asking someone to go and delete it. The agent already has
+  // `pg` and DATABASE_URL for the WhatsApp session store; one statement is
+  // less machinery than a cross-package import that does not work.
+  await removeUser(email);
 }
 
 // ---------------------------------------------------------------- 2. reports

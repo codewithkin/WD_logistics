@@ -9,6 +9,7 @@
     "start": "node dist/index.js",
     "dev:whatsapp": "tsx src/index.ts",
     "check:whatsapp": "tsx scripts/check-whatsapp-session.ts",
+    "check:capabilities": "tsx scripts/live-capability-check.ts",
     "check:assistant": "tsx scripts/live-assistant-check.ts",
     "check:format": "tsx scripts/check-whatsapp-format.ts"
   },
@@ -28,6 +29,7 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@napi-rs/canvas": "^1.0.9",
     "@types/node": "^22.10.2",
     "@types/pg": "^8.23.1",
     "tsx": "^4.19.2",
