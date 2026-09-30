@@ -986,3 +986,100 @@ to the refused field) are covered by the unit checks and the pre-hydration
 path, not by a click in the preview — the browser pane reported
 `visibilityState: "hidden"` throughout this round, and React defers hydrating
 a Suspense boundary while the document is hidden.
+
+## Going live: the reset, the root account, and a pass for production (2026-09-30)
+
+The team had been practising in the live system for weeks, so the database
+was full of invented customers and trips they had made while learning the UI.
+The ask: a reset button that clears it, one admin account that survives, and
+a last look for the errors a compiler cannot see.
+
+### The root admin
+
+`admin@wd-logistics.co.zw`, seeded with `00000000` and changed at the first
+sign-in. It is an ordinary admin in every respect but three: no other admin
+can change its password, demote it or remove it; it is the only account that
+can press Reset Everything; and it is what the reset leaves standing.
+
+That last rule is not ceremony. The reset deletes every account but the
+root's, so an ordinary admin pressing it would delete themselves halfway
+through their own request and be signed out into an organisation they could
+no longer administer.
+
+`ROOT_ADMIN_EMAIL` falls back to `SEED_ADMIN_EMAIL`, so a deployment that
+overrides one and not the other still protects the account it seeded. **If
+Coolify still has `SEED_ADMIN_EMAIL=dziruniw@gmail.com` set, that becomes the
+root instead** — clear it or set both.
+
+`ensure-admin.mjs` now repairs as well as creates: an account that exists with
+no membership, or with no `credential` row, cannot sign in at all, and the
+second is exactly the state a restore-from-backup can leave. It was not
+hypothetical — the new check caught it on the first run.
+
+### What the reset does
+
+Deletes: the fleet, the trips, the money, every other user account and their
+sessions, every employee, every assignment, every pending invitation, every
+push subscription, the assistant's contact list, every message it exchanged,
+everything it remembers (Mastra's tables in the `mastra` schema), every parked
+document, every notification.
+
+Keeps: the organisation's own settings (letterhead, bank details, VAT number —
+configuration the client typed, and retyping it is how an invoice goes out
+wrong), the WhatsApp pairing (the company's own number, scanned from a phone
+that may not be in the room), and the root account. The three financial
+accounts come back at zero, balance *and* starting balance.
+
+Puts back: nine standard expense categories, with their `kind` set. Without
+them the first thing the client meets is an expense form they cannot complete.
+Only ever on an organisation that has none.
+
+`bun run check:reset` proves it by pressing the button, so it is deliberately
+outside `bun run check` — it empties the database it runs against.
+
+### What the production pass turned up
+
+- **A truck showed two contradictory sets of figures on one screen.** The
+  cards at the top counted revenue from every trip whatever its status and
+  expenses booked only directly against the truck; the panel below used the
+  canonical definitions. "Revenue $2,400 / Expenses $0 / Profit $2,400" above
+  "Revenue earned $0 / Costs $1,280 / Loss $1,280". Both now read the same
+  source.
+- **Settings offered a Currency and a Timezone dropdown that did nothing.**
+  Saved, confirmed with "Settings updated successfully", never read again —
+  every figure is USD and every date renders in the reader's own timezone. The
+  list did not even include Africa/Harare while offering Nairobi and the
+  Kenyan Shilling. The tab states what actually happens instead.
+- **The founder's personal Gmail was the fallback company address** on every
+  invoice and statement, so a customer replying to one reached an inbox rather
+  than the office.
+- **Five WhatsApp notifications opened with "Mr Dziruni,"** whoever they went
+  to. The petty-cash dialog suggested his name in its example.
+- `VAPID_SUBJECT` defaulted to `mailto:admin@example.com`, which Apple
+  rejects; one of the two checks guarding it was dead code returning null
+  either way.
+- The agent carried a `BUSINESS_INFO` block nothing imported, with the address
+  the client had settled against.
+- `lessons/supervisor.md` still promised the per-truck breakdown and the
+  account balances taken away on 30 Sep.
+
+### The suite only worked on a seeded database
+
+Four checks read whatever the seed had left lying about — a part-paid invoice,
+a payment, a customer, a supplier, a supervisor — and on an empty database
+reported "seed a customer first" and took the run down. Each makes what it
+needs now and removes it again, so `bun run check` passes on a system that has
+just been reset, which is the state the client's own system is in.
+
+Walked all 22 pages on an empty database: every one renders, nothing shows
+NaN, Infinity or undefined. Then walked day one through the real server
+actions — invite a supervisor, add a truck, a driver, a customer, book a trip,
+record fuel with litres — and every step worked. That walk is what turned up
+the truck page's two sets of figures.
+
+### Still untested
+
+The assistant has never run against a live model or a paired number
+(`bun run check:capabilities` in `agent/` is written and unrun, and needs
+`@napi-rs/canvas`). Neither mail path has run against the real SMTP
+credentials.
