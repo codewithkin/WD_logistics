@@ -125,6 +125,119 @@ async function removeUser(email: string): Promise<void> {
 }
 
 
+/**
+ * Say a line out loud and hand back the WAV, base64.
+ *
+ * Windows only, through the speech synthesiser that ships with it. Returns
+ * null anywhere else so the caller can say the case was skipped rather than
+ * report a pass it did not earn.
+ */
+async function speakToWav(line: string): Promise<string | null> {
+  if (process.platform !== "win32") return null;
+
+  const { execFile } = await import("node:child_process");
+  const { promisify } = await import("node:util");
+  const fs = await import("node:fs/promises");
+  const path = await import("node:path");
+  const os = await import("node:os");
+
+  const out = path.join(os.tmpdir(), `wd-voice-check-${Date.now()}.wav`);
+  const script =
+    "Add-Type -AssemblyName System.Speech; " +
+    "$s = New-Object System.Speech.Synthesis.SpeechSynthesizer; " +
+    `$s.SetOutputToWaveFile(${JSON.stringify(out)}); ` +
+    `$s.Speak(${JSON.stringify(line)}); $s.Dispose();`;
+
+  try {
+    await promisify(execFile)("powershell", ["-NoProfile", "-Command", script], {
+      timeout: 60000,
+    });
+    const wav = await fs.readFile(out);
+    await fs.unlink(out).catch(() => {});
+    return wav.toString("base64");
+  } catch {
+    return null;
+  }
+}
+
+
+/**
+ * The expenses of a given amount, before the voice case runs.
+ *
+ * Identity, not time. Two earlier attempts at this went wrong: a tag spoken
+ * into the recording came back as "lift test" and matched nothing, and then a
+ * "created since" window silently matched nothing either, because these
+ * columns are `timestamp without time zone` and node-pg reads them as local
+ * time — two hours out here. Ids do not drift.
+ */
+async function expensesOfAmount(amount: number): Promise<Set<string>> {
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) return new Set();
+
+  const { Client } = await import("pg");
+  const db = new Client({ connectionString });
+  try {
+    await db.connect();
+    const found = await db.query<{ id: string }>(
+      `SELECT id FROM expense WHERE amount = $1`,
+      [amount],
+    );
+    return new Set(found.rows.map((row) => row.id));
+  } catch {
+    return new Set();
+  } finally {
+    await db.end().catch(() => {});
+  }
+}
+
+/**
+ * Take out whatever the voice case booked — anything of that amount that was
+ * not there beforehand — along with the account transaction that debited it
+ * and the join rows hanging off it. A check that leaves money in the accounts
+ * is worse than one that does not run.
+ */
+async function removeExpensesAddedSince(
+  amount: number,
+  before: Set<string>,
+): Promise<void> {
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) {
+    console.log("   ! DATABASE_URL is not set — remove the test expense by hand.");
+    return;
+  }
+
+  const after = await expensesOfAmount(amount);
+  const ids = [...after].filter((id) => !before.has(id));
+  if (ids.length === 0) {
+    console.log("   ! nothing new to clean up — check by hand.");
+    return;
+  }
+
+  const { Client } = await import("pg");
+  const db = new Client({ connectionString });
+  try {
+    await db.connect();
+    for (const table of [
+      "account_transaction",
+      "truck_expense",
+      "trailer_expense",
+      "trip_expense",
+      "driver_expense",
+    ]) {
+      await db
+        .query(`DELETE FROM ${table} WHERE "expenseId" = ANY($1::text[])`, [ids])
+        .catch(() => {});
+    }
+    await db.query(`DELETE FROM expense WHERE id = ANY($1::text[])`, [ids]);
+    console.log(`   removed ${ids.length} test expense(s)`);
+  } catch (error) {
+    console.log(`   ! could not remove the test expense: ${String(error)}`);
+  } finally {
+    await db.end().catch(() => {});
+  }
+}
+
+
 console.log(`model: ${ASSISTANT_MODEL}\n`);
 
 // ---------------------------------------------------------------- 1. invites
@@ -205,6 +318,74 @@ console.log(`model: ${ASSISTANT_MODEL}\n`);
     /54/.test(said),
     /54/.test(said) ? "54 litres" : "did not mention the quantity",
   );
+}
+
+// ------------------------------------------------------------ 4. voice notes
+//
+// The chain this proves is audio -> words -> action. Transcription on its own
+// was measured when it was built; what was never shown is that the transcript
+// then reaches a tool, which is the only part a person in a yard cares about.
+//
+// The speech is synthesised rather than committed as base64, for the same
+// reason the receipt above is drawn: a fixture nobody can read is a fixture
+// nobody can tell has stopped testing what it claims. Windows speaks it
+// through SAPI; elsewhere the case says why it did not run rather than
+// passing quietly.
+{
+  // This case really does book an expense — anything less would not show the
+  // words reached a tool — so the row is taken out again afterwards, found by
+  // comparing the expenses of that amount before and after.
+  const expensesBefore = await expensesOfAmount(200);
+  const spoken = await speakToWav(
+    "Record two hundred dollars of diesel for truck K B Z 123 A",
+  );
+
+  if (!spoken) {
+    record(
+      "a voice note is heard and acted on",
+      true,
+      "skipped — no speech synthesiser here (Windows only); run it on Windows to prove this",
+    );
+  } else {
+    const { transcribeVoiceNote } = await import("../src/lib/transcribe");
+    const heard = await transcribeVoiceNote({
+      base64: spoken,
+      mimeType: "audio/wav",
+    });
+
+    record(
+      "a voice note is transcribed",
+      Boolean(heard?.text),
+      heard ? `"${heard.text}"` : "nothing came back",
+    );
+
+    if (heard) {
+      // In a finally, because a throw halfway through still leaves the row —
+      // and a check that walks away from money in the accounts is worse than
+      // one that never ran.
+      try {
+        // What index.ts hands the assistant once it has the words.
+        const reply = await answerMessage({
+          phone: OWNER,
+          message: `[Voice note, transcribed] ${heard.text}`,
+          remember: false,
+        });
+        const called = reply.toolCalls.map((c) => c.tool);
+        record(
+          "and the words reach a tool, not just the reply",
+          called.includes("record_expense"),
+          called.length ? `called ${called.join(", ")}` : "no tool call at all",
+        );
+        record(
+          "with the amount off the recording",
+          /200/.test(reply.text),
+          reply.text.replace(/\s+/g, " ").slice(0, 110),
+        );
+      } finally {
+        await removeExpensesAddedSince(200, expensesBefore);
+      }
+    }
+  }
 }
 
 const failed = checks.filter((check) => !check.ok).length;
