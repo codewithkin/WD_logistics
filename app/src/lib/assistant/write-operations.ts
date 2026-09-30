@@ -291,7 +291,14 @@ export const writeOperations: Operation[] = [
     name: "log_maintenance",
     description:
       "Report a fault on a truck or trailer, so the workshop sees it. Optionally assign it to a workshop worker.",
-    requires: "staff",
+    // Supervisor, not staff. ACCESS_CONTROL.md gives staff no maintenance at
+    // all ("Staff exist for typing in fleet and trip records"), and
+    // createMaintenanceRequest asserts admin-or-supervisor. Offering it to
+    // staff here did not let anything through — the action refused it — but
+    // the assistant agreed to log the fault and then answered with a bare
+    // "you don't have permission", which reads as a broken bot rather than a
+    // rule. A tool a role cannot use should not be on its list.
+    requires: "supervisor",
     writes: true,
     schema: z.object({
       vehicle: z.string().describe("Truck or trailer registration"),

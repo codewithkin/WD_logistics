@@ -255,11 +255,22 @@ const CASES: Case[] = [
     },
   },
 
-  // --- staff: reporting a fault is the one thing staff adds to readonly.
+  // --- staff: maintenance is not theirs either.
+  //
+  // This case used to assert the opposite — that logging a fault was the one
+  // thing staff added to readonly. ACCESS_CONTROL.md says otherwise: staff
+  // are "—" on Maintenance and exist "for typing in fleet and trip records".
+  // The action always refused them; only the assistant's tool list disagreed,
+  // so staff were told the fault was logged and then handed a bare permission
+  // error. The refusal has to come before the promise.
   {
     who: "workshop clerk", phone: HAND,
-    ask: "the brakes on KBZ 456H are grinding, log it for the workshop — LIVETEST",
-    expect: { anyTool: ["log_maintenance"], wrote: true, says: [/KBZ ?456H|logged|record/i] },
+    ask: "the brakes on KBZ 456H are grinding, log it for the workshop",
+    expect: {
+      noTool: ["log_maintenance"],
+      wrote: false,
+      says: [/can'?t|cannot|not allowed|permission|admin|supervisor|access/i],
+    },
   },
   // --- ...and invoices are not, whatever the settings page used to claim.
   {

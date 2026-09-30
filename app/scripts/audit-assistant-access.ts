@@ -81,7 +81,7 @@ const EXPECTED_NEW_AT: Record<Level, string[]> = {
     "list_trips",
     "list_trucks",
   ],
-  staff: ["log_maintenance", "withdraw_my_change"],
+  staff: ["withdraw_my_change"],
   supervisor: [
     "adjust_stock",
     "adjust_supplier_balance",
@@ -104,6 +104,7 @@ const EXPECTED_NEW_AT: Record<Level, string[]> = {
     "get_truck_costs",
     "list_invoices",
     "list_sent_messages",
+    "log_maintenance",
     "mark_supplier_expense_paid",
     "notify_driver",
     "pay_supplier",
