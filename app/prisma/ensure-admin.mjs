@@ -62,26 +62,23 @@ async function main() {
 
   // Somewhere to put the first expense. Every expense form needs a category,
   // and a brand-new deployment has none — so the first thing the client meets
-  // is a form they cannot complete. Additive and matched on name: an
-  // organisation that already has its own categories gets nothing new, and
-  // one that renamed "Fuel" keeps the rename.
-  const existingCategories = await prisma.expenseCategory.findMany({
+  // is a form they cannot complete.
+  //
+  // Only when there are none at all. Topping up whichever of the nine were
+  // missing would add nine categories to a business that calls its own
+  // Diesel, Rubber and Papers, on every single deploy.
+  const categoryCount = await prisma.expenseCategory.count({
     where: { organizationId: organization.id },
-    select: { name: true },
   });
-  const have = new Set(existingCategories.map((c) => c.name.trim().toLowerCase()));
-  const missingCategories = STANDARD_EXPENSE_CATEGORIES.filter(
-    (category) => !have.has(category.name.toLowerCase())
-  );
-  if (missingCategories.length > 0) {
+  if (categoryCount === 0) {
     await prisma.expenseCategory.createMany({
-      data: missingCategories.map((category) => ({
+      data: STANDARD_EXPENSE_CATEGORIES.map((category) => ({
         ...category,
         organizationId: organization.id,
       })),
       skipDuplicates: true,
     });
-    console.log(`✅ Added ${missingCategories.length} standard expense categories`);
+    console.log(`✅ Added ${STANDARD_EXPENSE_CATEGORIES.length} standard expense categories`);
   }
 
   const existingAdmin = await prisma.user.findFirst({

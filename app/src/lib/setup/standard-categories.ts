@@ -14,30 +14,25 @@ import { STANDARD_EXPENSE_CATEGORIES } from "@/lib/setup/standard-categories-dat
 /**
  * Create any of the standard categories this organisation does not have.
  *
- * Idempotent and additive — it matches on name and never touches one that
- * exists, so an admin who renamed "Fuel" to "Diesel" gets a second category
- * called Fuel rather than having their own quietly rewritten. That is the
- * lesser of the two surprises: an extra row is visible and deletable, and a
- * rewritten one is neither.
+ * Only on an organisation that has none — see below.
  *
  * Returns how many it created, which the reset reports.
  */
 export async function ensureStandardExpenseCategories(
   organizationId: string,
 ): Promise<number> {
-  const existing = await prisma.expenseCategory.findMany({
-    where: { organizationId },
-    select: { name: true },
-  });
-  const have = new Set(existing.map((row) => row.name.trim().toLowerCase()));
-
-  const missing = STANDARD_EXPENSE_CATEGORIES.filter(
-    (category) => !have.has(category.name.toLowerCase()),
-  );
-  if (missing.length === 0) return 0;
+  // Only when there are none at all.
+  //
+  // Filling in whichever of the nine were "missing" sounds more helpful and
+  // is worse: a business that calls its categories Diesel, Rubber and Papers
+  // would get nine more on the next deploy, every deploy, until somebody
+  // deleted them one at a time. An empty chart of accounts is the only state
+  // where this is unambiguously a help rather than an opinion.
+  const existing = await prisma.expenseCategory.count({ where: { organizationId } });
+  if (existing > 0) return 0;
 
   const result = await prisma.expenseCategory.createMany({
-    data: missing.map((category) => ({ ...category, organizationId })),
+    data: STANDARD_EXPENSE_CATEGORIES.map((category) => ({ ...category, organizationId })),
     skipDuplicates: true,
   });
   return result.count;
