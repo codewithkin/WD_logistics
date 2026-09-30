@@ -91,6 +91,18 @@ const created = {
   employeeIds: [] as string[],
 };
 
+const startedAt = new Date();
+
+// Account balances as they stand before any of this runs, so they can be put
+// back. `balance` is denormalised on the account, so deleting the ledger rows
+// this check writes does not undo their effect — which is how an overspend
+// this check performs on purpose left Petty Cash at -$19,999,998.
+const balancesBefore = new Map(
+  (
+    await prisma.financialAccount.findMany({ select: { id: true, balance: true } })
+  ).map((a) => [a.id, a.balance]),
+);
+
 try {
   await runAsActor(
     {
@@ -274,16 +286,80 @@ try {
         (moneyOut.error as string) ?? `back to ${cashBack?.balance}`,
       );
 
+      // An overspend goes through, and the owner is told. This case asserted
+      // the opposite until the client settled it on 30 Sep: refusing with
+      // "that is more than the account holds" would tell a supervisor the
+      // balance they are not allowed to see, and refusing silently would stop
+      // the work, so it is accepted and the admin gets a tier-1 notification.
+      //
+      // Asserting the old rule did real damage. Because the overspend is in
+      // fact allowed, every run wrote one and the description did not match
+      // the cleanup's filter, so Petty Cash stood at -$19,999,998 from two
+      // runs by the time this was corrected — a red check quietly wrecking
+      // the account it was testing.
+      const overdrawn = await prisma.financialAccount.findFirst({
+        where: { organizationId: admin.organizationId, type: "petty_cash" },
+        select: { id: true, balance: true },
+      });
       const overdraw = await call("record_money_out", {
         account: "petty_cash",
-        amount: 9_999_999,
-        description: "Testing the overdraw guard",
+        amount: (overdrawn?.balance ?? 0) + 5_000,
+        description: "Assistant write check, deliberate overspend",
+      });
+      const afterOverdraw = await prisma.financialAccount.findFirst({
+        where: { id: overdrawn?.id ?? "" },
+        select: { balance: true },
       });
       record(
-        "overdrawing refused",
-        Boolean(overdraw.error),
-        (overdraw.error as string) ?? "it was allowed, which is wrong",
+        "an overspend goes through rather than being refused",
+        !overdraw.error && (afterOverdraw?.balance ?? 0) < 0,
+        (overdraw.error as string) ?? `petty cash now ${afterOverdraw?.balance}`,
       );
+      // The other half of the rule, and the only thing that makes letting an
+      // overspend through safe. Without it this check would pass just as well
+      // with the notification deleted.
+      //
+      // `notifyIfAccountOverdrawn` excludes whoever caused it, and this whole
+      // run acts as the admin, so on a database whose only admin is the actor
+      // there is genuinely nobody left to tell. That is stated rather than
+      // asserted away, so the case never claims to have proved something it
+      // could not reach.
+      // Driven with a supervisor as the actor, which is the case that matters
+      // and the only one that can be asserted here: the whole run acts as the
+      // admin, and a database with one admin has nobody left to tell once the
+      // actor is excluded. So the notification is invoked the way an
+      // overspend recorded from a phone invokes it, and the admin's row is
+      // then checked for.
+      const { notifyIfAccountOverdrawn } = await import("../../src/lib/notifications");
+      const supervisor = await prisma.member.findFirst({
+        where: { organizationId: admin.organizationId, role: "supervisor" },
+        include: { user: { select: { name: true, email: true } } },
+      });
+      if (!supervisor) {
+        record("and the admin is told about it", false, "no supervisor member — run db:seed");
+      } else {
+        await notifyIfAccountOverdrawn({
+          organizationId: admin.organizationId,
+          accountId: overdrawn?.id ?? "",
+          actorName: supervisor.user.name,
+          actorEmail: supervisor.user.email,
+          what: "a deliberate overspend, from the assistant write check",
+        });
+        const told = await prisma.userNotification.findFirst({
+          where: {
+            organizationId: admin.organizationId,
+            userId: admin.user.id,
+            title: { contains: "overdrawn" },
+            createdAt: { gte: startedAt },
+          },
+          select: { message: true },
+        });
+        record(
+          "and the admin is told about it",
+          Boolean(told),
+          told?.message ?? "no overdrawn notification reached the admin",
+        );
+      }
 
       // -------------------------------------------------- expense categories
       const madeCategory = await call("create_expense_category", {
@@ -482,10 +558,25 @@ try {
     for (const id of created.employeeIds) {
       await prisma.employee.deleteMany({ where: { id } });
     }
-    // The float in and back out again leaves two ledger rows; they are the
-    // record of a real movement, so they stay, but the note says why.
     await prisma.accountTransaction.deleteMany({
       where: { description: { contains: "Assistant write check" } },
+    });
+    // And put the balances back. Deleting the rows above does not, because
+    // `balance` is denormalised on the account — the float nets to zero on its
+    // own, but the deliberate overspend does not, and used to be left behind.
+    let restored = 0;
+    for (const [id, balance] of balancesBefore) {
+      const now = await prisma.financialAccount.findUnique({
+        where: { id },
+        select: { balance: true },
+      });
+      if (now && Math.round((now.balance - balance) * 100) !== 0) {
+        await prisma.financialAccount.update({ where: { id }, data: { balance } });
+        restored++;
+      }
+    }
+    await prisma.userNotification.deleteMany({
+      where: { title: { contains: "overdrawn" }, createdAt: { gte: startedAt } },
     });
     await prisma.editRequest.deleteMany({
       where: { reason: { contains: "over WhatsApp" }, entityType: "invoice" },
@@ -493,7 +584,7 @@ try {
     console.log(
       `\ncleaned up: ${created.invoiceIds.length} invoice(s), ${created.paymentIds.length} payment(s), ` +
         `${created.supplierPaymentIds.length} supplier payment(s), ${created.categoryIds.length} category(ies), ` +
-        `${created.employeeIds.length} employee(s)`,
+        `${created.employeeIds.length} employee(s), ${restored} account balance(s) restored`,
     );
   } finally {
     endReplay();
