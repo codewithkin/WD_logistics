@@ -41,6 +41,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { isRootAdmin } from "@/lib/root-admin";
 import { MoreHorizontal, Search, Trash2, Shield, KeyRound, Copy, Check } from "lucide-react";
 import { PaginationControls } from "@/components/ui/pagination-controls";
 import { usePagination } from "@/hooks/use-pagination";
@@ -250,6 +251,12 @@ export function UsersTable({ members, currentUserId }: UsersTableProps) {
                                 ) : (
                                     paginatedMembers.map((member) => {
                                         const isCurrentUser = member.user.id === currentUserId;
+                                        // The root account is not another
+                                        // admin's to change. The actions all
+                                        // refuse server-side; offering them
+                                        // and then refusing is how an admin
+                                        // learns the rule by being told off.
+                                        const isRoot = isRootAdmin(member.user.email);
 
                                         return (
                                             <TableRow key={member.id}>
@@ -283,7 +290,12 @@ export function UsersTable({ members, currentUserId }: UsersTableProps) {
                                                     {format(member.createdAt, "MMM d, yyyy")}
                                                 </TableCell>
                                                 <TableCell>
-                                                    {!isCurrentUser && (
+                                                    {isRoot && !isCurrentUser && (
+                                                        <span className="text-xs text-muted-foreground">
+                                                            Root account
+                                                        </span>
+                                                    )}
+                                                    {!isCurrentUser && !isRoot && (
                                                         <DropdownMenu>
                                                             <DropdownMenuTrigger asChild>
                                                                 <Button variant="ghost" size="icon">
