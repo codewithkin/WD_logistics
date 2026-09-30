@@ -11,6 +11,7 @@
     "check:whatsapp": "tsx scripts/check-whatsapp-session.ts",
     "check:capabilities": "tsx scripts/live-capability-check.ts",
     "check:assistant": "tsx scripts/live-assistant-check.ts",
+    "check:cap": "tsx scripts/check-usage-cap.ts",
     "check:format": "tsx scripts/check-whatsapp-format.ts"
   },
   "dependencies": {
