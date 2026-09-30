@@ -167,19 +167,67 @@ export function canViewFinancialData(role: Role): boolean {
 }
 
 /**
- * Who may see what things *cost* — expenses, maintenance spend, cost per km.
+ * Who may see what a *single piece of work* cost — an expense amount, a
+ * trip's expenses, what a supplier was paid.
  *
  * Distinct from `canViewFinancialData`, which governs what the business
  * *earns*: revenue, profit and margin. A supervisor records spending, so they
- * need cost figures to do the job; what the company makes is the owner's
- * business. That one sentence is the whole access model for money — see
- * ACCESS_CONTROL.md.
+ * need the figure in front of them to do the job.
  *
- * Before this existed, detail pages gated costs behind the admin-only
- * financial check, so supervisors saw no figures at all and had to guess
- * whether a truck was expensive.
+ * Narrowed on 2026-09-30: this no longer covers what those costs *add up to*.
+ * A running total a supervisor did not enter themselves — a truck's lifetime
+ * spend, a category's share, an account's balance — is the same number the
+ * owner runs the business on, reached by a different door. Those have their
+ * own predicates below, and they are admin-only.
  */
 export function canViewCostData(role: Role): boolean {
+  return role === "admin" || role === "supervisor";
+}
+
+/**
+ * Who may see what one truck has *cost*: its expense total, the breakdown by
+ * category, cost per km, fuel spend, what its time in the workshop came to.
+ *
+ * Admin. A supervisor keeps the physical side of the same page — litres,
+ * parts fitted, days off the road, km per litre — because that is what
+ * running a fleet needs, and none of it totals to money (ACCESS_CONTROL.md,
+ * "Expenses by truck: quantities only").
+ */
+export function canViewFleetCostTotals(role: Role): boolean {
+  return role === "admin";
+}
+
+/**
+ * Who may see spending grouped by expense category, anywhere it appears — the
+ * category breakdown on a truck, the by-category charts, the category detail
+ * pages' money.
+ *
+ * Admin. The chart of accounts is how the owner reads the business.
+ */
+export function canViewCostsByCategory(role: Role): boolean {
+  return role === "admin";
+}
+
+/**
+ * The analytics tab on both expenses pages — the charts, the trends, the
+ * totals by truck, trip, driver and category.
+ *
+ * Admin. A supervisor gets the list, which is the part of the page they work
+ * in; the tab beside it is a report in everything but name.
+ */
+export function canViewExpenseAnalytics(role: Role): boolean {
+  return role === "admin";
+}
+
+/**
+ * Fuel *economy* — litres, km per litre, litres per 100km.
+ *
+ * Supervisor included, deliberately: it is a number about the truck and the
+ * driver, not about the money. `canViewFleetCostTotals` governs the cost side
+ * of the same panel — fuel spend, cost per km — and that stays with the
+ * admin.
+ */
+export function canViewFuelEconomy(role: Role): boolean {
   return role === "admin" || role === "supervisor";
 }
 
@@ -258,13 +306,30 @@ export function canDeleteDirectly(role: Role): boolean {
 }
 
 /**
- * Check if user can view the three account balances (Cash/Bank/Petty Cash)
- * on the expenses page. An explicit carve-out from canViewFinancialData:
- * supervisors need this to record expenses sensibly even though they can't
- * see revenue or the rest of the financial reports.
+ * The three account balances (Cash, Bank, Petty Cash), wherever they appear —
+ * the accounts page, the cards on the expenses page, the picker in a
+ * movement dialog, the assistant.
+ *
+ * Admin only as of 2026-09-30. This used to be an explicit carve-out for
+ * supervisors, on the reasoning that somebody spending needs to know what is
+ * there. The client decided otherwise: what the business holds is the
+ * owner's, and a supervisor who needs to spend more than there is should be
+ * told by the admin, not by the screen.
  */
 export function canViewAccountBalances(role: Role): boolean {
-  return role === "admin" || role === "supervisor";
+  return role === "admin";
+}
+
+/**
+ * Money-**in** entries in an account's history.
+ *
+ * Admin. Hiding the balance while listing every deposit and every payment out
+ * hides nothing: the two columns add up to the balance with a calculator. A
+ * supervisor sees the money-**out** side, so they can check their own work,
+ * and no running total beside it.
+ */
+export function canViewMoneyIn(role: Role): boolean {
+  return role === "admin";
 }
 
 // Only admins can transfer funds between accounts (e.g. petty cash <-> cash)

@@ -2,8 +2,9 @@
 
 **The single source of truth for who can see and do what.** Decided with the
 client on 2026-09-24, question by question, after the same access rules were
-guessed wrong twice. If the code and this file disagree, **this file is
-right** — fix the code.
+guessed wrong twice, and **narrowed again on 2026-09-30** — the supervisor
+rules below marked *(30 Sep)* replace what was agreed the first time. If the
+code and this file disagree, **this file is right** — fix the code.
 
 Anything not covered here is a question for the client, not a judgement call.
 
@@ -29,6 +30,20 @@ Costs are operational — they need them to do the job. Revenue, profit and
 margin are the owner's business. This is why a supervisor gets the Expenses
 page in full but sees no revenue column on a truck's page.
 
+**Narrowed on 30 Sep, and this is the half that gets missed:**
+
+> **A supervisor sees what they spend. They do not see what it adds up to.**
+
+An expense they record, and what a trip cost — theirs. What a *truck* has cost
+over its life, what the business spends *by category*, what sits in the
+accounts, what the workshop costs to run: those are the same totals the owner
+runs the business on, reached by a different door. A supervisor keeps the
+*physical* side of all of them — litres, parts fitted, days in the workshop,
+km per litre — because that is what running a fleet needs.
+
+The test to apply to a new screen: **could a supervisor read a total off it
+that they did not themselves enter?** If yes, it is the owner's.
+
 ---
 
 ## Pages
@@ -42,7 +57,7 @@ page in full but sees no revenue column on a truck's page.
 |---|---|---|---|---|
 | Dashboard | ✅ | 💰 no revenue/profit | 💰 | — |
 | Fleet — trucks, trailers, drivers (list) | ✅ | ✅ | 👁 + create | — |
-| Fleet — detail pages | ✅ | 💰 costs yes, revenue/profit no | 👁 💰 | — |
+| Fleet — detail pages | ✅ | *(30 Sep)* quantities yes — litres, parts fitted, km/litre, downtime. **No amounts, no totals, no P&L** | 👁 💰 | — |
 | Driver performance | ✅ | — | — | — |
 | Trips (list and detail) | ✅ | ✅ | 👁 + create | — |
 | Maintenance | ✅ | ✅ | — | **only their own open jobs** |
@@ -62,25 +77,41 @@ page in full but sees no revenue column on a truck's page.
 | Page | admin | supervisor | staff | workshop |
 |---|---|---|---|---|
 | Expenses — list, create, amounts | ✅ | ✅ **including amounts** | — | — |
-| Expense analytics / by-truck / by-trip | ✅ | ✅ | — | — |
-| Accounts — balances | ✅ | 👁 **can see balances** | — | — |
-| Accounts — money **out** (spend, transfer out) | ✅ | ✅ | — | — |
-| Accounts — money **in**, starting balance | ✅ | **—** | — | — |
+| Expenses — analytics tab | ✅ | *(30 Sep)* **—** | — | — |
+| Expenses by **trip** | ✅ | ✅ including amounts | — | — |
+| Expenses by **truck** | ✅ | *(30 Sep)* **quantities only** — litres, parts, counts. No amounts | — | — |
+| Costs by category, anywhere | ✅ | *(30 Sep)* **—** | — | — |
+| Truck P&L, cost per km, fuel *spend* | ✅ | *(30 Sep)* **—** | — | — |
+| Fuel economy (km/litre, litres) | ✅ | *(30 Sep)* ✅ | — | — |
+| Days in the workshop, downtime, job counts | ✅ | ✅ | — | — |
+| Workshop **spend** | ✅ | *(30 Sep)* **—** | — | — |
+| Accounts — balances | ✅ | *(30 Sep)* **—** | — | — |
+| Accounts — money **in**, even as a line in the history | ✅ | *(30 Sep)* **—** | — | — |
+| Accounts — money **out** (spend, transfer out) | ✅ | ✅ records it, and sees the money-out entries | — | — |
+| Accounts — starting balance | ✅ | **—** | — | — |
 | Invoices | ✅ | ✅ | — | — |
 | Customer payments | ✅ | ✅ | — | — |
 | Supplier payments | ✅ | ✅ | — | — |
 | Revenue, profit, margin — anywhere | ✅ | **—** | — | — |
 
-> **Accounts is the subtle one.** A supervisor can see what is in each account
-> and take money *out* of it, because they spend. Only an admin puts money
-> *in* or sets a starting balance.
+> **Accounts is the subtle one, and it changed on 30 Sep.** A supervisor
+> records money *out* and can see the money-out entries, so they can check
+> their own work. They never see a balance, a total, or a money-**in** line —
+> because a list of everything in and out *is* the balance, arrived at with a
+> calculator.
+>
+> **An overspend goes through.** Recording more than the account holds is
+> accepted and the admin is notified. Refusing it with "that is more than the
+> account holds" would tell the supervisor the balance, and refusing it
+> silently would stop the work; the client chose to let it through and tell
+> the owner.
 
 ### Admin-only, no exceptions
 
 | Page | Note |
 |---|---|
 | Edit Requests | **Admin only.** Not even one's own. This was the bug that started this document: the page used `requireAuth`, so every signed-in user could open it. |
-| Reports — all 23 | Including every export button on every list page. |
+| Reports — all 23 | Including every export button on every list page, **and the assistant** *(30 Sep)*: a supervisor who asks for one over WhatsApp is refused like any other over-level request. The two exceptions are documents a *customer* receives — an invoice PDF and a payment receipt — which a supervisor issues as part of billing. |
 | Settings — all of it | Organisation, expense categories, WhatsApp pairing, assistant contacts, wipe data. `/settings/whatsapp` previously had **no role guard at all**. |
 | Users | Invite, roles, passwords, removal. |
 | AI chat | |
@@ -177,7 +208,9 @@ member each trip's revenue through `list_trips`.
 | Figure | Who |
 |---|---|
 | Trip revenue, profit, margin, financial summary, fleet ranking | **admin** |
-| Truck costs, expense breakdown, account balances | admin, supervisor |
+| Per-truck cost totals, costs by category, account balances, any report | **admin** *(30 Sep)* |
+| What a trip cost, an expense amount they recorded | admin, supervisor |
+| Litres, parts fitted, km/litre, days in the workshop | admin, supervisor |
 | Invoices, payments, what a customer owes | admin, supervisor |
 | Anything at all | not staff, not readonly |
 
