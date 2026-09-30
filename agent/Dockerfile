@@ -13,7 +13,7 @@
 # Revisit once `tsc` passes cleanly and there's a real reason to prebuild.
 #
 # Needs a real Chromium because whatsapp-web.js drives it via Puppeteer.
-# PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true is set BEFORE `bun install` so
+# PUPPETEER_SKIP_DOWNLOAD=true is set BEFORE `bun install` so
 # Puppeteer's postinstall doesn't also pull its own ~170MB copy — the apt
 # Chromium below is the only one that ends up in the image, and
 # PUPPETEER_EXECUTABLE_PATH points whatsapp-web.js at it (see
@@ -32,7 +32,8 @@ WORKDIR /app
 
 RUN npm install -g bun
 
-ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+ENV PUPPETEER_SKIP_DOWNLOAD=true \
+    PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 
 COPY agent/package.json agent/bun.lock ./
 RUN bun install --frozen-lockfile
@@ -69,6 +70,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 ENV NODE_ENV=production \
+    PUPPETEER_SKIP_DOWNLOAD=true \
     PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
     PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
