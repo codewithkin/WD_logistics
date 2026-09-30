@@ -4,10 +4,17 @@ Written 28 Sep 2026. Three pieces of work, in the order they should be done.
 Each carries its own success criteria, because "implemented" and "working"
 have come apart on this project before.
 
-**Status, 28 Sep 2026:** pieces 1 and 2 are built and their success criteria
-are met. The cap is **200 messages**,
-not the 120 first drafted — the client raised it before any of this shipped.
-Piece 3 is a costing note and needs a month of real `costUsd` data, not code.
+**Status, 30 Sep 2026:** pieces 1 and 2 are built and their success criteria
+are met. The cap is **200 messages**, not the 120 first drafted — the client
+raised it before any of this shipped. Piece 3 is a costing note and needs a
+month of real `costUsd` data, not code.
+
+Both pieces now have tests, which they did not on 28 Sep — every criterion
+below had been ticked by hand. `bun run check:cap` in `app/` covers the
+arithmetic and the Harare month boundary (19 checks); the same command in
+`agent/` covers going quiet at the cap and when the app cannot be reached
+(10 checks). Both were confirmed to fail when the behaviour they describe is
+reversed, which is the only reason to believe a green check.
 
 ---
 
@@ -39,8 +46,8 @@ Decide and write down whether an *inbound* message or an inbound/outbound
 cost — and it is what the customer-facing wording should describe.
 
 **Show it** on Settings → WhatsApp, admin only, beside the connection card:
-used, remaining, and the date it resets. Something like *"38 of 120 messages
-used this month. Resets 1 October."*
+used, remaining, and the date it resets. Something like *"86 of 200 used.
+114 left. Resets 1 October."* — which is what it says.
 
 **Stop at the limit.** Once the month's count reaches the cap the agent
 replies to nothing at all:
@@ -150,9 +157,13 @@ out of `operationManifest`:
 | Role | Tools | Reads | Writes |
 | --- | --- | --- | --- |
 | readonly | 8 | trucks, drivers, trips, stock, customers, maintenance, expiring documents | own password only |
-| staff | 9 | same | own password, log a fault |
-| supervisor | 37 | + invoices, account balances, expense breakdown, truck costs | 25, incl. expenses, payments, trips, stock |
-| admin | 53 | + revenue, profit, fleet ranking, reports, users | 33 |
+| staff | 9 | same | own password, withdraw a change they sent |
+| supervisor | 56 | + invoices, sent messages, a truck's km/litres/downtime | 47, incl. expenses, payments, money out, trips, stock |
+| admin | 91 | + revenue, profit, account balances, expense breakdown, per-truck costs, fleet ranking, reports, users | 35 |
+
+**Re-counted 30 Sep**, after the supervisor narrowing and after
+`log_maintenance` moved off staff. Run `bun run check:access` rather than
+trusting these figures — they have already drifted once.
 
 `generate_report`, `create_pdf` and `list_reports` all require `admin`, and
 the manifest filters before the model is ever handed a tool — so a staff
@@ -172,8 +183,11 @@ Checked against the table above, and corrected in `88a9a60`:
   write every role has.
 - *"Can record expenses and payments, schedule trips and adjust stock"*
   (supervisor) — all four true, but it undersold a role with 25 writes and
-  said nothing about where it stops. Now names the boundary: balances yes,
-  revenue and profit no.
+  said nothing about where it stops. Corrected again on 30 Sep, when
+  balances moved to admin: the boundary is now balances, revenue, profit and
+  reports, all no. `check:access` ties each of these phrases to the tool that
+  would have to exist for it to be true, so the next move breaks a check
+  rather than a promise.
 - *"their access there caps what the assistant will do"* (line 357) —
   **true, for reads as well as writes.** `effectiveRole` is
   `weakerRole(contact.role, actor.role)` and the manifest is built from it,
@@ -193,16 +207,19 @@ Checked against the table above, and corrected in `88a9a60`:
       and one thing it *cannot* (`7c5ee39`). Staff and supervisor had none
       at all, which is how two false descriptions of them survived. Each
       role's manifest was also compared against what its cases claim, free
-      and without the model: admin 53 tools, supervisor 37, staff 9,
-      readonly 7, nothing offered that a case says is out of reach.
-      **The full live run against the model has not been made** — it costs
-      real tokens and writes LIVETEST rows.
+      and without the model: admin 91 tools, supervisor 56, staff 9,
+      readonly 8, nothing offered that a case says is out of reach.
+      **The full live run has since been made: 33/33 against
+      `google/gemini-3.5-flash`.** It found two cases asserting rules the
+      client had changed — staff logging a fault, and a supervisor being
+      shown an account balance — and the run now removes the rows it writes
+      instead of leaving them tagged for somebody to find.
 - [x] Every sentence on the page is now backed by the per-role tool list
       above rather than by memory.
 
 ---
 
-## 3. Costing note, for when 120 is renegotiated
+## 3. Costing note, for when 200 is renegotiated
 
 Measured against `google/gemini-3.5-flash` at $1.50/M in, $9.00/M out:
 
@@ -213,8 +230,8 @@ Measured against `google/gemini-3.5-flash` at $1.50/M in, $9.00/M out:
 | Memory, 10 turns, text only | ~800 in | $0.0012 |
 | Memory, if tool results are stored too | ~4,000 in | $0.0060 |
 
-**$0.0117 shallow, ~$0.0143 deep.** Break-even on $5 is 330–430 messages;
-120 leaves real margin.
+**$0.0117 shallow, ~$0.0143 deep.** Break-even on $5 is 330–430 messages, so
+200 costs $2.34–$2.86 and leaves real margin.
 
 Two things worth knowing:
 
