@@ -47,10 +47,22 @@ export interface NotificationData {
     role: string;
   };
   details: Record<string, unknown>; // Additional details to show
-  // Accepted for backwards compatibility with existing call sites but no
-  // longer consulted — this drove hiding amounts in the admin email, which
-  // no longer exists (see notification-tiers.ts). Visibility of financial
-  // details is now purely a role/tier question, not a per-field one.
+  /**
+   * Keys of `details` that only an admin may see. Stripped from the stored
+   * notification for every other recipient.
+   *
+   * This went unread for a while, on the reasoning that visibility was a
+   * role-and-tier question rather than a per-field one. It is both: a trip's
+   * creation is a tier-3 event aimed at supervisors, and the trip's *revenue*
+   * rode along in the metadata — a figure ACCESS_CONTROL.md keeps at admin
+   * "anywhere", written into a supervisor's own notification row, where the
+   * bell would happily render it. Whatever is listed here is removed before
+   * the row is written, not hidden when it is read.
+   *
+   * List only what is genuinely admin-only. An expense amount is not: a
+   * supervisor records those, and hiding them here would only make the bell
+   * less useful than the page it links to.
+   */
   sensitiveFields?: string[];
 }
 
@@ -213,6 +225,12 @@ export async function sendAdminNotification(data: NotificationData): Promise<voi
     const message = `${data.entityName} was ${actionVerb} by ${data.performedBy.name}`;
     const link = getEntityLink(data.entityType, data.entityId);
 
+    // JSON round-trip so Date objects in `details` (e.g. dueDate) become ISO
+    // strings — Prisma's Json type rejects raw Dates.
+    const details = JSON.parse(JSON.stringify(data.details)) as Record<string, unknown>;
+    const redacted = { ...details };
+    for (const field of data.sensitiveFields ?? []) delete redacted[field];
+
     // In-app notification — always written for the audit trail, regardless
     // of tier (tier 5 events just won't have gotten this far via role
     // gating for admin/supervisor, but whoever IS eligible still gets the
@@ -229,10 +247,10 @@ export async function sendAdminNotification(data: NotificationData): Promise<voi
             entityType: data.entityType,
             entityId: data.entityId,
             link,
-            // JSON round-trip so Date objects in `details` (e.g. dueDate)
-            // become ISO strings — Prisma's Json type rejects raw Dates.
             metadata: {
-              ...(JSON.parse(JSON.stringify(data.details)) as Record<string, unknown>),
+              // Per recipient, because the same event reaches an admin and a
+              // supervisor and they may not see the same figures.
+              ...(recipient.role === "admin" ? details : redacted),
               performedBy: data.performedBy.name,
               eventType: data.eventType,
               tier: tierConfig.tier,
@@ -299,7 +317,9 @@ export async function notifyInvoiceCreated(
       isCredit: data.isCredit,
       dueDate: data.dueDate,
     },
-    sensitiveFields: ["amount"],
+    // Deliberately nothing: a supervisor records expenses, raises invoices
+    // and takes payments, so these amounts are theirs (ACCESS_CONTROL.md).
+    sensitiveFields: [],
   });
 }
 
@@ -321,7 +341,9 @@ export async function notifyInvoiceUpdated(
       amount: data.amount,
       status: data.status,
     },
-    sensitiveFields: ["amount"],
+    // Deliberately nothing: a supervisor records expenses, raises invoices
+    // and takes payments, so these amounts are theirs (ACCESS_CONTROL.md).
+    sensitiveFields: [],
   });
 }
 
@@ -372,7 +394,9 @@ export async function notifyPaymentCreated(
       amount: data.amount,
       method: data.method,
     },
-    sensitiveFields: ["amount"],
+    // Deliberately nothing: a supervisor records expenses, raises invoices
+    // and takes payments, so these amounts are theirs (ACCESS_CONTROL.md).
+    sensitiveFields: [],
   });
 }
 
@@ -394,7 +418,9 @@ export async function notifyPaymentUpdated(
       amount: data.amount,
       method: data.method,
     },
-    sensitiveFields: ["amount"],
+    // Deliberately nothing: a supervisor records expenses, raises invoices
+    // and takes payments, so these amounts are theirs (ACCESS_CONTROL.md).
+    sensitiveFields: [],
   });
 }
 
@@ -445,7 +471,9 @@ export async function notifyExpenseCreated(
       amount: data.amount,
       date: data.date,
     },
-    sensitiveFields: ["amount"],
+    // Deliberately nothing: a supervisor records expenses, raises invoices
+    // and takes payments, so these amounts are theirs (ACCESS_CONTROL.md).
+    sensitiveFields: [],
   });
 }
 
@@ -467,7 +495,9 @@ export async function notifyExpenseUpdated(
       amount: data.amount,
       date: data.date,
     },
-    sensitiveFields: ["amount"],
+    // Deliberately nothing: a supervisor records expenses, raises invoices
+    // and takes payments, so these amounts are theirs (ACCESS_CONTROL.md).
+    sensitiveFields: [],
   });
 }
 
