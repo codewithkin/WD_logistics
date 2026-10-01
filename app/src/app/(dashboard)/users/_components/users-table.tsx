@@ -295,6 +295,33 @@ export function UsersTable({ members, currentUserId }: UsersTableProps) {
                                                             Root account
                                                         </span>
                                                     )}
+                                                    {/* Your own row gets the password control and
+                                                        nothing else — no role change, no removal,
+                                                        both of which the server refuses on yourself
+                                                        anyway. It matters most for the root admin,
+                                                        whose password nobody else can change: with
+                                                        no menu here, the account that ships on
+                                                        00000000 had no way to move off it. Same
+                                                        dialog as everyone else's, so it still does
+                                                        either a chosen password or a generated one. */}
+                                                    {isCurrentUser && (
+                                                        <DropdownMenu>
+                                                            <DropdownMenuTrigger asChild>
+                                                                <Button variant="ghost" size="icon">
+                                                                    <MoreHorizontal className="h-4 w-4" />
+                                                                    <span className="sr-only">Open menu</span>
+                                                                </Button>
+                                                            </DropdownMenuTrigger>
+                                                            <DropdownMenuContent align="end">
+                                                                <DropdownMenuItem
+                                                                    onClick={() => setResetPasswordId(member.id)}
+                                                                >
+                                                                    <KeyRound className="mr-2 h-4 w-4" />
+                                                                    Change My Password
+                                                                </DropdownMenuItem>
+                                                            </DropdownMenuContent>
+                                                        </DropdownMenu>
+                                                    )}
                                                     {!isCurrentUser && !isRoot && (
                                                         <DropdownMenu>
                                                             <DropdownMenuTrigger asChild>
