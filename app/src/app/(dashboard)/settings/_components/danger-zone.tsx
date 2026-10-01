@@ -19,8 +19,6 @@ import { Loader2, Trash2 } from "lucide-react";
 import { wipeAllData } from "../actions";
 import { toast } from "sonner";
 
-// Must match what wipeAllData checks server-side: the typed phrase is the
-// confirmation, not just a client-side gate on the button.
 const CONFIRM_WORD = "DELETE ALL DATA";
 
 export function DangerZone() {
@@ -39,21 +37,26 @@ export function DangerZone() {
                         (result.usersRemoved
                             ? `, including ${result.usersRemoved} ${result.usersRemoved === 1 ? "account" : "accounts"}`
                             : "") +
-                        ".",
+                        ". Only the seeded administrator account remains.",
                 );
-                // Said separately rather than buried in the line above: this
-                // is the one part that can fail on its own, and an admin who
-                // thinks the assistant has forgotten last month's
-                // conversations when it has not should hear about it.
-                if (result.assistantMemoryCleared === false) {
+                if (!result.whatsappTold) {
                     toast.warning(
-                        "Everything else is gone, but the assistant's memory could not be cleared. Restart the agent and try again.",
+                        "The stored WhatsApp pairing was cleared, but WhatsApp may still list this device. Remove it under Linked Devices, then scan a new QR code to reconnect.",
+                    );
+                } else {
+                    toast.info(
+                        "WhatsApp was unpaired. Scan a new QR code under Settings → WhatsApp to reconnect.",
+                    );
+                }
+                if (result.fileDeletionFailures > 0) {
+                    toast.warning(
+                        `${result.fileDeletionFailures} uploaded file(s) could not be deleted from storage. Review the server logs and remove them manually if needed.`,
                     );
                 }
                 setDialogOpen(false);
                 router.refresh();
             } else {
-                toast.error(result.error || "Failed to wipe data");
+                toast.error(result.error || "Failed to reset data");
             }
         } catch {
             toast.error("An error occurred");
@@ -71,12 +74,12 @@ export function DangerZone() {
                     Danger Zone
                 </CardTitle>
                 <CardDescription>
-                    Empty the system and start again. This permanently deletes every trip,
-                    truck, trailer, driver, customer, supplier, invoice, payment, expense,
-                    stock item, employee, report, notification and edit request — along with
-                    every other user account, every contact allowed to use the WhatsApp
-                    assistant, and everything the assistant remembers. The three accounts
-                    come back at zero.
+                    Permanently remove all operational records, users, company profile and settings,
+                    accounts, categories, notifications, invitations, WhatsApp contacts and
+                    conversation history for this organisation. Only the seeded administrator
+                    account remains. The organisation’s required login shell remains, but its
+                    profile is blank. The WhatsApp device will be unpaired and must be scanned
+                    again before messaging can resume.
                 </CardDescription>
             </CardHeader>
             <CardContent>
@@ -84,12 +87,9 @@ export function DangerZone() {
                     <div className="text-sm text-muted-foreground">
                         <p className="text-foreground font-medium mb-1">What stays?</p>
                         <p>
-                            Your organisation and its settings — the letterhead, bank details
-                            and VAT number — <strong>your own account, and nobody else&apos;s</strong>.
-                            The WhatsApp line stays paired; the assistant simply will not know
-                            anyone until you add them again. A standard set of expense
-                            categories is put back, so an expense can be recorded on the first
-                            day — rename or delete the ones that do not suit you.
+                            Only the seeded administrator account and the minimal organisation
+                            record required for sign-in. The administrator must invite the team,
+                            rebuild the company profile and settings, and pair WhatsApp again.
                         </p>
                     </div>
                     <Button
@@ -103,25 +103,28 @@ export function DangerZone() {
                 </div>
             </CardContent>
 
-            <AlertDialog open={dialogOpen} onOpenChange={(open) => {
-                setDialogOpen(open);
-                if (!open) setConfirmText("");
-            }}>
+            <AlertDialog
+                open={dialogOpen}
+                onOpenChange={(open) => {
+                    setDialogOpen(open);
+                    if (!open) setConfirmText("");
+                }}
+            >
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle className="text-destructive">
-                            Reset the whole system?
+                            Reset the whole organisation?
                         </AlertDialogTitle>
                         <AlertDialogDescription>
-                            Every trip, truck, trailer, driver, customer, supplier, invoice,
-                            payment, expense, stock item, employee, report, notification and
-                            edit request will be permanently deleted.
+                            Every operational record, company profile field, account, category and
+                            non-seeded user account will be permanently deleted. The seeded admin
+                            account is the only account that remains; the organisation record
+                            remains only so that account can sign in.
                             <br />
                             <br />
-                            <strong>Everyone else loses their account.</strong> Supervisors,
-                            staff and workshop users are removed and will be signed out;
-                            you will need to invite the real team afterwards. The assistant
-                            forgets every conversation and every number allowed to use it.
+                            The WhatsApp device will be logged out and unpaired. You will need to
+                            scan a new QR code to reconnect it. If WhatsApp cannot be reached,
+                            this reset will stop before any data is deleted.
                             <br />
                             <br />
                             This action <strong>cannot be undone</strong>. Type{" "}

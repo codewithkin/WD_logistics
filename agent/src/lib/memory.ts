@@ -181,6 +181,18 @@ export class MemoryManager {
     return cleaned;
   }
 
+  /** Forget cached conversations belonging to one organisation. */
+  clearOrganization(organizationId: string): number {
+    let cleared = 0;
+    for (const [conversationId, memory] of this.conversations.entries()) {
+      if (memory.userContext.organizationId === organizationId) {
+        this.conversations.delete(conversationId);
+        cleared++;
+      }
+    }
+    return cleared;
+  }
+
   /**
    * Get memory statistics
    */

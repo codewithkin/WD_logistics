@@ -10,16 +10,15 @@ import { ensureAccountsExist, recordManualMovement, transferFunds } from "@/lib/
 export async function getAccounts() {
   const session = await requireRole(["admin", "supervisor"]);
 
-  await ensureAccountsExist(session.organizationId);
-
   const accounts = await prisma.financialAccount.findMany({
     where: { organizationId: session.organizationId },
     include: { _count: { select: { transactions: true } } },
   });
 
-  // Always return all three, in a stable order, regardless of DB row order
-  return ACCOUNT_TYPES.map(
-    (type) => accounts.find((a) => a.type === type)!
+  // Keep the accounts deleted by Reset Everything deleted. Ensure defaults
+  // only when the user actually records a transaction, not by viewing page.
+  return ACCOUNT_TYPES.flatMap((type) =>
+    accounts.filter((account) => account.type === type),
   );
 }
 

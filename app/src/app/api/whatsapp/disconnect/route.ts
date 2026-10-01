@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "@/lib/session";
+import { AGENT_WHATSAPP_SESSION_NAME } from "@/lib/whatsapp/agent-control";
 
 /**
  * Unlink the WhatsApp bot, from the web app.
@@ -26,8 +27,6 @@ import { getServerSession } from "@/lib/session";
  */
 
 /** Matches SESSION_NAME in the agent's lib/whatsapp.ts. */
-const SESSION_NAME = "agent-whatsapp";
-
 const AGENT_URL = process.env.AGENT_URL || process.env.NEXT_PUBLIC_AGENT_URL || "http://localhost:3001";
 
 export async function POST() {
@@ -50,7 +49,10 @@ export async function POST() {
   try {
     const response = await fetch(`${AGENT_URL}/whatsapp/disconnect`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(process.env.AGENT_API_KEY ? { "x-api-key": process.env.AGENT_API_KEY } : {}),
+      },
       body: JSON.stringify({ organizationId: session.organizationId }),
       signal: AbortSignal.timeout(15000),
     });
@@ -67,7 +69,7 @@ export async function POST() {
   let cleared = 0;
   try {
     const result = await prisma.whatsAppSession.deleteMany({
-      where: { session: SESSION_NAME },
+      where: { session: AGENT_WHATSAPP_SESSION_NAME },
     });
     cleared = result.count;
   } catch (error) {

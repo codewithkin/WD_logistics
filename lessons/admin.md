@@ -52,18 +52,20 @@ Same as the supervisor flow: **Edit Requests** in the sidebar shows what staff h
 
 ### 7. Start the system afresh
 
-Settings → General → **Reset Everything**, and only from the root account
-(`admin@wd-logistics.co.zw`). It empties the system: every trip, truck,
-trailer, driver, customer, supplier, invoice, payment, expense, stock item,
-employee, report and edit request, **every other user account**, every number
-allowed to use the WhatsApp assistant, and everything the assistant remembers.
+Settings → General → **Reset Everything**. Any admin can run it. It permanently
+removes every trip, truck, trailer, driver, customer, supplier, invoice,
+payment, expense, stock item, employee, report, edit request, notification,
+company-profile field, finance account, category, WhatsApp contact and
+conversation. It also deletes every other account in this organisation.
 
-What survives is the organisation's own settings — name, letterhead, bank
-details, VAT number — the WhatsApp line's pairing, and the root account. The
-three accounts come back at zero.
+Only the seeded administrator account remains. The organisation row stays
+only as the shell required for that account to sign in; its name, logo,
+letterhead, bank details, VAT number and other profile settings are cleared.
+The WhatsApp device is logged out and unpaired, so scan a new QR code under
+Settings → WhatsApp before using it again.
 
 There is no undo. Type `DELETE ALL DATA` to confirm, and afterwards invite the
-real team from Users.
+real team and rebuild the company profile from Settings.
 
 ### The root account
 
@@ -71,7 +73,6 @@ One email is the root: `admin@wd-logistics.co.zw`. It is an ordinary admin in
 every respect except three:
 
 - no other admin can change its password, demote it or remove it;
-- it is the only account that can press Reset Everything;
 - it is the account a reset leaves standing.
 
 Everyone else's password can still be set or reset by any admin, including

@@ -5,7 +5,6 @@ import { canViewExpensesPage } from "@/lib/permissions";
 import { NoAccess } from "@/components/layout/no-access";
 import { pageAccess } from "@/lib/session";
 import prisma from "@/lib/prisma";
-import { ensureAccountsExist } from "@/lib/accounts-server";
 import { ExpenseCategoriesClient } from "./_components/expense-categories-client";
 
 interface ExpenseCategoriesPageProps {
@@ -18,8 +17,6 @@ export default async function ExpenseCategoriesPage({ searchParams }: ExpenseCat
     const user = access.session;
     const params = await searchParams;
     const dateRange = getDateRangeFromParams(params, "3m");
-
-    await ensureAccountsExist(user.organizationId);
 
     // The list used to show an all-time expense count and nothing else, which
     // answers neither "what does this cost us" nor "is it growing". Each row
