@@ -245,6 +245,7 @@ console.log(`model: ${ASSISTANT_MODEL}\n`);
   const email = `livecheck-${Date.now()}@wd.test`;
   const reply = await answerMessage({
     phone: OWNER,
+    organizationId: process.env.AGENT_ORGANIZATION_ID ?? "live-check",
     message: `Add Tendai Marufu to the system as a supervisor, his email is ${email}`,
     remember: false,
   });
@@ -274,6 +275,7 @@ console.log(`model: ${ASSISTANT_MODEL}\n`);
 {
   const reply = await answerMessage({
     phone: OWNER,
+    organizationId: process.env.AGENT_ORGANIZATION_ID ?? "live-check",
     message: "Send me the expenses report for last month as a PDF",
     remember: false,
   });
@@ -303,6 +305,7 @@ console.log(`model: ${ASSISTANT_MODEL}\n`);
   const image = await receiptPng();
   const reply = await answerMessage({
     phone: OWNER,
+    organizationId: process.env.AGENT_ORGANIZATION_ID ?? "live-check",
     message: "What does this receipt say? Don't record anything yet.",
     images: [image],
     remember: false,
@@ -367,6 +370,7 @@ console.log(`model: ${ASSISTANT_MODEL}\n`);
         // What index.ts hands the assistant once it has the words.
         const reply = await answerMessage({
           phone: OWNER,
+          organizationId: process.env.AGENT_ORGANIZATION_ID ?? "live-check",
           message: `[Voice note, transcribed] ${heard.text}`,
           remember: false,
         });

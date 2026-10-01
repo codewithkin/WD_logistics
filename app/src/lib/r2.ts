@@ -171,8 +171,14 @@ export async function getPresignedUploadUrl(
 export async function getKeyFromUrl(url: string): Promise<string | null> {
     try {
         const urlObj = new URL(url);
-        // Remove leading slash
-        return urlObj.pathname.substring(1);
+        const publicUrl = new URL(PUBLIC_URL);
+        if (urlObj.origin !== publicUrl.origin) return null;
+
+        const basePath = publicUrl.pathname.replace(/\/+$/, "");
+        if (basePath && !urlObj.pathname.startsWith(`${basePath}/`)) return null;
+
+        const key = urlObj.pathname.slice(basePath.length).replace(/^\/+/, "");
+        return key ? decodeURIComponent(key) : null;
     } catch {
         return null;
     }

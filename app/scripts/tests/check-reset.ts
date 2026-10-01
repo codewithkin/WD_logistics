@@ -1,33 +1,13 @@
 /**
- * Does the reset button actually empty the system, and leave the one account
- * that can start it again?
+ * Destructive integration check for Settings → Reset Everything.
  *
- *   bun --preload ./scripts/_stub-server-only.ts scripts/tests/check-reset.ts
- *
- * ⚠️ This wipes the database it runs against. It is in `check` because the
- * offline suite runs on a development database, and because the alternative —
- * testing this by hand on the morning the business goes live — is how the old
- * version came to promise "employees and user accounts are kept" while the
- * client was asking for the opposite.
- *
- * What it holds:
- *
- *   - everything the card lists is gone afterwards, table by table;
- *   - the root admin is still there, still an admin, still able to sign in;
- *   - every other account is gone;
- *   - the assistant's contacts and its memory are gone, but the WhatsApp
- *     pairing is not — that is the company's own number;
- *   - the organisation's own settings survive, because retyping bank details
- *     is how an invoice goes out wrong;
- *   - the three accounts come back at zero, both balance and starting
- *     balance;
- *   - an admin who is not the root is refused.
+ * Run only against a disposable database. The reset itself is real; WhatsApp
+ * logout and object-storage deletes are stubbed, but database rows are not.
  */
-
 import { prisma } from "../../src/lib/prisma";
 import { ROOT_ADMIN_EMAIL } from "../../src/lib/root-admin";
 import { runAsActor } from "../../src/lib/acting-session";
-import { wipeAllData } from "../../src/app/(dashboard)/settings/actions";
+import { executeOrganizationReset } from "../../src/lib/reset-organization";
 
 const checks: Array<{ name: string; ok: boolean; note: string }> = [];
 function record(name: string, ok: boolean, note = "") {
@@ -41,14 +21,18 @@ if (!org) {
   process.exit(1);
 }
 
-// ---- the root has to exist before anything can be tested ------------------
+// ---- seeded administrator -------------------------------------------------
 let rootMember = await prisma.member.findFirst({
-  where: { organizationId: org.id, user: { email: ROOT_ADMIN_EMAIL } },
+  where: {
+    organizationId: org.id,
+    role: "admin",
+    user: { email: { equals: ROOT_ADMIN_EMAIL, mode: "insensitive" } },
+  },
   include: { user: true },
 });
 
 if (!rootMember) {
-  const user = await prisma.user.create({
+  const rootUser = await prisma.user.create({
     data: {
       name: "Administrator",
       email: ROOT_ADMIN_EMAIL,
@@ -57,33 +41,104 @@ if (!rootMember) {
     },
   });
   rootMember = await prisma.member.findFirstOrThrow({
-    where: { userId: user.id },
+    where: { userId: rootUser.id, organizationId: org.id },
     include: { user: true },
   });
   console.log(`(created the root admin for this run: ${ROOT_ADMIN_EMAIL})`);
 }
 
-const rootSession = {
+const actorFor = (member: NonNullable<typeof rootMember>) => ({
   user: {
-    id: rootMember.userId,
-    name: rootMember.user.name,
-    email: rootMember.user.email,
+    id: member.userId,
+    name: member.user.name,
+    email: member.user.email,
+    image: null,
   },
-  role: "admin",
+  role: member.role,
   organizationId: org.id,
-  member: { id: rootMember.id },
-} as never;
+  member: { id: member.id },
+}) as never;
+const rootSession = actorFor(rootMember!);
 
-// ---- something to destroy -------------------------------------------------
-const settingsBefore = await prisma.organization.findUniqueOrThrow({
+// ---- an ordinary admin must be able to run it -----------------------------
+let ordinaryAdmin = await prisma.member.findFirst({
+  where: {
+    organizationId: org.id,
+    role: "admin",
+    user: { email: { not: ROOT_ADMIN_EMAIL } },
+  },
+  include: { user: true },
+});
+if (!ordinaryAdmin) {
+  const user = await prisma.user.create({
+    data: {
+      name: "Reset Test Admin",
+      email: `reset-admin-${Date.now()}@wd.test`,
+      emailVerified: true,
+      members: { create: { organizationId: org.id, role: "admin" } },
+    },
+  });
+  ordinaryAdmin = await prisma.member.findFirstOrThrow({
+    where: { userId: user.id, organizationId: org.id },
+    include: { user: true },
+  });
+}
+const adminSession = actorFor(ordinaryAdmin!);
+
+// ---- shared-database isolation fixture -----------------------------------
+const suffix = Date.now().toString();
+const foreignOrg = await prisma.organization.create({
+  data: { name: "Reset isolation fixture", slug: `reset-isolation-${suffix}` },
+});
+const sharedUser = await prisma.user.create({
+  data: {
+    name: "Shared Membership Fixture",
+    email: `reset-shared-${suffix}@wd.test`,
+    emailVerified: true,
+    members: {
+      create: [
+        { organizationId: org.id, role: "supervisor" },
+        { organizationId: foreignOrg.id, role: "admin" },
+      ],
+    },
+  },
+});
+await prisma.customer.create({
+  data: { organizationId: foreignOrg.id, name: "Other organisation survives" },
+});
+
+// ---- data to erase ---------------------------------------------------------
+await prisma.organization.update({
   where: { id: org.id },
-  select: { name: true, bankDetails: true, vatNumber: true },
+  data: {
+    name: "Practice company",
+    bankDetails: "Practice banking details",
+    vatNumber: "PRACTICE-VAT",
+  },
+});
+
+const rootDbSessionToken = `reset-session-${suffix}`;
+await prisma.session.create({
+  data: {
+    token: rootDbSessionToken,
+    expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+    userId: rootMember!.userId,
+  },
+});
+await prisma.whatsAppSession.upsert({
+  where: { session: "agent-whatsapp" },
+  create: {
+    session: "agent-whatsapp",
+    data: Buffer.from("reset-test-session"),
+    sizeBytes: Buffer.byteLength("reset-test-session"),
+  },
+  update: {},
 });
 
 const stranger = await prisma.user.create({
   data: {
     name: "Someone Practising",
-    email: `reset-check-${Date.now()}@wd.test`,
+    email: `reset-check-${suffix}@wd.test`,
     emailVerified: true,
     members: { create: { organizationId: org.id, role: "supervisor" } },
     accounts: {
@@ -92,102 +147,130 @@ const stranger = await prisma.user.create({
   },
 });
 
-await prisma.whatsAppContact.create({
+const phone = `+2637${suffix.slice(-8)}`;
+const contact = await prisma.whatsAppContact.create({
   data: {
     organizationId: org.id,
     name: "Practice contact",
-    phone: `+2637${Date.now().toString().slice(-8)}`,
+    phone,
     role: "staff",
     isActive: true,
   },
 });
-
+await prisma.whatsAppMessage.create({
+  data: {
+    organizationId: org.id,
+    contactId: contact.id,
+    direction: "inbound",
+    phone,
+    body: "practice conversation to remove",
+  },
+});
 await prisma.employee.create({
   data: {
     organizationId: org.id,
     firstName: "Practice",
     lastName: "Employee",
-    phone: "+263770000000",
+    phone: `+263772${suffix.slice(-7)}`,
     position: "Clerk",
   },
 });
-
 await prisma.customer.create({
   data: { organizationId: org.id, name: "Practice customer" },
 });
+await prisma.expenseCategory.create({
+  data: { organizationId: org.id, name: "Practice category", kind: "fuel" },
+});
+await prisma.financialAccount.create({
+  data: {
+    organizationId: org.id,
+    name: "Practice bank",
+    type: "bank",
+    balance: 0,
+    startingBalance: 0,
+  },
+});
 
 const before = {
-  users: await prisma.user.count(),
   contacts: await prisma.whatsAppContact.count({ where: { organizationId: org.id } }),
   employees: await prisma.employee.count({ where: { organizationId: org.id } }),
   customers: await prisma.customer.count({ where: { organizationId: org.id } }),
 };
 record(
   "there is something to reset",
-  before.users > 1 && before.contacts > 0 && before.employees > 0,
-  `${before.users} accounts, ${before.customers} customers, ${before.contacts} assistant contacts`,
+  before.contacts > 0 && before.employees > 0 && before.customers > 0,
+  `${before.customers} customers, ${before.contacts} assistant contacts`,
 );
 
-// ---- an ordinary admin is refused ----------------------------------------
-{
-  const otherAdmin = await prisma.member.findFirst({
-    where: {
-      organizationId: org.id,
-      role: "admin",
-      user: { email: { not: ROOT_ADMIN_EMAIL } },
-    },
-    include: { user: true },
-  });
+const noFileDelete = async () => ({ success: true });
+const noActualLogout = async () => ({
+  success: true as const,
+  toldWhatsApp: true,
+  message: "test logout",
+});
 
-  if (otherAdmin) {
-    const refused = await runAsActor(
-      {
-        user: {
-          id: otherAdmin.userId,
-          name: otherAdmin.user.name,
-          email: otherAdmin.user.email,
-        },
-        role: "admin",
-        organizationId: org.id,
-        member: { id: otherAdmin.id },
-      } as never,
-      () => wipeAllData("DELETE ALL DATA"),
-    );
-    record(
-      "an admin who is not the root is refused",
-      refused.success === false && /root administrator/i.test(refused.error ?? ""),
-      refused.error ?? "it went ahead",
-    );
-  } else {
-    record(
-      "an admin who is not the root is refused",
-      true,
-      "skipped — no second admin in this database",
-    );
-  }
+// ---- fail closed if the agent cannot revoke pairing -----------------------
+{
+  const refused = await runAsActor(adminSession, () =>
+    executeOrganizationReset("DELETE ALL DATA", {
+      revokePairing: async () => ({ success: false, error: "agent offline" }),
+      deleteFile: noFileDelete,
+    }),
+  );
+  record(
+    "an admin reaches the pairing-revoke step",
+    refused.success === false && /agent offline/.test(refused.error ?? ""),
+    refused.error ?? "the reset did not stop at the pairing step",
+  );
+  record(
+    "no records are removed if pairing revocation fails",
+    (await prisma.customer.count({ where: { organizationId: org.id } })) > 0 &&
+      (await prisma.whatsAppContact.count({ where: { organizationId: org.id } })) > 0,
+    "customer and WhatsApp contact still present",
+  );
 }
 
 // ---- the wrong confirmation is refused ------------------------------------
 {
-  const refused = await runAsActor(rootSession, () => wipeAllData("delete all data"));
-  record(
-    "the confirmation is exact",
-    refused.success === false,
-    "lower case is not the phrase",
+  const refused = await runAsActor(rootSession, () =>
+    executeOrganizationReset("delete all data", {
+      revokePairing: async () => {
+        throw new Error("should not reach agent logout");
+      },
+      deleteFile: noFileDelete,
+    }),
   );
   record(
-    "and nothing was deleted on the way to refusing",
-    (await prisma.customer.count({ where: { organizationId: org.id } })) ===
-      before.customers,
-    `${before.customers} customers still there`,
+    "the confirmation is exact",
+    refused.success === false && /exactly/.test(refused.error ?? ""),
+    refused.error ?? "lower case was accepted",
+  );
+  record(
+    "nothing was deleted on the way to refusing",
+    (await prisma.customer.count({ where: { organizationId: org.id } })) > 0,
+    "the practice customer is still there",
   );
 }
 
-// ---- the real thing -------------------------------------------------------
-const result = await runAsActor(rootSession, () => wipeAllData("DELETE ALL DATA"));
-record("the reset runs", result.success === true, result.success ? `${result.deleted} records removed` : (result.error ?? ""));
+// ---- the real reset, initiated by an ordinary admin -----------------------
+let logoutCalled = false;
+const result = await runAsActor(adminSession, () =>
+  executeOrganizationReset("DELETE ALL DATA", {
+    revokePairing: async () => {
+      logoutCalled = true;
+      return noActualLogout();
+    },
+    deleteFile: noFileDelete,
+  }),
+);
+record(
+  "any admin can run the reset",
+  result.success === true,
+  result.success ? `${result.deleted} records removed` : (result.error ?? ""),
+);
+record("the agent logout was requested", logoutCalled, "QR re-pair is required");
 
-// ---- what must be gone ----------------------------------------------------
+// ---- what must be gone -----------------------------------------------------
 const remaining: Record<string, number> = {
   trucks: await prisma.truck.count({ where: { organizationId: org.id } }),
   trailers: await prisma.trailer.count({ where: { organizationId: org.id } }),
@@ -208,126 +291,89 @@ const remaining: Record<string, number> = {
   handoffs: await prisma.documentHandoff.count({ where: { organizationId: org.id } }),
   invitations: await prisma.invitation.count({ where: { organizationId: org.id } }),
   ledger: await prisma.accountTransaction.count({ where: { account: { organizationId: org.id } } }),
+  contacts: await prisma.whatsAppContact.count({ where: { organizationId: org.id } }),
+  messages: await prisma.whatsAppMessage.count({ where: { organizationId: org.id } }),
+  categories: await prisma.expenseCategory.count({ where: { organizationId: org.id } }),
+  financialAccounts: await prisma.financialAccount.count({ where: { organizationId: org.id } }),
 };
 const leftBehind = Object.entries(remaining).filter(([, count]) => count > 0);
 record(
-  "every kind of business record is gone",
+  "every kind of organisation record is gone",
   leftBehind.length === 0,
   leftBehind.length === 0
     ? `${Object.keys(remaining).length} tables checked, all empty`
     : leftBehind.map(([name, count]) => `${name}: ${count}`).join(", "),
 );
 
-// ---- and what is deliberately put back ------------------------------------
-const categories = await prisma.expenseCategory.findMany({
+// ---- only the seeded administrator survives in this organisation ----------
+const targetMembers = await prisma.member.findMany({
   where: { organizationId: org.id },
-  select: { name: true, kind: true },
+  include: { user: true },
 });
 record(
-  "a standard set of expense categories is there to start with",
-  categories.length > 0 && categories.some((c) => c.kind === "fuel"),
-  categories.length
-    ? `${categories.length} categories, fuel among them — an expense can be recorded on day one`
-    : "none — the first expense cannot be recorded at all",
-);
-record(
-  "the practice categories are not among them",
-  !categories.some((c) => c.name === "Tires"),
-  "the old demo spelling is gone",
-);
-
-// ---- the assistant --------------------------------------------------------
-record(
-  "the assistant's contact list is gone",
-  (await prisma.whatsAppContact.count({ where: { organizationId: org.id } })) === 0,
-  "nobody can talk to it until they are added again",
-);
-record(
-  "and every message it exchanged",
-  (await prisma.whatsAppMessage.count({ where: { organizationId: org.id } })) === 0,
-);
-record(
-  "its memory was cleared",
-  result.success === true && result.assistantMemoryCleared === true,
-  "Mastra's own tables, in the mastra schema",
-);
-
-const memoryRows = await prisma
-  .$queryRawUnsafe<Array<{ count: bigint }>>(
-    "SELECT count(*)::bigint AS count FROM mastra.mastra_messages",
-  )
-  .catch(() => null);
-record(
-  "and there is nothing left in it",
-  memoryRows === null || Number(memoryRows[0]?.count ?? 0) === 0,
-  memoryRows === null
-    ? "the agent has never run here, so the tables do not exist yet"
-    : `${memoryRows[0]?.count} remembered messages`,
-);
-
-// ---- what must survive ----------------------------------------------------
-const root = await prisma.user.findUnique({
-  where: { email: ROOT_ADMIN_EMAIL },
-  include: { members: true },
-});
-record(
-  "the root administrator is still here",
-  Boolean(root) && root!.members.some((m) => m.role === "admin"),
-  root ? `${root.email}, still admin` : "gone — there is no way back in",
-);
-
-const survivors = await prisma.user.findMany({ select: { email: true } });
-record(
-  "and is the only account left",
-  survivors.length === 1 && survivors[0]!.email === ROOT_ADMIN_EMAIL,
-  survivors.map((u) => u.email).join(", "),
+  "the seeded admin remains the only organisation member",
+  targetMembers.length === 1 &&
+    targetMembers[0]!.user.email.toLowerCase() === ROOT_ADMIN_EMAIL.toLowerCase() &&
+    targetMembers[0]!.role === "admin",
+  targetMembers.map((member) => `${member.user.email} (${member.role})`).join(", "),
 );
 
 const strangerGone = await prisma.user.findUnique({ where: { id: stranger.id } });
 record(
-  "the practice accounts are gone with their sign-ins",
+  "the practice-only account and credentials are gone",
   strangerGone === null &&
     (await prisma.account.count({ where: { userId: stranger.id } })) === 0,
   "credentials, sessions and memberships go with the user row",
 );
+record(
+  "the shared user's account survives through its other membership",
+  Boolean(await prisma.user.findUnique({ where: { id: sharedUser.id } })) &&
+    (await prisma.member.count({ where: { organizationId: foreignOrg.id, userId: sharedUser.id } })) === 1,
+  "only the target-organisation membership is removed",
+);
+record(
+  "the other organisation's customer survives",
+  (await prisma.customer.count({ where: { organizationId: foreignOrg.id } })) === 1,
+  "the target reset is scoped to its organization ID",
+);
 
 const settingsAfter = await prisma.organization.findUniqueOrThrow({
   where: { id: org.id },
-  select: { name: true, bankDetails: true, vatNumber: true },
+  select: { name: true, logo: true, metadata: true, bankDetails: true, vatNumber: true },
 });
 record(
-  "the organisation's own settings survive",
-  settingsAfter.name === settingsBefore.name &&
-    settingsAfter.bankDetails === settingsBefore.bankDetails &&
-    settingsAfter.vatNumber === settingsBefore.vatNumber,
-  "letterhead, bank details and VAT number are configuration, not data",
+  "company profile and settings are cleared",
+  settingsAfter.name === "" &&
+    settingsAfter.logo === null &&
+    settingsAfter.metadata === null &&
+    settingsAfter.bankDetails === null &&
+    settingsAfter.vatNumber === null,
+  "only the minimal organization row needed for sign-in remains",
+);
+record(
+  "no default categories or accounts are recreated",
+  (await prisma.expenseCategory.count({ where: { organizationId: org.id } })) === 0 &&
+    (await prisma.financialAccount.count({ where: { organizationId: org.id } })) === 0,
+  "the reset remains empty instead of silently restoring demo defaults",
+);
+record(
+  "the WhatsApp pairing row is removed",
+  (await prisma.whatsAppSession.count()) === 0,
+  "the next WhatsApp connection requires a QR scan",
+);
+record(
+  "assistant memory cleanup completed",
+  result.success === true && result.assistantMemoryCleared,
+  "organization-prefixed and matching legacy conversations",
 );
 
-const accounts = await prisma.financialAccount.findMany({
-  where: { organizationId: org.id },
-  select: { name: true, balance: true, startingBalance: true },
-});
-record(
-  "the three accounts are back at zero",
-  accounts.length > 0 &&
-    accounts.every((a) => a.balance === 0 && a.startingBalance === 0),
-  accounts.map((a) => `${a.name} ${a.balance}/${a.startingBalance}`).join(", "),
-);
-
-const session = await prisma.whatsAppSession.count().catch(() => 0);
-record(
-  "the WhatsApp pairing is left alone",
-  true,
-  session > 0
-    ? "still paired — the number is the company's, not the data's"
-    : "nothing paired here to begin with",
-);
+// Remove the temporary isolation fixture after all cross-organization checks.
+await prisma.organization.delete({ where: { id: foreignOrg.id } });
+await prisma.user.deleteMany({ where: { id: sharedUser.id, members: { none: {} } } });
 
 const failed = checks.filter((check) => !check.ok).length;
 console.log(
   `\n${checks.length} checks, ${failed} failed.` +
-    (failed === 0
-      ? " The system empties, and the way back in survives."
-      : ""),
+    (failed === 0 ? " Reset semantics match the confirmed scope." : ""),
 );
 process.exit(failed === 0 ? 0 : 1);

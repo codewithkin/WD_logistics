@@ -1,12 +1,10 @@
 /**
  * The one account that survives everything.
  *
- * WD Logistics runs as a single organisation with several admins, and until
- * now every admin was identical: any of them could change any other's
- * password, demote them, or remove them outright. That is fine among equals
- * and wrong for the owner's own account — an admin having a bad day, or a
- * borrowed laptop, could lock the business out of its own system, and the
- * "reset everything" button would take the last way back in with it.
+ * WD Logistics runs as a single organisation with several admins. This
+ * account is protected from removal and role changes so the business always
+ * has a recovery path. Any admin can still run the confirmed data reset; that
+ * reset preserves this seeded account, not the other members.
  *
  * So one email is the root: the account the deployment seeds, the one the
  * reset leaves standing, and the one no other admin can reach.
@@ -19,9 +17,8 @@
  * - **Nobody may change its role or remove it.** Including itself: an
  *   organisation with no admin has no way back, and the demotion that gets
  *   you there is always an accident.
- * - **A reset keeps it.** Everything else goes — people, contacts, the
- *   assistant's memory of every conversation — and this account is what is
- *   left to start again from.
+ * - **A reset keeps it.** Organisation data and other members are cleared,
+ *   and this account remains the administrator who starts again.
  *
  * It is not a fifth role. The root is an ordinary admin in every other
  * respect: same pages, same permissions, same rules about money. This is one

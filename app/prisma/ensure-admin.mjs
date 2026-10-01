@@ -50,27 +50,22 @@ const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD || "00000000";
 
 async function main() {
   let organization = await prisma.organization.findFirst({ where: { slug: ORG_SLUG } });
+  let createdOrganization = false;
 
   if (!organization) {
     organization = await prisma.organization.create({
       data: { name: ORG_NAME, slug: ORG_SLUG },
     });
+    createdOrganization = true;
     console.log(`✅ Created organization: ${organization.name}`);
   } else {
     console.log(`✅ Using existing organization: ${organization.name}`);
   }
 
-  // Somewhere to put the first expense. Every expense form needs a category,
-  // and a brand-new deployment has none — so the first thing the client meets
-  // is a form they cannot complete.
-  //
-  // Only when there are none at all. Topping up whichever of the nine were
-  // missing would add nine categories to a business that calls its own
-  // Diesel, Rubber and Papers, on every single deploy.
-  const categoryCount = await prisma.expenseCategory.count({
-    where: { organizationId: organization.id },
-  });
-  if (categoryCount === 0) {
+  // Seed baseline categories only when creating a genuinely new organization.
+  // An empty chart may be deliberate after Settings → Reset Everything; if we
+  // filled it on every container start, the reset would not stay empty.
+  if (createdOrganization) {
     await prisma.expenseCategory.createMany({
       data: STANDARD_EXPENSE_CATEGORIES.map((category) => ({
         ...category,

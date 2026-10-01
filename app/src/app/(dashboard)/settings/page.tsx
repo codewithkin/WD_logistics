@@ -9,7 +9,6 @@ import { OrganisationSettings } from "./_components/organisation-settings";
 import { MembersSettings } from "./_components/members-settings";
 import { DangerZone } from "./_components/danger-zone";
 import { getOrganizationMembers, getPendingInvitations } from "./actions";
-import { isRootAdmin } from "@/lib/root-admin";
 
 export default async function SettingsPage() {
     // Guard: Only admins can access settings
@@ -57,11 +56,7 @@ export default async function SettingsPage() {
                 general: (
                     <>
                         <GeneralSettings />
-                        {/* One account can empty the system, and it is the
-                            one the reset leaves standing. Any other admin
-                            pressing this would delete their own account
-                            halfway through the request. */}
-                        {isRootAdmin(session.user.email) && <DangerZone />}
+                        <DangerZone />
                     </>
                 ),
                 notifications: <NotificationsSettings />,

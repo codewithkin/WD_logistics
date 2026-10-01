@@ -110,22 +110,25 @@ export function assistantMemory(): Memory | null {
 /**
  * Which conversation a message belongs to.
  *
- * Keyed by phone number, which is the only stable identity WhatsApp gives us
- * before the app is asked who this is. One thread per number, for good: the
- * alternative is a new thread per day or per session, and "the report you
- * sent me yesterday" is a real thing people say.
+ * Keyed by organisation and phone number. The phone is the stable identity
+ * WhatsApp gives us before the app is asked who this is; the organisation
+ * prefix keeps different tenants' memories separate and makes one tenant's
+ * reset targetable. One thread per number per organisation, for good.
  *
  * Scoping matters more than it looks. Two people with different access levels
  * talk to this same bot, and the thread is what keeps one person's figures
  * out of the other's context window. Never key this on anything an unrelated
  * caller could share.
  */
-export function conversationFor(phone: string): {
+export function conversationFor(phone: string, organizationId: string): {
   thread: string;
   resource: string;
 } {
   const id = normalisePhone(phone);
-  return { thread: `wa:${id}`, resource: `wa:${id}` };
+  return {
+    thread: `wa:${organizationId}:${id}`,
+    resource: `wa:${organizationId}:${id}`,
+  };
 }
 
 /**

@@ -456,6 +456,7 @@ try {
     const started = Date.now();
     const reply = await answerMessage({
       phone: c.phone,
+      organizationId: process.env.AGENT_ORGANIZATION_ID ?? "live-check",
       message: c.ask,
       history: c.history,
       // These run against real numbers. Remembering would write test chatter

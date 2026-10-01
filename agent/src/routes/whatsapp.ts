@@ -127,7 +127,7 @@ whatsapp.post(
       const result = await client.sendMessage(data.phoneNumber, validation.cleaned!);
 
       // Log to memory
-      const conversationId = `whatsapp:${data.recipientId || data.phoneNumber}`;
+      const conversationId = `whatsapp:${data.organizationId}:${data.recipientId || data.phoneNumber}`;
       const memory = await memoryManager.getOrCreateConversation(
         conversationId,
         data.organizationId,
@@ -352,8 +352,15 @@ whatsapp.post(
   zValidator("json", z.object({ organizationId: z.string() })),
   async (c) => {
     try {
+      const expectedApiKey = process.env.AGENT_API_KEY;
+      if (!expectedApiKey || c.req.header("x-api-key") !== expectedApiKey) {
+        return c.json({ success: false, error: "Unauthorized" }, 401);
+      }
+
+      const { organizationId } = c.req.valid("json");
       const client = getAgentWhatsAppClient();
       const result = await client.logout();
+      getMemoryManager().clearOrganization(organizationId);
 
       return c.json({
         success: true,

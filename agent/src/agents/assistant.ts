@@ -151,6 +151,7 @@ export interface AssistantReply {
  */
 export async function answerMessage(params: {
   phone: string;
+  organizationId: string;
   message: string;
   history?: Array<{ role: "user" | "assistant"; content: string }>;
   /**
@@ -225,7 +226,9 @@ export async function answerMessage(params: {
   // messages kept for no reason.
   const remember = params.remember !== false;
   const memory = remember ? assistantMemory() : null;
-  const conversation = memory ? conversationFor(params.phone) : null;
+  const conversation = memory
+    ? conversationFor(params.phone, params.organizationId)
+    : null;
 
   const agent = new Agent({
     name: "WD Logistics Assistant",

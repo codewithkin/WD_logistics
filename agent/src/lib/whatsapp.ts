@@ -85,6 +85,10 @@ function buildAuthStrategy() {
  * Safe to call when there is nothing to delete.
  */
 export async function forgetStoredSession(): Promise<boolean> {
+  const connectionString = process.env.DATABASE_URL;
+  if (!sessionStore && connectionString) {
+    sessionStore = new PostgresSessionStore(connectionString, WHATSAPP_AUTH_PATH);
+  }
   if (!sessionStore) return false;
   try {
     await sessionStore.delete({ session: SESSION_NAME });

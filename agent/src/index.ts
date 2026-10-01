@@ -496,6 +496,7 @@ const initWhatsApp = async () => {
 
           const reply = await answerMessage({
             phone: phoneNumber,
+            organizationId: ORGANIZATION_ID,
             message: messageText,
             images,
           });
@@ -713,4 +714,3 @@ async function deliverFile(
     );
   }
 }
-
