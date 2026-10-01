@@ -202,11 +202,11 @@ export async function resetOrganizationData(
       count(await tx.invitation.deleteMany({ where: { organizationId } }));
       count(await tx.financialAccount.deleteMany({ where: { organizationId } }));
       count(await tx.session.deleteMany({ where: { userId: { in: memberUserIds } } }));
-      const pairingRows = await (dependencies.clearPairingStore ?? ((transaction) =>
-        transaction.whatsAppSession.deleteMany({
-          where: { session: AGENT_WHATSAPP_SESSION_NAME },
-        }),
-      ))(tx);
+      const pairingRows = await (dependencies.clearPairingStore ??
+        ((transaction: Prisma.TransactionClient) =>
+          transaction.whatsAppSession.deleteMany({
+            where: { session: AGENT_WHATSAPP_SESSION_NAME },
+          })))(tx);
       count(pairingRows);
 
       // Expire all sessions belonging to this organisation's members,

@@ -217,10 +217,11 @@ const noActualLogout = async () => ({
       deleteFile: noFileDelete,
     }),
   );
+  const why = refused.success === false ? refused.error : null;
   record(
     "an admin reaches the pairing-revoke step",
-    refused.success === false && /agent offline/.test(refused.error ?? ""),
-    refused.error ?? "the reset did not stop at the pairing step",
+    refused.success === false && /agent offline/.test(why ?? ""),
+    why ?? "the reset did not stop at the pairing step",
   );
   record(
     "no records are removed if pairing revocation fails",
@@ -240,10 +241,11 @@ const noActualLogout = async () => ({
       deleteFile: noFileDelete,
     }),
   );
+  const why = refused.success === false ? refused.error : null;
   record(
     "the confirmation is exact",
-    refused.success === false && /exactly/.test(refused.error ?? ""),
-    refused.error ?? "lower case was accepted",
+    refused.success === false && /exactly/.test(why ?? ""),
+    why ?? "lower case was accepted",
   );
   record(
     "nothing was deleted on the way to refusing",
