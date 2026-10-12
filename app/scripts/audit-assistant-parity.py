@@ -146,6 +146,38 @@ COVERED = {
 # Web-only, each with the reason. Adding to this list is a decision, not a
 # shortcut — the reason is what the next person reads.
 WEB_ONLY = {
+    # ---- Found when this audit was widened past files named actions.ts ----
+    # Four of these had been sitting in `_actions/` directories since long
+    # before, unseen by this check.
+    "searchEntities":
+        "The engine behind every entity picker. A read surface the assistant reaches "
+        "through its own named operations instead.",
+    "getNotificationSettings":
+        "Read surface for one person's own notification switches.",
+    "setNotificationPreference":
+        "Muting a category of notifications for yourself, from the bell. Nothing a "
+        "person would ask a chat assistant to do on their behalf.",
+    "getPushDeliveryLog":
+        "Diagnostics for why a push did not arrive — a thing you read beside the "
+        "browser that failed to receive it.",
+    "assignDefaultAccountsToCategories":
+        "A one-off repair driven by a banner on the Expense Categories page: it wires "
+        "the chart of accounts to the bank accounts. Desk work, done once, with the "
+        "list of what it changed in front of you.",
+    # Inventory labels. Organising the shelves is desk work, and the assistant
+    # has no way to show the list being reorganised. Deliberately deferred
+    # rather than forgotten — if the client wants "add a label called Brakes"
+    # over WhatsApp, these four get operations.
+    "listInventoryLabels": "Read surface for the inventory filter tabs.",
+    "createInventoryLabel":
+        "Organising the storeroom's own shelves, where you can see the list you are "
+        "reorganising.",
+    "renameInventoryLabel": "Same list, same reason.",
+    "deleteInventoryLabel":
+        "Same list, and it detaches every item carrying the label — not a thing to do "
+        "from a phone without seeing how many.",
+    "reorderInventoryLabels": "Dragging filter tabs into an order. Not a sentence.",
+
     "wipeAllData":
         "Irreversible, and there is no 'type the organisation name to confirm' over a message.",
     "updateOrganizationSettings":
@@ -202,10 +234,16 @@ for filename in os.listdir(assistant_dir):
 actions = {}
 for root, _dirs, files in os.walk(os.path.join("src", "app", "(dashboard)")):
     for filename in files:
-        if filename != "actions.ts":
+        # Any "use server" file, not only ones literally named actions.ts.
+        # A new feature put its actions in `_actions/labels.ts` and the whole
+        # file slipped past this audit unnoticed — which is exactly the drift
+        # it exists to catch.
+        if not filename.endswith(".ts"):
             continue
         path = os.path.join(root, filename)
         source = io.open(path, encoding="utf-8").read()
+        if not re.match(r"^\s*(?:\"use server\"|'use server')", source):
+            continue
         area = os.path.relpath(root, os.path.join("src", "app", "(dashboard)")).replace(os.sep, "/")
         for match in re.finditer(r"^export async function (\w+)", source, re.M):
             actions.setdefault(match.group(1), []).append(area)

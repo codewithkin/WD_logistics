@@ -26,7 +26,11 @@ GUARDS = ("requireAuth(", "requireRole(", "assertRole(", "pageAccess(")
 
 # Reached through another guarded action, or safe for any signed-in user.
 ALLOWED_WITHOUT_GUARD = {
-    # None at present. Add with a one-line reason, or add a guard instead.
+    # A thin wrapper whose whole body is `executeOrganizationReset(...)`, and
+    # that function opens with requireRole(["admin"]) in
+    # src/lib/reset-organization.ts. The guard is one call away rather than
+    # missing; duplicating it here would only mean two role checks per reset.
+    "wipeAllData",
 }
 
 problems = []

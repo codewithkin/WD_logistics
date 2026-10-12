@@ -155,6 +155,7 @@ model Organization {
   driverAssignments DriverTruckAssignment[]
   whatsappContacts  WhatsAppContact[]
   documentHandoffs  DocumentHandoff[]
+  inventoryLabels   InventoryLabel[]
 
   @@map("organization")
 }
@@ -261,6 +262,7 @@ model Truck {
   trips                Trip[]
   truckExpenses        TruckExpense[]
   partAllocations      PartAllocation[]
+  stockMovements  StockMovement[]
   assignedDriver       Driver?  @relation("AssignedTruck")
   assignedTrailer      Trailer? @relation("AssignedTrailer")
   maintenanceRequests  MaintenanceRequest[]
@@ -292,6 +294,7 @@ model Trailer {
   assignedTruck     Truck?    @relation("AssignedTrailer", fields: [assignedTruckId], references: [id])
 
   trailerExpenses   TrailerExpense[]
+  stockMovements  StockMovement[]
   maintenanceRequests MaintenanceRequest[]
 
   @@unique([organizationId, registrationNo])
@@ -434,6 +437,7 @@ model Driver {
   assignedTruck   Truck?    @relation("AssignedTruck", fields: [assignedTruckId], references: [id])
   trips           Trip[]
   driverExpenses  DriverExpense[]
+  stockMovements  StockMovement[]
   truckAssignments DriverTruckAssignment[]
 
   @@map("driver")
@@ -636,6 +640,7 @@ model Trip {
   updatedAt          DateTime  @updatedAt
 
   tripExpenses       TripExpense[]
+  stockMovements  StockMovement[]
   invoices           Invoice[]
   notifications      Notification[]
 
@@ -699,6 +704,7 @@ model ExpenseCategory {
   defaultAccount    FinancialAccount? @relation(fields: [defaultAccountId], references: [id])
 
   expenses       Expense[]
+  inventoryItems InventoryItem[] @relation("InventoryDefaultCategory")
 
   @@unique([organizationId, name])
   @@map("expense_category")
@@ -783,6 +789,9 @@ model Expense {
   trailerExpenses TrailerExpense[]
   tripExpenses    TripExpense[]
   driverExpenses  DriverExpense[]
+  /// Set when this expense was posted by stock leaving the storeroom.
+  stockMovement   StockMovement?
+  partAllocation  PartAllocation?
 
   @@index([organizationId, date])
   @@index([categoryId])
@@ -892,13 +901,53 @@ model Payment {
 // INVENTORY MANAGEMENT
 // =============================================================================
 
+/// A label the storeroom organises itself by: Brakes, Filters, Oils, Tyres.
+///
+/// `InventoryItem.category` was free text typed into a plain input, so
+/// "Brakes", "brakes" and "Brake Parts" were three different categories and
+/// the list page had no filter at all — the only grouping anywhere was an
+/// admin-only value rollup. This is the managed list the client asked for:
+/// anyone with inventory access adds to it, renaming one renames it
+/// everywhere, and the inventory list filters by it.
+///
+/// Deliberately not `ExpenseCategory`. That is the chart of accounts, it is
+/// admin-only to change by ACCESS_CONTROL.md, and what a part *is* on the
+/// shelf is a different question from what its cost *counts as* in the books.
+model InventoryLabel {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  /// A dot beside the name on the list, so the eye finds a group quickly.
+  color          String?
+  /// Hand-set order for the filter tabs; ties break on name.
+  sortOrder      Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  items          InventoryItem[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId, sortOrder])
+  @@map("inventory_label")
+}
+
 model InventoryItem {
   id             String   @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   name           String
   sku            String?
+  /// Superseded by `label` — kept until the next release so a rename can be
+  /// undone and nothing that still reads it breaks. New writes set `labelId`.
   category       String?
+  labelId        String?
+  label          InventoryLabel? @relation(fields: [labelId], references: [id], onDelete: SetNull)
+  /// Which expense category this part's cost posts to when it leaves stock,
+  /// so the person taking it out does not have to decide every time. The
+  /// take-out form pre-fills from here and they can still change it.
+  defaultExpenseCategoryId String?
+  defaultExpenseCategory   ExpenseCategory? @relation("InventoryDefaultCategory", fields: [defaultExpenseCategoryId], references: [id], onDelete: SetNull)
   unit           String?  // free-form unit label, e.g. "litre", "kg", "piece"
   quantity       Int      @default(0)
   minQuantity    Int      @default(5)
@@ -929,8 +978,25 @@ model StockMovement {
   quantity        Int
   quantityBefore  Int
   quantityAfter   Int
-  destination     String?  // where it went (out) or came from (in)
+  destination     String?  // where it went (out) or came from (in), free text
   reason          String?
+  /// Where it went, as a record rather than a sentence. `destination` was the
+  /// only answer before, so nothing could attribute a part to the truck that
+  /// got it — which is why a $20 brake pad contributed $0 to that truck's
+  /// costs, its category breakdown and every report.
+  truckId         String?
+  truck           Truck?   @relation(fields: [truckId], references: [id], onDelete: SetNull)
+  trailerId       String?
+  trailer         Trailer? @relation(fields: [trailerId], references: [id], onDelete: SetNull)
+  tripId          String?
+  trip            Trip?    @relation(fields: [tripId], references: [id], onDelete: SetNull)
+  driverId        String?
+  driver          Driver?  @relation(fields: [driverId], references: [id], onDelete: SetNull)
+  /// The expense this movement posted, so correcting or deleting the movement
+  /// can reverse the cost instead of orphaning it, and so a backfill can tell
+  /// what it has already done.
+  expenseId       String?  @unique
+  expense         Expense? @relation(fields: [expenseId], references: [id], onDelete: SetNull)
   // The item's unit cost at the moment of the movement, so the monetary value
   // of a past movement stays correct after the item is repriced. Null on rows
   // written before this column existed, and on items with no cost recorded.
@@ -954,8 +1020,17 @@ model PartAllocation {
   allocatedBy     Employee @relation(fields: [allocatedById], references: [id])
   quantity        Int      @default(1)
   reason          String?
+  /// The item's unit cost when it was allocated, so the value of a past
+  /// allocation stays correct after the part is repriced. The movement written
+  /// beside it has carried this since September; the allocation did not, which
+  /// is what makes valuing the oldest rows a judgement call.
+  unitCost        Float?
+  /// The expense this allocation posted.
+  expenseId       String?  @unique
+  expense         Expense? @relation(fields: [expenseId], references: [id], onDelete: SetNull)
   allocatedAt     DateTime @default(now())
 
+  @@index([truckId, allocatedAt])
   @@map("part_allocation")
 }
 
