@@ -25,6 +25,114 @@ export interface ExpenseCategoryFormData {
   kind?: string | null;
 }
 
+/**
+ * Which account a kind of spending normally comes out of.
+ *
+ * Cash for what a driver or a yard hand pays on the road, Bank for what the
+ * office settles by transfer. The same mapping the standard categories are
+ * seeded with — see lib/setup/standard-categories-data.ts.
+ */
+const ACCOUNT_BY_KIND: Record<string, "cash" | "bank"> = {
+  fuel: "cash",
+  tolls: "cash",
+  permits: "cash",
+  salaries: "cash",
+  maintenance: "bank",
+  tyres: "bank",
+  insurance: "bank",
+  other: "bank",
+};
+
+/**
+ * The same guess from the category's name, for the ones with no `kind`.
+ *
+ * `kind` only arrived in September, so categories made before that — which is
+ * most of a live system's — carry none, and mapping by kind alone put every
+ * single one on Bank. Diesel bought on the road is not settled by the office.
+ */
+const CASH_BY_NAME = /fuel|diesel|petrol|toll|allowance|parking|loading|offload|border|per.?diem/i;
+
+/**
+ * Point every category that has no account at one.
+ *
+ * This exists because of a live bug, not for tidiness. An expense debits an
+ * account **only** when its category names one — "categories with no default
+ * account skip accounting entirely", as the expense action puts it — and the
+ * categories this system shipped with named none. So the client recorded a
+ * month of expenses and watched Cash, Bank and Petty Cash sit perfectly
+ * still, which is exactly what they reported.
+ *
+ * Fixing it one category at a time through the edit dialog is nine or twelve
+ * trips through a form to undo something that was never their doing, so this
+ * does the lot by `kind`, and reports what it touched. Categories that already
+ * name an account are left alone: a deliberate choice of Petty Cash over Cash
+ * is not ours to overwrite.
+ *
+ * Categories with no `kind` are read by name first (diesel, tolls, allowances
+ * and the like are paid out of a float, not by transfer), and anything still
+ * unrecognised falls to Bank — the safer guess for an unlabelled cost, since
+ * the office settles what nobody has classified. Either way an admin can
+ * change any of them in the dialog afterwards.
+ */
+export async function assignDefaultAccountsToCategories() {
+  const user = await assertRole(["admin"]);
+
+  try {
+    const [unwired, accounts] = await Promise.all([
+      prisma.expenseCategory.findMany({
+        where: { organizationId: user.organizationId, defaultAccountId: null },
+        select: { id: true, name: true, kind: true },
+      }),
+      prisma.financialAccount.findMany({
+        where: { organizationId: user.organizationId },
+        select: { id: true, type: true },
+      }),
+    ]);
+
+    if (unwired.length === 0) {
+      return { success: true as const, updated: 0, message: "Every category already draws from an account." };
+    }
+
+    const accountIdByType = new Map(accounts.map((account) => [account.type, account.id]));
+    if (accountIdByType.size === 0) {
+      return {
+        success: false as const,
+        error:
+          "There are no accounts yet. Open Finance → Accounts and record the opening balances first, then come back.",
+      };
+    }
+
+    // Bank, then Cash, then whatever exists — so an organisation that only
+    // created one account still gets wired up rather than refused.
+    const fallback =
+      accountIdByType.get("bank") ?? accountIdByType.get("cash") ?? accounts[0]!.id;
+
+    let updated = 0;
+    for (const category of unwired) {
+      const wanted =
+        ACCOUNT_BY_KIND[category.kind ?? ""] ??
+        (CASH_BY_NAME.test(category.name) ? "cash" : "bank");
+      const accountId = accountIdByType.get(wanted) ?? fallback;
+      await prisma.expenseCategory.update({
+        where: { id: category.id },
+        data: { defaultAccountId: accountId },
+      });
+      updated += 1;
+    }
+
+    revalidatePath("/finance/expense-categories");
+    revalidatePath("/finance/expenses");
+    return {
+      success: true as const,
+      updated,
+      message: `${updated} ${updated === 1 ? "category" : "categories"} now draw from an account. Expenses recorded from here on will move that balance.`,
+    };
+  } catch (error) {
+    console.error("Failed to assign default accounts:", error);
+    return { success: false as const, error: "Could not assign the accounts" };
+  }
+}
+
 export async function createExpenseCategory(data: ExpenseCategoryFormData) {
   const user = await assertRole(["admin"]);
 

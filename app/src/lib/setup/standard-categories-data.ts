@@ -30,6 +30,22 @@ interface StandardCategory {
   isTrip: boolean;
   isTruck: boolean;
   isDriver: boolean;
+  /**
+   * Which of the three accounts this spending normally comes out of.
+   *
+   * This is the field whose absence meant **no expense in the system moved any
+   * balance**. An expense only debits an account when its category names one
+   * (`finance/expenses/actions.ts`, "categories with no default account skip
+   * accounting entirely"), and the nine seeded categories named none — so the
+   * client recorded expenses all month and watched Cash, Bank and Petty Cash
+   * sit still.
+   *
+   * Cash for what a driver or a yard hand pays out of a float on the road;
+   * Bank for what the office settles by transfer. An admin can change any of
+   * them on the Expense Categories page, and "no account" is still a valid
+   * answer there for spending that never touches the company's own money.
+   */
+  account: "cash" | "bank" | "petty_cash";
 }
 
 export const STANDARD_EXPENSE_CATEGORIES: StandardCategory[] = [
@@ -40,6 +56,7 @@ export const STANDARD_EXPENSE_CATEGORIES: StandardCategory[] = [
     isTrip: true,
     isTruck: true,
     isDriver: false,
+    account: "cash",
   },
   {
     name: "Tolls",
@@ -48,6 +65,7 @@ export const STANDARD_EXPENSE_CATEGORIES: StandardCategory[] = [
     isTrip: true,
     isTruck: true,
     isDriver: false,
+    account: "cash",
   },
   {
     name: "Border and permits",
@@ -56,6 +74,7 @@ export const STANDARD_EXPENSE_CATEGORIES: StandardCategory[] = [
     isTrip: true,
     isTruck: true,
     isDriver: false,
+    account: "cash",
   },
   {
     name: "Maintenance and repairs",
@@ -64,6 +83,7 @@ export const STANDARD_EXPENSE_CATEGORIES: StandardCategory[] = [
     isTrip: false,
     isTruck: true,
     isDriver: false,
+    account: "bank",
   },
   {
     name: "Tyres",
@@ -72,6 +92,7 @@ export const STANDARD_EXPENSE_CATEGORIES: StandardCategory[] = [
     isTrip: false,
     isTruck: true,
     isDriver: false,
+    account: "bank",
   },
   {
     name: "Insurance and licensing",
@@ -80,6 +101,7 @@ export const STANDARD_EXPENSE_CATEGORIES: StandardCategory[] = [
     isTrip: false,
     isTruck: true,
     isDriver: false,
+    account: "bank",
   },
   {
     name: "Driver allowance",
@@ -88,6 +110,7 @@ export const STANDARD_EXPENSE_CATEGORIES: StandardCategory[] = [
     isTrip: true,
     isTruck: false,
     isDriver: true,
+    account: "cash",
   },
   {
     name: "Loading and offloading",
@@ -96,6 +119,7 @@ export const STANDARD_EXPENSE_CATEGORIES: StandardCategory[] = [
     isTrip: true,
     isTruck: false,
     isDriver: false,
+    account: "cash",
   },
   {
     name: "Office and admin",
@@ -104,6 +128,7 @@ export const STANDARD_EXPENSE_CATEGORIES: StandardCategory[] = [
     isTrip: false,
     isTruck: false,
     isDriver: false,
+    account: "bank",
   },
 ];
 

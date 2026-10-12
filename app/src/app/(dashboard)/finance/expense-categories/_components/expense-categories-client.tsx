@@ -45,7 +45,7 @@ import { COST_KINDS, COST_KIND_LABELS } from "@/lib/metrics/cost-kinds";
 import { formatCurrency } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Pencil, Trash2, Truck, MapPin, User } from "lucide-react";
+import { Plus, Pencil, Trash2, Truck, MapPin, User, AlertTriangle } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -53,6 +53,7 @@ import { createExpenseCategory, updateExpenseCategory, deleteExpenseCategory } f
 import { useRouter } from "next/navigation";
 import type { Role } from "@/lib/types";
 import { canManageExpenseCategories } from "@/lib/permissions";
+import { assignDefaultAccountsToCategories } from "../actions";
 
 const categorySchema = z.object({
     name: z.string().min(1, "Name is required"),
@@ -121,6 +122,29 @@ export function ExpenseCategoriesClient({ categories, accounts, role, periodLabe
     // Read-only for everyone but admin. The server actions enforce this too —
     // this only keeps controls that would always fail off the screen.
     const canManage = canManageExpenseCategories(role);
+
+    // Categories that cannot move money. An expense only debits an account
+    // when its category names one, so every one of these records a cost that
+    // leaves all three balances untouched — which is what the client saw.
+    const unwired = categories.filter((category) => !category.defaultAccountId);
+    const [isWiring, setIsWiring] = useState(false);
+
+    const handleAssignAccounts = async () => {
+        setIsWiring(true);
+        try {
+            const result = await assignDefaultAccountsToCategories();
+            if (result.success) {
+                toast.success(result.message);
+                router.refresh();
+            } else {
+                toast.error(result.error);
+            }
+        } catch {
+            toast.error("Could not assign the accounts");
+        } finally {
+            setIsWiring(false);
+        }
+    };
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [editingCategory, setEditingCategory] = useState<Category | null>(null);
     const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -398,6 +422,36 @@ export function ExpenseCategoriesClient({ categories, accounts, role, periodLabe
 
     return (
         <div className="space-y-4">
+            {canManage && unwired.length > 0 && (
+                <div className="flex flex-col gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm dark:border-amber-900/50 dark:bg-amber-950/30 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="space-y-1">
+                        <p className="flex items-center gap-2 font-medium text-amber-900 dark:text-amber-200">
+                            <AlertTriangle className="h-4 w-4 shrink-0" />
+                            {unwired.length === 1
+                                ? "One category does not draw from an account"
+                                : `${unwired.length} categories do not draw from an account`}
+                        </p>
+                        <p className="text-amber-800/90 dark:text-amber-200/80">
+                            An expense only takes money out of Cash, Bank or Petty Cash when its
+                            category says which one. Until these are set, expenses in them are
+                            recorded but no balance moves:{" "}
+                            <span className="font-medium">
+                                {unwired.slice(0, 4).map((category) => category.name).join(", ")}
+                                {unwired.length > 4 ? ` and ${unwired.length - 4} more` : ""}
+                            </span>
+                            .
+                        </p>
+                    </div>
+                    <Button
+                        variant="outline"
+                        onClick={handleAssignAccounts}
+                        disabled={isWiring}
+                        className="shrink-0 border-amber-400 bg-background/80 hover:bg-background"
+                    >
+                        {isWiring ? "Setting…" : "Set them by cost type"}
+                    </Button>
+                </div>
+            )}
             <div className="flex justify-end">
                 {canManage && (
                 <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>

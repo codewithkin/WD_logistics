@@ -62,18 +62,41 @@ async function main() {
     console.log(`✅ Using existing organization: ${organization.name}`);
   }
 
-  // Seed baseline categories only when creating a genuinely new organization.
-  // An empty chart may be deliberate after Settings → Reset Everything; if we
-  // filled it on every container start, the reset would not stay empty.
+  // Seed baseline accounts and categories only when creating a genuinely new
+  // organization. An empty chart may be deliberate after Settings → Reset
+  // Everything; if we filled it on every container start, the reset would not
+  // stay empty.
   if (createdOrganization) {
+    // The accounts first, because a category points at one. This is the wiring
+    // whose absence meant no expense in the system moved any balance: an
+    // expense debits an account only when its category names one, and the nine
+    // categories shipped naming none.
+    const accountNames = { cash: "Cash", bank: "Bank", petty_cash: "Petty Cash" };
+    for (const [type, name] of Object.entries(accountNames)) {
+      await prisma.financialAccount.upsert({
+        where: { organizationId_type: { organizationId: organization.id, type } },
+        update: {},
+        create: { organizationId: organization.id, type, name },
+      });
+    }
+    const accounts = await prisma.financialAccount.findMany({
+      where: { organizationId: organization.id },
+      select: { id: true, type: true },
+    });
+    const accountIdByType = new Map(accounts.map((a) => [a.type, a.id]));
+    console.log(`✅ Added ${accounts.length} accounts: Cash, Bank, Petty Cash`);
+
     await prisma.expenseCategory.createMany({
-      data: STANDARD_EXPENSE_CATEGORIES.map((category) => ({
+      data: STANDARD_EXPENSE_CATEGORIES.map(({ account, ...category }) => ({
         ...category,
         organizationId: organization.id,
+        defaultAccountId: accountIdByType.get(account) ?? null,
       })),
       skipDuplicates: true,
     });
-    console.log(`✅ Added ${STANDARD_EXPENSE_CATEGORIES.length} standard expense categories`);
+    console.log(
+      `✅ Added ${STANDARD_EXPENSE_CATEGORIES.length} standard expense categories, each paid from an account`
+    );
   }
 
   const existingAdmin = await prisma.user.findFirst({
