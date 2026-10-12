@@ -29,6 +29,7 @@ import {
     FormItem,
     FormLabel,
     FormMessage,
+    FormDescription,
 } from "@/components/ui/form";
 import { Card, CardContent } from "@/components/ui/card";
 import { Loader2, Calendar } from "lucide-react";
@@ -49,6 +50,7 @@ const supplierPaymentSchema = z.object({
     reference: z.string().optional(),
     description: z.string().optional(),
     notes: z.string().optional(),
+    accountId: z.string().optional().nullable(),
 });
 
 type SupplierPaymentFormData = z.infer<typeof supplierPaymentSchema>;
@@ -67,10 +69,15 @@ interface SupplierPaymentFormProps {
         reference: string | null;
         description: string | null;
         notes: string | null;
+        accountId?: string | null;
     };
+    /** The account it came out of, so the picker reads as a name. */
+    initialAccount?: EntityOption;
+    /** Offered first on a new payment — the office settles by bank. */
+    defaultAccountId?: string | null;
 }
 
-export function SupplierPaymentForm({ initialSupplier, defaultSupplierId, payment }: SupplierPaymentFormProps) {
+export function SupplierPaymentForm({ initialSupplier, defaultSupplierId, payment, initialAccount, defaultAccountId }: SupplierPaymentFormProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
     // Non-admins are editing a request, not the record — see
@@ -89,6 +96,7 @@ export function SupplierPaymentForm({ initialSupplier, defaultSupplierId, paymen
             amount: payment?.amount ?? 0,
             paymentDate: payment?.paymentDate ? new Date(payment.paymentDate) : new Date(),
             method: payment?.method ?? "bank_transfer",
+            accountId: payment?.accountId ?? defaultAccountId ?? null,
             customMethod: payment?.customMethod ?? "",
             reference: payment?.reference ?? "",
             description: payment?.description ?? "",
@@ -282,6 +290,37 @@ export function SupplierPaymentForm({ initialSupplier, defaultSupplierId, paymen
                                 )}
                             />
                         </div>
+
+                        {/* Which account the money left. Paying a supplier
+                            used to move only the supplier's balance, so the
+                            cost reached the books nowhere an account could
+                            see it. */}
+                        <FormField
+                            control={form.control}
+                            name="accountId"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Paid from</FormLabel>
+                                    <FormControl>
+                                        <EntityPicker
+                                            kind="account"
+                                            value={field.value ?? undefined}
+                                            onChange={(id) => field.onChange(id ?? null)}
+                                            initialSelected={initialAccount}
+                                            placeholder="Select an account"
+                                            clearable
+                                            clearLabel="Don't record it against an account"
+                                        />
+                                    </FormControl>
+                                    <FormDescription>
+                                        {field.value
+                                            ? "This account's balance goes down by the amount above."
+                                            : "No account balance will change — record one unless the money has not actually left yet."}
+                                    </FormDescription>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
 
                         {selectedMethod === "other" && (
                             <FormField

@@ -1,6 +1,7 @@
 import { NoAccess } from "@/components/layout/no-access";
 import { pageAccess } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
+import { ensureAccountsExist } from "@/lib/accounts-server";
 import { PageHeader } from "@/components/layout/page-header";
 import { SupplierPaymentForm } from "../_components/supplier-payment-form";
 
@@ -23,6 +24,16 @@ export default async function NewSupplierPaymentPage({ searchParams }: NewSuppli
           })
         : null;
 
+    // The account a supplier is usually settled from, offered first, and the
+    // three ensured so the picker is never empty on a system that has not
+    // visited the Accounts page.
+    await ensureAccountsExist(session.organizationId);
+    const accounts = await prisma.financialAccount.findMany({
+        where: { organizationId: session.organizationId },
+        select: { id: true, name: true, type: true },
+    });
+    const bank = accounts.find((account) => account.type === "bank") ?? accounts[0];
+
     return (
         <div>
             <PageHeader
@@ -31,6 +42,8 @@ export default async function NewSupplierPaymentPage({ searchParams }: NewSuppli
                 backHref="/finance/supplier-payments"
             />
             <SupplierPaymentForm
+                defaultAccountId={bank?.id ?? null}
+                initialAccount={bank ? { id: bank.id, label: bank.name } : undefined}
                 defaultSupplierId={prefilled?.id}
                 initialSupplier={
                     prefilled

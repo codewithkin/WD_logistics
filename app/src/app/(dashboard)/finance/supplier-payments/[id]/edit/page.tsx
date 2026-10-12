@@ -26,6 +26,9 @@ export default async function EditSupplierPaymentPage({ params }: EditSupplierPa
             supplier: {
                 select: { id: true, name: true, balance: true, contactPerson: true },
             },
+            // So the picker reads as "Bank" rather than an id, and a payment
+            // recorded before accounts existed shows as unrecorded.
+            account: { select: { id: true, name: true } },
         },
     });
 
@@ -42,6 +45,11 @@ export default async function EditSupplierPaymentPage({ params }: EditSupplierPa
             />
             <SupplierPaymentForm
                 payment={payment}
+                initialAccount={
+                    payment.account
+                        ? { id: payment.account.id, label: payment.account.name }
+                        : undefined
+                }
                 initialSupplier={{
                     id: payment.supplier.id,
                     label: payment.supplier.name,

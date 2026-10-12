@@ -5,6 +5,10 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, requireRole } from "@/lib/session";
 import { gateChange } from "@/lib/edit-requests/gate";
 import { PaymentMethod } from "@/lib/types";
+import {
+    creditAccountForSupplierReversal,
+    debitAccountForSupplierPayment,
+} from "@/lib/accounts-server";
 
 export async function createSupplierPayment(data: {
     supplierId: string;
@@ -15,6 +19,8 @@ export async function createSupplierPayment(data: {
     reference?: string;
     description?: string;
     notes?: string;
+    /** Which account the money left. Null records the payment only. */
+    accountId?: string | null;
 }) {
     const session = await requireRole(["admin", "supervisor"]);
 
@@ -42,6 +48,7 @@ export async function createSupplierPayment(data: {
                     reference: data.reference,
                     description: data.description,
                     notes: data.notes,
+                    accountId: data.accountId || null,
                 },
             });
 
@@ -50,6 +57,20 @@ export async function createSupplierPayment(data: {
                 where: { id: data.supplierId },
                 data: { balance: { decrement: data.amount } },
             });
+
+            // And take the money out of the account it actually left. Paying a
+            // supplier $5,000 used to move the supplier's balance and leave
+            // Bank untouched, so the cost reached the books nowhere an account
+            // could see it.
+            if (data.accountId) {
+                await debitAccountForSupplierPayment(tx, {
+                    accountId: data.accountId,
+                    amount: data.amount,
+                    description: `Paid ${supplier.name}${data.description ? ` — ${data.description}` : ""}`,
+                    date: data.paymentDate,
+                    createdById: session.user.id,
+                });
+            }
 
             return created;
         });
@@ -73,6 +94,7 @@ export async function updateSupplierPayment(
         reference?: string;
         description?: string;
         notes?: string;
+        accountId?: string | null;
   },
   /**
    * Why the change is wanted. Required for anyone but an admin, whose
@@ -114,7 +136,7 @@ export async function updateSupplierPayment(
                 });
             }
 
-            return tx.supplierPayment.update({
+            const written = await tx.supplierPayment.update({
                 where: { id },
                 data: {
                     amount: data.amount,
@@ -124,8 +146,33 @@ export async function updateSupplierPayment(
                     reference: data.reference,
                     description: data.description,
                     notes: data.notes,
+                    ...(data.accountId !== undefined && { accountId: data.accountId || null }),
                 },
             });
+
+            // Put the old payment back and take the new one out, rather than
+            // nudging a difference: an edit can move the amount, the date and
+            // which account it came from all at once.
+            if (existingPayment.accountId) {
+                await creditAccountForSupplierReversal(tx, {
+                    accountId: existingPayment.accountId,
+                    amount: existingPayment.amount,
+                    description: "Supplier payment corrected",
+                    date: written.paymentDate,
+                    createdById: session.user.id,
+                });
+            }
+            if (written.accountId) {
+                await debitAccountForSupplierPayment(tx, {
+                    accountId: written.accountId,
+                    amount: written.amount,
+                    description: "Supplier payment",
+                    date: written.paymentDate,
+                    createdById: session.user.id,
+                });
+            }
+
+            return written;
         });
 
         revalidatePath("/finance/supplier-payments");
@@ -173,6 +220,17 @@ export async function deleteSupplierPayment(id: string,
                 where: { id: payment.supplierId },
                 data: { balance: { increment: payment.amount } },
             });
+
+            // And the money back into the account it left.
+            if (payment.accountId) {
+                await creditAccountForSupplierReversal(tx, {
+                    accountId: payment.accountId,
+                    amount: payment.amount,
+                    description: "Supplier payment removed",
+                    date: new Date(),
+                    createdById: session.user.id,
+                });
+            }
 
             await tx.supplierPayment.delete({ where: { id } });
         });
