@@ -81,6 +81,8 @@ interface InvoiceFormProps {
     };
     /** The customer the invoice already bills, so the picker reads as a name. */
     initialCustomer?: EntityOption;
+    /** Likewise the trip, so an existing link reads as a route and a date. */
+    initialTrip?: EntityOption;
     prefilledCustomerId?: string;
     prefilledAmount?: number;
     prefilledTripId?: string;
@@ -89,6 +91,7 @@ interface InvoiceFormProps {
 export function InvoiceForm({
     invoice,
     initialCustomer,
+    initialTrip,
     prefilledCustomerId,
     prefilledAmount,
     prefilledTripId,
@@ -202,6 +205,47 @@ export function InvoiceForm({
                                         placeholder="Select a customer"
                                     />
                                 </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    {/* The link that carries money back to the truck.
+                        `tripId` has been in this form's schema, defaults and
+                        both submit paths all along with no field rendering it,
+                        so the only invoices ever linked to a trip were the
+                        ones raised from a trip's own page — and only when that
+                        trip had a customer. Everything raised here, or over
+                        WhatsApp, was invisible to the truck that did the work:
+                        revenue 0, costs real, a loss in red. */}
+                    <FormField
+                        control={form.control}
+                        name="tripId"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>For which trip</FormLabel>
+                                <FormControl>
+                                    <EntityPicker
+                                        kind="trip"
+                                        value={field.value ?? undefined}
+                                        onChange={(id) => field.onChange(id ?? null)}
+                                        initialSelected={initialTrip}
+                                        placeholder="Select the trip this invoice is for"
+                                        clearable
+                                        clearLabel="Not for a specific trip"
+                                    />
+                                </FormControl>
+                                {field.value ? (
+                                    <FormDescription>
+                                        This invoice sets the trip&apos;s revenue, so the truck and
+                                        driver who ran it get the credit.
+                                    </FormDescription>
+                                ) : (
+                                    <FormDescription className="text-amber-700 dark:text-amber-500">
+                                        Not linked to a trip — this money will not count towards
+                                        any truck&apos;s revenue. Leave it empty only for charges
+                                        that are not for one trip, like storage or a standing fee.
+                                    </FormDescription>
+                                )}
                                 <FormMessage />
                             </FormItem>
                         )}
