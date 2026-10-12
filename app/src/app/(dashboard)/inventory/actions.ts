@@ -49,6 +49,99 @@ async function maybeSendLowStockAlert(
   }).catch((err) => console.error("Failed to send low stock alert:", err));
 }
 
+/** Where a part went. Exactly one of these, or none for "somewhere else". */
+export interface StockDestination {
+  truckId?: string | null;
+  trailerId?: string | null;
+  tripId?: string | null;
+  driverId?: string | null;
+}
+
+/**
+ * Turn stock leaving the storeroom into a cost on the thing that got it.
+ *
+ * Nothing in the inventory flow created an expense before this — a grep for
+ * "expense" across the whole inventory folder matched nothing — so a $20 brake
+ * pad fitted to a truck contributed $0 to that truck's costs, to its category
+ * breakdown, to its maintenance spend and to every report. The parts left the
+ * shelf and the money left the story.
+ *
+ * ## No account is debited, deliberately
+ *
+ * The cash went when the parts were *bought*. Debiting an account again when
+ * they are *consumed* would count the same money twice — which is why this
+ * writes the expense with `isPaid: true` and never calls
+ * `debitAccountForExpense`. The client chose this on 12 Oct. Anyone
+ * "fixing" it later should read this paragraph first.
+ *
+ * Quantity and unit are carried onto the expense, so the truck page can show a
+ * supervisor "2 brake pads" without showing them a figure — the same fields
+ * the fuel-litres work added in September.
+ */
+async function postStockExpense(
+  tx: Prisma.TransactionClient,
+  params: {
+    organizationId: string;
+    categoryId: string;
+    item: { id: string; name: string; unit: string | null };
+    quantity: number;
+    unitCost: number;
+    date: Date;
+    destination: StockDestination;
+    reason?: string | null;
+  },
+) {
+  const amount = Math.round(params.unitCost * params.quantity * 100) / 100;
+
+  const expense = await tx.expense.create({
+    data: {
+      organizationId: params.organizationId,
+      categoryId: params.categoryId,
+      amount,
+      quantity: params.quantity,
+      unit: params.item.unit || "units",
+      description: `${params.item.name} from stock`,
+      notes: params.reason || null,
+      date: params.date,
+      // The money left when the stock was bought — see the note above.
+      isPaid: true,
+      paidDate: params.date,
+      // One of these, matching the destination, so the existing cost engine
+      // (lib/metrics/truck-costs.ts) finds it with the queries it already runs.
+      ...(params.destination.truckId
+        ? { truckExpenses: { create: { truckId: params.destination.truckId } } }
+        : {}),
+      ...(params.destination.trailerId
+        ? { trailerExpenses: { create: { trailerId: params.destination.trailerId } } }
+        : {}),
+      ...(params.destination.tripId
+        ? { tripExpenses: { create: { tripId: params.destination.tripId } } }
+        : {}),
+      ...(params.destination.driverId
+        ? { driverExpenses: { create: { driverId: params.destination.driverId } } }
+        : {}),
+    },
+  });
+
+  return { expense, amount };
+}
+
+/**
+ * Undo the cost a movement posted, when that movement is corrected or removed.
+ *
+ * Deletes the expense rather than writing a negative one: a parts expense has
+ * no account entry behind it, so there is nothing to reverse in a ledger, and
+ * a storeroom correction should not leave two rows for one tyre. The join rows
+ * go with it by cascade.
+ */
+async function unpostStockExpense(
+  tx: Prisma.TransactionClient,
+  expenseId: string | null | undefined,
+) {
+  if (!expenseId) return;
+  await tx.expense.deleteMany({ where: { id: expenseId } });
+}
+
 async function recordMovement(
   tx: Prisma.TransactionClient,
   data: {
@@ -63,6 +156,13 @@ async function recordMovement(
     performedById: string;
     /** Pass explicitly when the caller already knows the cost being applied. */
     unitCost?: number | null;
+    /** Where it went, as references rather than the free-text destination. */
+    truckId?: string | null;
+    trailerId?: string | null;
+    tripId?: string | null;
+    driverId?: string | null;
+    /** The expense this movement posted, so a correction can reverse it. */
+    expenseId?: string | null;
   }
 ) {
   // Stamp the unit cost onto the movement so the money value of a past
@@ -235,6 +335,20 @@ export async function takeOutStock(data: {
   quantity: number;
   destination: string;
   reason: string;
+  /**
+   * Where it went, as a record rather than a sentence. When this names
+   * something, the cost of the parts lands on it.
+   */
+  truckId?: string | null;
+  trailerId?: string | null;
+  tripId?: string | null;
+  driverId?: string | null;
+  /**
+   * Which expense category the cost posts to. Required when a destination is
+   * named — otherwise there is nowhere for the money to land. Pre-filled from
+   * the item's own default by the form.
+   */
+  expenseCategoryId?: string | null;
 }) {
   const session = await requireRole(["admin", "supervisor"]);
 
@@ -250,9 +364,58 @@ export async function takeOutStock(data: {
     return { success: false as const, error: "Say why the stock is being taken out" };
   }
 
+  const going: StockDestination = {
+    truckId: data.truckId || null,
+    trailerId: data.trailerId || null,
+    tripId: data.tripId || null,
+    driverId: data.driverId || null,
+  };
+  const named = Object.values(going).filter(Boolean).length;
+  if (named > 1) {
+    return {
+      success: false as const,
+      error: "Stock goes to one place at a time — pick a truck, a trailer, a trip or a driver.",
+    };
+  }
+
   try {
-    const { before, updated } = await prisma.$transaction(async (tx) => {
+    const item = await prisma.inventoryItem.findFirst({
+      where: { id: data.inventoryItemId, organizationId: session.organizationId },
+      select: { id: true, name: true, unit: true, unitCost: true, defaultExpenseCategoryId: true },
+    });
+    if (!item) {
+      return { success: false as const, error: "Item not found" };
+    }
+
+    // The cost only lands somewhere if we know both where it went and what
+    // kind of cost it is. Say which is missing rather than silently writing
+    // nothing, which is what the old behaviour amounted to.
+    const categoryId = data.expenseCategoryId || item.defaultExpenseCategoryId;
+    const postCost = named === 1 && Boolean(categoryId) && (item.unitCost ?? 0) > 0;
+    if (named === 1 && !categoryId) {
+      return {
+        success: false as const,
+        error:
+          "Choose which kind of expense this is, so the cost lands in the right place. The item can carry a default for next time.",
+      };
+    }
+
+    const { before, updated, posted } = await prisma.$transaction(async (tx) => {
       const result = await decrementStock(tx, session.organizationId, data.inventoryItemId, data.quantity);
+
+      const expense = postCost
+        ? await postStockExpense(tx, {
+            organizationId: session.organizationId,
+            categoryId: categoryId!,
+            item,
+            quantity: data.quantity,
+            unitCost: item.unitCost!,
+            date: new Date(),
+            destination: going,
+            reason,
+          })
+        : null;
+
       await recordMovement(tx, {
         organizationId: session.organizationId,
         inventoryItemId: data.inventoryItemId,
@@ -263,14 +426,24 @@ export async function takeOutStock(data: {
         destination,
         reason,
         performedById: session.user.id,
+        ...going,
+        expenseId: expense?.expense.id ?? null,
       });
-      return result;
+      return { ...result, posted: expense };
     });
 
     await maybeSendLowStockAlert(session.organizationId, updated, before);
 
     revalidateInventory(data.inventoryItemId);
-    return { success: true as const, item: updated };
+    // The truck, trailer, trip or driver now carries the cost, so its page is
+    // stale.
+    if (going.truckId) revalidatePath(`/fleet/trucks/${going.truckId}`);
+    if (going.trailerId) revalidatePath(`/fleet/trailers/${going.trailerId}`);
+    if (going.tripId) revalidatePath(`/operations/trips/${going.tripId}`);
+    if (going.driverId) revalidatePath(`/fleet/drivers/${going.driverId}`);
+    if (posted) revalidatePath("/finance/expenses");
+
+    return { success: true as const, item: updated, postedAmount: posted?.amount ?? null };
   } catch (error) {
     if (error instanceof InsufficientStockError) {
       return { success: false as const, error: error.message };
@@ -375,6 +548,11 @@ export async function allocatePart(data: {
   allocatedById: string;
   quantity: number;
   reason?: string;
+  /**
+   * Which expense category the parts' cost posts to. Falls back to the item's
+   * own default, which is how this stays one click for the common case.
+   */
+  expenseCategoryId?: string | null;
 }) {
   const session = await requireRole(["admin", "supervisor"]);
 
@@ -391,9 +569,57 @@ export async function allocatePart(data: {
       return { success: false as const, error: "Truck or employee not found" };
     }
 
-    const { before, updated } = await prisma.$transaction(async (tx) => {
+    const item = await prisma.inventoryItem.findFirst({
+      where: { id: data.inventoryItemId, organizationId: session.organizationId },
+      select: { id: true, name: true, unit: true, unitCost: true, defaultExpenseCategoryId: true },
+    });
+    if (!item) {
+      return { success: false as const, error: "Item not found" };
+    }
+
+    // The whole point of the client's request: fitting a $20 brake pad to a
+    // truck should make that truck's costs go up by $20. It needs a category
+    // to post to and a price to post — without either, the allocation still
+    // happens and the cost does not, which is the old behaviour and is said
+    // plainly in the result rather than silently.
+    const categoryId = data.expenseCategoryId || item.defaultExpenseCategoryId;
+    const unitCost = item.unitCost ?? 0;
+    const postCost = Boolean(categoryId) && unitCost > 0;
+
+    const reason =
+      data.reason?.trim() || `Allocated by ${employee.firstName} ${employee.lastName}`;
+
+    const { before, updated, posted } = await prisma.$transaction(async (tx) => {
       const result = await decrementStock(tx, session.organizationId, data.inventoryItemId, data.quantity);
-      await tx.partAllocation.create({ data });
+
+      const expense = postCost
+        ? await postStockExpense(tx, {
+            organizationId: session.organizationId,
+            categoryId: categoryId!,
+            item,
+            quantity: data.quantity,
+            unitCost,
+            date: new Date(),
+            destination: { truckId: data.truckId },
+            reason,
+          })
+        : null;
+
+      await tx.partAllocation.create({
+        data: {
+          inventoryItemId: data.inventoryItemId,
+          truckId: data.truckId,
+          allocatedById: data.allocatedById,
+          quantity: data.quantity,
+          reason: data.reason,
+          // Stamped here, so the value of this allocation stays right after
+          // the part is repriced — the movement beside it has done this since
+          // September and the allocation did not.
+          unitCost: item.unitCost,
+          expenseId: expense?.expense.id ?? null,
+        },
+      });
+
       await recordMovement(tx, {
         organizationId: session.organizationId,
         inventoryItemId: data.inventoryItemId,
@@ -402,16 +628,31 @@ export async function allocatePart(data: {
         quantityBefore: result.before,
         quantityAfter: result.updated.quantity,
         destination: `Truck ${truck.registrationNo}`,
-        reason: data.reason?.trim() || `Allocated by ${employee.firstName} ${employee.lastName}`,
+        reason,
         performedById: session.user.id,
+        truckId: data.truckId,
+        expenseId: expense?.expense.id ?? null,
       });
-      return result;
+      return { ...result, posted: expense };
     });
 
     await maybeSendLowStockAlert(session.organizationId, updated, before);
 
     revalidateInventory(data.inventoryItemId);
-    return { success: true as const };
+    revalidatePath(`/fleet/trucks/${data.truckId}`);
+    if (posted) revalidatePath("/finance/expenses");
+
+    return {
+      success: true as const,
+      postedAmount: posted?.amount ?? null,
+      // So the caller can say "no cost was recorded, and here is why" instead
+      // of implying the truck's figures moved when they did not.
+      notPostedBecause: posted
+        ? null
+        : !categoryId
+          ? "no expense category is set for this item"
+          : "this item has no unit cost recorded",
+    };
   } catch (error) {
     if (error instanceof InsufficientStockError) {
       return { success: false as const, error: error.message };
