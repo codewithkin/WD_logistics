@@ -12,6 +12,7 @@ import { notifyInvoiceCreated, notifyInvoiceUpdated, notifyInvoiceDeleted } from
 import { notifyAdminInvoiceCreated } from "@/lib/whatsapp-notifications";
 import { handleActionError } from "@/lib/error-messages";
 import { recomputeCustomerBalance } from "@/lib/metrics/customer-balance";
+import { recomputeTripRevenueFor } from "@/lib/metrics/trip-revenue";
 import { recomputeInvoiceTotals } from "@/lib/metrics/invoice-totals";
 
 /**
@@ -109,6 +110,12 @@ export async function createInvoice(data: {
     // updateInvoice or deleteInvoice, so every correction left the column
     // permanently wrong — see lib/metrics/customer-balance.ts.
     await recomputeCustomerBalance(data.customerId);
+
+    // The closing edge of the circle: the trip this invoice is for now knows
+    // what it earned, which is the only thing any revenue figure in the app
+    // reads. Without it a supervisor's trip stays at zero and its truck shows
+    // a loss for work that was paid for — see lib/metrics/trip-revenue.ts.
+    await recomputeTripRevenueFor([data.tripId]);
 
     // Send appropriate email to customer (async, don't block)
     if (customer?.email) {
@@ -279,6 +286,10 @@ export async function updateInvoice(
       // this customer owes.
       await recomputeCustomerBalance(written.customerId, tx);
 
+      // Both trips, because an edit can move an invoice from one to another:
+      // the one it left loses the revenue, the one it joined gains it.
+      await recomputeTripRevenueFor([invoice.tripId, written.tripId], tx);
+
       return { updatedInvoice: written, totals: recomputed };
     });
 
@@ -350,6 +361,7 @@ export async function deleteInvoice(id: string,
     // A deleted invoice is no longer owed. Without this the customer carried
     // the debt for ever.
     await recomputeCustomerBalance(invoice.customerId);
+    await recomputeTripRevenueFor([invoice.tripId]);
 
     // Send admin notification
     notifyInvoiceDeleted(
