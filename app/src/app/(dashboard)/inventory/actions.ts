@@ -127,20 +127,20 @@ async function postStockExpense(
 }
 
 /**
- * Undo the cost a movement posted, when that movement is corrected or removed.
+ * Reversing a posted cost is not implemented, on purpose.
  *
- * Deletes the expense rather than writing a negative one: a parts expense has
- * no account entry behind it, so there is nothing to reverse in a ledger, and
- * a storeroom correction should not leave two rows for one tyre. The join rows
- * go with it by cascade.
+ * There is no "undo this movement" action in the product — stock is corrected
+ * by an adjustment, which is its own movement, and deleting an inventory item
+ * is refused while it has allocations. A deleted *item* should not take its
+ * cost history with it either: the $40 of pads was still spent.
+ *
+ * So nothing calls for a reversal yet. When a movement becomes editable, this
+ * is the shape it needs: delete the linked expense rather than writing a
+ * negative one, because a parts expense has no ledger entry behind it and a
+ * storeroom correction should not leave two rows for one tyre. Both
+ * `StockMovement.expenseId` and `PartAllocation.expenseId` exist to make that
+ * a one-line lookup when the day comes.
  */
-async function unpostStockExpense(
-  tx: Prisma.TransactionClient,
-  expenseId: string | null | undefined,
-) {
-  if (!expenseId) return;
-  await tx.expense.deleteMany({ where: { id: expenseId } });
-}
 
 async function recordMovement(
   tx: Prisma.TransactionClient,
