@@ -148,6 +148,59 @@ export async function creditAccountForExpense(
 }
 
 /**
+ * Money a customer has paid, arriving in an account.
+ *
+ * A customer payment used to be a `Payment` row and nothing else: cash
+ * physically handed over never reached Cash, Bank or Petty Cash, so the three
+ * balances could not reconcile with reality and the client reported "money in
+ * was not affecting the balance of that account".
+ *
+ * Takes a transaction client, because the receipt and the balance it moves
+ * have to land together — the same invariant the expense helpers above are
+ * called under.
+ */
+export async function creditAccountForPayment(
+  tx: TxClient,
+  params: { accountId: string; amount: number; description?: string; date?: Date; createdById: string }
+) {
+  return recordAccountMovement(tx, { ...params, type: "deposit" });
+}
+
+/**
+ * Reversing a receipt: a payment deleted, reduced, or moved to another
+ * account. Overdraws rather than refusing — the money has already gone back
+ * to the customer, and refusing to record that would be the lie.
+ */
+export async function debitAccountForPaymentReversal(
+  tx: TxClient,
+  params: { accountId: string; amount: number; description?: string; date?: Date; createdById: string }
+) {
+  return recordAccountMovement(tx, { ...params, type: "withdrawal", allowOverdraw: true });
+}
+
+/**
+ * Money leaving an account to settle a supplier.
+ *
+ * Also missing until now: paying a supplier $5,000 moved the supplier's
+ * balance and left Bank untouched. Overdraws rather than refusing, for the
+ * same reason spending does — the payment has been made.
+ */
+export async function debitAccountForSupplierPayment(
+  tx: TxClient,
+  params: { accountId: string; amount: number; description?: string; date?: Date; createdById: string }
+) {
+  return recordAccountMovement(tx, { ...params, type: "withdrawal", allowOverdraw: true });
+}
+
+/** Putting money back when a supplier payment is deleted or reduced. */
+export async function creditAccountForSupplierReversal(
+  tx: TxClient,
+  params: { accountId: string; amount: number; description?: string; date?: Date; createdById: string }
+) {
+  return recordAccountMovement(tx, { ...params, type: "deposit" });
+}
+
+/**
  * Records money handed into (deposit) or taken out of (withdrawal) an account
  * outside of expenses and transfers — cash given to a supervisor for petty
  * cash, a note taken out to pay a tow truck.

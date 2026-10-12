@@ -31,6 +31,9 @@ export default async function EditPaymentPage({ params }: EditPaymentPageProps) 
                 },
             },
             customer: { select: { id: true, name: true } },
+            // So the picker reads as "Bank" rather than an id, and so a
+            // payment recorded before accounts existed shows as unrecorded.
+            account: { select: { id: true, name: true } },
         },
     });
 
@@ -56,6 +59,9 @@ export default async function EditPaymentPage({ params }: EditPaymentPageProps) 
             <PaymentForm
                 payment={payment}
                 initialSelected={{
+                    account: payment.account
+                        ? { id: payment.account.id, label: payment.account.name }
+                        : undefined,
                     invoice: payment.invoice
                         ? {
                               id: payment.invoice.id,

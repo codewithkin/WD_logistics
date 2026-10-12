@@ -11,6 +11,10 @@ import { notifyPaymentCreated, notifyPaymentUpdated, notifyPaymentDeleted } from
 import { notifyInvoiceFullyPaid, notifyAdminPaymentReceived } from "@/lib/whatsapp-notifications";
 import { handleActionError } from "@/lib/error-messages";
 import { recomputeCustomerBalance } from "@/lib/metrics/customer-balance";
+import {
+  creditAccountForPayment,
+  debitAccountForPaymentReversal,
+} from "@/lib/accounts-server";
 import { recomputeInvoiceTotals } from "@/lib/metrics/invoice-totals";
 
 export async function createPayment(data: {
@@ -21,6 +25,11 @@ export async function createPayment(data: {
   method: PaymentMethod;
   customMethod?: string;
   notes?: string;
+  /**
+   * Which account the money was received into. Null is allowed and means
+   * "recording that it happened, not where it sits" — no balance moves.
+   */
+  accountId?: string | null;
 }) {
   const session = await requireRole(["admin", "supervisor"]);
 
@@ -67,8 +76,23 @@ export async function createPayment(data: {
           method: data.method,
           customMethod: data.method === "other" ? data.customMethod : null,
           notes: data.notes,
+          accountId: data.accountId || null,
         },
       });
+
+      // The receipt reaches the account it was paid into. Until this, a
+      // customer payment was a Payment row and nothing else — cash handed
+      // over never touched Cash, Bank or Petty Cash, which is why the
+      // balances never reconciled with what was actually in the drawer.
+      if (data.accountId) {
+        await creditAccountForPayment(tx, {
+          accountId: data.accountId,
+          amount: data.amount,
+          description: `Payment from ${customer.name}`,
+          date: data.paymentDate,
+          createdById: session.user.id,
+        });
+      }
 
       // Derived from this invoice's payments rather than nudged by this
       // amount — see lib/metrics/invoice-totals.ts.
@@ -199,6 +223,29 @@ export async function updatePayment(
         },
       });
 
+      // Reverse the old receipt and post the new one, rather than nudging a
+      // difference: the amount, the date and the account can all have moved,
+      // and an edit that changes which account a payment landed in has to
+      // take it out of one and put it into the other.
+      if (payment.accountId) {
+        await debitAccountForPaymentReversal(tx, {
+          accountId: payment.accountId,
+          amount: payment.amount,
+          description: `Payment from ${payment.customer.name} corrected`,
+          date: updated.paymentDate,
+          createdById: session.user.id,
+        });
+      }
+      if (updated.accountId) {
+        await creditAccountForPayment(tx, {
+          accountId: updated.accountId,
+          amount: updated.amount,
+          description: `Payment from ${payment.customer.name}`,
+          date: updated.paymentDate,
+          createdById: session.user.id,
+        });
+      }
+
       const totals = payment.invoice
         ? await recomputeInvoiceTotals(payment.invoice.id, tx)
         : null;
@@ -292,6 +339,19 @@ export async function deletePayment(id: string,
 
     await prisma.$transaction(async (tx) => {
       await tx.payment.delete({ where: { id } });
+
+      // The money goes back out of the account it was received into. A
+      // deleted receipt that left the balance up is the drift the accounts
+      // can never recover from on their own.
+      if (payment.accountId) {
+        await debitAccountForPaymentReversal(tx, {
+          accountId: payment.accountId,
+          amount: payment.amount,
+          description: `Payment from ${payment.customer.name} removed`,
+          date: new Date(),
+          createdById: session.user.id,
+        });
+      }
 
       if (payment.invoice) {
         await recomputeInvoiceTotals(payment.invoice.id, tx);

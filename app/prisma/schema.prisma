@@ -559,6 +559,21 @@ model SupplierPayment {
   reference      String?  // Check number, transfer reference, etc.
   description    String?  // What the payment was for
   notes          String?
+  /**
+   * Which of the three accounts the money went into (or out of).
+   *
+   * Added 2026-10-12 because it was missing, and its absence was half of the
+   * client's "money in was not affecting the balance": a customer payment was
+   * a Payment row and nothing else, and a supplier payment moved only the
+   * supplier's balance. Cash physically handed over never reached Cash, Bank
+   * or Petty Cash, so the three figures could never reconcile with reality.
+   *
+   * Nullable, because rows written before this existed have no answer and
+   * because "I am only recording that it happened" is a legitimate thing to
+   * mean. A null simply moves no balance.
+   */
+  accountId      String?
+  account        FinancialAccount? @relation(fields: [accountId], references: [id])
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -707,6 +722,8 @@ model FinancialAccount {
 
   categories      ExpenseCategory[]
   transactions    AccountTransaction[]
+  payments        Payment[]
+  supplierPayments SupplierPayment[]
 
   @@unique([organizationId, type])
   @@map("financial_account")
@@ -848,6 +865,21 @@ model Payment {
   customMethod String?  // Custom payment method name when method is "other"
   reference    String?
   notes        String?
+  /**
+   * Which of the three accounts the money went into (or out of).
+   *
+   * Added 2026-10-12 because it was missing, and its absence was half of the
+   * client's "money in was not affecting the balance": a customer payment was
+   * a Payment row and nothing else, and a supplier payment moved only the
+   * supplier's balance. Cash physically handed over never reached Cash, Bank
+   * or Petty Cash, so the three figures could never reconcile with reality.
+   *
+   * Nullable, because rows written before this existed have no answer and
+   * because "I am only recording that it happened" is a legitimate thing to
+   * mean. A null simply moves no balance.
+   */
+  accountId    String?
+  account      FinancialAccount? @relation(fields: [accountId], references: [id])
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

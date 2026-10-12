@@ -23,6 +23,7 @@ import {
     FormItem,
     FormLabel,
     FormMessage,
+    FormDescription,
 } from "@/components/ui/form";
 import {
     Select,
@@ -48,6 +49,7 @@ const paymentSchema = z.object({
     method: z.enum(["cash", "check", "bank_transfer", "mobile_money", "other"]),
     customMethod: z.string().optional(),
     notes: z.string().optional(),
+    accountId: z.string().optional().nullable(),
 }).refine((data) => {
     // If method is "other", customMethod is required
     if (data.method === "other" && (!data.customMethod || data.customMethod.trim() === "")) {
@@ -71,6 +73,7 @@ interface PaymentFormProps {
         method: string;
         customMethod: string | null;
         notes: string | null;
+        accountId?: string | null;
     };
     /**
      * The invoice and customer this payment already points at, so the pickers
@@ -80,7 +83,15 @@ interface PaymentFormProps {
     initialSelected?: {
         invoice?: EntityOption;
         customer?: EntityOption;
+        /** The account it was received into, so the picker reads as a name. */
+        account?: EntityOption;
     };
+    /**
+     * Which account to offer first on a new payment. The page resolves it
+     * from the payment method's usual home — cash to Cash, everything else to
+     * Bank — so the common case is already filled in.
+     */
+    defaultAccountId?: string | null;
     defaultInvoiceId?: string;
 }
 
@@ -104,7 +115,7 @@ function summaryFrom(option: EntityOption | null | undefined): InvoiceSummary | 
     };
 }
 
-export function PaymentForm({ payment, initialSelected, defaultInvoiceId }: PaymentFormProps) {
+export function PaymentForm({ payment, initialSelected, defaultInvoiceId, defaultAccountId }: PaymentFormProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
     // Non-admins are editing a request, not the record — see
@@ -136,6 +147,9 @@ export function PaymentForm({ payment, initialSelected, defaultInvoiceId }: Paym
             method: (payment?.method as PaymentFormData["method"]) ?? "bank_transfer",
             customMethod: payment?.customMethod ?? "",
             notes: payment?.notes ?? "",
+            // Defaults to the account the method implies, so the common case
+            // needs no thought: cash in hand goes to Cash, a transfer to Bank.
+            accountId: payment?.accountId ?? defaultAccountId ?? null,
         },
     });
 
@@ -355,6 +369,37 @@ export function PaymentForm({ payment, initialSelected, defaultInvoiceId }: Paym
                                 )}
                             />
                         </div>
+
+                        {/* Where the money actually went. Without this a
+                            customer payment was a row in a list and nothing
+                            else: the cash reached no account, so Cash, Bank
+                            and Petty Cash could never agree with the drawer. */}
+                        <FormField
+                            control={form.control}
+                            name="accountId"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Received into</FormLabel>
+                                    <FormControl>
+                                        <EntityPicker
+                                            kind="account"
+                                            value={field.value ?? undefined}
+                                            onChange={(id) => field.onChange(id ?? null)}
+                                            initialSelected={initialSelected?.account}
+                                            placeholder="Select an account"
+                                            clearable
+                                            clearLabel="Don't record it against an account"
+                                        />
+                                    </FormControl>
+                                    <FormDescription>
+                                        {field.value
+                                            ? "This account's balance goes up by the amount above."
+                                            : "No account balance will change — record one unless the money has not landed anywhere yet."}
+                                    </FormDescription>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
 
                         {selectedMethod === "other" && (
                             <FormField
