@@ -27,8 +27,9 @@
     "check:activity": "bun --preload ./scripts/_stub-server-only.ts scripts/tests/check-activity-emails.ts",
     "check:email-copies": "bun --preload ./scripts/_stub-server-only.ts scripts/tests/check-email-copies.ts",
     "check:inventory": "bun scripts/tests/test-inventory.mjs",
+    "check:circle": "bun --preload ./scripts/_stub-server-only.ts scripts/tests/check-circle.ts",
     "check:trails": "bun scripts/tests/test-trails-and-reminders.ts",
-    "check": "bun run check:documents && bun run check:root-admin && bun run check:doc-content && bun run check:notifications && bun run check:escalation && bun run check:handoff && bun run check:access && bun run check:cap && bun run check:writes && bun run check:activity && bun run check:email-copies && bun run check:inventory && bun run check:trails",
+    "check": "bun run check:documents && bun run check:root-admin && bun run check:doc-content && bun run check:notifications && bun run check:escalation && bun run check:handoff && bun run check:access && bun run check:cap && bun run check:writes && bun run check:activity && bun run check:email-copies && bun run check:inventory && bun run check:circle && bun run check:trails",
     "test:inventory": "bun scripts/tests/test-inventory.mjs",
     "test:trails": "bun scripts/tests/test-trails-and-reminders.ts"
   },
