@@ -235,6 +235,7 @@ export async function updateExpense(id: string, data: ExpenseFormData,
       select: {
         organizationId: true,
         amount: true,
+        date: true,
         isBusinessExpense: true,
         supplierId: true,
         isPaid: true,
@@ -274,6 +275,12 @@ export async function updateExpense(id: string, data: ExpenseFormData,
           amount: existing.amount,
           expenseId: id,
           description: "Expense updated (reversal)",
+          // Dated with the expense's own date, not today. A correction to a
+          // September fuel bill belongs in September: dating the credit today
+          // and the re-debit in September split one edit across two periods,
+          // so every opening and closing figure after it disagreed with the
+          // account.
+          date: existing.date,
           createdById: user.user.id,
         });
       }
@@ -441,6 +448,7 @@ export async function deleteExpense(id: string,
       organizationId: true,
       notes: true,
       amount: true,
+      date: true,
       isBusinessExpense: true,
       supplierId: true,
       isPaid: true,
@@ -468,6 +476,9 @@ export async function deleteExpense(id: string,
         amount: existing.amount,
         expenseId: id,
         description: existing.notes || existing.category.name || "Expense deleted",
+        // The money goes back in the period it came out of — see the note on
+        // the reversal in updateExpense.
+        date: existing.date,
         createdById: user.user.id,
       });
     }

@@ -30,6 +30,7 @@ import { outstandingForOrganization } from "@/lib/metrics/customer-balance";
 import { getTruckCostBreakdown, getFleetCostRanking } from "@/lib/metrics/truck-costs";
 import { getDriverPerformance } from "@/lib/metrics/driver-snapshots";
 import { getDateRangeFromParams } from "@/lib/period-utils";
+import { recomputeAccountBalance } from "@/lib/accounts-server";
 
 /** Roles, weakest first. A contact may run anything at or below their level. */
 const ROLE_RANK: Record<string, number> = {
@@ -681,6 +682,43 @@ const readOperations: Operation[] = [
         orderBy: { name: "asc" },
       });
       return accounts.map((a) => ({ ...a, balance: money(a.balance) }));
+    },
+  },
+
+  {
+    name: "recheck_account_balances",
+    description:
+      "Works each account balance out again from its own ledger and reports anything that was " +
+      "wrong. Use when a balance looks off. Moves no money.",
+    // Admin, like seeing the balances at all. It cannot create or spend
+    // anything: the worst it can do is make the figures agree with the
+    // entries behind them.
+    requires: "admin",
+    schema: z.object({}),
+    handler: async (_args, ctx) => {
+      const accounts = await prisma.financialAccount.findMany({
+        where: { organizationId: ctx.organizationId },
+        select: { id: true },
+      });
+
+      const results = [];
+      for (const account of accounts) {
+        results.push(await recomputeAccountBalance(account.id));
+      }
+
+      const repaired = results.filter((result) => result.changed);
+      return {
+        checked: results.length,
+        repaired: repaired.map((result) => ({
+          account: result.name,
+          was: money(result.previous),
+          now: money(result.balance),
+        })),
+        summary:
+          repaired.length === 0
+            ? "Every balance already agrees with its ledger."
+            : `${repaired.length} balance(s) repaired.`,
+      };
     },
   },
 

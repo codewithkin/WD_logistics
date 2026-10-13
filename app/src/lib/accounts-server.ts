@@ -44,6 +44,57 @@ export async function ensureAccountsExist(organizationId: string) {
   }
 }
 
+/**
+ * Works an account's balance out from its ledger, instead of trusting the
+ * running total.
+ *
+ * `FinancialAccount.balance` is a stored figure, incremented and decremented
+ * as money moves. That is fine until something writes one half of a pair — a
+ * balance moved with no entry, or an entry with no balance — and from then on
+ * the figure is wrong for good, with nothing in the product able to repair it.
+ * `recomputeInvoiceTotals` and `recomputeCustomerBalance` were both converted
+ * away from running deltas for exactly this reason; this is the same move for
+ * accounts.
+ *
+ * The truth is `startingBalance + every credit − every debit`. Returns what it
+ * found so a caller can report a repair rather than performing one silently.
+ */
+export async function recomputeAccountBalance(
+  accountId: string,
+  client: TxClient = prisma as unknown as TxClient,
+) {
+  const account = await client.financialAccount.findUniqueOrThrow({
+    where: { id: accountId },
+    select: { id: true, name: true, startingBalance: true, balance: true },
+  });
+
+  const sums = await client.accountTransaction.groupBy({
+    by: ["type"],
+    where: { accountId },
+    _sum: { amount: true },
+  });
+
+  let movement = 0;
+  for (const row of sums) {
+    const amount = row._sum.amount ?? 0;
+    movement += isDebitTransaction(row.type) ? -amount : amount;
+  }
+
+  const correct = Math.round((account.startingBalance + movement) * 100) / 100;
+  const previous = Math.round(account.balance * 100) / 100;
+  // A cent of float is rounding, not drift.
+  const changed = Math.abs(correct - previous) >= 0.005;
+
+  if (changed) {
+    await client.financialAccount.update({
+      where: { id: accountId },
+      data: { balance: correct },
+    });
+  }
+
+  return { accountId, name: account.name, previous, balance: correct, changed };
+}
+
 async function recordAccountMovement(
   tx: TxClient,
   params: {

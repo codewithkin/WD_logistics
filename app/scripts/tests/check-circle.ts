@@ -417,6 +417,37 @@ async function main() {
           : "no movement row",
       );
 
+      // ------------------------------- 5. a balance that can be repaired
+      // The client's drift came from stored balances that nothing could put
+      // back. Corrupt one on purpose and the repair has to find it.
+      const { recomputeAccountBalances } = await import(
+        "../../src/app/(dashboard)/finance/accounts/actions"
+      );
+      const correct =
+        (await prisma.financialAccount.findUnique({ where: { id: bank.id } }))?.balance ?? 0;
+      await prisma.financialAccount.update({
+        where: { id: bank.id },
+        data: { balance: correct + 999 },
+      });
+
+      const repair = await recomputeAccountBalances();
+      const afterRepair =
+        (await prisma.financialAccount.findUnique({ where: { id: bank.id } }))?.balance ?? 0;
+      record(
+        "a balance that disagrees with its ledger is repaired from it",
+        // Not "exactly one repaired": run against a copy of a live database
+        // this would also mend real drift, and that is the point of it.
+        near(afterRepair, correct) && repair.repaired.length >= 1,
+        `${correct + 999} → ${afterRepair} (expected ${correct}), ${repair.repaired.length} account(s) repaired`,
+      );
+
+      const again = await recomputeAccountBalances();
+      record(
+        "and a second pass over a sound ledger changes nothing",
+        again.repaired.length === 0,
+        `${again.checked} checked, ${again.repaired.length} repaired`,
+      );
+
       // A destination with no category — and no default on the item to fall
       // back to — is refused rather than losing the cost.
       const refused = await takeOutStock({

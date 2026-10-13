@@ -5,7 +5,12 @@ import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/session";
 import { notifyByTierKey, notifyIfAccountOverdrawn } from "@/lib/notifications";
 import { ACCOUNT_TYPES, AccountType, InsufficientBalanceError } from "@/lib/accounts";
-import { ensureAccountsExist, recordManualMovement, transferFunds } from "@/lib/accounts-server";
+import {
+  ensureAccountsExist,
+  recomputeAccountBalance,
+  recordManualMovement,
+  transferFunds,
+} from "@/lib/accounts-server";
 
 export async function getAccounts() {
   const session = await requireRole(["admin", "supervisor"]);
@@ -171,10 +176,18 @@ function formatMoney(amount: number): string {
 }
 
 /**
- * Sets an account's starting balance during initial setup. Only allowed
- * while the account has no ledger history yet — once expenses or transfers
- * have touched it, use a transfer (or record a correcting expense) instead
- * of silently rewriting the balance.
+ * Sets what was in an account before the system started counting.
+ *
+ * This used to refuse once any transaction existed, which locked out exactly
+ * the people who needed it: a yard that records a week of fuel before anyone
+ * thinks to enter the float could never enter the float. The figure is now
+ * editable whenever, and the balance is reworked from the ledger afterwards
+ * rather than overwritten — so the week of fuel still comes off it.
+ *
+ * No correcting ledger row is written, deliberately. The opening balance is
+ * the ledger's anchor, not an entry in it; writing both would count the change
+ * twice. Admins are told instead, since this is the one figure that moves a
+ * balance with no paper trail behind it.
  */
 export async function setStartingBalance(type: AccountType, amount: number) {
   const session = await requireRole(["admin"]);
@@ -190,18 +203,82 @@ export async function setStartingBalance(type: AccountType, amount: number) {
     include: { _count: { select: { transactions: true } } },
   });
 
-  if (account._count.transactions > 0) {
-    return {
-      success: false,
-      error: "This account already has transactions — use a transfer instead of resetting the starting balance",
-    };
+  const previousOpening = account.startingBalance;
+  if (Math.abs(previousOpening - amount) < 0.005) {
+    return { success: true, unchanged: true as const };
   }
 
   await prisma.financialAccount.update({
     where: { id: account.id },
-    data: { startingBalance: amount, balance: amount },
+    data: { startingBalance: amount },
+  });
+  const repaired = await recomputeAccountBalance(account.id);
+
+  await notifyByTierKey({
+    key: "account_money_in",
+    organizationId: session.organizationId,
+    title: `Opening balance changed: ${account.name}`,
+    message:
+      `${session.user.name} set the opening balance of ${account.name} to ` +
+      `${formatMoney(amount)} (was ${formatMoney(previousOpening)}). The balance now reads ` +
+      `${formatMoney(repaired.balance)} after ${account._count.transactions} recorded movement(s).`,
+    link: "/finance/accounts",
+    excludeUserEmails: [session.user.email],
+    metadata: { accountType: type, opening: amount, previousOpening },
   });
 
   revalidatePath("/finance/accounts");
-  return { success: true };
+  revalidatePath("/finance/expenses");
+  return { success: true, balance: repaired.balance };
+}
+
+/**
+ * Reworks all three balances from their ledgers and says what it changed.
+ *
+ * Admin-only, and on purpose a button rather than something that runs on every
+ * page load: a balance that disagrees with its own ledger is a bug worth
+ * seeing, not papering over. A clean system reports "nothing to repair".
+ */
+export async function recomputeAccountBalances() {
+  const session = await requireRole(["admin"]);
+
+  const accounts = await prisma.financialAccount.findMany({
+    where: { organizationId: session.organizationId },
+    select: { id: true },
+  });
+
+  const results = [];
+  for (const account of accounts) {
+    results.push(await recomputeAccountBalance(account.id));
+  }
+
+  const repaired = results.filter((result) => result.changed);
+  if (repaired.length > 0) {
+    await notifyByTierKey({
+      key: "account_money_in",
+      organizationId: session.organizationId,
+      title: "Account balances repaired",
+      message: repaired
+        .map(
+          (result) =>
+            `${result.name}: ${formatMoney(result.previous)} → ${formatMoney(result.balance)}`,
+        )
+        .join("; "),
+      link: "/finance/accounts",
+      excludeUserEmails: [session.user.email],
+      metadata: { repaired: repaired.length },
+    });
+  }
+
+  revalidatePath("/finance/accounts");
+  revalidatePath("/finance/expenses");
+  return {
+    success: true as const,
+    checked: results.length,
+    repaired: repaired.map((result) => ({
+      name: result.name,
+      previous: result.previous,
+      balance: result.balance,
+    })),
+  };
 }

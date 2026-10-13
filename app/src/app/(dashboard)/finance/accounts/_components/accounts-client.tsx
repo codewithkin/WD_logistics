@@ -32,12 +32,13 @@ import {
     Loader2,
     Pencil,
     Receipt,
+    RefreshCw,
     Wallet,
 } from "lucide-react";
 import { ACCOUNT_TYPE_LABELS, type AccountType } from "@/lib/accounts";
 import { Role } from "@/lib/types";
 import { formatCurrency, cn } from "@/lib/utils";
-import { transferFundsAction, setStartingBalance } from "../actions";
+import { transferFundsAction, setStartingBalance, recomputeAccountBalances } from "../actions";
 import { toast } from "sonner";
 import { AccountMovementDialog, type MovementDirection } from "./account-movement-dialog";
 import { AccountLedgerTable, type LedgerRow } from "./account-ledger-table";
@@ -171,6 +172,36 @@ export function AccountsClient({
         }
     };
 
+    /**
+     * Reads each balance back off its own ledger.
+     *
+     * Deliberately a button an admin presses, not something that runs on every
+     * page load: a balance that disagrees with its ledger is a bug worth
+     * seeing once, rather than one quietly corrected every few seconds.
+     */
+    const handleRecompute = async () => {
+        setIsSubmitting(true);
+        try {
+            const result = await recomputeAccountBalances();
+            if (result.repaired.length === 0) {
+                toast.success(
+                    `All ${result.checked} balances agree with their ledgers — nothing to repair.`
+                );
+            } else {
+                for (const account of result.repaired) {
+                    toast.success(
+                        `${account.name}: ${formatCurrency(account.previous)} → ${formatCurrency(account.balance)}`
+                    );
+                }
+            }
+            router.refresh();
+        } catch {
+            toast.error("Could not recheck the balances");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
     const handleSetStartingBalance = async (type: AccountType) => {
         const amount = parseFloat(startingBalanceInput);
         if (isNaN(amount) || amount < 0) {
@@ -182,7 +213,13 @@ export function AccountsClient({
         try {
             const result = await setStartingBalance(type, amount);
             if (result.success) {
-                toast.success("Starting balance set");
+                // The balance follows the opening figure, so say where it
+                // landed rather than only that the figure was saved.
+                toast.success(
+                    "balance" in result && typeof result.balance === "number"
+                        ? `Opening balance set — this account now reads ${formatCurrency(result.balance)}`
+                        : "Opening balance set"
+                );
                 setEditingType(null);
                 router.refresh();
             } else {
@@ -270,6 +307,22 @@ export function AccountsClient({
                                     Transfer Between Accounts
                                 </Button>
                             )}
+                            {isAdmin && (
+                                <Button
+                                    variant="outline"
+                                    onClick={handleRecompute}
+                                    disabled={isSubmitting}
+                                    className="bg-background/70"
+                                    title="Work each balance out again from its own ledger"
+                                >
+                                    {isSubmitting ? (
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    ) : (
+                                        <RefreshCw className="mr-2 h-4 w-4" />
+                                    )}
+                                    Recheck Balances
+                                </Button>
+                            )}
                         </div>
                     )}
                 </CardContent>
@@ -280,7 +333,11 @@ export function AccountsClient({
                 {accounts.map((account, index) => {
                     const Icon = ACCOUNT_ICONS[account.type] || Wallet;
                     const style = ACCOUNT_STYLES[account.type] || ACCOUNT_STYLES.cash;
-                    const canEditStarting = isAdmin && account.transactionCount === 0;
+                    // Editable whenever: a yard that records a week of fuel
+                    // before entering the float used to be locked out of the
+                    // float for good. The balance is reworked from the ledger
+                    // afterwards, so the week of fuel still comes off it.
+                    const canEditStarting = isAdmin;
                     const isSelected = accountFilter === account.type;
                     return (
                         <Card
@@ -311,7 +368,7 @@ export function AccountsClient({
                                         variant="ghost"
                                         size="icon"
                                         className="h-7 w-7"
-                                        title="Set starting balance"
+                                        title="Set opening balance"
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             setStartingBalanceInput(String(account.startingBalance ?? 0));
@@ -506,12 +563,15 @@ export function AccountsClient({
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>
-                            Set Starting Balance — {editingType ? ACCOUNT_TYPE_LABELS[editingType] : ""}
+                            Set Opening Balance — {editingType ? ACCOUNT_TYPE_LABELS[editingType] : ""}
                         </DialogTitle>
-                        <DialogDescription>Only available before this account has any transactions.</DialogDescription>
+                        <DialogDescription>
+                            What was in this account before the system started counting. Everything
+                            recorded since is worked out on top of it, so the balance stays right.
+                        </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-2">
-                        <Label>Starting Balance</Label>
+                        <Label>Opening Balance</Label>
                         <Input
                             type="number"
                             min="0"

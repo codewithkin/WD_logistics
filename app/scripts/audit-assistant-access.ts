@@ -138,6 +138,10 @@ const EXPECTED_NEW_AT: Record<Level, string[]> = {
     // Moved up on 2026-09-30: what is in the accounts, and what the business
     // spends by category, are totals nobody typed in. See ACCESS_CONTROL.md.
     "get_account_balances",
+    // A repair, not a movement: it makes each balance agree with the entries
+    // behind it and can move no money. Admin-only because the balances
+    // themselves are.
+    "recheck_account_balances",
     "get_expense_breakdown",
     "create_expense_category",
     "create_pdf",
@@ -274,6 +278,7 @@ if (!organization) {
   const sampleArgs: Record<string, Record<string, unknown>> = {
     change_my_password: SKIP_CHANGES_A_PASSWORD,
     get_account_balances: {},
+    recheck_account_balances: {},
     get_expense_breakdown: { period: "3m" },
     get_expiring_documents: {},
     get_truck_costs: truck ? { truckId: truck.id, period: "3m" } : {},

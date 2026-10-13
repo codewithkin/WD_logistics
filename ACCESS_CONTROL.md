@@ -89,6 +89,7 @@ that they did not themselves enter?** If yes, it is the owner's.
 | Accounts — money **in**, even as a line in the history | ✅ | *(30 Sep)* **—** | — | — |
 | Accounts — money **out** (spend, transfer out) | ✅ | ✅ records it, and sees the money-out entries | — | — |
 | Accounts — starting balance | ✅ | **—** | — | — |
+| Accounts — recheck balances against the ledger *(12 Oct)* | ✅ | **—** | — | — |
 | Invoices | ✅ | ✅ | — | — |
 | Customer payments | ✅ | ✅ | — | — |
 | Supplier payments | ✅ | ✅ | — | — |

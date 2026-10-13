@@ -215,6 +215,9 @@ export async function updateExpense(
           amount: expense.amount,
           expenseId: id,
           description: "Expense updated (reversal)",
+          // The expense's own date, so a correction stays in the period the
+          // money actually left — see the same note in the finance action.
+          date: expense.date,
           createdById: session.user.id,
         });
       }
@@ -323,6 +326,7 @@ export async function deleteExpense(id: string) {
           amount: expense.amount,
           expenseId: id,
           description: expense.description || expense.category.name || "Expense deleted",
+          date: expense.date,
           createdById: session.user.id,
         });
       }
