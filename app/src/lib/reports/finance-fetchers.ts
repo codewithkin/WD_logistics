@@ -618,28 +618,28 @@ export async function fetchCashFlowData(
   const [priorRows, movementRows] = await Promise.all([
     prisma.accountTransaction.findMany({
       where: { accountId: { in: accountIds }, date: { lt: from } },
-      orderBy: { date: "desc" },
-      select: { accountId: true, balanceAfter: true, date: true },
+      select: { accountId: true, type: true, amount: true },
     }),
     prisma.accountTransaction.findMany({
       where: { accountId: { in: accountIds }, date: { gte: from, lte: to } },
       orderBy: { date: "asc" },
-      select: { accountId: true, type: true, amount: true, balanceAfter: true },
+      select: { accountId: true, type: true, amount: true },
     }),
   ]);
 
+  // Worked out from the entries rather than read off `balanceAfter`, which is
+  // the balance at the moment a row was written: one backdated entry made
+  // every opening and closing figure after it disagree with the account. Same
+  // change as the account ledger report.
   const openingByAccount = new Map<string, number>();
   for (const row of priorRows) {
-    // Ordered newest first, so the first row seen for an account is its
-    // closing balance immediately before the period.
-    if (!openingByAccount.has(row.accountId)) {
-      openingByAccount.set(row.accountId, row.balanceAfter);
-    }
+    const delta = isDebitTransaction(row.type) ? -row.amount : row.amount;
+    openingByAccount.set(row.accountId, (openingByAccount.get(row.accountId) ?? 0) + delta);
   }
 
   const accountRows = accounts.map((account) => {
     const movements = movementRows.filter((m) => m.accountId === account.id);
-    const opening = openingByAccount.get(account.id) ?? account.startingBalance;
+    const opening = account.startingBalance + (openingByAccount.get(account.id) ?? 0);
     const paidOut = movements
       .filter((m) => isDebitTransaction(m.type))
       .reduce((sum, m) => sum + m.amount, 0);
@@ -653,11 +653,7 @@ export async function fetchCashFlowData(
       opening: round(opening),
       paidIn: round(paidIn),
       paidOut: round(paidOut),
-      closing: round(
-        movements.length > 0
-          ? movements[movements.length - 1].balanceAfter
-          : opening,
-      ),
+      closing: round(opening + paidIn - paidOut),
     };
   });
 

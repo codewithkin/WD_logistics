@@ -13,6 +13,7 @@ import "server-only";
 
 import { prisma } from "@/lib/prisma";
 import { earnedRevenueWhere } from "@/lib/metrics/revenue";
+import { getTruckCostRows } from "@/lib/metrics/truck-costs";
 
 const round = (value: number) => Math.round(value * 100) / 100;
 const share = (part: number, whole: number) =>
@@ -60,57 +61,40 @@ export async function fetchFuelReportData(
   from: Date,
   to: Date,
 ): Promise<FuelReportData> {
-  const [trucks, fuelLinks, trips] = await Promise.all([
-    prisma.truck.findMany({
-      where: { organizationId },
-      select: { id: true, registrationNo: true, make: true, model: true },
-      orderBy: { registrationNo: "asc" },
-    }),
-    // Fuel is whatever the admin tagged as fuel. Matching on the category
-    // name instead would miss "Diesel" and catch "Oil change".
-    prisma.truckExpense.findMany({
-      where: {
-        expense: {
-          organizationId,
-          date: { gte: from, lte: to },
-          category: { kind: "fuel" },
-        },
-      },
-      select: {
-        truckId: true,
-        expense: {
-          select: { id: true, amount: true, date: true },
-        },
-      },
-    }),
+  const trucks = await prisma.truck.findMany({
+    where: { organizationId },
+    select: { id: true, registrationNo: true, make: true, model: true },
+    orderBy: { registrationNo: "asc" },
+  });
+
+  const [costs, trips] = await Promise.all([
+    // Through the one cost engine, which also picks up fuel booked against a
+    // trip. This used to read `truckExpense` alone, so diesel entered against
+    // the Beira run — the normal way a supervisor records it — was invisible
+    // here while appearing on the truck's own page, which this file's header
+    // comment claimed it matched.
+    getTruckCostRows(
+      organizationId,
+      trucks.map((truck) => truck.id),
+      { from, to },
+    ),
     prisma.trip.findMany({
       where: earnedRevenueWhere(organizationId, from, to),
       select: { truckId: true, revenue: true, actualMileage: true, estimatedMileage: true },
     }),
   ]);
 
-  // A fuel cost booked against several trucks is split evenly between them,
-  // the same rule the truck cost breakdown uses, so per-truck fuel adds up to
-  // what the company actually spent.
-  const splitCount = new Map<string, number>();
-  for (const link of fuelLinks) {
-    splitCount.set(
-      link.expense.id,
-      (splitCount.get(link.expense.id) ?? 0) + 1,
-    );
-  }
-
+  // Fuel is whatever the admin tagged as fuel. Matching on the category name
+  // instead would miss "Diesel" and catch "Oil change".
   const fuelByTruck = new Map<string, number>();
   const monthlyFuel = new Map<string, number>();
-  for (const link of fuelLinks) {
-    const attributed =
-      link.expense.amount / (splitCount.get(link.expense.id) || 1);
-    fuelByTruck.set(
-      link.truckId,
-      (fuelByTruck.get(link.truckId) ?? 0) + attributed,
-    );
-    const key = link.expense.date.toISOString().slice(0, 7);
-    monthlyFuel.set(key, (monthlyFuel.get(key) ?? 0) + attributed);
+  for (const [truckId, rows] of costs.rows) {
+    for (const row of rows) {
+      if (costs.kindByCategory.get(row.categoryId) !== "fuel") continue;
+      fuelByTruck.set(truckId, (fuelByTruck.get(truckId) ?? 0) + row.attributed);
+      const key = row.date.toISOString().slice(0, 7);
+      monthlyFuel.set(key, (monthlyFuel.get(key) ?? 0) + row.attributed);
+    }
   }
 
   const statsByTruck = new Map<
@@ -216,7 +200,7 @@ export async function fetchMaintenanceReportData(
   from: Date,
   to: Date,
 ): Promise<MaintenanceReportData> {
-  const [jobs, maintenanceExpenses] = await Promise.all([
+  const [jobs, trucks, trailerExpenses] = await Promise.all([
     prisma.maintenanceRequest.findMany({
       where: { organizationId, date: { gte: from, lte: to } },
       select: {
@@ -230,7 +214,14 @@ export async function fetchMaintenanceReportData(
       },
       orderBy: { date: "asc" },
     }),
-    prisma.truckExpense.findMany({
+    prisma.truck.findMany({
+      where: { organizationId },
+      select: { id: true, registrationNo: true },
+    }),
+    // Trailers are not part of the truck cost engine, so their workshop spend
+    // is read directly. Without this every trailer row printed $0 spend
+    // however much was booked against it.
+    prisma.trailerExpense.findMany({
       where: {
         expense: {
           organizationId,
@@ -240,22 +231,41 @@ export async function fetchMaintenanceReportData(
       },
       select: {
         expense: { select: { id: true, amount: true } },
-        truck: { select: { registrationNo: true } },
+        trailer: { select: { registrationNo: true } },
       },
     }),
   ]);
 
-  const splitCount = new Map<string, number>();
-  for (const link of maintenanceExpenses) {
-    splitCount.set(link.expense.id, (splitCount.get(link.expense.id) ?? 0) + 1);
-  }
+  // Truck spend through the one cost engine, so workshop costs booked against
+  // a trip count too — a repair entered against the run it stopped used to be
+  // invisible here.
+  const costs = await getTruckCostRows(
+    organizationId,
+    trucks.map((truck) => truck.id),
+    { from, to },
+  );
+  const registrationById = new Map(trucks.map((truck) => [truck.id, truck.registrationNo]));
+
   const spendByVehicle = new Map<string, number>();
-  for (const link of maintenanceExpenses) {
-    const key = link.truck.registrationNo;
+  for (const [truckId, rows] of costs.rows) {
+    const key = registrationById.get(truckId);
+    if (!key) continue;
+    for (const row of rows) {
+      if (costs.kindByCategory.get(row.categoryId) !== "maintenance") continue;
+      spendByVehicle.set(key, (spendByVehicle.get(key) ?? 0) + row.attributed);
+    }
+  }
+
+  const trailerSplit = new Map<string, number>();
+  for (const link of trailerExpenses) {
+    trailerSplit.set(link.expense.id, (trailerSplit.get(link.expense.id) ?? 0) + 1);
+  }
+  for (const link of trailerExpenses) {
+    const key = link.trailer.registrationNo;
     spendByVehicle.set(
       key,
       (spendByVehicle.get(key) ?? 0) +
-        link.expense.amount / (splitCount.get(link.expense.id) || 1),
+        link.expense.amount / (trailerSplit.get(link.expense.id) || 1),
     );
   }
 
@@ -387,7 +397,7 @@ export async function fetchDriverPerformanceReportData(
   from: Date,
   to: Date,
 ): Promise<DriverPerformanceReportData> {
-  const [drivers, trips, driverExpenseLinks] = await Promise.all([
+  const [drivers, trips, driverExpenseLinks, tripExpenseLinks] = await Promise.all([
     prisma.driver.findMany({
       where: { organizationId },
       select: {
@@ -417,6 +427,20 @@ export async function fetchDriverPerformanceReportData(
         expense: { select: { id: true, amount: true } },
       },
     }),
+    // What the trips they drove cost. Driver-linked expenses alone were the
+    // only costs here, and no form could create one until 13 Oct — so every
+    // driver's margin read as pure revenue, and the best driver was whoever
+    // had been given the most work.
+    prisma.tripExpense.findMany({
+      where: {
+        expense: { organizationId, date: { gte: from, lte: to } },
+      },
+      select: {
+        expense: { select: { id: true, amount: true } },
+        // Every trip has a driver, so this is always set.
+        trip: { select: { driverId: true } },
+      },
+    }),
   ]);
 
   const splitCount = new Map<string, number>();
@@ -424,11 +448,33 @@ export async function fetchDriverPerformanceReportData(
     splitCount.set(link.expense.id, (splitCount.get(link.expense.id) ?? 0) + 1);
   }
   const expenseByDriver = new Map<string, number>();
+  // Which (expense, driver) pairs are already counted, so a cost entered
+  // against both a driver and one of their trips is charged once — the same
+  // rule the truck cost engine applies.
+  const counted = new Set<string>();
   for (const link of driverExpenseLinks) {
+    counted.add(`${link.expense.id}:${link.driverId}`);
     expenseByDriver.set(
       link.driverId,
       (expenseByDriver.get(link.driverId) ?? 0) +
         link.expense.amount / (splitCount.get(link.expense.id) || 1),
+    );
+  }
+
+  const tripSplit = new Map<string, number>();
+  for (const link of tripExpenseLinks) {
+    tripSplit.set(link.expense.id, (tripSplit.get(link.expense.id) ?? 0) + 1);
+  }
+  for (const link of tripExpenseLinks) {
+    const driverId = link.trip?.driverId;
+    if (!driverId) continue;
+    const key = `${link.expense.id}:${driverId}`;
+    if (counted.has(key)) continue;
+    counted.add(key);
+    expenseByDriver.set(
+      driverId,
+      (expenseByDriver.get(driverId) ?? 0) +
+        link.expense.amount / (tripSplit.get(link.expense.id) || 1),
     );
   }
 

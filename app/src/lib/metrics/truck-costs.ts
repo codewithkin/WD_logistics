@@ -123,7 +123,7 @@ interface DateRange {
  * naming two trucks must produce one row per truck carrying half the amount,
  * not two rows carrying all of it.
  */
-async function loadTruckExpenses(
+export async function loadTruckExpenses(
   organizationId: string,
   truckIds: string[],
   range: DateRange,
@@ -236,6 +236,69 @@ async function loadTruckExpenses(
   }
 
   return byTruck;
+}
+
+/**
+ * The attributed cost rows for a set of trucks, with each category's kind.
+ *
+ * The one place reports should get per-truck costs from: the dedupe of a cost
+ * entered against both a truck and one of its trips, and the split of a cost
+ * shared between several, are already applied. `kindByCategory` is handed back
+ * so a caller can pick out fuel or workshop spend the same way the truck page
+ * does — by the category's kind, not by guessing at its name.
+ */
+export async function getTruckCostRows(
+  organizationId: string,
+  truckIds: string[],
+  range: DateRange,
+): Promise<{
+  rows: Map<string, TruckCostExpense[]>;
+  kindByCategory: Map<string, string | null>;
+}> {
+  const [rows, categories] = await Promise.all([
+    loadTruckExpenses(organizationId, truckIds, range),
+    prisma.expenseCategory.findMany({
+      where: { organizationId },
+      select: { id: true, kind: true },
+    }),
+  ]);
+
+  return {
+    rows,
+    kindByCategory: new Map(categories.map((category) => [category.id, category.kind])),
+  };
+}
+
+/**
+ * What each truck cost in the period, attributed the one way this codebase
+ * attributes costs.
+ *
+ * Exists so the reports stop doing their own arithmetic. `truck-profitability`
+ * and `profit-per-unit` each summed a truck's own expenses *and* the expenses
+ * of its trips, with no dedupe and no share split: fuel entered against both a
+ * truck and one of its runs counted twice, and a tyre shared across two trucks
+ * counted in full against each. Both printed a loss that was never spent, and
+ * neither agreed with the truck page about the same truck.
+ */
+export async function getTruckCostTotals(
+  organizationId: string,
+  truckIds: string[],
+  range: DateRange,
+): Promise<Map<string, { total: number; byCategory: Map<string, number> }>> {
+  const expenses = await loadTruckExpenses(organizationId, truckIds, range);
+  const totals = new Map<string, { total: number; byCategory: Map<string, number> }>();
+
+  for (const [truckId, rows] of expenses) {
+    const byCategory = new Map<string, number>();
+    let total = 0;
+    for (const row of rows) {
+      total += row.attributed;
+      byCategory.set(row.category, (byCategory.get(row.category) ?? 0) + row.attributed);
+    }
+    totals.set(truckId, { total: Math.round(total * 100) / 100, byCategory });
+  }
+
+  return totals;
 }
 
 /** Days between a job being raised and closed, for downtime. */

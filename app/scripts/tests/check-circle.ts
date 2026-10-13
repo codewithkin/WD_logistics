@@ -539,6 +539,40 @@ async function main() {
         `${again.checked} checked, ${again.repaired.length} repaired`,
       );
 
+      // --------------------------- 7. reports that agree with each other
+      // The same trip and the same truck, read through different reports. They
+      // disagreed for years: one summed full expense amounts where another
+      // split a shared cost, and the truck reports added a truck's own costs
+      // to its trips' costs with no dedupe.
+      const { fetchTripSummaryData, fetchTruckProfitabilityData } = await import(
+        "../../src/lib/reports/data-fetchers"
+      );
+      const { fetchTripPnLData } = await import("../../src/lib/reports/operations-fetchers");
+
+      const [summary, pnl] = await Promise.all([
+        fetchTripSummaryData(organizationId, range.from, range.to),
+        fetchTripPnLData(organizationId, range.from, range.to),
+      ]);
+      const summaryRow = summary.find(
+        (row) => row.origin === "Harare" && row.destination === "Beitbridge",
+      );
+      const pnlRow = pnl.rows.find((row) => row.route === "Harare - Beitbridge");
+      record(
+        "the same trip shows the same profit in trip-summary and trip-pnl",
+        Boolean(summaryRow && pnlRow) && near(summaryRow!.profit, pnlRow!.profit),
+        `summary ${summaryRow?.profit} vs P&L ${pnlRow?.profit}`,
+      );
+
+      const [profitability, breakdown] = await Promise.all([
+        fetchTruckProfitabilityData(organizationId, truck.id, range.from, range.to),
+        getTruckCostBreakdown(organizationId, truck.id, range),
+      ]);
+      record(
+        "and the same truck the same costs in truck-profitability and its own page",
+        near(profitability.totalExpenses, breakdown.expenses),
+        `report ${profitability.totalExpenses} vs page ${breakdown.expenses}`,
+      );
+
       // A destination with no category — and no default on the item to fall
       // back to — is refused rather than losing the cost.
       const refused = await takeOutStock({
