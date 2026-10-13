@@ -6,6 +6,7 @@ import { pageAccess } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/layout/page-header";
 import { ExpenseForm } from "../../_components/expense-form";
+import { listAccountOptions } from "@/lib/accounts-server";
 
 interface EditExpensePageProps {
     params: Promise<{ id: string }>;
@@ -42,6 +43,7 @@ export default async function EditExpensePage({ params }: EditExpensePageProps) 
     }
 
     const linkedTrip = expense.tripExpenses[0];
+    const accounts = await listAccountOptions(session.organizationId);
 
     return (
         <div>
@@ -52,6 +54,7 @@ export default async function EditExpensePage({ params }: EditExpensePageProps) 
             />
             <ExpenseForm
                 expense={expense}
+                accounts={accounts}
                 initialSelected={{
                     category: expense.category
                         ? { id: expense.category.id, label: expense.category.name }

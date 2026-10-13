@@ -694,6 +694,9 @@ export async function searchEntities(
               c.description ||
               (applies.length ? `Applies to ${applies.join(", ")}` : undefined),
             meta: applies.length ? applies.join(" · ") : "General",
+            // So an expense form can offer the account this category normally
+            // draws on the moment the category is picked.
+            data: { defaultAccountId: c.defaultAccountId },
           };
         }),
         total,

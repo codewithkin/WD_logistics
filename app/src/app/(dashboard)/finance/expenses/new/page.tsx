@@ -4,6 +4,7 @@ import { NoAccess } from "@/components/layout/no-access";
 import { pageAccess } from "@/lib/session";
 import { canViewExpensesPage } from "@/lib/permissions";
 import { redirect } from "next/navigation";
+import { listAccountOptions } from "@/lib/accounts-server";
 
 interface NewExpensePageProps {
     searchParams: Promise<{
@@ -36,6 +37,11 @@ export default async function NewExpensePage({ searchParams }: NewExpensePagePro
     const prefilledSupplierId = params.supplier || undefined;
     const prefilledIsBusinessExpense = params.business === "true";
 
+    // The three accounts, so "paid from" can be answered. Created here if
+    // missing: a form with no account to choose is how an expense ends up
+    // moving no balance.
+    const accounts = await listAccountOptions(user.organizationId);
+
     return (
         <div className="flex flex-col gap-6">
             <PageHeader
@@ -44,6 +50,7 @@ export default async function NewExpensePage({ searchParams }: NewExpensePagePro
             />
             <div className="w-full">
                 <ExpenseForm
+                    accounts={accounts}
                     prefilledTripId={prefilledTripId}
                     prefilledTruckId={prefilledTruckId}
                     prefilledDriverId={prefilledDriverId}

@@ -123,7 +123,7 @@ export const writeOperations: Operation[] = [
   {
     name: "record_expense",
     description:
-      "Record an expense. Say what it was for, the amount, and optionally which truck, trip or driver it belongs to. Money is debited from the category's account, exactly as it is on the web.",
+      "Record an expense. Say what it was for, the amount, and optionally which truck, trip or driver it belongs to, and which account it was paid from. Money comes out of that account — or the category's usual one — exactly as it does on the web.",
     requires: "supervisor",
     writes: true,
     schema: z.object({
@@ -144,6 +144,12 @@ export const writeOperations: Operation[] = [
         .describe(
           "URL of a receipt the sender photographed. Use the one given in the message; never invent it.",
         ),
+      paidFrom: z
+        .enum(["cash", "bank", "petty_cash"])
+        .optional()
+        .describe(
+          "Which account the money came out of. Omit to use whichever account the category normally draws on.",
+        ),
     }),
     handler: async (args, ctx) => {
       const a = args as {
@@ -156,6 +162,7 @@ export const writeOperations: Operation[] = [
         vendor?: string;
         isBusinessExpense?: boolean;
         receiptUrl?: string;
+        paidFrom?: "cash" | "bank" | "petty_cash";
       };
 
       const category = await findCategory(ctx, a.category);
@@ -189,12 +196,27 @@ export const writeOperations: Operation[] = [
       // dropping it keeps "diesel, Redan Msasa" readable on the expense list.
       const notes = a.vendor ? `${a.description} (${a.vendor})` : a.description;
 
+      // Named account, if one was given. Null leaves the category's default
+      // to decide, which is what the web form does when nobody intervenes.
+      let accountId: string | null = null;
+      if (a.paidFrom) {
+        const account = await prisma.financialAccount.findFirst({
+          where: { organizationId: ctx.organizationId, type: a.paidFrom },
+          select: { id: true },
+        });
+        if (!account) {
+          return { error: `There is no ${a.paidFrom.replace("_", " ")} account set up yet.` };
+        }
+        accountId = account.id;
+      }
+
       const result = await createExpense({
         categoryId: category.row.id,
         amount: a.amount,
         date: a.date ? new Date(a.date) : new Date(),
         notes,
         receiptUrl: a.receiptUrl,
+        accountId,
         isBusinessExpense: isBusiness,
         truckIds,
         trailerIds: [],
@@ -210,6 +232,7 @@ export const writeOperations: Operation[] = [
             truck: a.truck ?? null,
             driver: a.driver ?? null,
             receiptAttached: Boolean(a.receiptUrl),
+            paidFrom: a.paidFrom ?? "the category's usual account",
           }
         : { error: result.error ?? "Could not record the expense." };
     },

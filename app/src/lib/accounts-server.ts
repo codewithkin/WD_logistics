@@ -95,6 +95,24 @@ export async function recomputeAccountBalance(
   return { accountId, name: account.name, previous, balance: correct, changed };
 }
 
+/**
+ * The three accounts, ready to put in a dropdown.
+ *
+ * Creates them if they are missing, because a form that offers no account is
+ * how an expense ends up touching no balance — the defect the client reported.
+ * Names only: a supervisor records what money went out and is not shown what
+ * is left (ACCESS_CONTROL.md), so no balance travels to the browser with this.
+ */
+export async function listAccountOptions(organizationId: string) {
+  await ensureAccountsExist(organizationId);
+  const accounts = await prisma.financialAccount.findMany({
+    where: { organizationId },
+    select: { id: true, name: true, type: true },
+  });
+  // Cash, Bank, Petty Cash — in the order the rest of the app lists them.
+  return ACCOUNT_TYPES.flatMap((type) => accounts.filter((account) => account.type === type));
+}
+
 async function recordAccountMovement(
   tx: TxClient,
   params: {

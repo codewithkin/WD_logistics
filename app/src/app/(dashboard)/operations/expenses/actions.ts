@@ -17,6 +17,17 @@ import { isExpenseUnit } from "@/lib/expense-units";
 import { debitAccountForExpense, creditAccountForExpense } from "@/lib/accounts-server";
 import { handleActionError } from "@/lib/error-messages";
 
+/**
+ * The account an expense actually draws on: its own if one was chosen, else
+ * whatever its category normally draws on. Mirrors the finance action.
+ */
+function drawsOn(
+  accountId: string | null | undefined,
+  category: { defaultAccountId: string | null } | null | undefined,
+): string | null {
+  return accountId ?? category?.defaultAccountId ?? null;
+}
+
 /** A blank, a zero or a negative means "not recorded", not 0. */
 function normaliseQuantity(quantity: number | null | undefined): number | null {
   if (quantity === null || quantity === undefined) return null;
@@ -46,6 +57,11 @@ export async function createExpense(data: {
   reference?: string;
   receiptUrl?: string;
   notes?: string;
+  /**
+   * Which of the three accounts the money came out of. Overrides the
+   * category's default; null means it did not come out of one of them.
+   */
+  accountId?: string | null;
 }) {
   const session = await requireRole(["admin", "supervisor"]);
 
@@ -86,15 +102,17 @@ export async function createExpense(data: {
           reference: data.reference,
           receiptUrl: data.receiptUrl,
           notes: data.notes,
+          accountId: drawsOn(data.accountId, category),
           tripExpenses: data.tripId ? {
             create: { tripId: data.tripId }
           } : undefined,
         },
       });
 
-      if (category.defaultAccountId) {
+      const drawnFrom = drawsOn(data.accountId, category);
+      if (drawnFrom) {
         await debitAccountForExpense(tx, {
-          accountId: category.defaultAccountId,
+          accountId: drawnFrom,
           amount: data.amount,
           expenseId: created.id,
           description: data.description || category.name,
@@ -109,10 +127,11 @@ export async function createExpense(data: {
     // An expense paid out of an account can take it below zero now — the
     // person recording it is no longer shown the balance, so refusing would
     // either name the figure or stop the work. The owner is told instead.
-    if (category.defaultAccountId) {
+    const drawnFromForNotice = drawsOn(data.accountId, category);
+    if (drawnFromForNotice) {
       await notifyIfAccountOverdrawn({
         organizationId: session.organizationId,
-        accountId: category.defaultAccountId,
+        accountId: drawnFromForNotice,
         actorName: session.user.name,
         actorEmail: session.user.email,
         what: `an expense of $${data.amount.toFixed(2)} — ${data.description || category.name}`,
@@ -160,6 +179,7 @@ export async function updateExpense(
     reference?: string;
     receiptUrl?: string;
     notes?: string;
+    accountId?: string | null;
   }
 ,
   /**
@@ -209,9 +229,12 @@ export async function updateExpense(
       // Reverse the old account impact, then apply the new one — see
       // finance/expenses/actions.ts updateExpense for why this ordering
       // avoids a false overdraft on a same-account edit.
-      if (expense.category.defaultAccountId) {
+      // Credited back to whatever it was taken from, which may not be the
+      // category's default any more if either was changed since.
+      const previouslyDrawnFrom = drawsOn(expense.accountId, expense.category);
+      if (previouslyDrawnFrom) {
         await creditAccountForExpense(tx, {
-          accountId: expense.category.defaultAccountId,
+          accountId: previouslyDrawnFrom,
           amount: expense.amount,
           expenseId: id,
           description: "Expense updated (reversal)",
@@ -221,12 +244,16 @@ export async function updateExpense(
           createdById: session.user.id,
         });
       }
-      if (newCategory?.defaultAccountId) {
+      const nowDrawnFrom =
+        data.accountId !== undefined
+          ? drawsOn(data.accountId, newCategory)
+          : drawsOn(expense.accountId, newCategory);
+      if (nowDrawnFrom) {
         await debitAccountForExpense(tx, {
-          accountId: newCategory.defaultAccountId,
+          accountId: nowDrawnFrom,
           amount: newAmount,
           expenseId: id,
-          description: data.description || newCategory.name,
+          description: data.description || newCategory?.name || "Expense",
           date: data.date,
           createdById: session.user.id,
         });
@@ -245,18 +272,23 @@ export async function updateExpense(
           reference: data.reference,
           receiptUrl: data.receiptUrl,
           notes: data.notes,
+          accountId: nowDrawnFrom,
         },
         include: { category: { select: { name: true } } },
       });
     });
 
-    if (newCategory?.defaultAccountId) {
+    const changedDrawnFrom =
+      data.accountId !== undefined
+        ? drawsOn(data.accountId, newCategory)
+        : drawsOn(expense.accountId, newCategory);
+    if (changedDrawnFrom) {
       await notifyIfAccountOverdrawn({
         organizationId: session.organizationId,
-        accountId: newCategory.defaultAccountId,
+        accountId: changedDrawnFrom,
         actorName: session.user.name,
         actorEmail: session.user.email,
-        what: `an expense changed to $${newAmount.toFixed(2)} — ${data.description || newCategory.name}`,
+        what: `an expense changed to $${newAmount.toFixed(2)} — ${data.description || newCategory?.name || "expense"}`,
       });
     }
 
@@ -320,9 +352,10 @@ export async function deleteExpense(id: string) {
     }
 
     await prisma.$transaction(async (tx) => {
-      if (expense.category.defaultAccountId) {
+      const refundTo = drawsOn(expense.accountId, expense.category);
+      if (refundTo) {
         await creditAccountForExpense(tx, {
-          accountId: expense.category.defaultAccountId,
+          accountId: refundTo,
           amount: expense.amount,
           expenseId: id,
           description: expense.description || expense.category.name || "Expense deleted",

@@ -7,6 +7,7 @@ import { pageAccess } from "@/lib/session";
 import prisma from "@/lib/prisma";
 import { notFound, redirect } from "next/navigation";
 import { canViewExpensesPage } from "@/lib/permissions";
+import { listAccountOptions } from "@/lib/accounts-server";
 
 interface EditExpensePageProps {
     params: Promise<{ id: string }>;
@@ -70,6 +71,8 @@ export default async function EditExpensePage({ params }: EditExpensePageProps) 
         notFound();
     }
 
+    const accounts = await listAccountOptions(user.organizationId);
+
     return (
         <div className="flex flex-col gap-6">
             <PageHeader
@@ -79,6 +82,7 @@ export default async function EditExpensePage({ params }: EditExpensePageProps) 
             <div className="w-full">
                 <ExpenseForm
                     expense={expense}
+                    accounts={accounts}
                     initialSelected={{
                         category: expense.category
                             ? { id: expense.category.id, label: expense.category.name }

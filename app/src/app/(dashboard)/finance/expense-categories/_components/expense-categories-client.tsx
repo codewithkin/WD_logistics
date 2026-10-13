@@ -404,7 +404,9 @@ export function ExpenseCategoriesClient({ categories, accounts, role, periodLabe
                                 />
                             </FormControl>
                             <FormDescription>
-                                Expenses in this category will draw from this account, and are blocked if it can&apos;t cover the amount.
+                                Expenses in this category come out of this account unless the person
+                                recording one says otherwise. They are never refused for want of
+                                funds — the account is allowed to go negative and an admin is told.
                             </FormDescription>
                             <FormMessage />
                         </FormItem>

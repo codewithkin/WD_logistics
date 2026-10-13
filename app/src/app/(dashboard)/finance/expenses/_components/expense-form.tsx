@@ -61,6 +61,7 @@ const expenseSchema = z.object({
     notes: z.string().optional(),
     isBusinessExpense: z.boolean(),
     supplierId: z.string().optional(),
+    accountId: z.string().optional(),
     truckIds: z.array(z.string()).optional(),
     trailerIds: z.array(z.string()).optional(),
     tripIds: z.array(z.string()).optional(),
@@ -97,9 +98,15 @@ interface ExpenseFormProps {
         trips?: EntityOption[];
         drivers?: EntityOption[];
     };
+    /**
+     * Cash, Bank, Petty Cash — so "paid from" can be answered. Names only; no
+     * balance is sent to the browser.
+     */
+    accounts?: Array<{ id: string; name: string }>;
     expense?: {
         id: string;
         categoryId: string;
+        accountId?: string | null;
         amount: number;
         quantity?: number | null;
         unit?: string | null;
@@ -122,9 +129,15 @@ interface ExpenseFormProps {
     prefilledIsBusinessExpense?: boolean;
 }
 
-export function ExpenseForm({ initialSelected, expense, prefilledTripId, prefilledTruckId, prefilledDriverId, prefilledSupplierId, prefilledIsBusinessExpense }: ExpenseFormProps) {
+/** The Select's value for "not out of one of the accounts". */
+const NO_ACCOUNT = "__none__";
+
+export function ExpenseForm({ initialSelected, accounts = [], expense, prefilledTripId, prefilledTruckId, prefilledDriverId, prefilledSupplierId, prefilledIsBusinessExpense }: ExpenseFormProps) {
     const router = useRouter();
     const [isSubmitting, setIsSubmitting] = useState(false);
+    // Once the user has named an account themselves, changing the category
+    // stops moving it under them.
+    const [accountTouched, setAccountTouched] = useState(Boolean(expense?.accountId));
     // Non-admins are editing a request, not the record — see
     // lib/edit-requests/gate.ts. The banner below says so, and the
     // reason travels with the change for the admin who reviews it.
@@ -140,6 +153,7 @@ export function ExpenseForm({ initialSelected, expense, prefilledTripId, prefill
         resolver: zodResolver(expenseSchema) as any,
         defaultValues: {
             categoryId: expense?.categoryId || "",
+            accountId: expense?.accountId ?? "",
             amount: expense?.amount || 0,
             quantity: expense?.quantity ?? "",
             unit: (expense?.unit as ExpenseUnit | undefined) ?? undefined,
@@ -189,6 +203,7 @@ export function ExpenseForm({ initialSelected, expense, prefilledTripId, prefill
                 notes: values.notes,
                 isBusinessExpense: values.isBusinessExpense,
                 supplierId: values.isBusinessExpense ? values.supplierId : undefined,
+                accountId: values.accountId || null,
                 truckIds: values.isBusinessExpense ? [] : values.truckIds,
                 trailerIds: values.isBusinessExpense ? [] : values.trailerIds,
                 tripIds: values.isBusinessExpense ? [] : values.tripIds,
@@ -242,10 +257,65 @@ export function ExpenseForm({ initialSelected, expense, prefilledTripId, prefill
                                         kind="expenseCategory"
                                         value={field.value}
                                         onChange={(id) => field.onChange(id ?? "")}
+                                        onSelect={(option) => {
+                                            // Offer the account this category
+                                            // normally draws on, unless the
+                                            // user has already said otherwise.
+                                            if (accountTouched) return;
+                                            const fromCategory = option?.data?.defaultAccountId;
+                                            form.setValue(
+                                                "accountId",
+                                                typeof fromCategory === "string" ? fromCategory : ""
+                                            );
+                                        }}
                                         initialSelected={initialSelected?.category}
                                         placeholder="Select category"
                                     />
                                 </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+
+                    {/* Which account the money actually came out of. Until now
+                        the category's default was the only route to an account
+                        at all, so "this tyre came out of petty cash" could not
+                        be said — and when the defaults were missing, as they
+                        were out of the box, no expense moved any balance. */}
+                    <FormField
+                        control={form.control}
+                        name="accountId"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Paid from</FormLabel>
+                                <Select
+                                    value={field.value || NO_ACCOUNT}
+                                    onValueChange={(value) => {
+                                        setAccountTouched(true);
+                                        field.onChange(value === NO_ACCOUNT ? "" : value);
+                                    }}
+                                >
+                                    <FormControl>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Not from an account" />
+                                        </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                        <SelectItem value={NO_ACCOUNT}>
+                                            Not from an account
+                                        </SelectItem>
+                                        {accounts.map((account) => (
+                                            <SelectItem key={account.id} value={account.id}>
+                                                {account.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <FormDescription>
+                                    {field.value
+                                        ? "This account goes down by the amount above."
+                                        : "No account balance changes — use this for money that has not left one of the three accounts."}
+                                </FormDescription>
                                 <FormMessage />
                             </FormItem>
                         )}

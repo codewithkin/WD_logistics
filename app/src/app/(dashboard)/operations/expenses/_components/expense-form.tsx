@@ -61,6 +61,7 @@ const expenseSchema = z.object({
     reference: z.string().optional(),
     receiptUrl: z.string().optional(),
     notes: z.string().optional(),
+    accountId: z.string().optional(),
 });
 
 type ExpenseFormData = z.infer<typeof expenseSchema>;
@@ -74,6 +75,7 @@ interface ExpenseFormProps {
         unit?: string | null;
         date: Date;
         categoryId: string;
+        accountId?: string | null;
         vendor: string | null;
         reference: string | null;
         receiptUrl: string | null;
@@ -86,9 +88,14 @@ interface ExpenseFormProps {
         trip?: EntityOption;
     };
     defaultTripId?: string;
+    /** Cash, Bank, Petty Cash. Names only — no balance reaches the browser. */
+    accounts?: Array<{ id: string; name: string }>;
 }
 
-export function ExpenseForm({ expense, initialSelected, defaultTripId }: ExpenseFormProps) {
+/** The Select's value for "not out of one of the accounts". */
+const NO_ACCOUNT = "__none__";
+
+export function ExpenseForm({ expense, initialSelected, defaultTripId, accounts = [] }: ExpenseFormProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
     // Non-admins are editing a request, not the record — see
@@ -99,6 +106,9 @@ export function ExpenseForm({ expense, initialSelected, defaultTripId }: Expense
     const [approvalReason, setApprovalReason] = useState("");
     const [reasonError, setReasonError] = useState<string | undefined>();
     const isEditing = !!expense;
+    // Once the user has named an account themselves, changing the category
+    // stops moving it under them.
+    const [accountTouched, setAccountTouched] = useState(Boolean(expense?.accountId));
 
     const form = useForm<ExpenseFormData>({
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -115,6 +125,7 @@ export function ExpenseForm({ expense, initialSelected, defaultTripId }: Expense
             reference: expense?.reference ?? "",
             receiptUrl: expense?.receiptUrl ?? "",
             notes: expense?.notes ?? "",
+            accountId: expense?.accountId ?? "",
         },
     });
 
@@ -132,6 +143,9 @@ export function ExpenseForm({ expense, initialSelected, defaultTripId }: Expense
                 ...data,
                 quantity: data.quantity === "" || data.quantity === undefined ? null : data.quantity,
                 unit: data.unit ?? null,
+                // null, not "", so clearing it reaches the database and the
+                // debit follows the category's default again.
+                accountId: data.accountId || null,
             };
             const result = isEditing
                 ? await updateExpense(expense.id, payload, approvalReason)
@@ -297,11 +311,66 @@ export function ExpenseForm({ expense, initialSelected, defaultTripId }: Expense
                                                 kind="expenseCategory"
                                                 value={field.value}
                                                 onChange={(id) => field.onChange(id ?? "")}
+                                                onSelect={(option) => {
+                                                    // Offer the account this
+                                                    // category normally draws
+                                                    // on, unless the user has
+                                                    // already said otherwise.
+                                                    if (accountTouched) return;
+                                                    const fromCategory = option?.data?.defaultAccountId;
+                                                    form.setValue(
+                                                        "accountId",
+                                                        typeof fromCategory === "string" ? fromCategory : ""
+                                                    );
+                                                }}
                                                 initialSelected={initialSelected?.category}
                                                 defaultFilters={{ appliesTo: "trip" }}
                                                 placeholder="Select a category"
                                             />
                                         </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+
+                            {/* Which account the money came out of. The
+                                category's default used to be the only route to
+                                an account, so "this one came out of petty
+                                cash" could not be recorded at all. */}
+                            <FormField
+                                control={form.control}
+                                name="accountId"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Paid from</FormLabel>
+                                        <Select
+                                            value={field.value || NO_ACCOUNT}
+                                            onValueChange={(value) => {
+                                                setAccountTouched(true);
+                                                field.onChange(value === NO_ACCOUNT ? "" : value);
+                                            }}
+                                        >
+                                            <FormControl>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Not from an account" />
+                                                </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                <SelectItem value={NO_ACCOUNT}>
+                                                    Not from an account
+                                                </SelectItem>
+                                                {accounts.map((account) => (
+                                                    <SelectItem key={account.id} value={account.id}>
+                                                        {account.name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <FormDescription>
+                                            {field.value
+                                                ? "This account goes down by the amount above."
+                                                : "No account balance changes."}
+                                        </FormDescription>
                                         <FormMessage />
                                     </FormItem>
                                 )}

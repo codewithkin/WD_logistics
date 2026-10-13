@@ -730,6 +730,7 @@ model FinancialAccount {
   transactions    AccountTransaction[]
   payments        Payment[]
   supplierPayments SupplierPayment[]
+  expenses        Expense[]
 
   @@unique([organizationId, type])
   @@map("financial_account")
@@ -782,6 +783,17 @@ model Expense {
   supplier         Supplier? @relation(fields: [supplierId], references: [id])
   isPaid           Boolean  @default(false)  // Whether the expense has been paid
   paidDate         DateTime?                 // When the expense was paid
+  /// Which of the three accounts the money actually came out of.
+  ///
+  /// Added 2026-10-13. Until then the only route to an account was the
+  /// category's default, so there was no way to say "this tyre came out of
+  /// petty cash" — and when the defaults were missing, as they were out of
+  /// the box, no expense moved any balance at all. Null means "not paid out
+  /// of one of the three accounts", which is a real answer and not a gap: a
+  /// part consumed from stock is already paid for, and an unpaid supplier
+  /// bill has not left anywhere yet.
+  accountId        String?
+  account          FinancialAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
@@ -796,6 +808,7 @@ model Expense {
   @@index([organizationId, date])
   @@index([categoryId])
   @@index([supplierId])
+  @@index([accountId])
   @@map("expense")
 }
 

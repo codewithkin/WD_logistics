@@ -72,6 +72,7 @@ async function main() {
   });
   const bank = accounts.find((a) => a.type === "bank")!;
   const cash = accounts.find((a) => a.type === "cash")!;
+  const petty = accounts.find((a) => a.type === "petty_cash")!;
   const balancesBefore = new Map(accounts.map((a) => [a.id, a.balance]));
 
   const created = {
@@ -415,6 +416,29 @@ async function main() {
         movement
           ? `truck ${movement.truckId === truck.id ? "linked" : "missing"}, expense ${movement.expenseId ?? "missing"}`
           : "no movement row",
+      );
+
+      // An expense can now name the account itself, rather than only
+      // inheriting one from its category — "this tyre came out of petty cash".
+      const pettyBefore =
+        (await prisma.financialAccount.findUnique({ where: { id: petty.id } }))?.balance ?? 0;
+      const fromPetty = await createExpense({
+        categoryId: unwired.id, // a category with no account of its own
+        amount: 45,
+        date: new Date(),
+        truckIds: [truck.id],
+        accountId: petty.id,
+      });
+      if (!fromPetty.success) {
+        record("expense paid from a named account", false, why(fromPetty));
+        return;
+      }
+      const pettyAfter =
+        (await prisma.financialAccount.findUnique({ where: { id: petty.id } }))?.balance ?? 0;
+      record(
+        "an expense can say which account it came out of, whatever its category",
+        near(pettyBefore - pettyAfter, 45),
+        `petty cash ${pettyBefore} → ${pettyAfter}`,
       );
 
       // ------------------------------- 5. a balance that can be repaired
