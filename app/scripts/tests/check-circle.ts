@@ -140,6 +140,25 @@ async function main() {
     });
     created.tripIds.push(trip.id);
 
+    const trip2 = await prisma.trip.create({
+      data: {
+        organizationId,
+        truckId: truck.id,
+        driverId: driver.id,
+        customerId: customer.id,
+        originCity: "Harare",
+        destinationCity: "Mutare",
+        scheduledDate: new Date(),
+        startDate: new Date(),
+        endDate: new Date(),
+        estimatedMileage: 263,
+        actualMileage: 263,
+        status: "completed",
+        revenue: 0,
+      },
+    });
+    created.tripIds.push(trip2.id);
+
     // Two categories: one that names an account, one that names none. Both
     // halves of the client's "expenses were not affecting the balance".
     const wired = await prisma.expenseCategory.create({
@@ -440,6 +459,54 @@ async function main() {
         near(pettyBefore - pettyAfter, 45),
         `petty cash ${pettyBefore} → ${pettyAfter}`,
       );
+
+      // -------------------- 6. an operations expense reaches the fleet
+      const ops = await import("../../src/app/(dashboard)/operations/expenses/actions");
+
+      const orphan = await ops.createExpense({
+        amount: 60,
+        date: new Date(),
+        categoryId: unwired.id,
+        description: `circle orphan ${RUN}`,
+      });
+      record(
+        "an expense that belongs to nothing is refused, not left an orphan",
+        !orphan.success,
+        orphan.success ? "it was recorded, attached to nothing" : "refused",
+      );
+
+      const truckBeforeOps = await getTruckCostBreakdown(organizationId, truck.id, range);
+      const shared = await ops.createExpense({
+        amount: 100,
+        date: new Date(),
+        categoryId: unwired.id,
+        description: `circle shared ${RUN}`,
+        truckIds: [truck.id],
+        tripIds: [trip.id, trip2.id],
+      });
+      if (!shared.success) {
+        record("an operations expense can name a truck", false, why(shared));
+        return;
+      }
+      const sharedId = "expense" in shared ? (shared.expense as { id: string }).id : null;
+
+      const truckAfterOps = await getTruckCostBreakdown(organizationId, truck.id, range);
+      record(
+        "an expense recorded on the operations side reaches its truck",
+        near(truckAfterOps.expenses - truckBeforeOps.expenses, 100),
+        `truck expenses ${truckBeforeOps.expenses} → ${truckAfterOps.expenses}`,
+      );
+
+      if (sharedId) {
+        await ops.updateExpense(sharedId, { amount: 120 });
+        const tripLinks = await prisma.tripExpense.count({ where: { expenseId: sharedId } });
+        const truckLinks = await prisma.truckExpense.count({ where: { expenseId: sharedId } });
+        record(
+          "and editing it keeps every link it had, not just the first",
+          tripLinks === 2 && truckLinks === 1,
+          `${tripLinks} trip link(s), ${truckLinks} truck link(s) after an amount change`,
+        );
+      }
 
       // ------------------------------- 5. a balance that can be repaired
       // The client's drift came from stored balances that nothing could put

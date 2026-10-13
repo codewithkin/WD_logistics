@@ -17,6 +17,33 @@ import { isExpenseUnit } from "@/lib/expense-units";
 import { debitAccountForExpense, creditAccountForExpense } from "@/lib/accounts-server";
 import { handleActionError } from "@/lib/error-messages";
 
+/** The links as a tidy set, with the single `tripId` folded in. */
+function linksFrom(data: {
+  truckIds?: string[];
+  trailerIds?: string[];
+  tripIds?: string[];
+  driverIds?: string[];
+  tripId?: string;
+}) {
+  const trips = data.tripIds ?? (data.tripId ? [data.tripId] : undefined);
+  return {
+    truckIds: data.truckIds,
+    trailerIds: data.trailerIds,
+    tripIds: trips,
+    driverIds: data.driverIds,
+  };
+}
+
+/** True when nothing in the fleet would carry this expense. */
+function linksNothing(links: ReturnType<typeof linksFrom>) {
+  return (
+    (links.truckIds?.length ?? 0) === 0 &&
+    (links.trailerIds?.length ?? 0) === 0 &&
+    (links.tripIds?.length ?? 0) === 0 &&
+    (links.driverIds?.length ?? 0) === 0
+  );
+}
+
 /**
  * The account an expense actually draws on: its own if one was chosen, else
  * whatever its category normally draws on. Mirrors the finance action.
@@ -52,7 +79,21 @@ export async function createExpense(data: {
   unit?: string | null;
   date: Date;
   categoryId: string;
+  /** Kept for the trip page's "add an expense to this trip" link. */
   tripId?: string;
+  /**
+   * What this expense belongs to. Until 13 Oct this form could only name a
+   * trip, so an expense recorded here reached no truck, no trailer and no
+   * driver — dropped from the truck's costs, the fuel and maintenance
+   * figures, driver performance and every report built on them, while still
+   * counting in the company total. The attribution could never add up.
+   */
+  truckIds?: string[];
+  trailerIds?: string[];
+  tripIds?: string[];
+  driverIds?: string[];
+  /** An overhead the fleet does not carry — the only way to link nothing. */
+  isBusinessExpense?: boolean;
   vendor?: string;
   reference?: string;
   receiptUrl?: string;
@@ -64,6 +105,18 @@ export async function createExpense(data: {
   accountId?: string | null;
 }) {
   const session = await requireRole(["admin", "supervisor"]);
+
+  // The same rule the finance form has always enforced: an expense belongs to
+  // something, or is declared an overhead. Anything else is an orphan that
+  // shows up in the company total and in none of the attribution.
+  const links = linksFrom(data);
+  if (!data.isBusinessExpense && linksNothing(links)) {
+    return {
+      success: false as const,
+      error:
+        "Say what this expense belongs to — a truck, trailer, trip or driver — or mark it as a business overhead.",
+    };
+  }
 
   try {
     // Validate category exists
@@ -103,9 +156,19 @@ export async function createExpense(data: {
           receiptUrl: data.receiptUrl,
           notes: data.notes,
           accountId: drawsOn(data.accountId, category),
-          tripExpenses: data.tripId ? {
-            create: { tripId: data.tripId }
-          } : undefined,
+          isBusinessExpense: data.isBusinessExpense ?? false,
+          truckExpenses: links.truckIds?.length
+            ? { create: links.truckIds.map((truckId) => ({ truckId })) }
+            : undefined,
+          trailerExpenses: links.trailerIds?.length
+            ? { create: links.trailerIds.map((trailerId) => ({ trailerId })) }
+            : undefined,
+          tripExpenses: links.tripIds?.length
+            ? { create: links.tripIds.map((tripId) => ({ tripId })) }
+            : undefined,
+          driverExpenses: links.driverIds?.length
+            ? { create: links.driverIds.map((driverId) => ({ driverId })) }
+            : undefined,
         },
       });
 
@@ -175,6 +238,11 @@ export async function updateExpense(
     date?: Date;
     categoryId?: string;
     tripId?: string;
+    truckIds?: string[];
+    trailerIds?: string[];
+    tripIds?: string[];
+    driverIds?: string[];
+    isBusinessExpense?: boolean;
     vendor?: string;
     reference?: string;
     receiptUrl?: string;
@@ -206,7 +274,10 @@ export async function updateExpense(
     const expense = await prisma.expense.findFirst({
       where: { id, organizationId: session.organizationId },
       include: {
+        truckExpenses: true,
+        trailerExpenses: true,
         tripExpenses: true,
+        driverExpenses: true,
         category: { select: { name: true, defaultAccountId: true } },
       },
     });
@@ -273,6 +344,9 @@ export async function updateExpense(
           receiptUrl: data.receiptUrl,
           notes: data.notes,
           accountId: nowDrawnFrom,
+          ...(data.isBusinessExpense !== undefined && {
+            isBusinessExpense: data.isBusinessExpense,
+          }),
         },
         include: { category: { select: { name: true } } },
       });
@@ -292,23 +366,72 @@ export async function updateExpense(
       });
     }
 
-    // Handle trip link changes
-    const currentTripId = expense.tripExpenses[0]?.tripId;
-    if (data.tripId !== undefined && data.tripId !== currentTripId) {
-      // Remove existing trip link
-      if (currentTripId) {
-        await prisma.tripExpense.deleteMany({
-          where: { expenseId: id },
+    // Rewrite only the kinds of link the caller actually sent.
+    //
+    // The old code read `tripExpenses[0]`, deleted every trip row and created
+    // one: an expense shared across three trips came back from any edit —
+    // even a change of amount — attached to one. Each list below is replaced
+    // wholesale when given and left alone when undefined.
+    const links = linksFrom(data);
+    const touched: string[] = [];
+
+    if (links.truckIds) {
+      const before = expense.truckExpenses.map((row) => row.truckId);
+      await prisma.truckExpense.deleteMany({ where: { expenseId: id } });
+      if (links.truckIds.length) {
+        await prisma.truckExpense.createMany({
+          data: links.truckIds.map((truckId) => ({ truckId, expenseId: id })),
         });
-        revalidatePath(`/operations/trips/${currentTripId}`);
       }
-      // Add new trip link
-      if (data.tripId) {
-        await prisma.tripExpense.create({
-          data: { tripId: data.tripId, expenseId: id },
+      touched.push(
+        ...[...new Set([...before, ...links.truckIds])].map((truckId) => `/fleet/trucks/${truckId}`),
+      );
+    }
+    if (links.trailerIds) {
+      const before = expense.trailerExpenses.map((row) => row.trailerId);
+      await prisma.trailerExpense.deleteMany({ where: { expenseId: id } });
+      if (links.trailerIds.length) {
+        await prisma.trailerExpense.createMany({
+          data: links.trailerIds.map((trailerId) => ({ trailerId, expenseId: id })),
         });
-        revalidatePath(`/operations/trips/${data.tripId}`);
       }
+      touched.push(
+        ...[...new Set([...before, ...links.trailerIds])].map(
+          (trailerId) => `/fleet/trailers/${trailerId}`,
+        ),
+      );
+    }
+    if (links.tripIds) {
+      const before = expense.tripExpenses.map((row) => row.tripId);
+      await prisma.tripExpense.deleteMany({ where: { expenseId: id } });
+      if (links.tripIds.length) {
+        await prisma.tripExpense.createMany({
+          data: links.tripIds.map((tripId) => ({ tripId, expenseId: id })),
+        });
+      }
+      touched.push(
+        ...[...new Set([...before, ...links.tripIds])].map(
+          (tripId) => `/operations/trips/${tripId}`,
+        ),
+      );
+    }
+    if (links.driverIds) {
+      const before = expense.driverExpenses.map((row) => row.driverId);
+      await prisma.driverExpense.deleteMany({ where: { expenseId: id } });
+      if (links.driverIds.length) {
+        await prisma.driverExpense.createMany({
+          data: links.driverIds.map((driverId) => ({ driverId, expenseId: id })),
+        });
+      }
+      touched.push(
+        ...[...new Set([...before, ...links.driverIds])].map(
+          (driverId) => `/fleet/drivers/${driverId}`,
+        ),
+      );
+    }
+
+    for (const path of new Set(touched)) {
+      revalidatePath(path);
     }
 
     // Send admin notification

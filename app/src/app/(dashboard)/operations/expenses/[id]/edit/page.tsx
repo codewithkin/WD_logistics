@@ -24,6 +24,11 @@ export default async function EditExpensePage({ params }: EditExpensePageProps) 
         where: { id, organizationId: session.organizationId },
         include: {
             category: { select: { id: true, name: true } },
+            // Every link, so the pickers open filled in rather than dropping
+            // whatever this expense was already attached to.
+            truckExpenses: { include: { truck: { select: { registrationNo: true, make: true, model: true } } } },
+            trailerExpenses: { include: { trailer: { select: { registrationNo: true, make: true } } } },
+            driverExpenses: { include: { driver: { select: { firstName: true, lastName: true } } } },
             tripExpenses: {
                 include: {
                     trip: {
@@ -66,6 +71,25 @@ export default async function EditExpensePage({ params }: EditExpensePageProps) 
                               description: linkedTrip.trip.scheduledDate.toLocaleDateString("en-GB"),
                           }
                         : undefined,
+                    trucks: expense.truckExpenses.map((row) => ({
+                        id: row.truckId,
+                        label: row.truck.registrationNo,
+                        description: `${row.truck.make} ${row.truck.model}`,
+                    })),
+                    trailers: expense.trailerExpenses.map((row) => ({
+                        id: row.trailerId,
+                        label: row.trailer.registrationNo,
+                        description: row.trailer.make ?? undefined,
+                    })),
+                    trips: expense.tripExpenses.map((row) => ({
+                        id: row.tripId,
+                        label: `${row.trip.originCity} → ${row.trip.destinationCity}`,
+                        description: row.trip.scheduledDate.toLocaleDateString("en-GB"),
+                    })),
+                    drivers: expense.driverExpenses.map((row) => ({
+                        id: row.driverId,
+                        label: `${row.driver.firstName} ${row.driver.lastName}`,
+                    })),
                 }}
             />
         </div>

@@ -13,7 +13,8 @@ import {
 } from "@/components/ui/approval-notice";
 import { useSession } from "@/components/providers/session-provider";
 import { Input } from "@/components/ui/input";
-import { EntityPicker } from "@/components/ui/entity-picker";
+import { EntityPicker, EntityMultiPicker } from "@/components/ui/entity-picker";
+import { Checkbox } from "@/components/ui/checkbox";
 import type { EntityOption } from "@/lib/entity-picker/config";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -56,13 +57,31 @@ const expenseSchema = z.object({
     unit: z.enum(EXPENSE_UNIT_VALUES).optional(),
     date: z.date({ message: "Date is required" }),
     categoryId: z.string().min(1, "Category is required"),
-    tripId: z.string().optional(),
+    truckIds: z.array(z.string()).optional(),
+    trailerIds: z.array(z.string()).optional(),
+    tripIds: z.array(z.string()).optional(),
+    driverIds: z.array(z.string()).optional(),
+    isBusinessExpense: z.boolean().optional(),
     vendor: z.string().optional(),
     reference: z.string().optional(),
     receiptUrl: z.string().optional(),
     notes: z.string().optional(),
     accountId: z.string().optional(),
-});
+}).refine(
+    (data) =>
+        data.isBusinessExpense === true ||
+        (data.truckIds?.length ?? 0) > 0 ||
+        (data.trailerIds?.length ?? 0) > 0 ||
+        (data.tripIds?.length ?? 0) > 0 ||
+        (data.driverIds?.length ?? 0) > 0,
+    {
+        // The same rule the finance form has always had. Without it this form
+        // produced expenses that reached no truck, no trailer and no driver:
+        // counted in the company total and missing from every attribution.
+        message: "Link this expense to a truck, trailer, trip or driver — or mark it as an overhead",
+        path: ["truckIds"],
+    }
+);
 
 type ExpenseFormData = z.infer<typeof expenseSchema>;
 
@@ -76,6 +95,10 @@ interface ExpenseFormProps {
         date: Date;
         categoryId: string;
         accountId?: string | null;
+        isBusinessExpense?: boolean;
+        truckExpenses?: Array<{ truckId: string }>;
+        trailerExpenses?: Array<{ trailerId: string }>;
+        driverExpenses?: Array<{ driverId: string }>;
         vendor: string | null;
         reference: string | null;
         receiptUrl: string | null;
@@ -86,6 +109,10 @@ interface ExpenseFormProps {
     initialSelected?: {
         category?: EntityOption;
         trip?: EntityOption;
+        trucks?: EntityOption[];
+        trailers?: EntityOption[];
+        trips?: EntityOption[];
+        drivers?: EntityOption[];
     };
     defaultTripId?: string;
     /** Cash, Bank, Petty Cash. Names only — no balance reaches the browser. */
@@ -120,7 +147,15 @@ export function ExpenseForm({ expense, initialSelected, defaultTripId, accounts 
             unit: (expense?.unit as ExpenseUnit | undefined) ?? undefined,
             date: expense?.date ?? new Date(),
             categoryId: expense?.categoryId ?? "",
-            tripId: expense?.tripExpenses?.[0]?.tripId ?? defaultTripId ?? "",
+            truckIds: expense?.truckExpenses?.map((row) => row.truckId) ?? [],
+            trailerIds: expense?.trailerExpenses?.map((row) => row.trailerId) ?? [],
+            // Every linked trip, not just the first: an expense shared across
+            // three trips used to come back from an edit attached to one.
+            tripIds:
+                expense?.tripExpenses?.map((row) => row.tripId) ??
+                (defaultTripId ? [defaultTripId] : []),
+            driverIds: expense?.driverExpenses?.map((row) => row.driverId) ?? [],
+            isBusinessExpense: expense?.isBusinessExpense ?? false,
             vendor: expense?.vendor ?? "",
             reference: expense?.reference ?? "",
             receiptUrl: expense?.receiptUrl ?? "",
@@ -128,6 +163,8 @@ export function ExpenseForm({ expense, initialSelected, defaultTripId, accounts 
             accountId: expense?.accountId ?? "",
         },
     });
+
+    const isBusinessExpense = form.watch("isBusinessExpense");
 
     const onSubmit = async (data: ExpenseFormData) => {
         setIsLoading(true);
@@ -375,28 +412,136 @@ export function ExpenseForm({ expense, initialSelected, defaultTripId, accounts 
                                     </FormItem>
                                 )}
                             />
-                            <FormField
-                                control={form.control}
-                                name="tripId"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Link to Trip (Optional)</FormLabel>
-                                        <FormControl>
-                                            <EntityPicker
-                                                kind="trip"
-                                                value={field.value || null}
-                                                onChange={(id) => field.onChange(id ?? "")}
-                                                initialSelected={initialSelected?.trip}
-                                                clearable
-                                                clearLabel="No trip"
-                                                placeholder="Select a trip"
-                                            />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
                         </div>
+
+                        {/* What carries this cost.
+                            This form could only ever name a trip, so an
+                            expense recorded here reached no truck, no trailer
+                            and no driver — missing from the truck's costs, the
+                            fuel and maintenance figures, driver performance
+                            and every report built on them, while still
+                            counting in the company total. */}
+                        <FormField
+                            control={form.control}
+                            name="isBusinessExpense"
+                            render={({ field }) => (
+                                <FormItem className="flex items-start gap-3 rounded-md border p-3">
+                                    <FormControl>
+                                        <Checkbox
+                                            checked={field.value ?? false}
+                                            onCheckedChange={(checked: boolean | "indeterminate") => {
+                                                const on = checked === true;
+                                                field.onChange(on);
+                                                if (on) {
+                                                    form.setValue("truckIds", []);
+                                                    form.setValue("trailerIds", []);
+                                                    form.setValue("tripIds", []);
+                                                    form.setValue("driverIds", []);
+                                                }
+                                            }}
+                                        />
+                                    </FormControl>
+                                    <div className="space-y-1 leading-none">
+                                        <FormLabel>A business overhead</FormLabel>
+                                        <FormDescription>
+                                            Office rent, bank charges, anything no truck or trip
+                                            should carry. Leave it off and say below what this
+                                            expense belongs to.
+                                        </FormDescription>
+                                    </div>
+                                </FormItem>
+                            )}
+                        />
+
+                        {!isBusinessExpense && (
+                            <div className="grid gap-4 md:grid-cols-2">
+                                <FormField
+                                    control={form.control}
+                                    name="truckIds"
+                                    render={({ field }) => (
+                                        <FormItem className="flex flex-col">
+                                            <FormLabel>Trucks</FormLabel>
+                                            <FormControl>
+                                                <EntityMultiPicker
+                                                    kind="truck"
+                                                    value={field.value ?? []}
+                                                    onChange={field.onChange}
+                                                    initialSelected={initialSelected?.trucks}
+                                                    placeholder="Select trucks"
+                                                />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="trailerIds"
+                                    render={({ field }) => (
+                                        <FormItem className="flex flex-col">
+                                            <FormLabel>Trailers</FormLabel>
+                                            <FormControl>
+                                                <EntityMultiPicker
+                                                    kind="trailer"
+                                                    value={field.value ?? []}
+                                                    onChange={field.onChange}
+                                                    initialSelected={initialSelected?.trailers}
+                                                    placeholder="Select trailers"
+                                                />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="tripIds"
+                                    render={({ field }) => (
+                                        <FormItem className="flex flex-col">
+                                            <FormLabel>Trips</FormLabel>
+                                            <FormControl>
+                                                <EntityMultiPicker
+                                                    kind="trip"
+                                                    value={field.value ?? []}
+                                                    onChange={field.onChange}
+                                                    initialSelected={
+                                                        initialSelected?.trips ??
+                                                        (initialSelected?.trip
+                                                            ? [initialSelected.trip]
+                                                            : undefined)
+                                                    }
+                                                    placeholder="Select trips"
+                                                />
+                                            </FormControl>
+                                            <FormDescription>
+                                                A cost shared across several trips is split between
+                                                them, not counted on each.
+                                            </FormDescription>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="driverIds"
+                                    render={({ field }) => (
+                                        <FormItem className="flex flex-col">
+                                            <FormLabel>Drivers</FormLabel>
+                                            <FormControl>
+                                                <EntityMultiPicker
+                                                    kind="driver"
+                                                    value={field.value ?? []}
+                                                    onChange={field.onChange}
+                                                    initialSelected={initialSelected?.drivers}
+                                                    placeholder="Select drivers"
+                                                />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            </div>
+                        )}
 
                     {isEditing && needsApproval && (
                         <ApprovalNotice
