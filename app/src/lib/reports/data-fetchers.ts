@@ -240,10 +240,11 @@ export async function fetchCustomerStatementData(
     },
     orderBy: { issueDate: "asc" },
   });
-  // Both carry a note that was typed and then never printed anywhere. On a
-  // statement it is the line that explains the line: "deposit, balance on
-  // delivery", "paid in cash at the depot".
-
+  // The notes on an invoice and on a payment are deliberately NOT printed
+  // here. A statement goes to the customer, and those notes are the office
+  // talking to itself — "chase before month end", "paid in cash at the depot,
+  // no receipt". They are shown where they belong instead: invoice notes in
+  // aged receivables, payment notes on the payments list, both internal.
 
   // Get payments in period
   const payments = await prisma.payment.findMany({
@@ -264,7 +265,7 @@ export async function fetchCustomerStatementData(
       date: inv.issueDate,
       type: "INVOICE" as const,
       reference: inv.invoiceNumber,
-      description: inv.notes ? `Invoice ${inv.invoiceNumber} — ${inv.notes}` : `Invoice ${inv.invoiceNumber}`,
+      description: `Invoice ${inv.invoiceNumber}`,
       debit: inv.total,
       credit: 0,
     })),
@@ -272,7 +273,7 @@ export async function fetchCustomerStatementData(
       date: pay.paymentDate,
       type: "PAYMENT" as const,
       reference: pay.reference || "-",
-      description: pay.notes ? `Payment - ${pay.method} — ${pay.notes}` : `Payment - ${pay.method}`,
+      description: `Payment - ${pay.method}`,
       debit: 0,
       credit: pay.amount,
     })),
