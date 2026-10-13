@@ -386,15 +386,18 @@ export const reportConfigs: Record<string, ReportConfig> = {
   },
 };
 
-export const reportTypeLabels: Record<string, string> = {
-  profit_per_unit: "Profit Per Unit",
-  revenue: "Revenue",
-  expenses: "Expenses",
-  customer_statement: "Customer Statement",
-  trip_summary: "Trip Summary",
-  truck_profitability: "Truck Profitability",
-  account_ledger: "Account Ledger",
-};
+/**
+ * A past report's name, for the history list.
+ *
+ * Taken from the definitions above rather than written out again. The
+ * hand-written version listed seven ids in snake_case — `profit_per_unit`,
+ * `trip_summary` — and every report is stored under its kebab-case id, so no
+ * key ever matched and the history fell back to un-prefixing the id for all
+ * twenty-three of them. Sixteen were not in the list at all.
+ */
+export const reportTypeLabels: Record<string, string> = Object.fromEntries(
+  Object.values(reportConfigs).map((config) => [config.id, config.name]),
+);
 
 export const periodLabels: Record<ReportPeriod, string> = {
   daily: "Daily",

@@ -151,10 +151,14 @@ export const navigationSections: NavSection[] = [
             roles: ["admin", "supervisor"],
           },
           {
+            // Admin only, per ACCESS_CONTROL.md: the chart of accounts is not
+            // a supervisor's to read. They still pick a category when
+            // recording an expense; this is the page that defines them, and
+            // the writes on it were already admin-only.
             title: "Expense Categories",
             href: "/finance/expense-categories",
             icon: Tags,
-            roles: ["admin", "supervisor"],
+            roles: ["admin"],
           },
           {
             title: "Accounts",

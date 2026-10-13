@@ -48,7 +48,7 @@ export default async function CategoryDetailPage({
     const query = await searchParams;
     // Expense categories are the chart of accounts, so supervisors read them
     // too; only admin may change one (see canManageExpenseCategories).
-    const access = await pageAccess(["admin", "supervisor"]);
+    const access = await pageAccess(["admin"]);
     if (!access.allowed) return <NoAccess role={access.role} what="this expense category" />;
     const session = access.session;
     const { organizationId } = session;

@@ -79,6 +79,8 @@ const created = {
   supplierPaymentIds: [] as string[],
   categoryIds: [] as string[],
   employeeIds: [] as string[],
+  inventoryItemIds: [] as string[],
+  expenseIds: [] as string[],
   fixtureCustomerId: null as string | null,
   fixtureSupplierId: null as string | null,
 };
@@ -118,6 +120,13 @@ if (!supplier) {
   });
   created.fixtureSupplierId = supplier.id;
 }
+
+/**
+ * The mechanic the part is booked out against, tracked on its own: the
+ * employee list above is emptied when `delete_employee` succeeds, which took
+ * this id with it and left a fitter behind on every run.
+ */
+let fitterId: string | null = null;
 
 const startedAt = new Date();
 
@@ -331,7 +340,12 @@ try {
       });
       const overdraw = await call("record_money_out", {
         account: "petty_cash",
-        amount: (overdrawn?.balance ?? 0) + 5_000,
+        // Enough to go negative from wherever it stands, and always a
+        // positive number: `balance + 5000` asked for $0.00 when the account
+        // happened to sit at exactly -$5,000, and the operation rejected the
+        // arguments rather than the overspend — a red check that said nothing
+        // about the behaviour it was testing.
+        amount: Math.abs(overdrawn?.balance ?? 0) + 5_000,
         description: "Assistant write check, deliberate overspend",
       });
       const afterOverdraw = await prisma.financialAccount.findFirst({
@@ -491,6 +505,83 @@ try {
         (movedEmployee.error as string) ?? `position now ${afterMove?.position}`,
       );
 
+      // ------------------------------------------------- a part onto a truck
+      //
+      // `allocatedById` is an Employee, and this operation used to pass the
+      // sender's dashboard user id, so every allocation over WhatsApp came
+      // back "Truck or employee not found" whatever truck was named. Nothing
+      // exercised it, so nothing noticed.
+      const partTruck = await prisma.truck.findFirst({
+        where: { organizationId: admin.organizationId },
+        select: { id: true, registrationNo: true },
+      });
+      const partCategory = await prisma.expenseCategory.findFirst({
+        where: { organizationId: admin.organizationId },
+        select: { id: true, name: true },
+      });
+      if (partTruck && partCategory) {
+        const part = await prisma.inventoryItem.create({
+          data: {
+            organizationId: admin.organizationId,
+            name: "Assistant Check Pad",
+            unit: "units",
+            quantity: 6,
+            minQuantity: 1,
+            unitCost: 12,
+            defaultExpenseCategoryId: partCategory.id,
+          },
+        });
+        created.inventoryItemIds.push(part.id);
+
+        // An employee of its own: an allocation points at whoever booked it
+        // out, so using "Checkperson" here would block the delete_employee
+        // check two steps below.
+        const fitter = await prisma.employee.create({
+          data: {
+            organizationId: admin.organizationId,
+            firstName: "Assistant",
+            lastName: "Fitter",
+            phone: "+263770000009",
+            position: "Mechanic",
+          },
+        });
+        fitterId = fitter.id;
+
+        const fitted = await call("allocate_part", {
+          item: "Assistant Check Pad",
+          truck: partTruck.registrationNo,
+          quantity: 2,
+          reason: "Front brakes",
+          fittedBy: "Fitter",
+        });
+        const stock = await prisma.inventoryItem.findUnique({
+          where: { id: part.id },
+          select: { quantity: true },
+        });
+        record(
+          "allocate_part",
+          fitted.allocated === true && stock?.quantity === 4,
+          (fitted.error as string) ?? `stock 6 → ${stock?.quantity}, fitted by ${fitted.fittedBy}`,
+        );
+
+        // And the cost of the parts reached the truck, which is the whole
+        // point of the client's request on 12 Oct.
+        const posted = await prisma.expense.findFirst({
+          where: {
+            organizationId: admin.organizationId,
+            description: { contains: "Assistant Check Pad" },
+            truckExpenses: { some: { truckId: partTruck.id } },
+          },
+          select: { id: true, amount: true },
+        });
+        if (posted) created.expenseIds.push(posted.id);
+        record(
+          "allocate_part charges the truck",
+          Boolean(posted) && Math.abs((posted?.amount ?? 0) - 24) < 0.005,
+          posted ? `$${posted.amount} on ${partTruck.registrationNo}` : "no expense written",
+        );
+      }
+
       const goneEmployee = await call("delete_employee", { employee: "Checkperson" });
       record(
         "delete_employee",
@@ -605,8 +696,21 @@ try {
     for (const id of created.categoryIds) {
       await prisma.expenseCategory.deleteMany({ where: { id } });
     }
+    // The part, the allocation it left behind and the cost it posted — before
+    // the employees, because an allocation points at whoever booked it out.
+    for (const id of created.expenseIds) {
+      await prisma.expense.deleteMany({ where: { id } });
+    }
+    for (const id of created.inventoryItemIds) {
+      await prisma.partAllocation.deleteMany({ where: { inventoryItemId: id } });
+      await prisma.stockMovement.deleteMany({ where: { inventoryItemId: id } });
+      await prisma.inventoryItem.deleteMany({ where: { id } });
+    }
     for (const id of created.employeeIds) {
       await prisma.employee.deleteMany({ where: { id } });
+    }
+    if (fitterId) {
+      await prisma.employee.deleteMany({ where: { id: fitterId } });
     }
     await prisma.accountTransaction.deleteMany({
       where: { description: { contains: "Assistant write check" } },

@@ -29,7 +29,12 @@ interface ReportHistoryProps {
 
 export function ReportHistory({ reports }: ReportHistoryProps) {
   const getReportTypeLabel = (type: string) => {
-    return reportTypeLabels[type] || type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+    // Kebab-case is how every report id is stored; the underscore fallback
+    // is kept for rows written before that was true.
+    return (
+      reportTypeLabels[type] ||
+      type.replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+    );
   };
 
   const getPeriodLabel = (period: string) => {

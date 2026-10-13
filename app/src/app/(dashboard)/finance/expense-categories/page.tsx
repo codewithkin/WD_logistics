@@ -12,7 +12,7 @@ interface ExpenseCategoriesPageProps {
 }
 
 export default async function ExpenseCategoriesPage({ searchParams }: ExpenseCategoriesPageProps) {
-    const access = await pageAccess(["admin", "supervisor"]);
+    const access = await pageAccess(["admin"]);
     if (!access.allowed) return <NoAccess role={access.role} what="expense categories" />;
     const user = access.session;
     const params = await searchParams;

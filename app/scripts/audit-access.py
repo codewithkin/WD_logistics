@@ -64,8 +64,11 @@ EXPECT = {
     "finance/expenses/analytics": {"admin"},
     "finance/expenses/by-truck": {"admin"},
     "finance/expenses/by-trip": {"admin", "supervisor"},
-    "finance/expense-categories": {"admin", "supervisor"},
-    "finance/expense-categories/[id]": {"admin", "supervisor"},
+    # Admin only. ACCESS_CONTROL.md lists expense categories among the
+    # admin-only pages; the guard here said otherwise for months while the
+    # writes on the page were already admin-only.
+    "finance/expense-categories": {"admin"},
+    "finance/expense-categories/[id]": {"admin"},
     "finance/accounts": {"admin", "supervisor"},
     "operations/expenses": {"admin", "supervisor"},
     "operations/expenses/new": {"admin", "supervisor"},

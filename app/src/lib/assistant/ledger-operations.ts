@@ -895,7 +895,8 @@ export const ledgerOperations: Operation[] = [
   // ---------------------------------------------------------------- stock
   {
     name: "allocate_part",
-    description: "Put a part from stock onto a truck. Stock drops by the quantity.",
+    description:
+      "Put a part from stock onto a truck. Stock drops by the quantity and the truck carries the cost.",
     requires: "supervisor",
     writes: true,
     schema: z.object({
@@ -903,28 +904,59 @@ export const ledgerOperations: Operation[] = [
       truck: z.string().describe("Registration of the truck it went on"),
       quantity: z.number().int().positive(),
       reason: z.string().optional().describe("What it was needed for"),
+      fittedBy: z
+        .string()
+        .optional()
+        .describe(
+          "The employee who took it out of the store. Defaults to the sender when their name matches one.",
+        ),
+      expenseType: z
+        .string()
+        .optional()
+        .describe(
+          "Which expense category the parts' cost is recorded as. Omit to use the item's own default.",
+        ),
     }),
     handler: async (args, ctx) => {
-      const a = args as { item: string; truck: string; quantity: number; reason?: string };
-      if (!ctx.actorUserId) {
-        return {
-          error:
-            "A part has to be booked out against a person, and this number is not linked to an account yet.",
-        };
-      }
+      const a = args as {
+        item: string;
+        truck: string;
+        quantity: number;
+        reason?: string;
+        fittedBy?: string;
+        expenseType?: string;
+      };
 
       const item = await findItem(ctx, a.item);
       if (!item.ok) return { error: item.error };
       const truck = await findTruck(ctx, a.truck);
       if (!truck.ok) return { error: truck.error };
 
+      // `allocatedById` is an Employee, not a User. This used to pass
+      // `ctx.actorUserId` — a dashboard account id — so the action's lookup
+      // found no employee and every attempt over WhatsApp came back "Truck or
+      // employee not found", whatever truck was named.
+      const named = a.fittedBy ?? ctx.actorName;
+      const employee = named ? await findEmployee(ctx, named) : null;
+      if (!employee?.ok) {
+        return {
+          error:
+            employee?.error ??
+            "Say who took the part out of the store, by name — it is booked out against an employee.",
+        };
+      }
+
+      const category = a.expenseType ? await findCategory(ctx, a.expenseType) : null;
+      if (category && !category.ok) return { error: category.error };
+
       const { allocatePart } = await import("@/app/(dashboard)/inventory/actions");
       const result = await allocatePart({
         inventoryItemId: item.row.id,
         truckId: truck.row.id,
-        allocatedById: ctx.actorUserId,
+        allocatedById: employee.row.id,
         quantity: a.quantity,
         reason: a.reason,
+        expenseCategoryId: category?.ok ? category.row.id : undefined,
       });
       return result.success
         ? {
@@ -932,6 +964,11 @@ export const ledgerOperations: Operation[] = [
             item: item.row.name,
             truck: truck.row.registrationNo,
             quantity: a.quantity,
+            fittedBy: `${employee.row.firstName} ${employee.row.lastName}`,
+            // Whether the truck's costs moved, and why not when they didn't.
+            costRecorded: !("notPostedBecause" in result && result.notPostedBecause),
+            costNotRecordedBecause:
+              "notPostedBecause" in result ? (result.notPostedBecause ?? null) : null,
           }
         : { error: (result as { error?: string }).error ?? "Could not allocate the part." };
     },
