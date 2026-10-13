@@ -100,10 +100,16 @@ export async function fetchCustomerProfitabilityData(
     splitCount.set(link.expense.id, (splitCount.get(link.expense.id) ?? 0) + 1);
   }
 
+  // Trips with no customer are grouped rather than dropped. `Trip.customerId`
+  // is optional, so a yard moving its own load produced revenue and costs that
+  // this report silently left out — and its total then disagreed with the
+  // Profit & Loss for the same period, which has always grouped them as
+  // "No customer recorded" (see finance-fetchers.ts).
+  const NO_CUSTOMER = "__none__";
+
   const costByCustomer = new Map<string, number>();
   for (const link of tripExpenseLinks) {
-    const customerId = link.trip?.customerId;
-    if (!customerId) continue;
+    const customerId = link.trip?.customerId ?? NO_CUSTOMER;
     costByCustomer.set(
       customerId,
       (costByCustomer.get(customerId) ?? 0) +
@@ -116,8 +122,8 @@ export async function fetchCustomerProfitabilityData(
     { trips: number; km: number; revenue: number }
   >();
   for (const trip of trips) {
-    if (!trip.customerId) continue;
-    const row = statsByCustomer.get(trip.customerId) ?? {
+    const key = trip.customerId ?? NO_CUSTOMER;
+    const row = statsByCustomer.get(key) ?? {
       trips: 0,
       km: 0,
       revenue: 0,
@@ -125,7 +131,7 @@ export async function fetchCustomerProfitabilityData(
     row.trips += 1;
     row.km += trip.actualMileage ?? trip.estimatedMileage ?? 0;
     row.revenue += trip.revenue || 0;
-    statsByCustomer.set(trip.customerId, row);
+    statsByCustomer.set(key, row);
   }
 
   const invoicedByCustomer = new Map<string, { total: number }>();
@@ -145,7 +151,23 @@ export async function fetchCustomerProfitabilityData(
     Array.from(statsByCustomer.values()).reduce((s, r) => s + r.revenue, 0),
   );
 
-  const rows: CustomerProfitabilityRow[] = customers
+  // The real customers, plus one standing row for the work nobody was billed
+  // for — present only when there is something to show in it.
+  const unassigned = statsByCustomer.get(NO_CUSTOMER);
+  const unassignedCost = costByCustomer.get(NO_CUSTOMER) ?? 0;
+  const listed: Array<{
+    id: string;
+    name: string;
+    contactPerson: string | null;
+    phone: string | null;
+  }> = [
+    ...customers,
+    ...(unassigned || unassignedCost
+      ? [{ id: NO_CUSTOMER, name: "No customer recorded", contactPerson: null, phone: null }]
+      : []),
+  ];
+
+  const rows: CustomerProfitabilityRow[] = listed
     .map((customer) => {
       const stats = statsByCustomer.get(customer.id) ?? {
         trips: 0,
@@ -170,6 +192,7 @@ export async function fetchCustomerProfitabilityData(
         averageRate: stats.trips > 0 ? round(revenue / stats.trips) : null,
         ratePerKm: stats.km > 0 ? round(revenue / stats.km) : null,
         invoiced: round(billing.total),
+        // Nothing is owed on work that was never billed to anybody.
         outstanding: owedByCustomer.get(customer.id) ?? 0,
         shareOfRevenue: share(revenue, totalRevenue),
       };

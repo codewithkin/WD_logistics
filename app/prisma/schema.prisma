@@ -583,6 +583,7 @@ model SupplierPayment {
 
   @@index([organizationId, paymentDate])
   @@index([supplierId])
+  @@index([accountId])
   @@map("supplier_payment")
 }
 
@@ -743,7 +744,14 @@ model AccountTransaction {
   type          String   // expense_debit, expense_credit, transfer_in, transfer_out, deposit, withdrawal
   amount        Float
   balanceAfter  Float
+  /// The expense that moved the money, when one did.
+  ///
+  /// A bare string until 13 Oct 2026, so deleting an expense left ledger rows
+  /// pointing at a record that no longer existed. SetNull rather than Cascade:
+  /// the money did move, and a ledger that quietly loses entries when an
+  /// expense is tidied away is worse than one with an unattributed line.
   expenseId     String?
+  expense       Expense? @relation(fields: [expenseId], references: [id], onDelete: SetNull)
   description   String?
   date          DateTime @default(now())
   createdById   String
@@ -751,6 +759,7 @@ model AccountTransaction {
   createdAt     DateTime @default(now())
 
   @@index([accountId, date])
+  @@index([expenseId])
   @@map("account_transaction")
 }
 
@@ -804,6 +813,7 @@ model Expense {
   /// Set when this expense was posted by stock leaving the storeroom.
   stockMovement   StockMovement?
   partAllocation  PartAllocation?
+  accountEntries  AccountTransaction[]
 
   @@index([organizationId, date])
   @@index([categoryId])
@@ -907,6 +917,7 @@ model Payment {
 
   @@index([customerId])
   @@index([paymentDate])
+  @@index([accountId])
   @@map("payment")
 }
 
