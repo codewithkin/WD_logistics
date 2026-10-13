@@ -276,6 +276,8 @@ export function generateAgedReceivablesPDF(params: {
         // into bands; without this column there is no way to tell, from a row,
         // which one it contributed to.
         { header: "Band", key: "bucket", align: "right" },
+        // Why this one is still open, when somebody wrote it down.
+        { header: "Notes", key: "notes" },
       ],
       data.detail.map((row) => ({
         customer: row.customer,
@@ -287,6 +289,7 @@ export function generateAgedReceivablesPDF(params: {
         paid: money(row.paid),
         balance: money(row.balance),
         bucket: bandLabel(row.bucket),
+        notes: row.notes.length > 44 ? `${row.notes.slice(0, 41)}...` : row.notes,
       })),
       { emptyMessage: "No outstanding invoices." },
     );

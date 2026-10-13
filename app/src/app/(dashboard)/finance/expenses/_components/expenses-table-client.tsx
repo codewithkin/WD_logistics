@@ -28,7 +28,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { MoreHorizontal, Pencil, Trash2, Receipt as ReceiptIcon, Search, Filter, X, Truck, MapPin, Plus, Loader2, User } from "lucide-react";
+import { MoreHorizontal, Pencil, Trash2, Receipt as ReceiptIcon, Search, Filter, X, Truck, MapPin, Plus, Loader2, User, Paperclip } from "lucide-react";
 import Link from "next/link";
 import { deleteExpense, exportExpensesPDF } from "../actions";
 import { usePeriodRange } from "@/lib/use-period-range";
@@ -45,6 +45,19 @@ export interface Expense {
     id: string;
     amount: number;
     description: string | null;
+    /**
+     * What was typed when the expense was recorded. The finance form writes
+     * its free text here and never touched `description`, so this list and
+     * every expense report showed "-" against a row somebody had described
+     * perfectly well.
+     */
+    notes?: string | null;
+    vendor?: string | null;
+    reference?: string | null;
+    /** A photographed receipt. Stored since the beginning, rendered nowhere. */
+    receiptUrl?: string | null;
+    /** Which of the three accounts the money came out of. */
+    account?: { name: string } | null;
     date: Date;
     category: {
         id: string;
@@ -133,9 +146,13 @@ export function ExpensesTableClient({ expenses }: ExpensesTableProps) {
     const filteredExpenses = useMemo(() => {
         return expenses.filter((expense) => {
             // Search filter
+            const term = searchQuery.toLowerCase();
             const matchesSearch = searchQuery === "" ||
-                expense.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                expense.category.name.toLowerCase().includes(searchQuery.toLowerCase());
+                expense.description?.toLowerCase().includes(term) ||
+                expense.notes?.toLowerCase().includes(term) ||
+                expense.vendor?.toLowerCase().includes(term) ||
+                expense.reference?.toLowerCase().includes(term) ||
+                expense.category.name.toLowerCase().includes(term);
 
             // Category filter
             const matchesCategory = categoryFilter === "all" || expense.category.name === categoryFilter;
@@ -234,7 +251,10 @@ export function ExpensesTableClient({ expenses }: ExpensesTableProps) {
                     return [
                         escapeCSV(new Date(expense.date).toISOString().split("T")[0]!),
                         escapeCSV(expense.category.name),
-                        escapeCSV(expense.description || ""),
+                        escapeCSV(expense.description || expense.notes || ""),
+                        escapeCSV(expense.vendor || ""),
+                        escapeCSV(expense.reference || ""),
+                        escapeCSV(expense.account?.name || ""),
                         escapeCSV(trucks || "N/A"),
                         escapeCSV(trips || "N/A"),
                         expense.amount.toFixed(2),
@@ -242,7 +262,7 @@ export function ExpensesTableClient({ expenses }: ExpensesTableProps) {
                 })
                 .join("\n");
 
-            const header = "Date,Category,Description,Trucks,Trips,Amount";
+            const header = "Date,Category,Description,Vendor,Reference,Paid from,Trucks,Trips,Amount";
             const csv = header + "\n" + csvData;
             const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
             const url = window.URL.createObjectURL(blob);
@@ -310,7 +330,10 @@ export function ExpensesTableClient({ expenses }: ExpensesTableProps) {
                         return [
                             escapeCSV(new Date(expense.date).toISOString().split("T")[0]!),
                             escapeCSV(expense.category.name),
-                            escapeCSV(expense.description || ""),
+                            escapeCSV(expense.description || expense.notes || ""),
+                            escapeCSV(expense.vendor || ""),
+                            escapeCSV(expense.reference || ""),
+                            escapeCSV(expense.account?.name || ""),
                             escapeCSV(trucks || "N/A"),
                             escapeCSV(trips || "N/A"),
                             expense.amount.toFixed(2),
@@ -318,7 +341,7 @@ export function ExpensesTableClient({ expenses }: ExpensesTableProps) {
                     })
                     .join("\n");
 
-                const header = "Date,Category,Description,Trucks,Trips,Amount";
+                const header = "Date,Category,Description,Vendor,Reference,Paid from,Trucks,Trips,Amount";
                 const csv = header + "\n" + csvData;
                 const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
                 const url = window.URL.createObjectURL(blob);
@@ -505,8 +528,35 @@ export function ExpensesTableClient({ expenses }: ExpensesTableProps) {
                                             {expense.category.name}
                                         </Badge>
                                     </TableCell>
-                                    <TableCell className="max-w-48 truncate">
-                                        {expense.description || <span className="text-muted-foreground">-</span>}
+                                    <TableCell className="max-w-64">
+                                        {/* Whichever text exists: the finance
+                                            form writes `notes`, the operations
+                                            one writes `description`. */}
+                                        <span className="block truncate">
+                                            {expense.description || expense.notes || (
+                                                <span className="text-muted-foreground">-</span>
+                                            )}
+                                        </span>
+                                        {expense.description && expense.notes && (
+                                            <span className="block truncate text-xs text-muted-foreground">
+                                                {expense.notes}
+                                            </span>
+                                        )}
+                                        <span className="flex items-center gap-2 text-xs text-muted-foreground">
+                                            {expense.vendor && <span>{expense.vendor}</span>}
+                                            {expense.reference && <span>#{expense.reference}</span>}
+                                            {expense.receiptUrl && (
+                                                <a
+                                                    href={expense.receiptUrl}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="inline-flex items-center gap-1 text-primary hover:underline"
+                                                >
+                                                    <Paperclip className="h-3 w-3" />
+                                                    Receipt
+                                                </a>
+                                            )}
+                                        </span>
                                     </TableCell>
                                     <TableCell>
                                         <div className="flex flex-col gap-1">

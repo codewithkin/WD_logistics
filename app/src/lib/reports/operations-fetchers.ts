@@ -669,6 +669,11 @@ export interface TripPnLRow {
   profit: number;
   margin: number | null;
   profitPerKm: number | null;
+  /**
+   * What the office wrote on the trip. The reason a run lost money was being
+   * typed into the trip form and printed on no report.
+   */
+  notes: string;
 }
 
 export interface TripPnLData {
@@ -705,6 +710,7 @@ export async function fetchTripPnLData(
         revenue: true,
         actualMileage: true,
         estimatedMileage: true,
+        notes: true,
         truck: { select: { registrationNo: true } },
         driver: { select: { firstName: true, lastName: true } },
         customer: { select: { name: true } },
@@ -754,6 +760,7 @@ export async function fetchTripPnLData(
       profit,
       margin: revenue > 0 ? share(profit, revenue) : null,
       profitPerKm: kilometres > 0 ? round(profit / kilometres) : null,
+      notes: trip.notes || "—",
     };
   });
 

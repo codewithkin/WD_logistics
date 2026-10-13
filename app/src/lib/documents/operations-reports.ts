@@ -496,9 +496,13 @@ export function generateTripPnLPDF(params: {
         { header: "Costs", key: "expenses", align: "right" },
         { header: "Profit", key: "profit", align: "right" },
         { header: "Margin", key: "margin", align: "right" },
+        // The thinnest trips are the ones somebody will ask about, and the
+        // answer is usually already written on the trip.
+        { header: "Notes", key: "notes" },
       ],
       data.worst.map((row) => ({
         date: shortDate(row.date),
+        notes: row.notes,
         route: row.route,
         truck: row.truck,
         revenue: money(row.revenue),

@@ -355,6 +355,8 @@ export function generateExpenseReportPDF(data: {
     trailer?: string;
     trip?: string;
     vendor?: string;
+    /** Extra detail beside the description, when the expense carries both. */
+    notes?: string;
   }>;
   period: { startDate: Date | string; endDate: Date | string };
   byCategory?: Array<{
@@ -384,6 +386,7 @@ export function generateExpenseReportPDF(data: {
           { header: "Date", key: "date", format: "date", align: "left" },
           { header: "Category", key: "category", align: "left" },
           { header: "Description", key: "description", align: "left" },
+          { header: "Notes", key: "notes", align: "left" },
           { header: "Truck", key: "truck", align: "left" },
           { header: "Trailer", key: "trailer", align: "left" },
           { header: "Trip", key: "trip", align: "left" },
@@ -395,6 +398,7 @@ export function generateExpenseReportPDF(data: {
           date: e.date,
           category: e.category,
           description: e.description || "-",
+          notes: e.notes || "-",
           truck: e.truck || "-",
           trailer: e.trailer || "-",
           trip: e.trip || "-",
@@ -680,6 +684,8 @@ export function generateTripSummaryPDF(data: {
     revenue: number;
     expenses: number;
     profit: number;
+    /** What the office wrote on the trip. */
+    notes?: string;
   }>;
   period: { startDate: Date | string; endDate: Date | string };
 }): Uint8Array {
@@ -711,6 +717,7 @@ export function generateTripSummaryPDF(data: {
           { header: "Route", key: "route", align: "left" },
           { header: "Truck", key: "truck", align: "left" },
           { header: "Driver", key: "driver", align: "left" },
+          { header: "Notes", key: "notes", align: "left" },
           { header: "Revenue", key: "revenue", format: "currency", align: "right" },
           { header: "Expenses", key: "expenses", format: "currency", align: "right" },
           { header: "Profit", key: "profit", format: "currency", align: "right" },
@@ -720,6 +727,7 @@ export function generateTripSummaryPDF(data: {
           route: `${t.origin} - ${t.destination}`,
           truck: t.truck,
           driver: t.driver,
+          notes: t.notes || "-",
           revenue: t.revenue,
           expenses: t.expenses,
           profit: t.profit,

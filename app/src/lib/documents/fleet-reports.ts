@@ -232,6 +232,35 @@ export function generateMaintenanceReportPDF(params: {
     );
   }
 
+  if (data.fixedJobs.length > 0) {
+    // What was actually done. `fixedNotes` is written on three screens and
+    // had never reached a printed page, so a workshop could not show anyone
+    // what it had fixed.
+    drawSectionHeading(ctx, "Closed in this period, most recent first");
+    drawTable(
+      ctx,
+      [
+        { header: "Vehicle", key: "vehicle" },
+        { header: "Fault", key: "notes" },
+        { header: "What was done", key: "fixedNotes" },
+        { header: "Raised", key: "raised" },
+        { header: "Fixed", key: "fixed" },
+        { header: "Days to fix", key: "daysToFix", align: "right" },
+        { header: "Assigned to", key: "assignedTo" },
+      ],
+      data.fixedJobs.map((job) => ({
+        vehicle: job.vehicle,
+        notes: job.notes.length > 44 ? `${job.notes.slice(0, 41)}...` : job.notes,
+        fixedNotes:
+          job.fixedNotes.length > 54 ? `${job.fixedNotes.slice(0, 51)}...` : job.fixedNotes,
+        raised: shortDate(job.raised),
+        fixed: shortDate(job.fixed),
+        daysToFix: `${job.daysToFix}d`,
+        assignedTo: job.assignedTo ?? "—",
+      })),
+    );
+  }
+
   drawNotes(
     ctx,
     "How downtime is counted",

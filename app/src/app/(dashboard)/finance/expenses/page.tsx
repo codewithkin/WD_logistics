@@ -65,6 +65,8 @@ export default async function ExpensesPage({ searchParams }: ExpensesPageProps) 
                     color: true,
                 },
             },
+            // Which account it came out of, for the list and its CSV.
+            account: { select: { name: true } },
             truckExpenses: {
                 include: {
                     truck: {

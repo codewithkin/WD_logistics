@@ -124,6 +124,28 @@ export function generateMaintenanceReportCSV(
       ]),
       emptyMessage: "Nothing open",
     },
+    {
+      title: "Closed jobs",
+      headers: [
+        "Vehicle",
+        "Fault",
+        "What was done",
+        "Raised",
+        "Fixed",
+        "Days to fix",
+        "Assigned to",
+      ],
+      rows: data.fixedJobs.map((j) => [
+        j.vehicle,
+        j.notes,
+        j.fixedNotes,
+        day(j.raised),
+        day(j.fixed),
+        j.daysToFix,
+        j.assignedTo ?? "",
+      ]),
+      emptyMessage: "Nothing closed in this period",
+    },
   ]);
 }
 

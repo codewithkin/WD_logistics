@@ -271,6 +271,12 @@ export interface AgedReceivablesData {
     paid: number;
     balance: number;
     bucket: string;
+    /**
+     * What the office wrote on the invoice. On a chasing list it is the line
+     * that says why a debt is old — "awaiting their PO", "disputed, see
+     * email" — and it was recorded and never printed.
+     */
+    notes: string;
   }>;
 }
 
@@ -294,6 +300,7 @@ export async function fetchAgedReceivablesData(
       total: true,
       amountPaid: true,
       balance: true,
+      notes: true,
       customer: { select: { name: true, phone: true } },
     },
     orderBy: { issueDate: "asc" },
@@ -347,6 +354,7 @@ export async function fetchAgedReceivablesData(
       paid: round(invoice.amountPaid),
       balance: round(invoice.balance),
       bucket: bucketLabel(bucket),
+      notes: invoice.notes || "—",
     });
   }
 

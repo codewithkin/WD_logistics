@@ -193,6 +193,21 @@ export interface MaintenanceReportData {
     status: string;
     assignedTo: string | null;
   }>;
+  /**
+   * Jobs closed in the period, with what the workshop wrote when closing
+   * them. `fixedNotes` is captured on three screens and appeared in no
+   * report, so what was actually done to a truck was unreadable off a
+   * printed page.
+   */
+  fixedJobs: Array<{
+    vehicle: string;
+    notes: string;
+    fixedNotes: string;
+    raised: Date;
+    fixed: Date;
+    daysToFix: number;
+    assignedTo: string | null;
+  }>;
 }
 
 export async function fetchMaintenanceReportData(
@@ -205,6 +220,7 @@ export async function fetchMaintenanceReportData(
       where: { organizationId, date: { gte: from, lte: to } },
       select: {
         notes: true,
+        fixedNotes: true,
         date: true,
         status: true,
         fixedAt: true,
@@ -282,6 +298,7 @@ export async function fetchMaintenanceReportData(
     }
   >();
   const openJobs: MaintenanceReportData["openJobs"] = [];
+  const fixedJobs: MaintenanceReportData["fixedJobs"] = [];
 
   for (const job of jobs) {
     const vehicle =
@@ -304,6 +321,15 @@ export async function fetchMaintenanceReportData(
       row.fixed += 1;
       row.fixDaysTotal += downtimeDays(job.date, job.fixedAt);
       row.fixedCount += 1;
+      fixedJobs.push({
+        vehicle,
+        notes: job.notes,
+        fixedNotes: job.fixedNotes || "—",
+        raised: job.date,
+        fixed: job.fixedAt,
+        daysToFix: Math.round(downtimeDays(job.date, job.fixedAt)),
+        assignedTo: job.assignedTo?.name ?? null,
+      });
     } else {
       row.stillOpen += 1;
       openJobs.push({
@@ -360,6 +386,8 @@ export async function fetchMaintenanceReportData(
     totalSpend: round(rows.reduce((s, r) => s + r.maintenanceSpend, 0)),
     rows,
     openJobs: openJobs.sort((a, b) => b.ageDays - a.ageDays),
+    // Most recently closed first, which is what a workshop is asked about.
+    fixedJobs: fixedJobs.sort((a, b) => b.fixed.getTime() - a.fixed.getTime()),
   };
 }
 

@@ -129,6 +129,7 @@ export function generateAgedReceivablesCSV(
         "Paid",
         "Balance",
         "Bucket",
+        "Notes",
       ],
       rows: data.detail.map((r) => [
         r.customer,
@@ -140,6 +141,7 @@ export function generateAgedReceivablesCSV(
         n(r.paid),
         n(r.balance),
         r.bucket,
+        r.notes,
       ]),
       emptyMessage: "No outstanding invoices",
     },

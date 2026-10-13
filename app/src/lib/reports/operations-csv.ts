@@ -246,6 +246,8 @@ export function generateTripPnLCSV(
         "Profit",
         "Margin %",
         "Profit per km",
+        // A spreadsheet has room for the note the landscape PDF does not.
+        "Notes",
       ],
       rows: data.rows.map((r) => [
         day(r.date),
@@ -260,6 +262,7 @@ export function generateTripPnLCSV(
         n(r.profit),
         maybe(r.margin),
         maybe(r.profitPerKm),
+        r.notes,
       ]),
       total: [
         "Total",

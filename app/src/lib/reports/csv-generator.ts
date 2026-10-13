@@ -104,6 +104,8 @@ export interface ExpenseData {
   date: Date;
   category: string;
   description: string;
+  /** Extra detail, when the expense carries both a description and a note. */
+  notes: string;
   truck: string;
   trailer: string;
   trip: string;
@@ -132,6 +134,12 @@ export interface TripSummaryData {
   revenue: number;
   expenses: number;
   profit: number;
+  /**
+   * What the office wrote on the trip. Captured on the trip form since the
+   * beginning and printed on no report, so the reason a run lost money was
+   * recorded and never read.
+   */
+  notes: string;
 }
 
 export interface AccountLedgerData {
@@ -295,6 +303,7 @@ export function generateExpenseCSV(data: ExpenseData[], meta: ReportMeta): strin
     { key: "date", label: "Date", format: (v) => (v as Date).toISOString().split("T")[0] },
     { key: "category", label: "Category" },
     { key: "description", label: "Description" },
+    { key: "notes", label: "Notes" },
     { key: "truck", label: "Truck" },
     { key: "trailer", label: "Trailer" },
     { key: "trip", label: "Trip" },
@@ -360,6 +369,7 @@ export function generateTripSummaryCSV(data: TripSummaryData[], meta: ReportMeta
     { key: "destination", label: "Destination" },
     { key: "truck", label: "Truck" },
     { key: "driver", label: "Driver" },
+    { key: "notes", label: "Notes" },
     { key: "revenue", label: "Revenue ($)", format: (v) => formatCurrency(v as number) },
     { key: "expenses", label: "Expenses ($)", format: (v) => formatCurrency(v as number) },
     { key: "profit", label: "Profit ($)", format: (v) => formatCurrency(v as number) },

@@ -167,7 +167,12 @@ export async function fetchExpenseData(
     return {
       date: expense.date,
       category: expense.category.name,
-      description: expense.description || "-",
+      // The finance form writes its free text into `notes` and has never
+      // written `description`, so this column printed "-" on every
+      // finance-side expense — most of them. Whichever text exists is shown,
+      // and the note travels in its own column when both do.
+      description: expense.description || expense.notes || "-",
+      notes: expense.description && expense.notes ? expense.notes : "-",
       truck: truck?.registrationNo || "-",
       trailer: trailer?.registrationNo || "-",
       trip: trip ? `${trip.originCity} → ${trip.destinationCity}` : "-",
@@ -235,6 +240,10 @@ export async function fetchCustomerStatementData(
     },
     orderBy: { issueDate: "asc" },
   });
+  // Both carry a note that was typed and then never printed anywhere. On a
+  // statement it is the line that explains the line: "deposit, balance on
+  // delivery", "paid in cash at the depot".
+
 
   // Get payments in period
   const payments = await prisma.payment.findMany({
@@ -255,7 +264,7 @@ export async function fetchCustomerStatementData(
       date: inv.issueDate,
       type: "INVOICE" as const,
       reference: inv.invoiceNumber,
-      description: `Invoice ${inv.invoiceNumber}`,
+      description: inv.notes ? `Invoice ${inv.invoiceNumber} — ${inv.notes}` : `Invoice ${inv.invoiceNumber}`,
       debit: inv.total,
       credit: 0,
     })),
@@ -263,7 +272,7 @@ export async function fetchCustomerStatementData(
       date: pay.paymentDate,
       type: "PAYMENT" as const,
       reference: pay.reference || "-",
-      description: `Payment - ${pay.method}`,
+      description: pay.notes ? `Payment - ${pay.method} — ${pay.notes}` : `Payment - ${pay.method}`,
       debit: 0,
       credit: pay.amount,
     })),
@@ -348,6 +357,7 @@ export async function fetchTripSummaryData(
       revenue: trip.revenue,
       expenses,
       profit,
+      notes: trip.notes || "-",
     };
   });
 }
