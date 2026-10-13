@@ -578,6 +578,19 @@ model SupplierPayment {
    */
   accountId      String?
   account        FinancialAccount? @relation(fields: [accountId], references: [id])
+  /**
+   * The bill this payment settles, when it settles one in particular.
+   *
+   * Added 2026-10-13. Recording a payment reduced what the supplier was owed,
+   * and ticking the same bill as paid on the supplier's page reduced it again
+   * — the balance fell twice for one payment and nothing joined the two
+   * actions up. With the link, each settlement is counted once.
+   *
+   * Unique: one payment settles at most one bill, and a bill is settled by at
+   * most one payment. Null is the ordinary case — money on account.
+   */
+  expenseId      String?  @unique
+  expense        Expense? @relation(fields: [expenseId], references: [id], onDelete: SetNull)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -814,6 +827,8 @@ model Expense {
   stockMovement   StockMovement?
   partAllocation  PartAllocation?
   accountEntries  AccountTransaction[]
+  /** Set when a supplier payment settled this particular bill. */
+  supplierPayment SupplierPayment?
 
   @@index([organizationId, date])
   @@index([categoryId])

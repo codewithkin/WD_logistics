@@ -83,6 +83,8 @@ async function main() {
     truckIds: [] as string[],
     driverIds: [] as string[],
     customerIds: [] as string[],
+    supplierIds: [] as string[],
+    supplierPaymentIds: [] as string[],
     categoryIds: [] as string[],
     itemIds: [] as string[],
     movementIds: [] as string[],
@@ -539,6 +541,79 @@ async function main() {
         `${again.checked} checked, ${again.repaired.length} repaired`,
       );
 
+      // ------------------- 8. a supplier bill settled once, not twice
+      const supplier = await prisma.supplier.create({
+        data: { organizationId, name: `Circle Supplier ${RUN}`, phone: "+263770000113" },
+      });
+      created.supplierIds.push(supplier.id);
+
+      const bill = await createExpense({
+        categoryId: unwired.id,
+        amount: 500,
+        date: new Date(),
+        isBusinessExpense: true,
+        supplierId: supplier.id,
+      });
+      if (!bill.success) {
+        record("a supplier bill is recorded", false, why(bill));
+        return;
+      }
+      const owedAfterBill =
+        (await prisma.supplier.findUnique({ where: { id: supplier.id } }))?.balance ?? 0;
+      record(
+        "an unpaid supplier bill is money owed",
+        near(owedAfterBill, 500),
+        `owed ${owedAfterBill}`,
+      );
+
+      const billRow = await prisma.expense.findFirst({
+        where: { supplierId: supplier.id, isPaid: false },
+        select: { id: true },
+      });
+      const { createSupplierPayment } = await import(
+        "../../src/app/(dashboard)/finance/supplier-payments/actions"
+      );
+      const settled = await createSupplierPayment({
+        supplierId: supplier.id,
+        expenseId: billRow?.id ?? null,
+        amount: 500,
+        paymentDate: new Date(),
+        method: "bank_transfer",
+        accountId: bank.id,
+        description: `circle check ${RUN}`,
+      });
+      if (!settled.success) {
+        record("the bill is settled by a payment", false, why(settled));
+        return;
+      }
+      if (settled.payment) created.supplierPaymentIds.push(settled.payment.id);
+
+      const owedAfterPayment =
+        (await prisma.supplier.findUnique({ where: { id: supplier.id } }))?.balance ?? 0;
+      const paidBill = billRow
+        ? await prisma.expense.findUnique({
+            where: { id: billRow.id },
+            select: { isPaid: true, supplierPayment: { select: { id: true } } },
+          })
+        : null;
+      record(
+        "paying a named bill takes it off what the supplier is owed once",
+        near(owedAfterPayment, 0) && paidBill?.isPaid === true && Boolean(paidBill?.supplierPayment),
+        `owed ${owedAfterBill} → ${owedAfterPayment}, bill paid ${paidBill?.isPaid}, linked ${Boolean(paidBill?.supplierPayment)}`,
+      );
+
+      const { markExpenseAsPaid } = await import("../../src/app/(dashboard)/suppliers/actions");
+      const tickedAgain = billRow
+        ? await markExpenseAsPaid(billRow.id)
+        : { success: true as const };
+      const owedAfterSecondTick =
+        (await prisma.supplier.findUnique({ where: { id: supplier.id } }))?.balance ?? 0;
+      record(
+        "and ticking the same bill paid afterwards does not take it off again",
+        !tickedAgain.success && near(owedAfterSecondTick, 0),
+        `${"error" in tickedAgain ? tickedAgain.error : "went through"}; owed ${owedAfterSecondTick}`,
+      );
+
       // --------------------------- 7. reports that agree with each other
       // The same trip and the same truck, read through different reports. They
       // disagreed for years: one summed full expense amounts where another
@@ -594,6 +669,9 @@ async function main() {
     await prisma.stockMovement.deleteMany({ where: { inventoryItemId: { in: created.itemIds } } });
     await prisma.partAllocation.deleteMany({ where: { inventoryItemId: { in: created.itemIds } } });
     await prisma.payment.deleteMany({ where: { id: { in: created.paymentIds } } });
+    await prisma.supplierPayment.deleteMany({
+      where: { id: { in: created.supplierPaymentIds } },
+    });
     await prisma.accountTransaction.deleteMany({
       where: { description: { contains: `circle check ${RUN}` } },
     });
@@ -608,6 +686,7 @@ async function main() {
     await prisma.trip.deleteMany({ where: { id: { in: created.tripIds } } });
     await prisma.driver.deleteMany({ where: { id: { in: created.driverIds } } });
     await prisma.customer.deleteMany({ where: { id: { in: created.customerIds } } });
+    await prisma.supplier.deleteMany({ where: { id: { in: created.supplierIds } } });
     await prisma.truck.deleteMany({ where: { id: { in: created.truckIds } } });
 
     // `balance` is a stored figure, so removing the ledger rows above does not

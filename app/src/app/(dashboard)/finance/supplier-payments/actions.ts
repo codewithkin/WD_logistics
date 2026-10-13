@@ -10,6 +10,42 @@ import {
     debitAccountForSupplierPayment,
 } from "@/lib/accounts-server";
 
+/**
+ * A supplier's unsettled bills, for the "settles which bill?" choice.
+ *
+ * Only expenses still unpaid and not already claimed by another payment, so
+ * nothing can be settled twice.
+ */
+export async function listOpenSupplierBills(supplierId: string) {
+    const session = await requireRole(["admin", "supervisor"]);
+
+    const bills = await prisma.expense.findMany({
+        where: {
+            organizationId: session.organizationId,
+            supplierId,
+            isPaid: false,
+            supplierPayment: null,
+        },
+        select: {
+            id: true,
+            amount: true,
+            date: true,
+            description: true,
+            notes: true,
+            category: { select: { name: true } },
+        },
+        orderBy: { date: "asc" },
+    });
+
+    return bills.map((bill) => ({
+        id: bill.id,
+        amount: bill.amount,
+        label: `${bill.date.toLocaleDateString("en-GB")} — ${
+            bill.description || bill.notes || bill.category.name
+        }`,
+    }));
+}
+
 export async function createSupplierPayment(data: {
     supplierId: string;
     amount: number;
@@ -21,6 +57,13 @@ export async function createSupplierPayment(data: {
     notes?: string;
     /** Which account the money left. Null records the payment only. */
     accountId?: string | null;
+    /**
+     * The bill this payment settles, when it settles one in particular.
+     *
+     * Without it, recording a payment and then ticking the same bill as paid
+     * on the supplier's page took the money off what they are owed twice.
+     */
+    expenseId?: string | null;
 }) {
     const session = await requireRole(["admin", "supervisor"]);
 
@@ -31,6 +74,30 @@ export async function createSupplierPayment(data: {
 
         if (!supplier) {
             return { success: false, error: "Supplier not found" };
+        }
+
+        // The bill, if one was named: it has to be this supplier's, still
+        // unpaid, and not already settled by another payment.
+        let bill: { id: string; amount: number } | null = null;
+        if (data.expenseId) {
+            const found = await prisma.expense.findFirst({
+                where: {
+                    id: data.expenseId,
+                    organizationId: session.organizationId,
+                    supplierId: data.supplierId,
+                },
+                select: { id: true, amount: true, isPaid: true, supplierPayment: { select: { id: true } } },
+            });
+            if (!found) {
+                return { success: false, error: "That bill is not on this supplier's account" };
+            }
+            if (found.supplierPayment) {
+                return { success: false, error: "That bill has already been settled by another payment" };
+            }
+            if (found.isPaid) {
+                return { success: false, error: "That bill is already marked paid" };
+            }
+            bill = { id: found.id, amount: found.amount };
         }
 
         // The payment and the balance it settles are one write. They were two,
@@ -49,8 +116,18 @@ export async function createSupplierPayment(data: {
                     description: data.description,
                     notes: data.notes,
                     accountId: data.accountId || null,
+                    expenseId: bill?.id ?? null,
                 },
             });
+
+            // A settled bill is marked paid here rather than separately, so
+            // the balance below moves once for it instead of twice.
+            if (bill) {
+                await tx.expense.update({
+                    where: { id: bill.id },
+                    data: { isPaid: true, paidDate: data.paymentDate },
+                });
+            }
 
             // Reduce what we owe them.
             await tx.supplier.update({
@@ -215,6 +292,16 @@ export async function deleteSupplierPayment(id: string,
         }
 
         await prisma.$transaction(async (tx) => {
+            // A bill this payment settled goes back to unpaid, or the supplier
+            // page would show nothing owing for a payment that no longer
+            // exists.
+            if (payment.expenseId) {
+                await tx.expense.update({
+                    where: { id: payment.expenseId },
+                    data: { isPaid: false, paidDate: null },
+                });
+            }
+
             // Removing the payment puts the debt back.
             await tx.supplier.update({
                 where: { id: payment.supplierId },

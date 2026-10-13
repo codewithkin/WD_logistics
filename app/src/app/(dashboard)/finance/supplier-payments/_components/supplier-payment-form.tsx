@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -37,9 +37,16 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import { createSupplierPayment, updateSupplierPayment } from "../actions";
+import {
+    createSupplierPayment,
+    listOpenSupplierBills,
+    updateSupplierPayment,
+} from "../actions";
 import { PAYMENT_METHOD_LABELS } from "@/lib/types";
 import { toast } from "sonner";
+
+/** The Select's value for "no particular bill". */
+const NO_BILL = "__none__";
 
 const supplierPaymentSchema = z.object({
     supplierId: z.string().min(1, "Supplier is required"),
@@ -51,6 +58,7 @@ const supplierPaymentSchema = z.object({
     description: z.string().optional(),
     notes: z.string().optional(),
     accountId: z.string().optional().nullable(),
+    expenseId: z.string().optional().nullable(),
 });
 
 type SupplierPaymentFormData = z.infer<typeof supplierPaymentSchema>;
@@ -97,6 +105,7 @@ export function SupplierPaymentForm({ initialSupplier, defaultSupplierId, paymen
             paymentDate: payment?.paymentDate ? new Date(payment.paymentDate) : new Date(),
             method: payment?.method ?? "bank_transfer",
             accountId: payment?.accountId ?? defaultAccountId ?? null,
+            expenseId: null,
             customMethod: payment?.customMethod ?? "",
             reference: payment?.reference ?? "",
             description: payment?.description ?? "",
@@ -114,6 +123,31 @@ export function SupplierPaymentForm({ initialSupplier, defaultSupplierId, paymen
         typeof selectedSupplier?.data?.balance === "number"
             ? selectedSupplier.data.balance
             : 0;
+
+    // The supplier's open bills, so a payment can say which one it settles.
+    // Without this the two actions — recording the payment and ticking the
+    // bill paid — took the money off what they are owed twice.
+    const supplierId = form.watch("supplierId");
+    const [openBills, setOpenBills] = useState<Array<{ id: string; amount: number; label: string }>>(
+        [],
+    );
+    useEffect(() => {
+        if (isEditing || !supplierId) {
+            setOpenBills([]);
+            return;
+        }
+        let current = true;
+        listOpenSupplierBills(supplierId)
+            .then((bills) => {
+                if (current) setOpenBills(bills);
+            })
+            .catch(() => {
+                if (current) setOpenBills([]);
+            });
+        return () => {
+            current = false;
+        };
+    }, [supplierId, isEditing]);
 
     const onSubmit = async (data: SupplierPaymentFormData) => {
         setIsLoading(true);
@@ -135,6 +169,7 @@ export function SupplierPaymentForm({ initialSupplier, defaultSupplierId, paymen
                 }, approvalReason)
                 : await createSupplierPayment({
                     supplierId: data.supplierId,
+                    expenseId: data.expenseId || null,
                     amount: data.amount,
                     paymentDate: data.paymentDate,
                     method: data.method as "cash" | "bank_transfer" | "check" | "mobile_money" | "other",
@@ -290,6 +325,59 @@ export function SupplierPaymentForm({ initialSupplier, defaultSupplierId, paymen
                                 )}
                             />
                         </div>
+
+                        {/* Which bill this settles, if a particular one.
+                            Recording a payment and then ticking the same bill
+                            paid on the supplier's page used to take the money
+                            off what they are owed twice; naming the bill here
+                            settles it in the same write. */}
+                        {!isEditing && openBills.length > 0 && (
+                            <FormField
+                                control={form.control}
+                                name="expenseId"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Settles which bill?</FormLabel>
+                                        <Select
+                                            value={field.value ?? NO_BILL}
+                                            onValueChange={(value) => {
+                                                if (value === NO_BILL) {
+                                                    field.onChange(null);
+                                                    return;
+                                                }
+                                                field.onChange(value);
+                                                // The amount is almost always
+                                                // the bill's, so offer it.
+                                                const bill = openBills.find((b) => b.id === value);
+                                                if (bill) form.setValue("amount", bill.amount);
+                                            }}
+                                        >
+                                            <FormControl>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Money on account" />
+                                                </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                <SelectItem value={NO_BILL}>
+                                                    Money on account — no particular bill
+                                                </SelectItem>
+                                                {openBills.map((bill) => (
+                                                    <SelectItem key={bill.id} value={bill.id}>
+                                                        {bill.label}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <FormDescription>
+                                            {field.value
+                                                ? "That bill is marked paid by this payment, and what they are owed drops once."
+                                                : `${openBills.length} unsettled bill(s) on this supplier's account.`}
+                                        </FormDescription>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        )}
 
                         {/* Which account the money left. Paying a supplier
                             used to move only the supplier's balance, so the

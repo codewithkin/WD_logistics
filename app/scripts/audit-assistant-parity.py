@@ -204,6 +204,10 @@ WEB_ONLY = {
         "Feeds the approval dialog's three-column view. The assistant lists a pending change and "
         "its reason through list_pending_approvals instead.",
     "getSupplierOwingReport": "Read surface; the assistant has get_expense_breakdown and the creditors report.",
+    "listOpenSupplierBills":
+        "Feeds the \"settles which bill?\" dropdown on the payment form. The assistant's "
+        "pay_supplier takes the amount and the supplier, and get_expense_breakdown says what is "
+        "outstanding; a list of ids for a dropdown is not chat material.",
     "getAccounts": "Read surface; covered by get_account_balances.",
     "getOrganizationMembers": "Read surface; covered by list_users.",
     "getPendingInvitations": "Read surface; an invitation nobody accepted is not chat material.",

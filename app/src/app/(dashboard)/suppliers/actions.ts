@@ -230,8 +230,15 @@ export async function markExpenseAsPaid(expenseId: string) {
       });
       if (count === 0) return false;
 
-      // Paying it reduces what we owe the supplier.
-      if (expense.supplierId) {
+      // Paying it reduces what we owe the supplier — unless a supplier
+      // payment already settled this bill and took it off the balance then.
+      // Recording the payment and ticking the bill used to be two unrelated
+      // actions, so the balance fell twice for one payment.
+      const settledByPayment = await tx.supplierPayment.findFirst({
+        where: { expenseId: expenseId },
+        select: { id: true },
+      });
+      if (expense.supplierId && !settledByPayment) {
         await tx.supplier.update({
           where: { id: expense.supplierId },
           data: { balance: { decrement: expense.amount } },
