@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { PagePeriodSelector } from "@/components/ui/page-period-selector";
 import { getDateRangeFromParams } from "@/lib/period-utils";
 import { InventoryTable } from "./_components/inventory-table";
+import { ManageLabelsDialog } from "./_components/manage-labels-dialog";
 import { InventorySummary } from "./_components/inventory-summary";
 import { StockMovementsTable } from "./_components/stock-movements-table";
 import { canViewInventoryValue, canManageInventory } from "@/lib/permissions";
@@ -24,7 +25,7 @@ export default async function InventoryPage({ searchParams }: InventoryPageProps
     const params = await searchParams;
     const dateRange = getDateRangeFromParams(params, "3m");
 
-    const [items, movements] = await Promise.all([
+    const [items, labels, movements] = await Promise.all([
         prisma.inventoryItem.findMany({
             where: { organizationId },
             select: {
@@ -39,8 +40,14 @@ export default async function InventoryPage({ searchParams }: InventoryPageProps
                 location: true,
                 // Pre-fills "record the cost as" when stock is taken out.
                 defaultExpenseCategory: { select: { id: true, name: true } },
+                label: { select: { id: true, name: true } },
             },
             orderBy: { name: "asc" },
+        }),
+        prisma.inventoryLabel.findMany({
+            where: { organizationId },
+            include: { _count: { select: { items: true } } },
+            orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
         }),
         prisma.stockMovement.findMany({
             where: {
@@ -70,7 +77,9 @@ export default async function InventoryPage({ searchParams }: InventoryPageProps
         for (const item of items) {
             const value = (item.unitCost ?? 0) * item.quantity;
             sum += value;
-            const key = item.category || "Uncategorized";
+            // By label now, falling back to whatever free text an item was
+            // filed under before labels existed.
+            const key = item.label?.name || item.category || "Unlabelled";
             const existing = byCategory.get(key) ?? { value: 0, itemCount: 0 };
             byCategory.set(key, { value: existing.value + value, itemCount: existing.itemCount + 1 });
         }
@@ -92,7 +101,20 @@ export default async function InventoryPage({ searchParams }: InventoryPageProps
                             : undefined
                     }
                 />
-                <PagePeriodSelector defaultPreset="3m" />
+                <div className="flex flex-wrap items-center gap-2">
+                    {canManage && (
+                        <ManageLabelsDialog
+                            labels={labels.map((label) => ({
+                                id: label.id,
+                                name: label.name,
+                                color: label.color,
+                                sortOrder: label.sortOrder,
+                                itemCount: label._count.items,
+                            }))}
+                        />
+                    )}
+                    <PagePeriodSelector defaultPreset="3m" />
+                </div>
             </div>
 
             <InventorySummary
@@ -114,7 +136,12 @@ export default async function InventoryPage({ searchParams }: InventoryPageProps
                     </TabsTrigger>
                 </TabsList>
                 <TabsContent value="items">
-                    <InventoryTable items={items} role={role} canSeeValue={canSeeValue} />
+                    <InventoryTable
+                        items={items}
+                        role={role}
+                        canSeeValue={canSeeValue}
+                        labels={labels.map((label) => ({ id: label.id, name: label.name }))}
+                    />
                 </TabsContent>
                 <TabsContent value="history">
                     <Card>

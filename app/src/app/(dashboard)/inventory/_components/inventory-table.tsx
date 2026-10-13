@@ -51,17 +51,26 @@ interface InventoryItem {
     unitCost: number | null;
     location: string | null;
     defaultExpenseCategory?: { id: string; name: string } | null;
+    /** The managed label, which replaced the free-text category. */
+    label?: { id: string; name: string } | null;
 }
 
 interface InventoryTableProps {
     items: InventoryItem[];
     role: Role;
     canSeeValue: boolean;
+    /** Every label in use, in the order the storeroom put them in. */
+    labels?: Array<{ id: string; name: string }>;
 }
 
-export function InventoryTable({ items, role, canSeeValue }: InventoryTableProps) {
+/** The filter chips' value when nothing is filtered, and for items with no label. */
+const ALL = "__all__";
+const UNLABELLED = "__none__";
+
+export function InventoryTable({ items, role, canSeeValue, labels = [] }: InventoryTableProps) {
     const router = useRouter();
     const [search, setSearch] = useState("");
+    const [labelFilter, setLabelFilter] = useState<string>(ALL);
     const [deleteId, setDeleteId] = useState<string | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
     const [stockAction, setStockAction] = useState<{ mode: StockDialogMode; item: InventoryItem } | null>(null);
@@ -69,15 +78,32 @@ export function InventoryTable({ items, role, canSeeValue }: InventoryTableProps
     const canEdit = role === "admin" || role === "supervisor";
     const canDelete = role === "admin";
 
+    const matchesLabel = (item: InventoryItem) => {
+        if (labelFilter === ALL) return true;
+        if (labelFilter === UNLABELLED) return !item.label;
+        return item.label?.id === labelFilter;
+    };
+
     const filteredItems = items.filter((item) => {
         const term = search.toLowerCase();
-        return (
+        const matchesSearch =
             item.name.toLowerCase().includes(term) ||
             item.sku?.toLowerCase().includes(term) ||
+            item.label?.name.toLowerCase().includes(term) ||
             item.category?.toLowerCase().includes(term) ||
-            item.location?.toLowerCase().includes(term)
-        );
+            item.location?.toLowerCase().includes(term);
+        return Boolean(matchesSearch) && matchesLabel(item);
     });
+
+    // Counted off the whole list, not the filtered one, so the chips don't
+    // rearrange themselves as you type.
+    const countFor = (value: string) =>
+        value === ALL
+            ? items.length
+            : value === UNLABELLED
+              ? items.filter((item) => !item.label).length
+              : items.filter((item) => item.label?.id === value).length;
+    const unlabelled = countFor(UNLABELLED);
 
     const pagination = usePagination({
         defaultPageSize: 10,
@@ -127,13 +153,37 @@ export function InventoryTable({ items, role, canSeeValue }: InventoryTableProps
                     </div>
                 </div>
 
+                {labels.length > 0 && (
+                    <div className="mb-4 flex flex-wrap gap-2">
+                        {[
+                            { id: ALL, name: "All" },
+                            ...labels,
+                            ...(unlabelled > 0 ? [{ id: UNLABELLED, name: "Unlabelled" }] : []),
+                        ].map((option) => (
+                            <Button
+                                key={option.id}
+                                type="button"
+                                size="sm"
+                                variant={labelFilter === option.id ? "default" : "outline"}
+                                onClick={() => {
+                                    setLabelFilter(option.id);
+                                    pagination.setCurrentPage(1);
+                                }}
+                            >
+                                {option.name}
+                                <span className="ml-1.5 text-xs opacity-70">{countFor(option.id)}</span>
+                            </Button>
+                        ))}
+                    </div>
+                )}
+
                 <div className="rounded-md border overflow-x-auto">
                     <Table>
                         <TableHeader>
                             <TableRow>
                                 <TableHead>Name</TableHead>
                                 <TableHead className="hidden md:table-cell">SKU</TableHead>
-                                <TableHead className="hidden sm:table-cell">Category</TableHead>
+                                <TableHead className="hidden sm:table-cell">Label</TableHead>
                                 <TableHead className="text-right">Quantity</TableHead>
                                 {canSeeValue && (
                                     <TableHead className="text-right hidden lg:table-cell">Unit Cost</TableHead>
@@ -162,7 +212,15 @@ export function InventoryTable({ items, role, canSeeValue }: InventoryTableProps
                                                 </Link>
                                             </TableCell>
                                             <TableCell className="hidden md:table-cell">{item.sku || "-"}</TableCell>
-                                            <TableCell className="hidden sm:table-cell">{item.category || "-"}</TableCell>
+                                            <TableCell className="hidden sm:table-cell">
+                                                {item.label ? (
+                                                    <Badge variant="outline">{item.label.name}</Badge>
+                                                ) : (
+                                                    // Items filed under the old free-text category
+                                                    // before labels existed still read sensibly.
+                                                    item.category || "-"
+                                                )}
+                                            </TableCell>
                                             <TableCell className="text-right">
                                                 {item.quantity} {item.unit || ""}
                                             </TableCell>

@@ -22,6 +22,13 @@ import {
     FormLabel,
     FormMessage,
 } from "@/components/ui/form";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 import { EntityPicker } from "@/components/ui/entity-picker";
 import type { EntityOption } from "@/lib/entity-picker/config";
 import { Loader2 } from "lucide-react";
@@ -40,6 +47,7 @@ const inventoryItemSchema = z.object({
     supplier: z.string().optional(),
     notes: z.string().optional(),
     defaultExpenseCategoryId: z.string().optional().nullable(),
+    labelId: z.string().optional().nullable(),
 });
 
 type InventoryFormData = z.infer<typeof inventoryItemSchema>;
@@ -58,13 +66,24 @@ interface InventoryFormProps {
         supplier: string | null;
         notes: string | null;
         defaultExpenseCategoryId: string | null;
+        labelId: string | null;
     };
+    /** The storeroom's labels, managed from the inventory list. */
+    labels?: Array<{ id: string; name: string }>;
     /** The item's current category, so the picker shows its name immediately. */
     defaultExpenseCategory?: EntityOption | null;
     canSeeValue: boolean;
 }
 
-export function InventoryForm({ item, defaultExpenseCategory, canSeeValue }: InventoryFormProps) {
+/** The Select's value for "no label" — a Radix item cannot have an empty value. */
+const NO_LABEL = "__none__";
+
+export function InventoryForm({
+    item,
+    defaultExpenseCategory,
+    labels = [],
+    canSeeValue,
+}: InventoryFormProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
     // Non-admins are editing a request, not the record — see
@@ -90,6 +109,7 @@ export function InventoryForm({ item, defaultExpenseCategory, canSeeValue }: Inv
             supplier: item?.supplier ?? "",
             notes: item?.notes ?? "",
             defaultExpenseCategoryId: item?.defaultExpenseCategoryId ?? null,
+            labelId: item?.labelId ?? null,
         },
     });
 
@@ -107,6 +127,7 @@ export function InventoryForm({ item, defaultExpenseCategory, canSeeValue }: Inv
                 // null, not undefined: clearing the category has to reach the
                 // database, or it can never be unset once chosen.
                 defaultExpenseCategoryId: data.defaultExpenseCategoryId || null,
+                labelId: data.labelId || null,
             };
 
             if (isEditing && needsApproval && approvalReason.trim().length < 5) {
@@ -184,15 +205,42 @@ export function InventoryForm({ item, defaultExpenseCategory, canSeeValue }: Inv
                 </div>
 
                 <div className="grid gap-4 sm:grid-cols-2">
+                    {/* A managed list, not free text: "Brakes", "brakes" and
+                        "Brake Parts" used to be three different categories and
+                        the list page could not filter by any of them. New
+                        labels are added from the Labels button on the stock
+                        list. */}
                     <FormField
                         control={form.control}
-                        name="category"
+                        name="labelId"
                         render={({ field }) => (
                             <FormItem>
-                                <FormLabel>Category</FormLabel>
-                                <FormControl>
-                                    <Input placeholder="Fluids, Brake Parts, Filters..." {...field} />
-                                </FormControl>
+                                <FormLabel>Label</FormLabel>
+                                <Select
+                                    value={field.value ?? NO_LABEL}
+                                    onValueChange={(value) =>
+                                        field.onChange(value === NO_LABEL ? null : value)
+                                    }
+                                >
+                                    <FormControl>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="No label" />
+                                        </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                        <SelectItem value={NO_LABEL}>No label</SelectItem>
+                                        {labels.map((label) => (
+                                            <SelectItem key={label.id} value={label.id}>
+                                                {label.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <FormDescription>
+                                    {labels.length === 0
+                                        ? "No labels yet — add some with the Labels button on the stock list."
+                                        : "How the shelves are organised. The stock list filters by this."}
+                                </FormDescription>
                                 <FormMessage />
                             </FormItem>
                         )}

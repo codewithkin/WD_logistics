@@ -18,10 +18,17 @@ export default async function EditInventoryItemPage({ params }: EditInventoryIte
     if (!access.allowed) return <NoAccess role={access.role} what="editing a stock item" />;
     const session = access.session;
 
-    const item = await prisma.inventoryItem.findFirst({
-        where: { id, organizationId: session.organizationId },
-        include: { defaultExpenseCategory: { select: { id: true, name: true } } },
-    });
+    const [item, labels] = await Promise.all([
+        prisma.inventoryItem.findFirst({
+            where: { id, organizationId: session.organizationId },
+            include: { defaultExpenseCategory: { select: { id: true, name: true } } },
+        }),
+        prisma.inventoryLabel.findMany({
+            where: { organizationId: session.organizationId },
+            select: { id: true, name: true },
+            orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+        }),
+    ]);
 
     if (!item) {
         notFound();
@@ -36,6 +43,7 @@ export default async function EditInventoryItemPage({ params }: EditInventoryIte
             />
             <InventoryForm
                 item={item}
+                labels={labels}
                 defaultExpenseCategory={
                     item.defaultExpenseCategory
                         ? { id: item.defaultExpenseCategory.id, label: item.defaultExpenseCategory.name }

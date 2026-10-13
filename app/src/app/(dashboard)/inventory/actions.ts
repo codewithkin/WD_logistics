@@ -26,6 +26,24 @@ export interface InventoryItemInput {
    * charges the right category without anyone deciding at the shelf.
    */
   defaultExpenseCategoryId?: string | null;
+  /**
+   * The managed label this item is filed under. Replaces `category`, which
+   * was free text and gave one fleet "Brakes", "brakes" and "Brake Parts".
+   */
+  labelId?: string | null;
+}
+
+/** A label has to be this organisation's before it can be stored. */
+async function validLabelId(
+  organizationId: string,
+  labelId: string | null | undefined,
+): Promise<boolean> {
+  if (!labelId) return true;
+  const found = await prisma.inventoryLabel.findFirst({
+    where: { id: labelId, organizationId },
+    select: { id: true },
+  });
+  return Boolean(found);
 }
 
 /** An expense category has to be this organisation's before it can be stored. */
@@ -240,6 +258,9 @@ export async function createInventoryItem(data: InventoryItemInput) {
     if (!(await validCategoryId(session.organizationId, data.defaultExpenseCategoryId))) {
       return { success: false as const, error: "That expense category no longer exists" };
     }
+    if (!(await validLabelId(session.organizationId, data.labelId))) {
+      return { success: false as const, error: "That label no longer exists" };
+    }
     if (data.sku) {
       const existing = await prisma.inventoryItem.findFirst({
         where: { sku: data.sku, organizationId: session.organizationId },
@@ -316,6 +337,9 @@ export async function updateInventoryItem(id: string, data: Partial<InventoryIte
 
     if (!(await validCategoryId(session.organizationId, data.defaultExpenseCategoryId))) {
       return { success: false as const, error: "That expense category no longer exists" };
+    }
+    if (!(await validLabelId(session.organizationId, data.labelId))) {
+      return { success: false as const, error: "That label no longer exists" };
     }
 
     if (data.sku && data.sku !== item.sku) {

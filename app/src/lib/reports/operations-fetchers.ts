@@ -544,6 +544,7 @@ export async function fetchInventoryValuationData(
         name: true,
         sku: true,
         category: true,
+        label: { select: { name: true } },
         unit: true,
         quantity: true,
         minQuantity: true,
@@ -570,7 +571,10 @@ export async function fetchInventoryValuationData(
   const rows: InventoryValuationRow[] = items.map((item) => ({
     name: item.name,
     sku: item.sku,
-    category: item.category,
+    // The managed label, falling back to the free text items were filed under
+    // before the label list existed — the report keeps its "Category" column
+    // either way, so a printed valuation reads the same as it always did.
+    category: item.label?.name ?? item.category,
     unit: item.unit,
     quantity: item.quantity,
     minQuantity: item.minQuantity,
