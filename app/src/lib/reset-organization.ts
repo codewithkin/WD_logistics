@@ -180,6 +180,10 @@ export async function resetOrganizationData(
       count(await tx.partAllocation.deleteMany({ where: { inventoryItem: { organizationId } } }));
       count(await tx.stockMovement.deleteMany({ where: { organizationId } }));
       count(await tx.inventoryItem.deleteMany({ where: { organizationId } }));
+      // The storeroom's own labels are the client's words, not ours — a reset
+      // starts the shelves afresh, the same way it does the expense
+      // categories above.
+      count(await tx.inventoryLabel.deleteMany({ where: { organizationId } }));
       count(await tx.maintenanceRequest.deleteMany({ where: { organizationId } }));
       count(await tx.trip.deleteMany({ where: { organizationId } }));
       count(await tx.driverTruckAssignment.deleteMany({ where: { organizationId } }));

@@ -284,6 +284,7 @@ const remaining: Record<string, number> = {
   payments: await prisma.payment.count({ where: { customer: { organizationId: org.id } } }),
   expenses: await prisma.expense.count({ where: { organizationId: org.id } }),
   stock: await prisma.inventoryItem.count({ where: { organizationId: org.id } }),
+  stockLabels: await prisma.inventoryLabel.count({ where: { organizationId: org.id } }),
   employees: await prisma.employee.count({ where: { organizationId: org.id } }),
   maintenance: await prisma.maintenanceRequest.count({ where: { organizationId: org.id } }),
   assignments: await prisma.driverTruckAssignment.count({ where: { organizationId: org.id } }),
