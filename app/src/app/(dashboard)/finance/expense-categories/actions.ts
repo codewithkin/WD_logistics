@@ -9,6 +9,7 @@ import {
   categoryExpenseWhere,
   type CategoryExpenseFilters,
 } from "./_lib/category-detail";
+import { ensureStandardExpenseCategories } from "@/lib/setup/standard-categories";
 export interface ExpenseCategoryFormData {
   name: string;
   description?: string;
@@ -74,6 +75,40 @@ const CASH_BY_NAME = /fuel|diesel|petrol|toll|allowance|parking|loading|offload|
  * the office settles what nobody has classified. Either way an admin can
  * change any of them in the dialog afterwards.
  */
+/**
+ * Create the standard set of categories, for an organisation that has none.
+ *
+ * The reset deliberately leaves no categories behind (see
+ * lib/reset-organization.ts and the check that holds it), so the morning after
+ * one there is nothing to file an expense under and no way to create the usual
+ * nine but by hand, nine times. This offers them — on request, by an admin,
+ * which is the part the reset was protecting.
+ *
+ * Does nothing when any category already exists: this is a cold start, not a
+ * merge.
+ */
+export async function createStandardExpenseCategories() {
+  // `assertRole` returns rather than redirecting, as everywhere else in this
+  // file; a non-admin never reaches the button that calls this.
+  const user = await assertRole(["admin"]);
+
+  const created = await ensureStandardExpenseCategories(user.organizationId);
+  if (created === 0) {
+    return {
+      success: false as const,
+      error: "This organisation already has categories — add any others by hand.",
+    };
+  }
+
+  revalidatePath("/finance/expense-categories");
+  revalidatePath("/finance/expenses");
+  return {
+    success: true as const,
+    created,
+    message: `${created} standard categories added, each pointing at the account that kind of spending comes out of.`,
+  };
+}
+
 export async function assignDefaultAccountsToCategories() {
   const user = await assertRole(["admin"]);
 

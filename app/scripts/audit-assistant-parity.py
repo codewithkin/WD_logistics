@@ -45,6 +45,7 @@ COVERED = {
     "recordAccountMovementAction": ["record_money_in", "record_money_out"],
     "transferFundsAction": ["transfer_between_accounts"],
     "recomputeAccountBalances": ["recheck_account_balances"],
+    "createStandardExpenseCategories": ["add_standard_expense_categories"],
     # expense categories (two copies of these actions exist; both covered)
     "createExpenseCategory": ["create_expense_category"],
     "updateExpenseCategory": ["update_expense_category"],

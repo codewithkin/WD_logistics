@@ -144,6 +144,8 @@ const EXPECTED_NEW_AT: Record<Level, string[]> = {
     "recheck_account_balances",
     "get_expense_breakdown",
     "create_expense_category",
+    // The cold-start set, admin-only like creating one by hand.
+    "add_standard_expense_categories",
     "create_pdf",
     "create_user",
     "delete_customer",

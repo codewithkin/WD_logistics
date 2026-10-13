@@ -45,7 +45,7 @@ import { COST_KINDS, COST_KIND_LABELS } from "@/lib/metrics/cost-kinds";
 import { formatCurrency } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Pencil, Trash2, Truck, MapPin, User, AlertTriangle } from "lucide-react";
+import { Plus, Pencil, Trash2, Truck, MapPin, User, AlertTriangle, Loader2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -53,7 +53,10 @@ import { createExpenseCategory, updateExpenseCategory, deleteExpenseCategory } f
 import { useRouter } from "next/navigation";
 import type { Role } from "@/lib/types";
 import { canManageExpenseCategories } from "@/lib/permissions";
-import { assignDefaultAccountsToCategories } from "../actions";
+import {
+    assignDefaultAccountsToCategories,
+    createStandardExpenseCategories,
+} from "../actions";
 
 const categorySchema = z.object({
     name: z.string().min(1, "Name is required"),
@@ -145,6 +148,27 @@ export function ExpenseCategoriesClient({ categories, accounts, role, periodLabe
             setIsWiring(false);
         }
     };
+    // A reset leaves no categories at all, deliberately, so the morning after
+    // one there is nothing to file an expense under. Rather than making an
+    // admin type the usual nine out again, offer them.
+    const [isSeeding, setIsSeeding] = useState(false);
+    const handleCreateStandard = async () => {
+        setIsSeeding(true);
+        try {
+            const result = await createStandardExpenseCategories();
+            if (result.success) {
+                toast.success(result.message);
+                router.refresh();
+            } else {
+                toast.error(result.error);
+            }
+        } catch {
+            toast.error("Could not add the standard categories");
+        } finally {
+            setIsSeeding(false);
+        }
+    };
+
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [editingCategory, setEditingCategory] = useState<Category | null>(null);
     const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -491,8 +515,24 @@ export function ExpenseCategoriesClient({ categories, accounts, role, periodLabe
                     <TableBody>
                         {categories.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={6} className="text-center text-muted-foreground">
-                                    No categories found
+                                <TableCell colSpan={6} className="py-10 text-center">
+                                    <p className="text-muted-foreground">
+                                        No categories yet — nothing can be filed under anything
+                                        until there is at least one.
+                                    </p>
+                                    {canManage && (
+                                        <Button
+                                            variant="outline"
+                                            className="mt-3"
+                                            onClick={handleCreateStandard}
+                                            disabled={isSeeding}
+                                        >
+                                            {isSeeding && (
+                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                            )}
+                                            Add the standard categories
+                                        </Button>
+                                    )}
                                 </TableCell>
                             </TableRow>
                         ) : (

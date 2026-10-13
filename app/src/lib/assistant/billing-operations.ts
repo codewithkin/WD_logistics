@@ -202,7 +202,7 @@ export const billingOperations: Operation[] = [
   {
     name: "create_invoice",
     description:
-      "Raise an invoice for a customer. The number is allocated automatically. Say credit terms and a due date if the customer pays later, and which trip it is for so the truck gets the revenue.",
+      "Raise an invoice for a customer. The number is allocated automatically. Say credit terms and a due date if the customer pays later, and which trip it is for so the work is tied to the truck that did it.",
     requires: "supervisor",
     writes: true,
     schema: z.object({
@@ -212,7 +212,7 @@ export const billingOperations: Operation[] = [
         .string()
         .optional()
         .describe(
-          "The trip being billed, by route — e.g. 'Harare to Beira'. Without it the invoice counts towards no truck's revenue.",
+          "The trip being billed, by route — e.g. 'Harare to Beira'. Without it the invoice is tied to no truck's work.",
         ),
       tripDate: z.string().optional().describe("ISO date of that trip, when the route is ambiguous"),
       dueDate: z.string().optional().describe("ISO date the money is due, for credit terms"),
@@ -272,7 +272,7 @@ export const billingOperations: Operation[] = [
         dueDate: a.dueDate ? day(new Date(a.dueDate)) : "on receipt",
         trip: trip?.ok
           ? `${trip.row.originCity} to ${trip.row.destinationCity}`
-          : "not linked to a trip — it counts towards no truck's revenue",
+          : "not linked to a trip — nothing in the fleet is credited for this work",
       };
     },
   },

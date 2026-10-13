@@ -460,6 +460,23 @@ export const ledgerOperations: Operation[] = [
     },
   },
   {
+    name: "add_standard_expense_categories",
+    description:
+      "Create the usual nine expense categories — fuel, tolls, maintenance and the rest — each pointing at the account that kind of spending comes out of. Only for an organisation that has none; refused otherwise.",
+    requires: "admin",
+    writes: true,
+    schema: z.object({}),
+    handler: async () => {
+      const { createStandardExpenseCategories } = await import(
+        "@/app/(dashboard)/finance/expense-categories/actions"
+      );
+      const result = await createStandardExpenseCategories();
+      return result.success
+        ? { created: result.created, summary: result.message }
+        : { error: result.error };
+    },
+  },
+  {
     name: "delete_expense_category",
     description:
       "Remove an expense category. Refused while expenses are still filed under it.",
