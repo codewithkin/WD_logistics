@@ -40,14 +40,28 @@ export default async function SettingsPage() {
         getPendingInvitations(),
     ]);
 
+    // Read from the columns the documents print, not from the metadata blob the
+    // form used to write: an admin correcting the address in Settings was
+    // updating a field nothing read, while every invoice carried on printing
+    // the hardcoded fallback. The blob's old values are the fallback here, so
+    // whatever was typed before this change still shows up in the form.
     const organisationData = {
         id: organization.id,
         name: organization.name,
         slug: organization.slug,
         logo: organization.logo,
-        email: metadata.email || "",
-        phone: metadata.phone || "",
-        address: metadata.address || "",
+        email: organization.email || metadata.email || "",
+        phone: organization.phone || metadata.phone || "",
+        altPhone: organization.altPhone || "",
+        website: organization.website || "",
+        addressLine1: organization.addressLine1 || metadata.address || "",
+        addressLine2: organization.addressLine2 || "",
+        city: organization.city || "",
+        country: organization.country || "",
+        vatNumber: organization.vatNumber || "",
+        bpNumber: organization.bpNumber || "",
+        bankDetails: organization.bankDetails || "",
+        invoiceTerms: organization.invoiceTerms || "",
     };
 
     return (

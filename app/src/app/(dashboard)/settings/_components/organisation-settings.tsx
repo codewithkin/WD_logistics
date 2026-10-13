@@ -27,7 +27,16 @@ const organisationSchema = z.object({
     name: z.string().min(1, "Organisation name is required"),
     email: z.string().email().optional().or(z.literal("")),
     phone: z.string().optional(),
-    address: z.string().optional(),
+    altPhone: z.string().optional(),
+    website: z.string().optional(),
+    addressLine1: z.string().optional(),
+    addressLine2: z.string().optional(),
+    city: z.string().optional(),
+    country: z.string().optional(),
+    vatNumber: z.string().optional(),
+    bpNumber: z.string().optional(),
+    bankDetails: z.string().optional(),
+    invoiceTerms: z.string().optional(),
     logo: z.string().optional(),
 });
 
@@ -41,7 +50,16 @@ interface OrganisationSettingsProps {
         logo: string | null;
         email: string;
         phone: string;
-        address: string;
+        altPhone: string;
+        website: string;
+        addressLine1: string;
+        addressLine2: string;
+        city: string;
+        country: string;
+        vatNumber: string;
+        bpNumber: string;
+        bankDetails: string;
+        invoiceTerms: string;
     };
 }
 
@@ -55,7 +73,16 @@ export function OrganisationSettings({ organisation }: OrganisationSettingsProps
             name: organisation.name,
             email: organisation.email,
             phone: organisation.phone,
-            address: organisation.address,
+            altPhone: organisation.altPhone,
+            website: organisation.website,
+            addressLine1: organisation.addressLine1,
+            addressLine2: organisation.addressLine2,
+            city: organisation.city,
+            country: organisation.country,
+            vatNumber: organisation.vatNumber,
+            bpNumber: organisation.bpNumber,
+            bankDetails: organisation.bankDetails,
+            invoiceTerms: organisation.invoiceTerms,
             logo: organisation.logo || "",
         },
     });
@@ -67,7 +94,16 @@ export function OrganisationSettings({ organisation }: OrganisationSettingsProps
                 name: data.name,
                 email: data.email || undefined,
                 phone: data.phone,
-                address: data.address,
+                altPhone: data.altPhone,
+                website: data.website,
+                addressLine1: data.addressLine1,
+                addressLine2: data.addressLine2,
+                city: data.city,
+                country: data.country,
+                vatNumber: data.vatNumber,
+                bpNumber: data.bpNumber,
+                bankDetails: data.bankDetails,
+                invoiceTerms: data.invoiceTerms,
                 logo: data.logo,
             });
 
@@ -181,18 +217,170 @@ export function OrganisationSettings({ organisation }: OrganisationSettingsProps
                                 )}
                             />
 
+                            {/* The letterhead.
+                                Every one of these fields existed on the
+                                organisation and no form wrote any of them, so
+                                the invoices, statements and receipts printed
+                                the hardcoded address in lib/documents/brand.ts
+                                and the "Payment details" and "Terms" blocks
+                                never appeared at all. Blank still falls back
+                                to the printed stationery. */}
+                            <div className="grid gap-4 md:grid-cols-2">
+                                <FormField
+                                    control={form.control}
+                                    name="altPhone"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Second phone</FormLabel>
+                                            <FormControl>
+                                                <Input placeholder="+263 772 000 000" {...field} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="website"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Website</FormLabel>
+                                            <FormControl>
+                                                <Input placeholder="wd-logistics.co.zw" {...field} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            </div>
+
+                            <div className="grid gap-4 md:grid-cols-2">
+                                <FormField
+                                    control={form.control}
+                                    name="addressLine1"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Address line 1</FormLabel>
+                                            <FormControl>
+                                                <Input placeholder="1 Tameside Close" {...field} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="addressLine2"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Address line 2</FormLabel>
+                                            <FormControl>
+                                                <Input
+                                                    placeholder="Nyakamete Industrial Area"
+                                                    {...field}
+                                                />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="city"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>City</FormLabel>
+                                            <FormControl>
+                                                <Input placeholder="Mutare" {...field} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="country"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Country</FormLabel>
+                                            <FormControl>
+                                                <Input placeholder="Zimbabwe" {...field} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            </div>
+
+                            <div className="grid gap-4 md:grid-cols-2">
+                                <FormField
+                                    control={form.control}
+                                    name="vatNumber"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>VAT number</FormLabel>
+                                            <FormControl>
+                                                <Input placeholder="10000000" {...field} />
+                                            </FormControl>
+                                            <FormDescription>
+                                                Printed as &quot;VAT No.&quot; on invoices.
+                                            </FormDescription>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="bpNumber"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>BP number</FormLabel>
+                                            <FormControl>
+                                                <Input placeholder="0000000000" {...field} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            </div>
+
                             <FormField
                                 control={form.control}
-                                name="address"
+                                name="bankDetails"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Address</FormLabel>
+                                        <FormLabel>Payment details</FormLabel>
                                         <FormControl>
                                             <Textarea
-                                                placeholder="123 Logistics Ave, City, Country"
+                                                className="min-h-24"
+                                                placeholder={"Bank: CBZ\nAccount name: WD Logistics\nAccount number: 00000000000"}
                                                 {...field}
                                             />
                                         </FormControl>
+                                        <FormDescription>
+                                            Printed under &quot;Payment details&quot; on every
+                                            invoice. Left blank, the block is left off.
+                                        </FormDescription>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+
+                            <FormField
+                                control={form.control}
+                                name="invoiceTerms"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Invoice terms</FormLabel>
+                                        <FormControl>
+                                            <Textarea
+                                                placeholder="Payment due within 30 days of invoice date."
+                                                {...field}
+                                            />
+                                        </FormControl>
+                                        <FormDescription>
+                                            The short terms line at the foot of an invoice.
+                                        </FormDescription>
                                         <FormMessage />
                                     </FormItem>
                                 )}

@@ -8,22 +8,55 @@ import { requireRole, assertRole } from "@/lib/session";
 import { sendEmail, generateRandomPassword } from "@/lib/email";
 import { executeOrganizationReset } from "@/lib/reset-organization";
 
+/**
+ * The company's own details, as they appear on everything it sends out.
+ *
+ * These used to be written into the `metadata` JSON blob while every document
+ * read the real columns (`addressLine1`, `bankDetails`, `invoiceTerms` and the
+ * rest) — so an admin could correct the address in Settings and the invoices
+ * carried on printing the hardcoded fallback in lib/documents/brand.ts. The
+ * "Payment details" and "Terms" blocks on the invoice were unreachable code
+ * for the same reason: nothing could fill the fields they read.
+ *
+ * The columns are the record now. Blank still falls back to the printed
+ * stationery, which is what `companyDetails()` does.
+ */
 export async function updateOrganizationSettings(data: {
   name: string;
   logo?: string;
+  /** Kept for callers that still send one blob; split across the lines below. */
   address?: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  city?: string;
+  country?: string;
   phone?: string;
+  altPhone?: string;
   email?: string;
+  website?: string;
+  vatNumber?: string;
+  bpNumber?: string;
+  /** Free text under "Payment details" on an invoice. */
+  bankDetails?: string;
+  /** The short terms line at the foot of an invoice. */
+  invoiceTerms?: string;
   currency?: string;
   timezone?: string;
 }) {
   const session = await requireRole(["admin"]);
 
   try {
+    // A multi-line address typed into the old single box is split across the
+    // lines the documents print, rather than being thrown away.
+    const [line1, line2, city, country] = (data.address ?? "")
+      .split(/\r?\n|,/)
+      .map((part) => part.trim())
+      .filter(Boolean);
+
+    const blank = (value: string | undefined) => (value?.trim() ? value.trim() : null);
+
+    // Currency and timezone have no columns of their own and stay in the blob.
     const metadata = JSON.stringify({
-      address: data.address || "",
-      phone: data.phone || "",
-      email: data.email || "",
       currency: data.currency || "USD",
       timezone: data.timezone || "UTC",
     });
@@ -33,6 +66,18 @@ export async function updateOrganizationSettings(data: {
       data: {
         name: data.name,
         logo: data.logo,
+        addressLine1: blank(data.addressLine1) ?? line1 ?? null,
+        addressLine2: blank(data.addressLine2) ?? line2 ?? null,
+        city: blank(data.city) ?? city ?? null,
+        country: blank(data.country) ?? country ?? null,
+        phone: blank(data.phone),
+        altPhone: blank(data.altPhone),
+        email: blank(data.email),
+        website: blank(data.website),
+        vatNumber: blank(data.vatNumber),
+        bpNumber: blank(data.bpNumber),
+        bankDetails: blank(data.bankDetails),
+        invoiceTerms: blank(data.invoiceTerms),
         metadata,
       },
     });

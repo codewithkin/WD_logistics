@@ -215,6 +215,19 @@ export function drawHeader(ctx: DocContext, options: HeaderOptions): void {
       doc.text(`Email: ${company.email}`, textX, blockY);
       blockY += 3.8;
     }
+    // The company's own registration numbers. Both columns existed, both were
+    // documented as "printed on the invoice", and neither was drawn anywhere —
+    // there was also no form to fill them in, so nothing ever noticed.
+    const registration = [
+      company.vatNumber ? `VAT No: ${company.vatNumber}` : null,
+      company.bpNumber ? `BP No: ${company.bpNumber}` : null,
+    ]
+      .filter(Boolean)
+      .join("  ·  ");
+    if (registration) {
+      doc.text(registration, textX, blockY);
+      blockY += 3.8;
+    }
     leftBottom = blockY;
   } else {
     doc.text(company.motto, textX, 26.5);
