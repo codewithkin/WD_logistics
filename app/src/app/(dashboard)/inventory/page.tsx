@@ -37,6 +37,8 @@ export default async function InventoryPage({ searchParams }: InventoryPageProps
                 minQuantity: true,
                 unitCost: true,
                 location: true,
+                // Pre-fills "record the cost as" when stock is taken out.
+                defaultExpenseCategory: { select: { id: true, name: true } },
             },
             orderBy: { name: "asc" },
         }),

@@ -6,7 +6,14 @@ import { PackageMinus, PackagePlus } from "lucide-react";
 import { StockMovementDialog, type StockDialogMode } from "./stock-movement-dialog";
 
 interface StockActionsProps {
-    item: { id: string; name: string; quantity: number; unit: string | null; unitCost: number | null };
+    item: {
+        id: string;
+        name: string;
+        quantity: number;
+        unit: string | null;
+        unitCost: number | null;
+        defaultExpenseCategory?: { id: string; name: string } | null;
+    };
     /** Money values are admin-only, same rule as the rest of the Inventory pages. */
     showValue?: boolean;
 }

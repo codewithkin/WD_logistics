@@ -95,7 +95,14 @@ export default async function InventoryItemDetailPage({ params, searchParams }: 
                     <PagePeriodSelector defaultPreset="3m" />
                     {canManage && (
                         <StockActions
-                            item={{ id: item.id, name: item.name, quantity: item.quantity, unit: item.unit, unitCost: item.unitCost }}
+                            item={{
+                                id: item.id,
+                                name: item.name,
+                                quantity: item.quantity,
+                                unit: item.unit,
+                                unitCost: item.unitCost,
+                                defaultExpenseCategory: item.defaultExpenseCategory,
+                            }}
                             showValue={canSeeValue}
                         />
                     )}

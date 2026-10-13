@@ -50,6 +50,7 @@ interface InventoryItem {
     minQuantity: number;
     unitCost: number | null;
     location: string | null;
+    defaultExpenseCategory?: { id: string; name: string } | null;
 }
 
 interface InventoryTableProps {

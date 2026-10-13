@@ -21,6 +21,24 @@ export interface InventoryItemInput {
   location?: string;
   supplier?: string;
   notes?: string;
+  /**
+   * Which kind of expense this item's cost is, so taking it out of stock
+   * charges the right category without anyone deciding at the shelf.
+   */
+  defaultExpenseCategoryId?: string | null;
+}
+
+/** An expense category has to be this organisation's before it can be stored. */
+async function validCategoryId(
+  organizationId: string,
+  categoryId: string | null | undefined,
+): Promise<boolean> {
+  if (!categoryId) return true;
+  const found = await prisma.expenseCategory.findFirst({
+    where: { id: categoryId, organizationId },
+    select: { id: true },
+  });
+  return Boolean(found);
 }
 
 /** Push a low-stock alert only when quantity CROSSES the threshold, not on every save while it stays low. */
@@ -219,6 +237,9 @@ export async function createInventoryItem(data: InventoryItemInput) {
   const session = await requireRole(["admin", "supervisor"]);
 
   try {
+    if (!(await validCategoryId(session.organizationId, data.defaultExpenseCategoryId))) {
+      return { success: false as const, error: "That expense category no longer exists" };
+    }
     if (data.sku) {
       const existing = await prisma.inventoryItem.findFirst({
         where: { sku: data.sku, organizationId: session.organizationId },
@@ -291,6 +312,10 @@ export async function updateInventoryItem(id: string, data: Partial<InventoryIte
 
     if (!item) {
       return { success: false as const, error: "Item not found" };
+    }
+
+    if (!(await validCategoryId(session.organizationId, data.defaultExpenseCategoryId))) {
+      return { success: false as const, error: "That expense category no longer exists" };
     }
 
     if (data.sku && data.sku !== item.sku) {

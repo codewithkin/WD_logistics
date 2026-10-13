@@ -20,6 +20,7 @@ export default async function EditInventoryItemPage({ params }: EditInventoryIte
 
     const item = await prisma.inventoryItem.findFirst({
         where: { id, organizationId: session.organizationId },
+        include: { defaultExpenseCategory: { select: { id: true, name: true } } },
     });
 
     if (!item) {
@@ -33,7 +34,15 @@ export default async function EditInventoryItemPage({ params }: EditInventoryIte
                 description={`Editing ${item.name}`}
                 backHref={`/inventory/${item.id}`}
             />
-            <InventoryForm item={item} canSeeValue={canViewInventoryValue(session.role)} />
+            <InventoryForm
+                item={item}
+                defaultExpenseCategory={
+                    item.defaultExpenseCategory
+                        ? { id: item.defaultExpenseCategory.id, label: item.defaultExpenseCategory.name }
+                        : null
+                }
+                canSeeValue={canViewInventoryValue(session.role)}
+            />
         </div>
     );
 }

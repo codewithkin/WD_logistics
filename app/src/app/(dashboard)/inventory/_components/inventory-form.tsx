@@ -16,11 +16,14 @@ import { Textarea } from "@/components/ui/textarea";
 import {
     Form,
     FormControl,
+    FormDescription,
     FormField,
     FormItem,
     FormLabel,
     FormMessage,
 } from "@/components/ui/form";
+import { EntityPicker } from "@/components/ui/entity-picker";
+import type { EntityOption } from "@/lib/entity-picker/config";
 import { Loader2 } from "lucide-react";
 import { createInventoryItem, updateInventoryItem } from "../actions";
 import { toast } from "sonner";
@@ -36,6 +39,7 @@ const inventoryItemSchema = z.object({
     location: z.string().optional(),
     supplier: z.string().optional(),
     notes: z.string().optional(),
+    defaultExpenseCategoryId: z.string().optional().nullable(),
 });
 
 type InventoryFormData = z.infer<typeof inventoryItemSchema>;
@@ -53,11 +57,14 @@ interface InventoryFormProps {
         location: string | null;
         supplier: string | null;
         notes: string | null;
+        defaultExpenseCategoryId: string | null;
     };
+    /** The item's current category, so the picker shows its name immediately. */
+    defaultExpenseCategory?: EntityOption | null;
     canSeeValue: boolean;
 }
 
-export function InventoryForm({ item, canSeeValue }: InventoryFormProps) {
+export function InventoryForm({ item, defaultExpenseCategory, canSeeValue }: InventoryFormProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
     // Non-admins are editing a request, not the record — see
@@ -82,6 +89,7 @@ export function InventoryForm({ item, canSeeValue }: InventoryFormProps) {
             location: item?.location ?? "",
             supplier: item?.supplier ?? "",
             notes: item?.notes ?? "",
+            defaultExpenseCategoryId: item?.defaultExpenseCategoryId ?? null,
         },
     });
 
@@ -96,6 +104,9 @@ export function InventoryForm({ item, canSeeValue }: InventoryFormProps) {
                 location: data.location || undefined,
                 supplier: data.supplier || undefined,
                 notes: data.notes || undefined,
+                // null, not undefined: clearing the category has to reach the
+                // database, or it can never be unset once chosen.
+                defaultExpenseCategoryId: data.defaultExpenseCategoryId || null,
             };
 
             if (isEditing && needsApproval && approvalReason.trim().length < 5) {
@@ -229,6 +240,36 @@ export function InventoryForm({ item, canSeeValue }: InventoryFormProps) {
                         )}
                     />
                 </div>
+
+                {/* What kind of cost this item is. Taking it out of stock
+                    charges this category against the truck, trailer, trip or
+                    driver it went to — set it here once and nobody has to
+                    decide while standing at the shelf. */}
+                <FormField
+                    control={form.control}
+                    name="defaultExpenseCategoryId"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Record its cost as</FormLabel>
+                            <FormControl>
+                                <EntityPicker
+                                    kind="expenseCategory"
+                                    value={field.value ?? undefined}
+                                    onChange={(id) => field.onChange(id ?? null)}
+                                    initialSelected={defaultExpenseCategory ?? undefined}
+                                    placeholder="Select an expense type"
+                                    clearable
+                                    clearLabel="Decide each time"
+                                />
+                            </FormControl>
+                            <FormDescription>
+                                Used when this item is taken out of stock, so the cost lands on
+                                the truck or trip it went to.
+                            </FormDescription>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
 
                 {canSeeValue && (
                     <FormField
