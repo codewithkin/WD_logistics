@@ -166,8 +166,13 @@ const findSupplier = async (ctx: OperationContext, phrase: string) =>
     "supplier",
   );
 
-/** A trip, by route and optionally date — there is no trip number to quote. */
-async function findTrip(ctx: OperationContext, phrase: string, on?: string) {
+/**
+ * A trip, by route and optionally date — there is no trip number to quote.
+ *
+ * Exported because an invoice can be raised against a trip, and that is what
+ * carries revenue back to the truck that earned it.
+ */
+export async function findTrip(ctx: OperationContext, phrase: string, on?: string) {
   const parts = phrase
     .split(/\s+|→|->|\bto\b/i)
     .map((part) => part.trim())

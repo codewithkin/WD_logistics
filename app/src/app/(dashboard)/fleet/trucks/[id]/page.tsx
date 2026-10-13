@@ -141,6 +141,11 @@ export default async function TruckDetailPage({ params, searchParams }: TruckDet
     const totalRevenue = costBreakdown?.revenue ?? 0;
     const totalExpenses = costBreakdown?.expenses ?? 0;
     const profitLoss = costBreakdown?.profit ?? 0;
+    // Nobody has said what this truck's work earned. Not the same as earning
+    // nothing: the revenue field on the trip form is admin-only, so a
+    // supervisor's trips sit at zero until they are invoiced, and this page
+    // used to answer that with a confident loss.
+    const revenueMissing = Boolean(costBreakdown) && !costBreakdown!.revenueRecorded;
 
     // What the truck used, with nothing about what it cost: litres and km per
     // litre from the fuel expenses, and everything else that recorded a
@@ -332,7 +337,22 @@ export default async function TruckDetailPage({ params, searchParams }: TruckDet
                                 </CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <p className="text-2xl font-bold text-green-600">{formatCurrency(totalRevenue)}</p>
+                                {revenueMissing ? (
+                                    <>
+                                        <p className="text-2xl font-bold text-muted-foreground">
+                                            Not recorded
+                                        </p>
+                                        <p className="text-xs text-muted-foreground">
+                                            {completedTrips > 0
+                                                ? "No trip in this period has a price on it — invoice them and it appears here"
+                                                : "No completed trips in this period"}
+                                        </p>
+                                    </>
+                                ) : (
+                                    <p className="text-2xl font-bold text-green-600">
+                                        {formatCurrency(totalRevenue)}
+                                    </p>
+                                )}
                             </CardContent>
                         </Card>
                     )}
@@ -355,9 +375,18 @@ export default async function TruckDetailPage({ params, searchParams }: TruckDet
                                 </CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <p className={`text-2xl font-bold ${profitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                    {formatCurrency(profitLoss)}
-                                </p>
+                                {revenueMissing ? (
+                                    <>
+                                        <p className="text-2xl font-bold text-muted-foreground">—</p>
+                                        <p className="text-xs text-muted-foreground">
+                                            Needs revenue before it means anything
+                                        </p>
+                                    </>
+                                ) : (
+                                    <p className={`text-2xl font-bold ${profitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                        {formatCurrency(profitLoss)}
+                                    </p>
+                                )}
                             </CardContent>
                         </Card>
                     )}

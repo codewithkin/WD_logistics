@@ -15,6 +15,7 @@ import {
     FileText,
     CreditCard,
     DollarSign,
+    MapPin,
 } from "lucide-react";
 import { format } from "date-fns";
 import { PAYMENT_METHOD_LABELS, PaymentMethod } from "@/lib/types";
@@ -38,6 +39,20 @@ export default async function InvoiceDetailPage({ params }: InvoiceDetailPagePro
         where: { id, organizationId },
         include: {
             customer: true,
+            // The trip this bills, which is what carries the money back to a
+            // truck. The link was one-way: the trip page could raise an
+            // invoice and the invoice never said which trip it was for, so
+            // nobody could tell a linked invoice from an unlinked one — and an
+            // unlinked one earns no truck anything.
+            trip: {
+                select: {
+                    id: true,
+                    originCity: true,
+                    destinationCity: true,
+                    scheduledDate: true,
+                    truck: { select: { id: true, registrationNo: true } },
+                },
+            },
             payments: {
                 orderBy: { paymentDate: "desc" },
             },
@@ -140,6 +155,47 @@ export default async function InvoiceDetailPage({ params }: InvoiceDetailPagePro
                                 <Separator />
                                 <p className="text-sm text-muted-foreground">{invoice.customer.address}</p>
                             </>
+                        )}
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="text-lg flex items-center gap-2">
+                            <MapPin className="h-5 w-5" /> Trip
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        {invoice.trip ? (
+                            <div className="space-y-1">
+                                <Link
+                                    href={`/operations/trips/${invoice.trip.id}`}
+                                    className="font-medium text-primary hover:underline"
+                                >
+                                    {invoice.trip.originCity} → {invoice.trip.destinationCity}
+                                </Link>
+                                <p className="text-sm text-muted-foreground">
+                                    {invoice.trip.scheduledDate.toLocaleDateString("en-GB", {
+                                        day: "numeric",
+                                        month: "short",
+                                        year: "numeric",
+                                    })}
+                                    {invoice.trip.truck
+                                        ? ` · ${invoice.trip.truck.registrationNo}`
+                                        : ""}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                    This invoice counts towards that truck&apos;s revenue.
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="space-y-1">
+                                <p className="font-medium text-amber-600">Not linked to a trip</p>
+                                <p className="text-sm text-muted-foreground">
+                                    Nothing in the fleet earns this money. Link it on the edit form
+                                    and the truck that did the work gets the revenue.
+                                </p>
+                            </div>
                         )}
                     </CardContent>
                 </Card>

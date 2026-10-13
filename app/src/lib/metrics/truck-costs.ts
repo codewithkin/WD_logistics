@@ -70,6 +70,17 @@ export interface TruckCostExpense {
 
 export interface TruckCostBreakdown {
   revenue: number;
+  /**
+   * Whether any trip in the period carries a revenue figure at all.
+   *
+   * False means "nobody has recorded what this work earned", which is not the
+   * same as earning nothing — and it was the client's loudest complaint: the
+   * revenue field on the trip form is admin-only, so every trip a supervisor
+   * booked sat at zero while its fuel and tyres piled up, and the truck page
+   * printed a pure loss. A missing figure now says so instead, the same way
+   * `fuelLitres` already distinguishes null from zero.
+   */
+  revenueRecorded: boolean;
   expenses: number;
   profit: number;
   /** Profit as a percentage of revenue; null when there was no revenue. */
@@ -370,6 +381,9 @@ export async function getTruckCostBreakdown(
 
   const totalExpenses = expenses.reduce((sum, e) => sum + e.attributed, 0);
   const revenue = revenueAgg._sum.revenue ?? 0;
+  // A truck with trips but not one revenue figure among them has not earned
+  // nothing — it has been invoiced for nothing yet.
+  const revenueRecorded = trips.length > 0 && trips.some((trip) => (trip.revenue ?? 0) > 0);
   const kilometres = trips.reduce(
     (sum, trip) => sum + (trip.actualMileage ?? trip.estimatedMileage ?? 0),
     0,
@@ -515,6 +529,7 @@ export async function getTruckCostBreakdown(
     expenses: round(totalExpenses),
     profit: round(revenue - totalExpenses),
     margin: revenue > 0 ? round(((revenue - totalExpenses) / revenue) * 100) : null,
+    revenueRecorded,
     trips: revenueAgg._count,
     kilometres,
     revenuePerKm: kilometres > 0 ? round(revenue / kilometres) : null,

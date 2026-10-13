@@ -73,8 +73,12 @@ export async function exportTripProfitLossPDF(tripId: string): Promise<{
         // Get the main invoice
         const tripInvoice = trip.invoices[0];
 
-        // Calculate revenue
-        const revenue = tripInvoice?.total ?? trip.revenue ?? 0;
+        // `Trip.revenue` is the one definition of what a trip earned, and an
+        // invoice raised against a trip now writes it (lib/metrics/trip-revenue.ts).
+        // This used to prefer the first invoice's total instead, so the same
+        // trip printed one figure on its own P&L and another on its truck's,
+        // and a trip with two invoices showed only the first.
+        const revenue = trip.revenue ?? 0;
 
         // Prepare expense data
         const expenses = trip.tripExpenses.map((te) => ({

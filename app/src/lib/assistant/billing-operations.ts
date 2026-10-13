@@ -26,6 +26,7 @@ import "server-only";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import type { Operation, OperationContext } from "@/lib/assistant/operations";
+import { findTrip } from "@/lib/assistant/ledger-operations";
 
 /** One record, or a sentence explaining why not. */
 async function resolveOne<T extends { id: string }>(
@@ -201,12 +202,19 @@ export const billingOperations: Operation[] = [
   {
     name: "create_invoice",
     description:
-      "Raise an invoice for a customer. The number is allocated automatically. Say credit terms and a due date if the customer pays later.",
+      "Raise an invoice for a customer. The number is allocated automatically. Say credit terms and a due date if the customer pays later, and which trip it is for so the truck gets the revenue.",
     requires: "supervisor",
     writes: true,
     schema: z.object({
       customer: z.string().describe("Customer name"),
       amount: z.number().positive().describe("Amount before VAT"),
+      trip: z
+        .string()
+        .optional()
+        .describe(
+          "The trip being billed, by route — e.g. 'Harare to Beira'. Without it the invoice counts towards no truck's revenue.",
+        ),
+      tripDate: z.string().optional().describe("ISO date of that trip, when the route is ambiguous"),
       dueDate: z.string().optional().describe("ISO date the money is due, for credit terms"),
       onCredit: z
         .boolean()
@@ -222,6 +230,8 @@ export const billingOperations: Operation[] = [
       const a = args as {
         customer: string;
         amount: number;
+        trip?: string;
+        tripDate?: string;
         dueDate?: string;
         onCredit?: boolean;
         status?: "draft" | "sent";
@@ -229,6 +239,12 @@ export const billingOperations: Operation[] = [
       };
       const found = await findCustomer(ctx, a.customer);
       if (!found.ok) return { error: found.error };
+
+      // The trip the work was done on. An invoice with no trip behind it
+      // counts towards no truck's revenue, which is how trucks came to show
+      // nothing but costs — so this is offered here as it now is on the form.
+      const trip = a.trip ? await findTrip(ctx, a.trip, a.tripDate) : null;
+      if (trip && !trip.ok) return { error: trip.error };
 
       const onCredit = a.onCredit ?? Boolean(a.dueDate);
       if (onCredit && !a.dueDate) {
@@ -238,6 +254,7 @@ export const billingOperations: Operation[] = [
       const { createInvoice } = await import("@/app/(dashboard)/finance/invoices/actions");
       const result = await createInvoice({
         customerId: found.row.id,
+        tripId: trip?.ok ? trip.row.id : null,
         amount: a.amount,
         isCredit: onCredit,
         dueDate: a.dueDate ? new Date(a.dueDate) : null,
@@ -253,6 +270,9 @@ export const billingOperations: Operation[] = [
         customer: found.row.name,
         amount: money(a.amount),
         dueDate: a.dueDate ? day(new Date(a.dueDate)) : "on receipt",
+        trip: trip?.ok
+          ? `${trip.row.originCity} to ${trip.row.destinationCity}`
+          : "not linked to a trip — it counts towards no truck's revenue",
       };
     },
   },
