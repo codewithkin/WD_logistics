@@ -52,7 +52,12 @@ export function TruckCostBreakdownPanel({
 }) {
   const [openCategory, setOpenCategory] = useState<string | null>(null);
 
-  const loss = data.profit < 0;
+  // Nobody has recorded what this truck's work earned, which is not the same
+  // as earning nothing — see `revenueRecorded` in lib/metrics/truck-costs.ts.
+  // Printing a confident loss here while the cards above said "not recorded"
+  // would put the page back to contradicting itself.
+  const revenueMissing = !data.revenueRecorded;
+  const loss = !revenueMissing && data.profit < 0;
   const worst = data.byCategory.filter((c) => c.aboveFleetAverage);
 
   return (
@@ -61,7 +66,9 @@ export function TruckCostBreakdownPanel({
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
-            {loss ? (
+            {revenueMissing ? (
+              <TrendingUp className="h-5 w-5 text-muted-foreground" />
+            ) : loss ? (
               <TrendingDown className="h-5 w-5 text-destructive" />
             ) : (
               <TrendingUp className="h-5 w-5 text-emerald-600" />
@@ -71,16 +78,27 @@ export function TruckCostBreakdownPanel({
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Figure label="Revenue earned" value={formatCurrency(data.revenue)} />
+            <Figure
+              label="Revenue earned"
+              value={revenueMissing ? "Not recorded" : formatCurrency(data.revenue)}
+              hint={
+                revenueMissing
+                  ? data.trips > 0
+                    ? "No trip in this period has a price on it"
+                    : "No completed trips in this period"
+                  : undefined
+              }
+            />
             <Figure label="Costs" value={formatCurrency(data.expenses)} />
             <Figure
-              label={loss ? "Loss" : "Profit"}
-              value={formatCurrency(Math.abs(data.profit))}
-              tone={loss ? "bad" : "good"}
+              label={revenueMissing ? "Profit" : loss ? "Loss" : "Profit"}
+              value={revenueMissing ? "—" : formatCurrency(Math.abs(data.profit))}
+              tone={revenueMissing ? undefined : loss ? "bad" : "good"}
+              hint={revenueMissing ? "Needs revenue before it means anything" : undefined}
             />
             <Figure
               label="Margin"
-              value={data.margin === null ? "—" : `${data.margin}%`}
+              value={revenueMissing || data.margin === null ? "—" : `${data.margin}%`}
               tone={loss ? "bad" : undefined}
               hint={`Fleet average profit ${formatCurrency(data.fleet.averageProfit)}`}
             />
