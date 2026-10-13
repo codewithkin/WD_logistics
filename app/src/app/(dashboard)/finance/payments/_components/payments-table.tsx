@@ -50,6 +50,16 @@ interface Payment {
     method: string;
     customMethod: string | null;
     reference: string | null;
+    /** What was typed when the money was taken. Captured since day one and
+     *  shown nowhere until now, so "paid in cash at the depot" was lost. */
+    notes?: string | null;
+    /** Required on every payment, invoice or no invoice. */
+    customer: {
+        id: string;
+        name: string;
+    };
+    /** Which of the three accounts it was received into, when one was named. */
+    account?: { name: string } | null;
     /**
      * Null for a payment recorded without an invoice behind it — the schema
      * allows it, and the WhatsApp assistant can create one that way.
@@ -57,10 +67,6 @@ interface Payment {
     invoice: {
         id: string;
         invoiceNumber: string;
-        customer: {
-            id: string;
-            name: string;
-        };
     } | null;
 }
 
@@ -92,10 +98,14 @@ export function PaymentsTable({ payments, role, showFinancials = true }: Payment
     const canExport = role === "admin";
 
     const filteredPayments = payments.filter((payment) => {
+        const term = search.toLowerCase();
         return (
-            (payment.invoice?.invoiceNumber ?? "").toLowerCase().includes(search.toLowerCase()) ||
-            (payment.invoice?.customer.name ?? "").toLowerCase().includes(search.toLowerCase()) ||
-            payment.reference?.toLowerCase().includes(search.toLowerCase())
+            (payment.invoice?.invoiceNumber ?? "").toLowerCase().includes(term) ||
+            // Searched on the payment's own customer, so a direct payment can
+            // be found by the name of whoever paid it.
+            payment.customer.name.toLowerCase().includes(term) ||
+            (payment.notes ?? "").toLowerCase().includes(term) ||
+            Boolean(payment.reference?.toLowerCase().includes(term))
         );
     });
 
@@ -238,6 +248,10 @@ export function PaymentsTable({ payments, role, showFinancials = true }: Payment
                                 <TableHead>Customer</TableHead>
                                 <TableHead>Method</TableHead>
                                 <TableHead>Reference</TableHead>
+                                {/* Where the money landed. A receipt that says
+                                    nothing about which account it went into is
+                                    half a record. */}
+                                {canViewAmounts && <TableHead>Received into</TableHead>}
                                 {canViewAmounts && <TableHead className="text-right">Amount</TableHead>}
                                 <TableHead className="w-[70px]"></TableHead>
                             </TableRow>
@@ -245,7 +259,7 @@ export function PaymentsTable({ payments, role, showFinancials = true }: Payment
                         <TableBody>
                             {filteredPayments.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={canViewAmounts ? 7 : 6} className="text-center h-24 text-muted-foreground">
+                                    <TableCell colSpan={canViewAmounts ? 8 : 6} className="text-center h-24 text-muted-foreground">
                                         No payments found
                                     </TableCell>
                                 </TableRow>
@@ -268,15 +282,16 @@ export function PaymentsTable({ payments, role, showFinancials = true }: Payment
                                             )}
                                         </TableCell>
                                         <TableCell>
-                                            {payment.invoice ? (
-                                                <Link
-                                                    href={`/customers/${payment.invoice.customer.id}`}
-                                                    className="text-primary hover:underline"
-                                                >
-                                                    {payment.invoice.customer.name}
-                                                </Link>
-                                            ) : (
-                                                <span className="text-muted-foreground">—</span>
+                                            <Link
+                                                href={`/customers/${payment.customer.id}`}
+                                                className="text-primary hover:underline"
+                                            >
+                                                {payment.customer.name}
+                                            </Link>
+                                            {payment.notes && (
+                                                <p className="mt-0.5 max-w-[22rem] truncate text-xs text-muted-foreground">
+                                                    {payment.notes}
+                                                </p>
                                             )}
                                         </TableCell>
                                         <TableCell>
@@ -291,6 +306,15 @@ export function PaymentsTable({ payments, role, showFinancials = true }: Payment
                                         <TableCell>
                                             {payment.reference || <span className="text-muted-foreground">—</span>}
                                         </TableCell>
+                                        {canViewAmounts && (
+                                            <TableCell>
+                                                {payment.account?.name ?? (
+                                                    <span className="text-muted-foreground">
+                                                        Not recorded
+                                                    </span>
+                                                )}
+                                            </TableCell>
+                                        )}
                                         {canViewAmounts && (
                                             <TableCell className="text-right font-medium text-green-600">
                                                 ${payment.amount.toLocaleString()}
@@ -350,7 +374,7 @@ export function PaymentsTable({ payments, role, showFinancials = true }: Payment
                         {filteredPayments.length > 0 && canViewAmounts && (
                             <TableFooter>
                                 <TableRow className="bg-muted/50 font-semibold">
-                                    <TableCell colSpan={5} className="text-right">
+                                    <TableCell colSpan={6} className="text-right">
                                         Total ({filteredPayments.length} payments)
                                     </TableCell>
                                     <TableCell className="text-right text-green-600">

@@ -43,6 +43,9 @@ export default async function SupplierPaymentsPage({ searchParams }: SupplierPay
                     name: true,
                 },
             },
+            // Which account the money left. Recorded since 12 Oct and shown
+            // nowhere until now.
+            account: { select: { name: true } },
         },
         orderBy: { paymentDate: "desc" },
     });

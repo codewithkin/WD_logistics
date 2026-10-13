@@ -37,11 +37,11 @@ export default async function PaymentsPage({ searchParams }: PaymentsPageProps) 
             },
         },
         include: {
-            invoice: {
-                include: {
-                    customer: true,
-                },
-            },
+            // The customer is on the payment itself and always set; reading it
+            // through the invoice meant a direct payment showed "—".
+            customer: { select: { id: true, name: true } },
+            invoice: { select: { id: true, invoiceNumber: true } },
+            account: { select: { name: true } },
         },
         orderBy: { paymentDate: "desc" },
     });

@@ -395,8 +395,14 @@ export async function exportPaymentsPDF(options?: {
     const startDate = range.from;
     const endDate = range.to;
 
+    // Scoped through the customer, not the invoice. `invoiceId` is optional —
+    // the form offers "No invoice (direct payment)" — so filtering on the
+    // invoice relation dropped every direct payment out of the report, even
+    // ones the user had ticked by hand, and the printed total disagreed with
+    // the one on screen. The receipt download and the revenue metric were
+    // both fixed this way already.
     const whereClause: Record<string, unknown> = {
-      invoice: { organizationId: session.organizationId },
+      customer: { organizationId: session.organizationId },
       paymentDate: {
         gte: startDate,
         lte: endDate,
@@ -410,24 +416,18 @@ export async function exportPaymentsPDF(options?: {
     const payments = await prisma.payment.findMany({
       where: whereClause,
       include: {
-        invoice: {
-          select: {
-            invoiceNumber: true,
-            customer: {
-              select: {
-                name: true,
-              },
-            },
-          },
-        },
+        customer: { select: { name: true } },
+        invoice: { select: { invoiceNumber: true } },
       },
       orderBy: { paymentDate: "desc" },
     });
 
     const paymentData = payments.map((pmt) => ({
-      // A payment can stand alone, with no invoice behind it.
-      invoiceNumber: pmt.invoice?.invoiceNumber ?? "—",
-      customer: pmt.invoice?.customer.name ?? "—",
+      // A payment can stand alone, with no invoice behind it. The customer is
+      // required on every payment, so it is read from there rather than
+      // through an invoice that may not exist.
+      invoiceNumber: pmt.invoice?.invoiceNumber ?? "Direct payment",
+      customer: pmt.customer.name,
       amount: pmt.amount,
       paymentDate: pmt.paymentDate,
       method: pmt.method,

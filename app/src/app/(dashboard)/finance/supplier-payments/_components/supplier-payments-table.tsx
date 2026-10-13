@@ -48,6 +48,10 @@ interface SupplierPayment {
     customMethod: string | null;
     reference: string | null;
     description: string | null;
+    /** What was typed when the payment was recorded, and never shown. */
+    notes?: string | null;
+    /** Which of the three accounts it was paid from, when one was named. */
+    account?: { name: string } | null;
     supplier: {
         id: string;
         name: string;
@@ -74,7 +78,8 @@ export function SupplierPaymentsTable({ payments, role, showFinancials = true }:
         return (
             payment.supplier.name.toLowerCase().includes(search.toLowerCase()) ||
             payment.reference?.toLowerCase().includes(search.toLowerCase()) ||
-            payment.description?.toLowerCase().includes(search.toLowerCase())
+            payment.description?.toLowerCase().includes(search.toLowerCase()) ||
+            payment.notes?.toLowerCase().includes(search.toLowerCase())
         );
     });
 
@@ -140,6 +145,7 @@ export function SupplierPaymentsTable({ payments, role, showFinancials = true }:
                                 <TableHead>Description</TableHead>
                                 <TableHead>Method</TableHead>
                                 <TableHead>Reference</TableHead>
+                                {canViewAmounts && <TableHead>Paid from</TableHead>}
                                 {canViewAmounts && <TableHead className="text-right">Amount</TableHead>}
                                 <TableHead className="w-[70px]"></TableHead>
                             </TableRow>
@@ -147,7 +153,7 @@ export function SupplierPaymentsTable({ payments, role, showFinancials = true }:
                         <TableBody>
                             {filteredPayments.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={canViewAmounts ? 7 : 6} className="text-center h-24 text-muted-foreground">
+                                    <TableCell colSpan={canViewAmounts ? 8 : 6} className="text-center h-24 text-muted-foreground">
                                         No supplier payments found
                                     </TableCell>
                                 </TableRow>
@@ -166,13 +172,29 @@ export function SupplierPaymentsTable({ payments, role, showFinancials = true }:
                                                 {payment.supplier.name}
                                             </Link>
                                         </TableCell>
-                                        <TableCell className="max-w-[200px] truncate">
-                                            {payment.description || "-"}
+                                        <TableCell className="max-w-[200px]">
+                                            <span className="block truncate">
+                                                {payment.description || "-"}
+                                            </span>
+                                            {payment.notes && (
+                                                <span className="block truncate text-xs text-muted-foreground">
+                                                    {payment.notes}
+                                                </span>
+                                            )}
                                         </TableCell>
                                         <TableCell>
                                             {getMethodLabel(payment.method, payment.customMethod)}
                                         </TableCell>
                                         <TableCell>{payment.reference || "-"}</TableCell>
+                                        {canViewAmounts && (
+                                            <TableCell>
+                                                {payment.account?.name ?? (
+                                                    <span className="text-muted-foreground">
+                                                        Not recorded
+                                                    </span>
+                                                )}
+                                            </TableCell>
+                                        )}
                                         {canViewAmounts && (
                                             <TableCell className="text-right font-medium">
                                                 ${payment.amount.toLocaleString()}
@@ -216,7 +238,7 @@ export function SupplierPaymentsTable({ payments, role, showFinancials = true }:
                         {filteredPayments.length > 0 && (
                             <TableFooter>
                                 <TableRow>
-                                    <TableCell colSpan={5}>Total</TableCell>
+                                    <TableCell colSpan={6}>Total</TableCell>
                                     <TableCell className="text-right font-bold">
                                         ${totalPayments.toLocaleString()}
                                     </TableCell>
