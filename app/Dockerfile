@@ -174,7 +174,19 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
 #      prisma/seed.ts (which wipes and regenerates all demo data every run)
 #      — this only creates what's missing and is safe on every boot/redeploy.
 #      Override its defaults via SEED_ADMIN_EMAIL/SEED_ADMIN_PASSWORD/etc.
-#   4. `next start` (via node_modules/.bin, plain Node) takes over as PID 1
+#   4. `prisma/run-backfills.mjs` (via `bun`, because the backfills it runs
+#      are TypeScript) applies every prisma/backfill-*.ts with `--apply`.
+#      They reconcile data recorded before a change in behaviour — trips
+#      invoiced before invoicing wrote revenue, parts fitted before fitting
+#      one posted a cost — and they are meant to be run by hand, dry run
+#      first. Nobody can here: the only moment anything runs against the
+#      production database is container start, so they run on every deploy.
+#      Each is idempotent, so the second deploy is a no-op; one advisory lock
+#      keeps two replicas from doing the same work twice; and a failure is
+#      logged without stopping the server, because a backfill is data work
+#      and not a precondition for serving. SKIP_BACKFILLS=true turns it off.
+#      Read that script's header before adding another.
+#   5. `next start` (via node_modules/.bin, plain Node) takes over as PID 1
 #      via `exec`, so it receives SIGTERM directly for a clean shutdown
 #      instead of leaving it with the shell.
 #
@@ -182,4 +194,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
 # Next's CLI under Bun's own runtime isn't something this app has been
 # verified against, so Bun here is scoped to installing packages and running
 # the one script that needs its TypeScript-transpiling import resolution.
-CMD ["sh", "-c", "node prisma/resolve-whatsapp-session-migration.mjs && node_modules/.bin/prisma migrate deploy && bun prisma/ensure-admin.mjs && exec node_modules/.bin/next start"]
+CMD ["sh", "-c", "node prisma/resolve-whatsapp-session-migration.mjs && node_modules/.bin/prisma migrate deploy && bun prisma/ensure-admin.mjs && bun prisma/run-backfills.mjs && exec node_modules/.bin/next start"]
