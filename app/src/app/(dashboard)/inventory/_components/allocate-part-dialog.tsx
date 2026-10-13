@@ -20,19 +20,13 @@ import {
     DialogTrigger,
 } from "@/components/ui/dialog";
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
-import {
     Form,
     FormControl,
     FormField,
     FormItem,
     FormLabel,
     FormMessage,
+    FormDescription,
 } from "@/components/ui/form";
 import { Loader2, PackageMinus } from "lucide-react";
 import { allocatePart } from "../actions";
@@ -43,6 +37,7 @@ const allocateSchema = z.object({
     truckId: z.string().min(1, "Select a truck"),
     allocatedById: z.string().min(1, "Select who is allocating this"),
     quantity: z.coerce.number().int("Must be a whole number").positive("Must be greater than 0"),
+    expenseCategoryId: z.string().optional().nullable(),
     reason: z.string().optional(),
 });
 
@@ -55,6 +50,11 @@ interface AllocatePartDialogProps {
     unitCost?: number | null;
     /** Money values are admin-only, same rule as the rest of the Inventory pages. */
     showValue?: boolean;
+    /**
+     * The expense category this item's cost posts to, set on the item itself,
+     * so the common case needs no decision here.
+     */
+    defaultExpenseCategory?: EntityOption | null;
 }
 
 export function AllocatePartDialog({
@@ -63,6 +63,7 @@ export function AllocatePartDialog({
     unit,
     unitCost = null,
     showValue = false,
+    defaultExpenseCategory = null,
 }: AllocatePartDialogProps) {
     const router = useRouter();
     const [open, setOpen] = useState(false);
@@ -76,6 +77,7 @@ export function AllocatePartDialog({
             truckId: "",
             allocatedById: "",
             quantity: 1,
+            expenseCategoryId: defaultExpenseCategory?.id ?? null,
             reason: "",
         },
     });
@@ -90,13 +92,20 @@ export function AllocatePartDialog({
             });
 
             if (result.success) {
-                // Say what actually left the warehouse, and what it was worth.
+                // Say what actually left the warehouse, what it was worth, and
+                // — the part that used to be silent — whether the truck's
+                // costs actually moved.
                 const truck = pickedTruck?.id === data.truckId ? pickedTruck : null;
                 const value = showValue && unitCost != null ? unitCost * data.quantity : null;
                 toast.success(
                     `Allocated ${data.quantity} ${unit || "units"}${truck ? ` to ${truck.label}` : ""}` +
                         (value != null ? ` — ${formatCurrency(value)}` : "")
                 );
+                if (result.notPostedBecause) {
+                    toast.warning(
+                        `No cost was recorded against the truck — ${result.notPostedBecause}.`,
+                    );
+                }
                 setOpen(false);
                 form.reset();
                 router.refresh();
@@ -174,6 +183,39 @@ export function AllocatePartDialog({
                                     <FormControl>
                                         <Input type="number" min="1" step="1" max={availableQuantity} {...field} />
                                     </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        {/* What kind of cost this is. The parts' value lands
+                            on the truck as an expense in this category, which
+                            is what the client asked for: fit a $20 pad and the
+                            truck's expenses go up by $20. Without a category
+                            there is nowhere for the money to go, so the stock
+                            still moves and the cost does not — and the toast
+                            says which. */}
+                        <FormField
+                            control={form.control}
+                            name="expenseCategoryId"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Record the cost as</FormLabel>
+                                    <FormControl>
+                                        <EntityPicker
+                                            kind="expenseCategory"
+                                            value={field.value ?? undefined}
+                                            onChange={(id) => field.onChange(id ?? null)}
+                                            initialSelected={defaultExpenseCategory ?? undefined}
+                                            placeholder="Select an expense type"
+                                            clearable
+                                            clearLabel="Don't record a cost"
+                                        />
+                                    </FormControl>
+                                    <FormDescription>
+                                        {field.value
+                                            ? "The truck's expenses go up by what these parts are worth."
+                                            : "No cost will be recorded against the truck — the stock still leaves."}
+                                    </FormDescription>
                                     <FormMessage />
                                 </FormItem>
                             )}

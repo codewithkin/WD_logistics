@@ -55,6 +55,9 @@ export default async function InventoryItemDetailPage({ params, searchParams }: 
                 orderBy: { createdAt: "desc" },
                 include: { performedBy: { select: { name: true } } },
             },
+            // The kind of cost this item is, so fitting it to a truck needs no
+            // decision from whoever is standing at the shelf.
+            defaultExpenseCategory: { select: { id: true, name: true } },
         },
     });
 
@@ -239,6 +242,14 @@ export default async function InventoryItemDetailPage({ params, searchParams }: 
                             unit={item.unit}
                             unitCost={item.unitCost}
                             showValue={canSeeValue}
+                            defaultExpenseCategory={
+                                item.defaultExpenseCategory
+                                    ? {
+                                          id: item.defaultExpenseCategory.id,
+                                          label: item.defaultExpenseCategory.name,
+                                      }
+                                    : null
+                            }
                         />
                     )}
                 </CardHeader>
